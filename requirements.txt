@@ -15,11 +15,15 @@ python-dotenv>=1.2.1
 # Image Processing
 Pillow>=12.0.0
 
-# CORS
+# Security & CORS
 django-cors-headers>=4.9.0
+django-ratelimit>=4.1.0
+
+# Testing (Tester From Hell)
+playwright>=1.58.0
+requests>=2.32.0
 
 # Development Tools (optional)
 # django-debug-toolbar>=4.0.0
 # black>=24.0.0
 # flake8>=7.0.0
-

@@ -1,0 +1,42 @@
+[
+  {
+    "test": "SQL Injection - Search",
+    "safe": false,
+    "detail": "SQL error exposed with: ' OR '1'='1"
+  },
+  {
+    "test": "XSS Storage",
+    "safe": true,
+    "detail": "XSS payloads sanitized"
+  },
+  {
+    "test": "No Auth Access",
+    "safe": true,
+    "detail": "Protected endpoints require auth"
+  },
+  {
+    "test": "Token Manipulation",
+    "safe": true,
+    "detail": "No token to test"
+  },
+  {
+    "test": "Rate Limiting",
+    "safe": false,
+    "detail": "No rate limiting detected after 50 requests"
+  },
+  {
+    "test": "IDOR",
+    "safe": true,
+    "detail": "IDOR test passed"
+  },
+  {
+    "test": "Mass Assignment",
+    "safe": true,
+    "detail": "Protected fields cannot be mass-assigned"
+  },
+  {
+    "test": "Race Condition",
+    "safe": true,
+    "detail": "0/10 concurrent requests succeeded"
+  }
+]
