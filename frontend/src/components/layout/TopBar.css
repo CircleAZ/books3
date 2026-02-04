@@ -1,0 +1,112 @@
+.topbar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: var(--header-height);
+    background: var(--color-bg-secondary);
+    border-bottom: 1px solid var(--color-border-light);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 var(--space-md);
+    z-index: var(--z-dropdown);
+}
+
+.topbar-left {
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
+}
+
+.topbar-title {
+    font-size: var(--font-size-lg);
+    font-weight: 600;
+    color: var(--color-text-primary);
+    margin: 0;
+}
+
+.topbar-right {
+    display: flex;
+    align-items: center;
+    gap: var(--space-xs);
+}
+
+.hamburger-btn svg {
+    width: 22px;
+    height: 22px;
+}
+
+.notification-btn {
+    position: relative;
+}
+
+.notification-badge {
+    position: absolute;
+    top: 4px;
+    right: 4px;
+    min-width: 16px;
+    height: 16px;
+    padding: 0 4px;
+    font-size: 10px;
+    font-weight: 700;
+    background: var(--color-danger);
+    color: white;
+    border-radius: var(--radius-full);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.profile-btn {
+    padding: 2px;
+    border-radius: var(--radius-full);
+    transition: all var(--transition-fast);
+}
+
+.profile-btn:hover {
+    background: var(--color-bg-hover);
+}
+
+.avatar {
+    width: 34px;
+    height: 34px;
+    border-radius: var(--radius-full);
+    background: linear-gradient(135deg, var(--color-primary), var(--color-accent));
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: var(--font-size-sm);
+    font-weight: 600;
+    color: white;
+}
+
+/* Search shortcut hint */
+.search-btn::after {
+    content: 'K';
+    position: absolute;
+    bottom: 4px;
+    right: 4px;
+    font-size: 8px;
+    font-weight: 700;
+    background: var(--color-bg-tertiary);
+    padding: 1px 3px;
+    border-radius: 3px;
+    color: var(--color-text-muted);
+    opacity: 0;
+    transition: opacity var(--transition-fast);
+}
+
+.search-btn:hover::after {
+    opacity: 1;
+}
+
+@media (max-width: 480px) {
+    .topbar-title {
+        font-size: var(--font-size-md);
+        max-width: 140px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+}

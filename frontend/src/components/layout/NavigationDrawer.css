@@ -1,0 +1,191 @@
+.drawer-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.6);
+    z-index: var(--z-drawer);
+    animation: fadeIn var(--transition-fast) ease;
+}
+
+.navigation-drawer {
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    width: var(--drawer-width);
+    background: var(--color-bg-secondary);
+    border-right: 1px solid var(--color-border-light);
+    z-index: calc(var(--z-drawer) + 1);
+    display: flex;
+    flex-direction: column;
+    transform: translateX(-100%);
+    transition: transform var(--transition-normal) ease;
+    overflow: hidden;
+}
+
+.navigation-drawer.open {
+    transform: translateX(0);
+}
+
+.drawer-header {
+    padding: var(--space-lg);
+    border-bottom: 1px solid var(--color-border-light);
+}
+
+.drawer-logo {
+    display: flex;
+    align-items: center;
+    gap: var(--space-md);
+    text-decoration: none;
+    color: var(--color-text-primary);
+}
+
+.logo-icon {
+    width: 42px;
+    height: 42px;
+    background: linear-gradient(135deg, var(--color-primary), var(--color-accent));
+    border-radius: var(--radius-md);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: var(--font-size-lg);
+    font-weight: 700;
+    color: white;
+}
+
+.logo-text {
+    font-size: var(--font-size-xl);
+    font-weight: 700;
+}
+
+.drawer-nav {
+    flex: 1;
+    overflow-y: auto;
+    padding: var(--space-md);
+}
+
+/* Menu Items */
+.menu-item {
+    display: flex;
+    align-items: center;
+    gap: var(--space-md);
+    padding: var(--space-sm) var(--space-md);
+    color: var(--color-text-secondary);
+    text-decoration: none;
+    border-radius: var(--radius-md);
+    transition: all var(--transition-fast);
+    margin-bottom: 2px;
+}
+
+.menu-item:hover {
+    background: var(--color-bg-hover);
+    color: var(--color-text-primary);
+}
+
+.menu-item.active {
+    background: rgba(56, 139, 253, 0.15);
+    color: var(--color-primary-light);
+}
+
+.menu-item.active svg {
+    color: var(--color-primary);
+}
+
+.menu-label {
+    font-size: var(--font-size-sm);
+    font-weight: 500;
+}
+
+/* Menu Groups */
+.menu-group {
+    margin-bottom: 4px;
+}
+
+.menu-group-header {
+    display: flex;
+    align-items: center;
+    gap: var(--space-md);
+    width: 100%;
+    padding: var(--space-sm) var(--space-md);
+    color: var(--color-text-secondary);
+    border-radius: var(--radius-md);
+    transition: all var(--transition-fast);
+    text-align: left;
+}
+
+.menu-group-header:hover {
+    background: var(--color-bg-hover);
+    color: var(--color-text-primary);
+}
+
+.menu-group-header .menu-label {
+    flex: 1;
+}
+
+.menu-group-header .chevron {
+    transition: transform var(--transition-fast);
+}
+
+.menu-group.expanded .chevron {
+    transform: rotate(180deg);
+}
+
+.menu-children {
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height var(--transition-normal) ease;
+}
+
+.menu-group.expanded .menu-children {
+    max-height: 500px;
+}
+
+.menu-child {
+    display: block;
+    padding: var(--space-xs) var(--space-md);
+    padding-left: calc(var(--space-md) + 32px);
+    color: var(--color-text-muted);
+    text-decoration: none;
+    font-size: var(--font-size-sm);
+    border-radius: var(--radius-sm);
+    transition: all var(--transition-fast);
+}
+
+.menu-child:hover {
+    color: var(--color-text-secondary);
+    background: var(--color-bg-hover);
+}
+
+.menu-child.active {
+    color: var(--color-primary-light);
+    background: rgba(56, 139, 253, 0.1);
+}
+
+/* Separator */
+.menu-separator {
+    height: 1px;
+    background: var(--color-border-light);
+    margin: var(--space-md) 0;
+}
+
+/* Footer */
+.drawer-footer {
+    padding: var(--space-md);
+    border-top: 1px solid var(--color-border-light);
+    text-align: center;
+}
+
+.version-text {
+    font-size: var(--font-size-xs);
+    color: var(--color-text-muted);
+}
+
+/* Desktop: always visible */
+@media (min-width: 1024px) {
+    .drawer-overlay {
+        display: none;
+    }
+
+    .navigation-drawer {
+        transform: translateX(0);
+    }
+}

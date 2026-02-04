@@ -1,0 +1,26 @@
+.app-layout {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+}
+
+.main-content {
+    flex: 1;
+    padding-top: var(--header-height);
+    padding-bottom: var(--bottom-nav-height);
+    padding-left: var(--space-md);
+    padding-right: var(--space-md);
+    max-width: 1400px;
+    margin: 0 auto;
+    width: 100%;
+}
+
+/* Desktop layout with sidebar */
+@media (min-width: 1024px) {
+    .main-content {
+        margin-left: var(--drawer-width);
+        padding-bottom: var(--space-lg);
+        padding-left: var(--space-xl);
+        padding-right: var(--space-xl);
+    }
+}
