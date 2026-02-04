@@ -37,12 +37,6 @@ class Product(DisplayIDMixin, SoftDeleteModel):
     category = models.ForeignKey(Category, on_delete=models.SET_NULL, null=True, related_name='products')
     vendor = models.ForeignKey(Vendor, on_delete=models.SET_NULL, null=True, related_name='products')
     tags = models.ManyToManyField(Tag, blank=True, related_name='products')
-    
-    # Book specific fields
-    isbn = models.CharField(max_length=20, blank=True, null=True)
-    author = models.CharField(max_length=255, blank=True)
-    publisher = models.CharField(max_length=255, blank=True)
-    publication_date = models.DateField(blank=True, null=True)
 
     is_additional = models.BooleanField(default=False)
     cost_price = models.DecimalField(max_digits=10, decimal_places=2)

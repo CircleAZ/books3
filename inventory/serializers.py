@@ -83,7 +83,7 @@ class ProductCreateUpdateSerializer(serializers.ModelSerializer):
         fields = [
             'name', 'description', 'category', 'vendor', 'tags',
             'cost_price', 'selling_price', 'stock_quantity', 'low_stock_threshold',
-            'isbn', 'author', 'publisher', 'publication_date', 'images'
+            'is_additional', 'images'
         ]
 
     def create(self, validated_data):
