@@ -1,6 +1,10 @@
-"""Inventory app URL configuration."""
-from django.urls import path
+from rest_framework.routers import DefaultRouter
+from .views import ProductViewSet, CategoryViewSet, VendorViewSet, TagViewSet
 
-urlpatterns = [
-    # To be implemented in Phase 5
-]
+router = DefaultRouter()
+router.register(r'products', ProductViewSet, basename='product')
+router.register(r'categories', CategoryViewSet, basename='category')
+router.register(r'vendors', VendorViewSet, basename='vendor')
+router.register(r'tags', TagViewSet, basename='tag')
+
+urlpatterns = router.urls

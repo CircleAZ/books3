@@ -2,7 +2,8 @@ import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-route
 import { AuthProvider, useAuth } from './context/AuthContext';
 import MainLayout from './components/layout/MainLayout';
 import Dashboard from './pages/Dashboard';
-import Inventory from './pages/Inventory';
+import ProductList from './pages/inventory/ProductList';
+import AddProduct from './pages/inventory/AddProduct';
 import Customers from './pages/Customers';
 import Orders from './pages/Orders';
 import NewOrder from './pages/NewOrder';
@@ -56,7 +57,12 @@ function AppRoutes() {
       } />
       <Route path="/inventory" element={
         <ProtectedRoute>
-          <MainLayout><Inventory /></MainLayout>
+          <MainLayout><ProductList /></MainLayout>
+        </ProtectedRoute>
+      } />
+      <Route path="/inventory/add" element={
+        <ProtectedRoute>
+          <MainLayout><AddProduct /></MainLayout>
         </ProtectedRoute>
       } />
       <Route path="/customers" element={

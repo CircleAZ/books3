@@ -20,6 +20,11 @@ export const ENDPOINTS = {
     DASHBOARD_RECENT_ORDERS: `${API_BASE}/dashboard/recent-orders/`,
     DASHBOARD_ALERTS: `${API_BASE}/dashboard/alerts/`,
 
+    // Inventory
+    INVENTORY_PRODUCTS: `${API_BASE}/inventory/products/`,
+    INVENTORY_CATEGORIES: `${API_BASE}/inventory/categories/`,
+    INVENTORY_VENDORS: `${API_BASE}/inventory/vendors/`,
+
     // Token
     TOKEN_REFRESH: `${API_BASE}/token/refresh/`,
 };
