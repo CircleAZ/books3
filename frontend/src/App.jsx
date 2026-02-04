@@ -1,11 +1,34 @@
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import { AuthProvider, useAuth } from './context/AuthContext';
 import MainLayout from './components/layout/MainLayout';
 import Dashboard from './pages/Dashboard';
 import Inventory from './pages/Inventory';
 import Customers from './pages/Customers';
 import Orders from './pages/Orders';
 import NewOrder from './pages/NewOrder';
+import Login from './pages/Login';
+import Profile from './pages/Profile';
 import './index.css';
+
+// Protected Route wrapper
+function ProtectedRoute({ children }) {
+  const { isAuthenticated, loading } = useAuth();
+  const location = useLocation();
+
+  if (loading) {
+    return (
+      <div className="loading-screen">
+        <div className="spinner-large"></div>
+      </div>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return <Navigate to="/login" state={{ from: location }} replace />;
+  }
+
+  return children;
+}
 
 // Generic placeholder for pages not yet implemented
 function PlaceholderPage({ title, phase }) {
@@ -19,57 +42,85 @@ function PlaceholderPage({ title, phase }) {
   );
 }
 
+function AppRoutes() {
+  return (
+    <Routes>
+      {/* Public routes */}
+      <Route path="/login" element={<Login />} />
+
+      {/* Protected routes */}
+      <Route path="/" element={
+        <ProtectedRoute>
+          <MainLayout><Dashboard /></MainLayout>
+        </ProtectedRoute>
+      } />
+      <Route path="/inventory" element={
+        <ProtectedRoute>
+          <MainLayout><Inventory /></MainLayout>
+        </ProtectedRoute>
+      } />
+      <Route path="/customers" element={
+        <ProtectedRoute>
+          <MainLayout><Customers /></MainLayout>
+        </ProtectedRoute>
+      } />
+      <Route path="/orders" element={
+        <ProtectedRoute>
+          <MainLayout><Orders /></MainLayout>
+        </ProtectedRoute>
+      } />
+      <Route path="/orders/new" element={
+        <ProtectedRoute>
+          <MainLayout><NewOrder /></MainLayout>
+        </ProtectedRoute>
+      } />
+      <Route path="/account/profile" element={
+        <ProtectedRoute>
+          <MainLayout><Profile /></MainLayout>
+        </ProtectedRoute>
+      } />
+
+      {/* Other protected routes with placeholders */}
+      <Route path="/inventory/*" element={
+        <ProtectedRoute>
+          <MainLayout><PlaceholderPage title="Inventory" phase="Phase 5" /></MainLayout>
+        </ProtectedRoute>
+      } />
+      <Route path="/customers/*" element={
+        <ProtectedRoute>
+          <MainLayout><PlaceholderPage title="Customers" phase="Phase 7" /></MainLayout>
+        </ProtectedRoute>
+      } />
+      <Route path="/orders/*" element={
+        <ProtectedRoute>
+          <MainLayout><PlaceholderPage title="Orders" phase="Phase 9" /></MainLayout>
+        </ProtectedRoute>
+      } />
+      <Route path="/reports/*" element={
+        <ProtectedRoute>
+          <MainLayout><PlaceholderPage title="Reports" phase="Phase 12" /></MainLayout>
+        </ProtectedRoute>
+      } />
+      <Route path="/settings/*" element={
+        <ProtectedRoute>
+          <MainLayout><PlaceholderPage title="Settings" phase="Phase 14" /></MainLayout>
+        </ProtectedRoute>
+      } />
+
+      {/* 404 */}
+      <Route path="*" element={
+        <MainLayout><PlaceholderPage title="Page Not Found" phase="a future update" /></MainLayout>
+      } />
+    </Routes>
+  );
+}
+
 export default function App() {
   return (
     <BrowserRouter>
-      <MainLayout>
-        <Routes>
-          {/* Main pages */}
-          <Route path="/" element={<Dashboard />} />
-          <Route path="/inventory" element={<Inventory />} />
-          <Route path="/customers" element={<Customers />} />
-          <Route path="/orders" element={<Orders />} />
-          <Route path="/orders/new" element={<NewOrder />} />
-
-          {/* Inventory sub-routes */}
-          <Route path="/inventory/add" element={<PlaceholderPage title="Add New Product" phase="Phase 5" />} />
-          <Route path="/inventory/categories" element={<PlaceholderPage title="Manage Categories" phase="Phase 5" />} />
-          <Route path="/inventory/vendors" element={<PlaceholderPage title="Manage Vendors" phase="Phase 5" />} />
-          <Route path="/inventory/stock" element={<PlaceholderPage title="Stock Adjustments" phase="Phase 6" />} />
-          <Route path="/inventory/deleted" element={<PlaceholderPage title="Deleted Products" phase="Phase 6" />} />
-
-          {/* Customer sub-routes */}
-          <Route path="/customers/add" element={<PlaceholderPage title="Add New Customer" phase="Phase 7" />} />
-          <Route path="/customers/settings" element={<PlaceholderPage title="Customer Settings" phase="Phase 8" />} />
-
-          {/* Order sub-routes */}
-          <Route path="/orders/returns" element={<PlaceholderPage title="Returns & Refunds" phase="Phase 11" />} />
-
-          {/* Reports */}
-          <Route path="/reports" element={<PlaceholderPage title="Reports & Analytics" phase="Phase 12" />} />
-          <Route path="/reports/sales" element={<PlaceholderPage title="Sales Reports" phase="Phase 12" />} />
-          <Route path="/reports/inventory" element={<PlaceholderPage title="Inventory Reports" phase="Phase 12" />} />
-          <Route path="/reports/customers" element={<PlaceholderPage title="Customer Reports" phase="Phase 12" />} />
-          <Route path="/reports/profit-loss" element={<PlaceholderPage title="Profit & Loss" phase="Phase 12" />} />
-          <Route path="/reports/export" element={<PlaceholderPage title="Export Data" phase="Phase 12" />} />
-
-          {/* Settings */}
-          <Route path="/settings" element={<PlaceholderPage title="Settings" phase="Phase 14" />} />
-          <Route path="/settings/store" element={<PlaceholderPage title="Store Details" phase="Phase 14" />} />
-          <Route path="/settings/users" element={<PlaceholderPage title="User Management" phase="Phase 14" />} />
-          <Route path="/settings/payments" element={<PlaceholderPage title="Payment Methods" phase="Phase 14" />} />
-          <Route path="/settings/receipts" element={<PlaceholderPage title="Receipt Customization" phase="Phase 14" />} />
-          <Route path="/settings/notifications" element={<PlaceholderPage title="Notifications" phase="Phase 14" />} />
-          <Route path="/settings/integrations" element={<PlaceholderPage title="Integrations" phase="Phase 14" />} />
-          <Route path="/settings/data" element={<PlaceholderPage title="Data Management" phase="Phase 14" />} />
-
-          {/* Account */}
-          <Route path="/account/profile" element={<PlaceholderPage title="My Profile" phase="Phase 3" />} />
-
-          {/* 404 */}
-          <Route path="*" element={<PlaceholderPage title="Page Not Found" phase="a future update" />} />
-        </Routes>
-      </MainLayout>
+      <AuthProvider>
+        <AppRoutes />
+      </AuthProvider>
     </BrowserRouter>
   );
 }
