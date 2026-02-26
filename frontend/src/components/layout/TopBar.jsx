@@ -1,19 +1,25 @@
 import { useState } from 'react';
 import './TopBar.css';
 
-export default function TopBar({ title, onMenuClick, onSearchClick, onProfileClick, notificationCount = 0 }) {
+export default function TopBar({ title, storeLogo, onMenuClick, onSearchClick, onProfileClick, notificationCount = 0, sidebarClass = '', showHamburger = false, hamburgerLabel = 'Open navigation menu', hamburgerRef }) {
     return (
-        <header className="topbar">
+        <header className={`topbar ${sidebarClass}`}>
             <div className="topbar-left">
-                <button
-                    className="icon-btn hamburger-btn"
-                    onClick={onMenuClick}
-                    aria-label="Open navigation menu"
-                >
-                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                        <path d="M3 12h18M3 6h18M3 18h18" />
-                    </svg>
-                </button>
+                {showHamburger && (
+                    <button
+                        ref={hamburgerRef}
+                        className="icon-btn hamburger-btn"
+                        onClick={onMenuClick}
+                        aria-label={hamburgerLabel}
+                    >
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <path d="M3 12h18M3 6h18M3 18h18" />
+                        </svg>
+                    </button>
+                )}
+                {storeLogo && (
+                    <img src={storeLogo} alt="Store Logo" className="topbar-logo" />
+                )}
                 <h1 className="topbar-title">{title}</h1>
             </div>
 

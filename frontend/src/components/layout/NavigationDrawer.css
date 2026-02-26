@@ -1,3 +1,16 @@
+/* ============================================================
+   NavigationDrawer.css
+   F5: Focus-visible indicators
+   F9: prefers-reduced-motion
+   W2: Robust expand animation (grid-based)
+   W3: Scroll indicator (fade gradient)
+   UX2: Active indicator pill in mini mode
+   UX3: Spring animation curve for overlay
+   UX4: Label fade on collapse
+   UX5: Hover popover tooltip in mini rail
+   ============================================================ */
+
+/* --- Overlay Backdrop --- */
 .drawer-overlay {
     position: fixed;
     inset: 0;
@@ -6,6 +19,7 @@
     animation: fadeIn var(--transition-fast) ease;
 }
 
+/* --- Drawer Shell --- */
 .navigation-drawer {
     position: fixed;
     top: 0;
@@ -18,7 +32,9 @@
     display: flex;
     flex-direction: column;
     transform: translateX(-100%);
-    transition: transform var(--transition-normal) ease;
+    /* UX3: Spring curve for slide-in (matches YouTube Music) */
+    transition: transform 0.35s cubic-bezier(0.32, 0.72, 0, 1),
+        width 0.3s cubic-bezier(0.32, 0.72, 0, 1);
     overflow: hidden;
 }
 
@@ -26,9 +42,34 @@
     transform: translateX(0);
 }
 
+/* --- Mini Mode: narrow icon-only rail --- */
+.navigation-drawer.mini {
+    width: var(--drawer-width-collapsed);
+}
+
+/* --- Drawer Header: [hamburger] [logo-icon] [logo-text] --- */
 .drawer-header {
-    padding: var(--space-lg);
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
+    padding: var(--space-md) var(--space-lg);
     border-bottom: 1px solid var(--color-border-light);
+}
+
+.navigation-drawer.mini .drawer-header {
+    flex-direction: column;
+    padding: var(--space-md) var(--space-xs);
+    gap: var(--space-md);
+    align-items: center;
+}
+
+/* Hamburger in sidebar */
+.navigation-drawer .hamburger-btn {
+    flex-shrink: 0;
+}
+
+.navigation-drawer.mini .drawer-logo {
+    justify-content: center;
 }
 
 .drawer-logo {
@@ -37,33 +78,68 @@
     gap: var(--space-md);
     text-decoration: none;
     color: var(--color-text-primary);
+    border-radius: var(--radius-md);
 }
 
 .logo-icon {
-    width: 42px;
-    height: 42px;
+    width: 36px;
+    height: 36px;
     background: linear-gradient(135deg, var(--color-primary), var(--color-accent));
     border-radius: var(--radius-md);
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: var(--font-size-lg);
+    font-size: var(--font-size-md);
     font-weight: 700;
     color: white;
+    flex-shrink: 0;
 }
 
 .logo-text {
     font-size: var(--font-size-xl);
     font-weight: 700;
+    /* UX4: Label fade on collapse */
+    transition: opacity 0.15s ease;
+    white-space: nowrap;
 }
 
+/* --- Navigation Area --- */
 .drawer-nav {
     flex: 1;
     overflow-y: auto;
     padding: var(--space-md);
+    position: relative;
 }
 
-/* Menu Items */
+/* W3: Scroll indicator — top/bottom fade gradients */
+.drawer-nav::before,
+.drawer-nav::after {
+    content: '';
+    position: sticky;
+    display: block;
+    height: 24px;
+    pointer-events: none;
+    z-index: 1;
+    flex-shrink: 0;
+}
+
+.drawer-nav::before {
+    top: 0;
+    background: linear-gradient(to bottom, var(--color-bg-secondary), transparent);
+    margin-bottom: -24px;
+}
+
+.drawer-nav::after {
+    bottom: 0;
+    background: linear-gradient(to top, var(--color-bg-secondary), transparent);
+    margin-top: -24px;
+}
+
+.navigation-drawer.mini .drawer-nav {
+    padding: var(--space-xs);
+}
+
+/* --- Menu Items (leaf nodes) --- */
 .menu-item {
     display: flex;
     align-items: center;
@@ -74,6 +150,13 @@
     border-radius: var(--radius-md);
     transition: all var(--transition-fast);
     margin-bottom: 2px;
+    position: relative;
+}
+
+/* Mini mode: center the icon */
+.navigation-drawer.mini .menu-item {
+    justify-content: center;
+    padding: var(--space-sm);
 }
 
 .menu-item:hover {
@@ -90,12 +173,38 @@
     color: var(--color-primary);
 }
 
+/* UX2: Active indicator pill in mini rail mode */
+.navigation-drawer.mini .menu-item.active::before,
+.navigation-drawer.mini .menu-group-header.active::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 3px;
+    height: 20px;
+    border-radius: 0 3px 3px 0;
+    background: var(--color-primary);
+}
+
+/* F5: Focus-visible indicators */
+.menu-item:focus-visible,
+.menu-child:focus-visible,
+.menu-group-header:focus-visible,
+.drawer-logo:focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
+}
+
 .menu-label {
     font-size: var(--font-size-sm);
     font-weight: 500;
+    /* UX4: Label fade on collapse */
+    white-space: nowrap;
+    transition: opacity 0.15s ease;
 }
 
-/* Menu Groups */
+/* --- Menu Groups (expandable) --- */
 .menu-group {
     margin-bottom: 4px;
 }
@@ -110,6 +219,12 @@
     border-radius: var(--radius-md);
     transition: all var(--transition-fast);
     text-align: left;
+    position: relative;
+}
+
+.navigation-drawer.mini .menu-group-header {
+    justify-content: center;
+    padding: var(--space-sm);
 }
 
 .menu-group-header:hover {
@@ -129,14 +244,21 @@
     transform: rotate(180deg);
 }
 
+/* W2: Robust expand animation using grid trick (replaces max-height hack) */
 .menu-children {
-    max-height: 0;
+    display: grid;
+    grid-template-rows: 0fr;
+    transition: grid-template-rows 0.3s ease;
+}
+
+.menu-children-inner {
+    /* Grid 0fr animation requires this wrapper to clip content */
     overflow: hidden;
-    transition: max-height var(--transition-normal) ease;
+    min-height: 0;
 }
 
 .menu-group.expanded .menu-children {
-    max-height: 500px;
+    grid-template-rows: 1fr;
 }
 
 .menu-child {
@@ -148,6 +270,8 @@
     font-size: var(--font-size-sm);
     border-radius: var(--radius-sm);
     transition: all var(--transition-fast);
+    min-height: 0;
+    /* Required for grid 0fr animation */
 }
 
 .menu-child:hover {
@@ -160,14 +284,14 @@
     background: rgba(56, 139, 253, 0.1);
 }
 
-/* Separator */
+/* --- Separator --- */
 .menu-separator {
     height: 1px;
     background: var(--color-border-light);
     margin: var(--space-md) 0;
 }
 
-/* Footer */
+/* --- Footer --- */
 .drawer-footer {
     padding: var(--space-md);
     border-top: 1px solid var(--color-border-light);
@@ -179,13 +303,72 @@
     color: var(--color-text-muted);
 }
 
-/* Desktop: always visible */
-@media (min-width: 1024px) {
+/* --- UX5: Hover popover tooltip in mini rail --- */
+.navigation-drawer.mini .menu-item,
+.navigation-drawer.mini .menu-group-header {
+    position: relative;
+}
+
+.navigation-drawer.mini .menu-item::after,
+.navigation-drawer.mini .menu-group-header::after {
+    content: attr(aria-label);
+    position: absolute;
+    left: calc(100% + 8px);
+    top: 50%;
+    transform: translateY(-50%);
+    background: var(--color-bg-tertiary, #2a2a3e);
+    color: var(--color-text-primary);
+    padding: 6px 12px;
+    border-radius: var(--radius-md);
+    font-size: var(--font-size-xs);
+    white-space: nowrap;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.15s ease;
+    z-index: calc(var(--z-drawer) + 2);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.navigation-drawer.mini .menu-item:hover::after,
+.navigation-drawer.mini .menu-group-header:hover::after {
+    opacity: 1;
+}
+
+/* Desktop: lighter overlay when used */
+@media (min-width: 1200px) {
     .drawer-overlay {
-        display: none;
+        background: rgba(0, 0, 0, 0.3);
+    }
+}
+
+/* --- F9: prefers-reduced-motion --- */
+@media (prefers-reduced-motion: reduce) {
+    .navigation-drawer {
+        transition: none;
     }
 
-    .navigation-drawer {
-        transform: translateX(0);
+    .drawer-overlay {
+        animation: none;
+    }
+
+    .menu-children {
+        transition: none;
+    }
+
+    .menu-group-header .chevron {
+        transition: none;
+    }
+
+    .menu-item,
+    .menu-child,
+    .menu-group-header,
+    .logo-text,
+    .menu-label {
+        transition: none;
+    }
+
+    .navigation-drawer.mini .menu-item::after,
+    .navigation-drawer.mini .menu-group-header::after {
+        transition: none;
     }
 }

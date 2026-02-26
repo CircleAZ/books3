@@ -1,0 +1,30 @@
+.low-stock-widget {
+    background-color: var(--card-bg);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-lg);
+    padding: var(--space-lg);
+    height: 100%;
+}
+
+.product-link {
+    color: var(--primary-color);
+    text-decoration: none;
+    font-weight: 500;
+}
+
+.product-link:hover {
+    text-decoration: underline;
+}
+
+.stock-badge {
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+}
+
+.stock-badge.low {
+    background-color: rgba(255, 82, 82, 0.15);
+    color: #ff5252;
+}

@@ -1,0 +1,261 @@
+.employee-page {
+    padding: 24px;
+    max-width: 1400px;
+    margin: 0 auto;
+}
+
+.page-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 24px;
+}
+
+.header-content h1 {
+    font-size: 28px;
+    color: #f0f6fc;
+    margin-bottom: 8px;
+}
+
+.header-content p {
+    color: #8b949e;
+}
+
+.add-btn {
+    padding: 12px 24px;
+    background: linear-gradient(135deg, #40cdba, #388bfd);
+    border: none;
+    border-radius: 10px;
+    color: #fff;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s;
+}
+
+.add-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 20px rgba(64, 205, 186, 0.3);
+}
+
+.users-table-container {
+    background: rgba(21, 27, 35, 0.8);
+    backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 16px;
+    overflow: hidden;
+}
+
+.users-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.users-table th {
+    background: rgba(13, 17, 23, 0.6);
+    padding: 16px;
+    text-align: left;
+    color: #8b949e;
+    font-weight: 600;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.users-table td {
+    padding: 16px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    color: #f0f6fc;
+}
+
+.users-table tr.inactive {
+    opacity: 0.6;
+}
+
+.user-info {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.user-avatar {
+    width: 40px;
+    height: 40px;
+    background: linear-gradient(135deg, #388bfd, #a855f7);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 600;
+    color: #fff;
+}
+
+.user-name {
+    font-weight: 600;
+}
+
+.user-username {
+    font-size: 12px;
+    color: #8b949e;
+}
+
+.role-badges {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+
+.role-badge {
+    padding: 4px 10px;
+    background: rgba(64, 205, 186, 0.2);
+    border: 1px solid rgba(64, 205, 186, 0.3);
+    border-radius: 20px;
+    font-size: 12px;
+    color: #40cdba;
+}
+
+.no-role {
+    color: #8b949e;
+    font-size: 12px;
+}
+
+.status-badge {
+    padding: 4px 12px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 500;
+}
+
+.status-badge.active {
+    background: rgba(34, 197, 94, 0.2);
+    color: #22c55e;
+}
+
+.status-badge.inactive {
+    background: rgba(239, 68, 68, 0.2);
+    color: #ef4444;
+}
+
+.actions {
+    display: flex;
+    gap: 8px;
+}
+
+.role-select {
+    padding: 6px 10px;
+    background: rgba(13, 17, 23, 0.8);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 6px;
+    color: #f0f6fc;
+    font-size: 12px;
+    cursor: pointer;
+}
+
+.toggle-btn {
+    padding: 6px 12px;
+    border: none;
+    border-radius: 6px;
+    font-size: 12px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.toggle-btn.deactivate {
+    background: rgba(239, 68, 68, 0.2);
+    color: #ef4444;
+}
+
+.toggle-btn.activate {
+    background: rgba(34, 197, 94, 0.2);
+    color: #22c55e;
+}
+
+.toggle-btn:hover {
+    transform: scale(1.02);
+}
+
+/* Modal */
+.modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.7);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+}
+
+.modal {
+    background: #151b23;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 16px;
+    padding: 32px;
+    width: 90%;
+    max-width: 500px;
+}
+
+.modal h2 {
+    color: #f0f6fc;
+    margin-bottom: 24px;
+}
+
+.modal .form-group {
+    margin-bottom: 16px;
+}
+
+.modal .form-group label {
+    display: block;
+    color: #8b949e;
+    margin-bottom: 6px;
+    font-size: 14px;
+}
+
+.modal .form-group input,
+.modal .form-group select {
+    width: 100%;
+    padding: 12px;
+    background: rgba(13, 17, 23, 0.8);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
+    color: #f0f6fc;
+}
+
+.modal .form-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+}
+
+.modal-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 12px;
+    margin-top: 24px;
+}
+
+.cancel-btn {
+    padding: 12px 24px;
+    background: rgba(255, 255, 255, 0.1);
+    border: none;
+    border-radius: 8px;
+    color: #f0f6fc;
+    cursor: pointer;
+}
+
+.submit-btn {
+    padding: 12px 24px;
+    background: linear-gradient(135deg, #40cdba, #388bfd);
+    border: none;
+    border-radius: 8px;
+    color: #fff;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.loading {
+    text-align: center;
+    color: #8b949e;
+    padding: 40px;
+}

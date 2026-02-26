@@ -1,0 +1,417 @@
+import React, { useState, useEffect } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
+import { useAuth } from '../../context/AuthContext';
+import { useCurrency } from '../../context/CurrencyContext';
+import { ENDPOINTS } from '../../config/api';
+import MapComponent from '../../components/MapComponent';
+import './CustomerDetails.css';
+
+const CustomerDetails = () => {
+    const { id } = useParams();
+    const navigate = useNavigate();
+    const { fetchWithAuth } = useAuth();
+    const { currency } = useCurrency();
+
+    const [customer, setCustomer] = useState(null);
+    const [wallet, setWallet] = useState(null);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState(null);
+
+    // Link Management State
+    const [isLinkModalOpen, setIsLinkModalOpen] = useState(false);
+    const [linkTypes, setLinkTypes] = useState([]);
+    const [linkFormData, setLinkFormData] = useState({ target_customer: '', link_type: '' });
+    const [customerSearchResults, setCustomerSearchResults] = useState([]);
+    const [linkSearch, setLinkSearch] = useState('');
+
+    const fetchData = React.useCallback(async () => {
+        setLoading(true);
+        try {
+            // Fetch customer details and wallet data in parallel
+            const [customerRes, walletRes] = await Promise.all([
+                fetchWithAuth(`${ENDPOINTS.CUSTOMERS}${id}/`),
+                fetchWithAuth(`${ENDPOINTS.CUSTOMERS}${id}/wallet/`)
+            ]);
+
+            if (!customerRes.ok) {
+                throw new Error(`Failed to fetch customer: ${customerRes.statusText}`);
+            }
+
+            const customerData = await customerRes.json();
+            setCustomer(customerData);
+
+            if (walletRes.ok) {
+                const walletData = await walletRes.json();
+                setWallet(walletData);
+            } else {
+                console.warn("Could not fetch wallet details");
+                setWallet(null);
+            }
+        } catch (err) {
+            console.error("Error fetching data:", err);
+            setError(err.message);
+        } finally {
+            setLoading(false);
+        }
+    }, [id, fetchWithAuth]);
+
+    useEffect(() => {
+        if (id) {
+            fetchData();
+        }
+    }, [id, fetchData]);
+
+    // Fetch Link Types on mount
+    useEffect(() => {
+        const fetchLinkTypes = async () => {
+            try {
+                const res = await fetchWithAuth(ENDPOINTS.SETTINGS_LINK_TYPES || '/api/settings/link-types/'); // Fallback if constant missing
+                if (res.ok) {
+                    const data = await res.json();
+                    setLinkTypes(data.results || data);
+                }
+            } catch (e) { console.error("Failed to load link types", e); }
+        };
+        fetchLinkTypes();
+    }, [fetchWithAuth]);
+
+    // Search customers for linking
+    useEffect(() => {
+        const timer = setTimeout(async () => {
+            if (linkSearch.length > 2) {
+                try {
+                    const res = await fetchWithAuth(`${ENDPOINTS.CUSTOMERS}?search=${linkSearch}`);
+                    if (res.ok) {
+                        const data = await res.json();
+                        setCustomerSearchResults((data.results || []).filter(c => c.id !== id));
+                    }
+                } catch (e) { }
+            } else {
+                setCustomerSearchResults([]);
+            }
+        }, 300);
+        return () => clearTimeout(timer);
+    }, [linkSearch, fetchWithAuth, id]);
+
+    const handleAddLink = async (e) => {
+        e.preventDefault();
+        try {
+            const res = await fetchWithAuth(ENDPOINTS.CUSTOMER_LINKS || '/api/customers/links/', { // Fallback
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    customer_a: id,
+                    customer_b: linkFormData.target_customer,
+                    link_type: linkFormData.link_type
+                })
+            });
+            if (res.ok) {
+                setIsLinkModalOpen(false);
+                setLinkFormData({ target_customer: '', link_type: '' });
+                setLinkSearch('');
+                fetchData(); // Refresh data
+            } else {
+                alert("Failed to create link");
+            }
+        } catch (e) { alert("Error creating link"); }
+    };
+
+    const handleDeleteLink = async (linkId, e) => {
+        e.stopPropagation(); // Prevent navigation
+        if (!window.confirm("Remove this link?")) return;
+        try {
+            await fetchWithAuth(`${ENDPOINTS.CUSTOMER_LINKS || '/api/customers/links/'}${linkId}/`, { method: 'DELETE' });
+            fetchData(); // Refresh data
+        } catch (e) { alert("Error removing link"); }
+    };
+
+    if (loading && !customer) {
+        return (
+            <div className="loading-container">
+                <div className="spinner"></div>
+                <p>Loading customer details...</p>
+            </div>
+        );
+    }
+
+    if (error) {
+        return (
+            <div className="error-container">
+                <p className="error-message">Error: {error}</p>
+                <button className="btn btn-primary" onClick={() => navigate('/customers')}>
+                    Back to Customers
+                </button>
+            </div>
+        );
+    }
+
+    if (!customer) return null;
+
+    return (
+        <div className="customer-details-container animate-fade-in">
+            {/* Header Section */}
+            <div className="customer-details-header">
+                <div className="customer-details-title">
+                    <h1>{customer.full_name}</h1>
+                    <span className="customer-id">ID: {customer.display_id || customer.id}</span>
+                </div>
+                <div className="customer-details-actions">
+                    <button className="btn btn-ghost" onClick={() => navigate('/customers')}>
+                        Back
+                    </button>
+                    <button className="btn btn-primary" onClick={() => navigate(`/customers/${id}/edit`)}>
+                        Edit Customer
+                    </button>
+                </div>
+            </div>
+
+            <div className="customer-sections-grid">
+
+                {/* Contact Section */}
+                <div className="customer-section">
+                    <div className="customer-section-header">
+                        <h3>Contact Information</h3>
+                    </div>
+                    <div className="customer-section-content">
+                        <div className="contact-item">
+                            <span className="contact-label">Phone</span>
+                            <span className="contact-value">
+                                <a href={`tel:${customer.phone}`}>{customer.phone}</a>
+                            </span>
+                        </div>
+                        <div className="contact-item">
+                            <span className="contact-label">Email</span>
+                            <span className="contact-value">
+                                {customer.email ? (
+                                    <a href={`mailto:${customer.email}`}>{customer.email}</a>
+                                ) : (
+                                    <span className="text-muted">Not provided</span>
+                                )}
+                            </span>
+                        </div>
+                        {customer.customer_group && (
+                            <div className="contact-item">
+                                <span className="contact-label">Group</span>
+                                <span className="contact-value">{customer.customer_group.name}</span>
+                            </div>
+                        )}
+                    </div>
+                </div>
+
+                {/* Education Section */}
+                <div className="customer-section">
+                    <div className="customer-section-header">
+                        <h3>Education</h3>
+                    </div>
+                    <div className="customer-section-content">
+                        <div className="info-row">
+                            <span className="info-label">School</span>
+                            <span className="info-value">{customer.school?.name || <span className="text-muted">-</span>}</span>
+                        </div>
+                        <div className="info-row">
+                            <span className="info-label">Class</span>
+                            <span className="info-value">{customer.class_obj?.name || <span className="text-muted">-</span>}</span>
+                        </div>
+                        <div className="info-row">
+                            <span className="info-label">Division</span>
+                            <span className="info-value">{customer.division?.name || <span className="text-muted">-</span>}</span>
+                        </div>
+                        <div className="info-row">
+                            <span className="info-label">Subdivision</span>
+                            <span className="info-value">{customer.subdivision?.name || <span className="text-muted">-</span>}</span>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Addresses Section */}
+                <div className="customer-section" style={{ gridRow: 'span 2' }}>
+                    <div className="customer-section-header">
+                        <h3>Addresses ({customer.addresses?.length || 0})</h3>
+                    </div>
+                    <div className="customer-section-content">
+                        {customer.addresses && customer.addresses.length > 0 ? (
+                            customer.addresses.map(addr => (
+                                <div key={addr.id} className="address-card">
+                                    {addr.latitude && addr.longitude && (
+                                        <div style={{ marginBottom: '10px', height: '150px' }}>
+                                            <MapComponent
+                                                position={[parseFloat(addr.latitude), parseFloat(addr.longitude)]}
+                                                height="150px"
+                                                readonly={true}
+                                            />
+                                        </div>
+                                    )}
+                                    <div className="address-header">
+                                        <div className="flex gap-sm">
+                                            {addr.is_primary && <span className="badge">Primary</span>}
+                                            {addr.location_tags && addr.location_tags.map(tag => (
+                                                <span
+                                                    key={tag.id}
+                                                    className="location-tag"
+                                                    style={{ backgroundColor: tag.color || 'var(--color-primary)' }}
+                                                >
+                                                    {tag.name}
+                                                </span>
+                                            ))}
+                                        </div>
+                                    </div>
+                                    <div className="address-text">
+                                        {addr.village && <div><strong>Village:</strong> {addr.village}</div>}
+                                        {addr.faliya && <div><strong>Faliya:</strong> {addr.faliya}</div>}
+                                        {addr.address_line && <div style={{ marginTop: '0.25rem' }}>{addr.address_line}</div>}
+                                        {addr.landmark && <div className="text-muted" style={{ fontSize: '0.85em', marginTop: '0.25rem' }}>Near {addr.landmark}</div>}
+                                        {addr.pincode && <div style={{ marginTop: '0.25rem' }}>PIN: {addr.pincode}</div>}
+                                    </div>
+                                </div>
+                            ))
+                        ) : (
+                            <p className="text-muted text-center">No addresses found.</p>
+                        )}
+                    </div>
+                </div>
+
+                {/* Customer Links Section */}
+                <div className="customer-section">
+                    <div className="customer-section-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <h3>Customer Links</h3>
+                        <button className="btn btn-sm btn-outline" onClick={() => setIsLinkModalOpen(true)}>+ Add</button>
+                    </div>
+                    <div className="customer-section-content">
+                        {customer.links && customer.links.length > 0 ? (
+                            customer.links.map(link => (
+                                <div key={link.link_id} className="customer-link" onClick={() => navigate(`/customers/${link.linked_customer.id || link.linked_customer}`)} style={{ cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                        <div className="link-avatar">
+                                            {(link.customer_name || '?').charAt(0)}
+                                        </div>
+                                        <div className="link-info">
+                                            <span className="link-name">{link.customer_name}</span>
+                                            <span className="link-relation">{link.relationship}</span>
+                                        </div>
+                                    </div>
+                                    <button
+                                        className="btn-icon danger"
+                                        onClick={(e) => handleDeleteLink(link.link_id, e)}
+                                        title="Remove Link"
+                                    >
+                                        ×
+                                    </button>
+                                </div>
+                            ))
+                        ) : (
+                            <p className="text-muted text-center">No related customers.</p>
+                        )}
+                    </div>
+                </div>
+
+                {/* Wallet Section */}
+                <div className="customer-section" style={{ gridColumn: '1 / -1' }}>
+                    <div className="customer-section-header">
+                        <h3>Wallet</h3>
+                    </div>
+                    <div className="customer-section-content">
+                        <div className="wallet-balance">
+                            <div className="balance-label">Current Balance</div>
+                            <div className={`balance-amount ${wallet?.balance < 0 ? 'negative' : ''}`}>
+                                {currency}{wallet?.balance || '0.00'}
+                            </div>
+                        </div>
+
+                        <h4>Recent Transactions</h4>
+                        <div className="transaction-list">
+                            {wallet?.transactions && wallet.transactions.length > 0 ? (
+                                wallet.transactions.map(tx => (
+                                    <div key={tx.id} className="transaction-item">
+                                        <div>
+                                            <span style={{
+                                                color: tx.transaction_type === 'credit' ? 'var(--color-success)' : 'var(--color-danger)',
+                                                fontWeight: 600,
+                                                marginRight: '8px',
+                                                textTransform: 'capitalize'
+                                            }}>
+                                                {tx.transaction_type}
+                                            </span>
+                                            <span>{tx.reason}</span>
+                                        </div>
+                                        <div style={{ textAlign: 'right' }}>
+                                            <div style={{ fontWeight: 600 }}>{currency}{tx.amount}</div>
+                                            <div className="transaction-date">
+                                                {new Date(tx.created_at).toLocaleDateString()} {new Date(tx.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                            </div>
+                                        </div>
+                                    </div>
+                                ))
+                            ) : (
+                                <p className="text-muted text-center" style={{ marginTop: '1rem' }}>No transactions found.</p>
+                            )}
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+
+            {/* Add Link Modal */}
+            {isLinkModalOpen && (
+                <div className="modal-overlay">
+                    <div className="modal-content">
+                        <h2>Add Customer Link</h2>
+                        <form onSubmit={handleAddLink}>
+                            <div className="form-group">
+                                <label>Search Customer</label>
+                                <input
+                                    type="text"
+                                    value={linkSearch}
+                                    onChange={e => setLinkSearch(e.target.value)}
+                                    placeholder="Type name..."
+                                />
+                                {linkSearch && customerSearchResults.length > 0 && (
+                                    <ul className="search-results-dropdown" style={{
+                                        position: 'absolute',
+                                        backgroundColor: 'var(--bg-card)',
+                                        border: '1px solid var(--border-color)',
+                                        width: '100%',
+                                        zIndex: 1000,
+                                        listStyle: 'none',
+                                        padding: 0,
+                                        margin: 0,
+                                        maxHeight: '150px',
+                                        overflowY: 'auto'
+                                    }}>
+                                        {customerSearchResults.map(c => (
+                                            <li key={c.id} onClick={() => {
+                                                setLinkFormData(p => ({ ...p, target_customer: c.id }));
+                                                setLinkSearch(c.full_name);
+                                                setCustomerSearchResults([]);
+                                            }} style={{ padding: '8px', cursor: 'pointer', borderBottom: '1px solid var(--border-color)' }}>
+                                                {c.full_name} ({c.phone})
+                                            </li>
+                                        ))}
+                                    </ul>
+                                )}
+                            </div>
+                            <div className="form-group">
+                                <label>Relationship (is...)</label>
+                                <select
+                                    value={linkFormData.link_type}
+                                    onChange={e => setLinkFormData(p => ({ ...p, link_type: e.target.value }))}
+                                    required
+                                >
+                                    <option value="">Select Type</option>
+                                    {linkTypes.map(lt => (
+                                        <option key={lt.id} value={lt.id}>{lt.name}</option>
+                                    ))}
+                                </select>
+                            </div>
+                            <div className="modal-actions">
+                                <button type="button" className="btn btn-ghost" onClick={() => setIsLinkModalOpen(false)}>Cancel</button>
+                                <button type="submit" className="btn btn-primary" disabled={!linkFormData.target_customer || !linkFormData.link_type}>Add Link</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+};
+
+export default CustomerDetails;

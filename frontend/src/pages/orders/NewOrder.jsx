@@ -1,0 +1,1036 @@
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { useAuth } from '../../context/AuthContext';
+import { useCurrency } from '../../context/CurrencyContext';
+import { useCart } from '../../context/CartContext';
+import { ENDPOINTS } from '../../config/api';
+import AddCustomer from '../customers/AddCustomer';
+import '../NewOrder.css';
+
+export default function NewOrder() {
+    const { fetchWithAuth } = useAuth();
+    const { currency } = useCurrency();
+    const { isDrawerOpen, setIsDrawerOpen, setCartData } = useCart();
+
+    // State
+    const [customerSearch, setCustomerSearch] = useState('');
+    const [customerResults, setCustomerResults] = useState([]);
+    const [selectedCustomer, setSelectedCustomer] = useState(null);
+    const [isGuest, setIsGuest] = useState(false);
+    const [guestInfo, setGuestInfo] = useState({ name: '', phone: '', email: '' });
+
+    const [productSearch, setProductSearch] = useState('');
+    const [productResults, setProductResults] = useState([]);
+    const [popularProducts, setPopularProducts] = useState([]);
+    const [cartItems, setCartItems] = useState([]);
+    const [orderDiscount, setOrderDiscount] = useState({ type: 'fixed', value: 0 });
+
+    const [paymentMethod, setPaymentMethod] = useState('cash');
+    const [selectedUpiAccount, setSelectedUpiAccount] = useState('');
+    const [paymentAmount, setPaymentAmount] = useState('');
+    const [payments, setPayments] = useState([]);
+
+    const [availablePaymentMethods, setAvailablePaymentMethods] = useState([]);
+    const [availableUpiAccounts, setAvailableUpiAccounts] = useState([]);
+    const [availableCategories, setAvailableCategories] = useState([]);
+
+    const [isLoading, setIsLoading] = useState(false);
+    const [isSearchingProducts, setIsSearchingProducts] = useState(false);
+    const [isSearchingCustomers, setIsSearchingCustomers] = useState(false);
+    const [clearStage, setClearStage] = useState('idle'); // idle → confirming → ready
+
+    // Quick Product Modal State (P4 3.3.1.2.3: Name, Estimated Price, Category, Reference Photo)
+    const [showQuickProduct, setShowQuickProduct] = useState(false);
+    const [showAddCustomer, setShowAddCustomer] = useState(false);
+    const [newProduct, setNewProduct] = useState({
+        name: '',
+        selling_price: '',
+        category: '',
+        is_additional: true
+    });
+    const [referencePhoto, setReferencePhoto] = useState(null);
+    const [isCreatingProduct, setIsCreatingProduct] = useState(false);
+
+    // Refs for AbortController (fixes Chaos race condition)
+    const customerAbortRef = useRef(null);
+    const productAbortRef = useRef(null);
+
+    // Synchronous submission lock — prevents rapid-fire duplicate orders (VULN-3)
+    const isSubmittingRef = useRef(false);
+
+    // Drawer pull-to-close refs
+    const drawerRef = useRef(null);
+    const touchStartY = useRef(0);
+    const touchDeltaY = useRef(0);
+    const isDragging = useRef(false);
+
+    const handleDrawerTouchStart = (e) => {
+        touchStartY.current = e.touches[0].clientY;
+        touchDeltaY.current = 0;
+        isDragging.current = false;
+    };
+
+    const handleDrawerTouchMove = (e) => {
+        const delta = e.touches[0].clientY - touchStartY.current;
+        if (delta > 0) {
+            isDragging.current = true;
+            touchDeltaY.current = delta;
+            if (drawerRef.current) {
+                drawerRef.current.style.transform = `translateY(${delta}px)`;
+                drawerRef.current.style.transition = 'none';
+            }
+        }
+    };
+
+    const handleDrawerTouchEnd = () => {
+        if (drawerRef.current) {
+            drawerRef.current.style.transition = '';
+            const threshold = window.innerHeight * 0.3;
+            if (touchDeltaY.current > threshold) {
+                setIsDrawerOpen(false);
+                drawerRef.current.style.transform = '';
+            } else {
+                drawerRef.current.style.transform = '';
+            }
+        }
+        isDragging.current = false;
+        touchDeltaY.current = 0;
+    };
+
+    // Debounced Customer Search (with AbortController)
+    useEffect(() => {
+        if (!customerSearch || customerSearch.length < 2) {
+            setCustomerResults([]);
+            return;
+        }
+
+        const timer = setTimeout(async () => {
+            // Cancel any previous in-flight request
+            if (customerAbortRef.current) {
+                customerAbortRef.current.abort();
+            }
+            const controller = new AbortController();
+            customerAbortRef.current = controller;
+
+            setIsSearchingCustomers(true);
+            try {
+                const response = await fetchWithAuth(
+                    `${ENDPOINTS.CUSTOMERS}?search=${encodeURIComponent(customerSearch)}`,
+                    { signal: controller.signal }
+                );
+                if (response.ok) {
+                    const data = await response.json();
+                    setCustomerResults(data.results || []);
+                }
+            } catch (error) {
+                if (error.name !== 'AbortError') {
+                    console.error('Error searching customers:', error);
+                }
+            } finally {
+                setIsSearchingCustomers(false);
+            }
+        }, 500);
+
+        return () => {
+            clearTimeout(timer);
+            if (customerAbortRef.current) {
+                customerAbortRef.current.abort();
+            }
+        };
+    }, [customerSearch, fetchWithAuth]);
+
+    // Debounced Product Search (with AbortController)
+    useEffect(() => {
+        if (!productSearch) {
+            setProductResults([]);
+            return;
+        }
+
+        const timer = setTimeout(async () => {
+            // Cancel any previous in-flight request
+            if (productAbortRef.current) {
+                productAbortRef.current.abort();
+            }
+            const controller = new AbortController();
+            productAbortRef.current = controller;
+
+            setIsSearchingProducts(true);
+            try {
+                const response = await fetchWithAuth(
+                    `${ENDPOINTS.INVENTORY_PRODUCTS}?search=${encodeURIComponent(productSearch)}`,
+                    { signal: controller.signal }
+                );
+                if (response.ok) {
+                    const data = await response.json();
+                    setProductResults(data.results || []);
+                }
+            } catch (error) {
+                if (error.name !== 'AbortError') {
+                    console.error('Error searching products:', error);
+                }
+            } finally {
+                setIsSearchingProducts(false);
+            }
+        }, 500);
+
+        return () => {
+            clearTimeout(timer);
+            if (productAbortRef.current) {
+                productAbortRef.current.abort();
+            }
+        };
+    }, [productSearch, fetchWithAuth]);
+
+    // Fetch popular products on mount (ordered by order_count desc)
+    useEffect(() => {
+        const fetchPopularProducts = async () => {
+            try {
+                const response = await fetchWithAuth(
+                    `${ENDPOINTS.INVENTORY_PRODUCTS}?ordering=-order_count&page_size=30`
+                );
+                if (response.ok) {
+                    const data = await response.json();
+                    setPopularProducts(data.results || []);
+                }
+            } catch (error) {
+                console.error('Error fetching popular products:', error);
+            }
+        };
+        fetchPopularProducts();
+    }, [fetchWithAuth]);
+
+    // Fetch Payment Methods, UPI Accounts, and Categories
+    useEffect(() => {
+        const fetchSettings = async () => {
+            try {
+                // Fetch enabled payment methods
+                const methodsRes = await fetchWithAuth(ENDPOINTS.SETTINGS_PAYMENT_METHODS);
+                if (methodsRes.ok) {
+                    const methodsData = await methodsRes.json();
+                    const enabled = (methodsData.results || methodsData).filter(m => m.is_enabled);
+                    setAvailablePaymentMethods(enabled);
+                    if (enabled.length > 0) {
+                        setPaymentMethod(enabled[0].method_type);
+                    }
+                }
+
+                // Fetch active UPI accounts
+                const upiRes = await fetchWithAuth(ENDPOINTS.SETTINGS_UPI_ACCOUNTS);
+                if (upiRes.ok) {
+                    const upiData = await upiRes.json();
+                    const active = (upiData.results || upiData).filter(u => u.is_active);
+                    setAvailableUpiAccounts(active);
+                    if (active.length > 0) {
+                        setSelectedUpiAccount(active[0].upi_id);
+                    }
+                }
+
+                // Fetch categories for Quick Add Product
+                const catRes = await fetchWithAuth(ENDPOINTS.INVENTORY_CATEGORIES);
+                if (catRes.ok) {
+                    const catData = await catRes.json();
+                    setAvailableCategories(catData.results || catData);
+                }
+            } catch (error) {
+                console.error('Error fetching settings:', error);
+            }
+        };
+
+        fetchSettings();
+    }, [fetchWithAuth]);
+
+    // Cart Logic
+    const addToCart = (product) => {
+        setCartItems(prev => {
+            const existing = prev.find(item => item.id === product.id);
+            if (existing) {
+                return prev.map(item =>
+                    item.id === product.id
+                        ? { ...item, quantity: item.quantity + 1 }
+                        : item
+                );
+            }
+            return [...prev, {
+                ...product,
+                quantity: 1,
+                discountType: 'fixed',
+                discountValue: 0
+            }];
+        });
+        setProductSearch('');
+        setProductResults([]);
+    };
+
+    const updateQuantity = (id, delta) => {
+        setCartItems(prev => prev.map(item => {
+            if (item.id === id) {
+                const newQty = Math.max(1, item.quantity + delta);
+                return { ...item, quantity: newQty };
+            }
+            return item;
+        }));
+    };
+
+    const updateItemDiscount = (id, type, value) => {
+        setCartItems(prev => prev.map(item => {
+            if (item.id === id) {
+                return { ...item, discountType: type, discountValue: parseFloat(value) || 0 };
+            }
+            return item;
+        }));
+    };
+
+    const removeFromCart = (id) => {
+        setCartItems(prev => prev.filter(item => item.id !== id));
+    };
+
+    const setQuantity = (id, qty) => {
+        const val = parseInt(qty, 10);
+        if (isNaN(val) || val <= 0) {
+            removeFromCart(id);
+        } else {
+            setCartItems(prev => prev.map(item =>
+                item.id === id ? { ...item, quantity: val } : item
+            ));
+        }
+    };
+
+    // Calculations
+    const subtotal = useMemo(() => {
+        return cartItems.reduce((sum, item) => {
+            const itemTotal = item.selling_price * item.quantity;
+            let discount = 0;
+            if (item.discountType === 'fixed') {
+                discount = item.discountValue;
+            } else {
+                discount = (itemTotal * item.discountValue) / 100;
+            }
+            return sum + (itemTotal - discount);
+        }, 0);
+    }, [cartItems]);
+
+    const totalDiscount = useMemo(() => {
+        if (orderDiscount.type === 'fixed') {
+            // VULN-4 fix: Clamp fixed discount to subtotal
+            return Math.min(orderDiscount.value, subtotal);
+        }
+        // VULN-4 fix: Clamp percent discount to 100%
+        const clampedPercent = Math.min(orderDiscount.value, 100);
+        return (subtotal * clampedPercent) / 100;
+    }, [subtotal, orderDiscount]);
+
+    const grandTotal = Math.max(0, subtotal - totalDiscount);
+
+    const totalPaid = useMemo(() => {
+        return payments.reduce((sum, p) => sum + p.amount, 0);
+    }, [payments]);
+
+    const balanceDue = grandTotal - totalPaid;
+
+    // Sync cart data to context for BottomNavBar
+    useEffect(() => {
+        setCartData(cartItems.length, grandTotal);
+    }, [cartItems, grandTotal, setCartData]);
+
+    // Clear cart confirmation timer: confirming → ready after 1s
+    useEffect(() => {
+        if (clearStage === 'confirming') {
+            const timer = setTimeout(() => setClearStage('ready'), 1000);
+            return () => clearTimeout(timer);
+        }
+    }, [clearStage]);
+
+    // Payment Logic
+    const addPayment = () => {
+        const amt = parseFloat(paymentAmount);
+        if (isNaN(amt) || amt <= 0) return;
+
+        // VULN-2 fix: Warn on overpayment (allow but confirm)
+        if (amt > balanceDue && balanceDue > 0) {
+            if (!window.confirm(`Payment ₹${amt.toFixed(2)} exceeds balance due ₹${balanceDue.toFixed(2)}. Add anyway?`)) {
+                return;
+            }
+        }
+
+        setPayments(prev => [...prev, {
+            method: paymentMethod,
+            amount: amt,
+            upi_reference: paymentMethod === 'upi' ? `QR-PAY-${Date.now()}` : '',
+            timestamp: new Date().toISOString()
+        }]);
+        setPaymentAmount('');
+    };
+
+    // VULN-5 fix: Individual payment removal
+    const removePayment = (index) => {
+        setPayments(prev => prev.filter((_, i) => i !== index));
+    };
+
+    const clearPayments = () => setPayments([]);
+
+    // Quick Product Creation (P4 3.3.1.2.3 — FormData for photo upload)
+    const handleCreateProduct = async (e) => {
+        e.preventDefault();
+        setIsCreatingProduct(true);
+        try {
+            const formData = new FormData();
+            formData.append('name', newProduct.name);
+            formData.append('selling_price', newProduct.selling_price);
+            formData.append('cost_price', newProduct.selling_price); // Use estimated price as cost
+            formData.append('is_additional', 'true');
+            formData.append('stock_quantity', '1');
+
+            if (newProduct.category) {
+                formData.append('category', newProduct.category);
+            }
+            if (referencePhoto) {
+                formData.append('images', referencePhoto);
+            }
+
+            const response = await fetchWithAuth(ENDPOINTS.INVENTORY_PRODUCTS, {
+                method: 'POST',
+                body: formData
+            });
+
+            if (response.ok) {
+                const product = await response.json();
+                addToCart(product);
+                setShowQuickProduct(false);
+                setNewProduct({ name: '', selling_price: '', category: '', is_additional: true });
+                setReferencePhoto(null);
+                alert('Product created and added to cart');
+            } else {
+                const err = await response.json();
+                alert('Failed to create product: ' + JSON.stringify(err));
+            }
+        } catch (error) {
+            console.error('Error creating product:', error);
+            alert('Error creating product');
+        } finally {
+            setIsCreatingProduct(false);
+        }
+    };
+
+    // Customer Creation Success
+    const handleCustomerSuccess = (customer) => {
+        setSelectedCustomer({
+            id: customer.id,
+            name: `${customer.first_name} ${customer.last_name}`.trim(),
+            phone: customer.phone
+        });
+        setShowAddCustomer(false);
+        alert('Customer added and selected!');
+    };
+
+    // Final Actions
+    const handleClearCart = () => {
+        if (window.confirm('Clear all items and reset order?')) {
+            setCartItems([]);
+            setSelectedCustomer(null);
+            setIsGuest(false);
+            setGuestInfo({ name: '', phone: '', email: '' });
+            setPayments([]);
+            setOrderDiscount({ type: 'fixed', value: 0 });
+        }
+    };
+
+    const submitOrder = async (status = 'completed') => {
+        // VULN-3 fix: Synchronous lock prevents rapid-fire duplicate orders
+        if (isSubmittingRef.current) return;
+
+        if (cartItems.length === 0) {
+            alert('Cart is empty');
+            return;
+        }
+
+        if (!selectedCustomer && !isGuest) {
+            alert('Please select a customer or use guest checkout');
+            return;
+        }
+
+
+
+        isSubmittingRef.current = true;
+        setIsLoading(true);
+        try {
+            const orderData = {
+                customer: selectedCustomer?.id || null,
+                is_guest: isGuest,
+                guest_name: isGuest ? guestInfo.name : '',
+                guest_phone: isGuest ? guestInfo.phone : '',
+                guest_email: isGuest ? guestInfo.email : '',
+                order_status: status,
+                discount_type: orderDiscount.type,
+                discount_value: orderDiscount.value,
+                items: cartItems.map(item => ({
+                    product: item.id,
+                    quantity: item.quantity,
+                    unit_price: item.selling_price,
+                    discount_type: item.discountType,
+                    discount_value: item.discountValue
+                })),
+                payments: payments.map(p => ({
+                    method: p.method,
+                    amount: p.amount,
+                    upi_reference: p.upi_reference
+                }))
+            };
+
+            console.log('Submitting order:', JSON.stringify(orderData, null, 2));
+
+            const response = await fetchWithAuth(ENDPOINTS.ORDERS, {
+                method: 'POST',
+                body: JSON.stringify(orderData)
+            });
+
+            if (response.ok) {
+                alert(`Order ${status === 'draft' ? 'held' : 'completed'} successfully!`);
+                // Reset state
+                setCartItems([]);
+                setSelectedCustomer(null);
+                setIsGuest(false);
+                setGuestInfo({ name: '', phone: '', email: '' });
+                setPayments([]);
+                setOrderDiscount({ type: 'fixed', value: 0 });
+            } else {
+                let errMsg = `Status ${response.status}`;
+                try {
+                    const err = await response.json();
+                    errMsg = JSON.stringify(err);
+                    console.error('Order API error:', err);
+                } catch (e) {
+                    const text = await response.text();
+                    errMsg = text.slice(0, 200);
+                    console.error('Order API error (non-JSON):', text.slice(0, 500));
+                }
+                alert('Order failed: ' + errMsg);
+            }
+        } catch (error) {
+            console.error('Order submission error:', error);
+            alert('Failed to submit order: ' + error.message);
+        } finally {
+            isSubmittingRef.current = false;
+            setIsLoading(false);
+        }
+    };
+
+    return (
+        <div className="pos-container fade-in">
+            {/* Left Panel: Customer & Products */}
+            <div className="pos-left-panel">
+
+                {/* Customer Section */}
+                <section className="pos-section">
+                    <div className="section-title">
+                        <span>Customer</span>
+                        {!selectedCustomer && !isGuest && (
+                            <div className="d-flex gap-2">
+                                <button className="btn btn-primary btn-sm" onClick={() => setShowAddCustomer(prev => !prev)}>
+                                    {showAddCustomer ? 'Close' : 'New Customer'}
+                                </button>
+                                <button className="btn btn-ghost btn-sm" onClick={() => setIsGuest(true)}>
+                                    Guest Checkout
+                                </button>
+                            </div>
+                        )}
+                    </div>
+
+                    {selectedCustomer ? (
+                        <div className="selected-customer-card">
+                            <div>
+                                <strong>
+                                    {selectedCustomer.display_id && <span className="text-muted small" style={{ marginRight: '6px' }}>#{selectedCustomer.display_id}</span>}
+                                    {selectedCustomer.name || selectedCustomer.full_name}
+                                </strong>
+                                <div className="text-muted small">{selectedCustomer.phone || 'No phone'}</div>
+                            </div>
+                            <button className="btn btn-ghost btn-sm" onClick={() => setSelectedCustomer(null)}>Change</button>
+                        </div>
+                    ) : isGuest ? (
+                        <div className="guest-info-form">
+                            <div className="guest-inputs">
+                                <input
+                                    type="text"
+                                    placeholder="Guest Name"
+                                    className="form-control"
+                                    value={guestInfo.name}
+                                    onChange={e => setGuestInfo({ ...guestInfo, name: e.target.value })}
+                                />
+                                <input
+                                    type="text"
+                                    placeholder="Guest Phone"
+                                    className="form-control"
+                                    value={guestInfo.phone}
+                                    onChange={e => setGuestInfo({ ...guestInfo, phone: e.target.value })}
+                                />
+                                <input
+                                    type="email"
+                                    placeholder="Guest Email (optional)"
+                                    className="form-control"
+                                    value={guestInfo.email}
+                                    onChange={e => setGuestInfo({ ...guestInfo, email: e.target.value })}
+                                />
+                            </div>
+                            <button className="btn btn-link btn-sm mt-1" onClick={() => setIsGuest(false)}>Back to search</button>
+                        </div>
+                    ) : (
+                        <>
+                            <div className="customer-search-wrapper">
+                                <input
+                                    type="text"
+                                    className="form-control"
+                                    placeholder="Search customer by name or phone..."
+                                    value={customerSearch}
+                                    onChange={e => setCustomerSearch(e.target.value)}
+                                />
+                                {isSearchingCustomers && <div className="spinner-small"></div>}
+                                {customerResults.length > 0 && (
+                                    <div className="search-results-dropdown">
+                                        {customerResults.map(c => (
+                                            <div
+                                                key={c.id}
+                                                className="search-result-item"
+                                                onClick={() => {
+                                                    setSelectedCustomer({
+                                                        ...c,
+                                                        name: c.full_name || `${c.first_name || ''} ${c.last_name || ''}`.trim()
+                                                    });
+                                                    setCustomerResults([]);
+                                                    setCustomerSearch('');
+                                                }}
+                                            >
+                                                <div>
+                                                    {c.display_id && <span className="text-muted small" style={{ marginRight: '6px' }}>#{c.display_id}</span>}
+                                                    <strong>{c.full_name || `${c.first_name || ''} ${c.last_name || ''}`.trim()}</strong>
+                                                </div>
+                                                <div className="small text-muted">{c.phone}</div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Collapsible Add Customer Form (P4 3.3.1.1.2: "Form is collapsible") */}
+                            <div className={`add-customer-collapsible ${showAddCustomer ? 'open' : ''}`}>
+                                {showAddCustomer && (
+                                    <AddCustomer
+                                        isEmbedded={true}
+                                        onSuccess={handleCustomerSuccess}
+                                        onCancel={() => setShowAddCustomer(false)}
+                                    />
+                                )}
+                            </div>
+                        </>
+                    )}
+                </section>
+
+                {/* Products Section */}
+                <section className="pos-section" style={{ flex: 1 }}>
+                    <div className="section-title">
+                        <span>Products</span>
+                        <button
+                            className="btn btn-primary btn-sm"
+                            onClick={() => setShowQuickProduct(true)}
+                            title="Quick Add Product"
+                        >
+                            + Quick Add
+                        </button>
+                    </div>
+                    <div className="product-search-wrapper">
+                        <input
+                            type="text"
+                            className="form-control"
+                            placeholder="Search products by name, ISBN or SKU..."
+                            value={productSearch}
+                            onChange={e => setProductSearch(e.target.value)}
+                        />
+                    </div>
+
+                    {isSearchingProducts ? (
+                        <div className="loading-container"><div className="spinner"></div></div>
+                    ) : (
+                        <div className="product-grid">
+                            {(productSearch ? productResults : popularProducts).map(p => {
+                                const cartItem = cartItems.find(item => item.id === p.id);
+                                const inCart = !!cartItem;
+                                return (
+                                    <div
+                                        key={p.id}
+                                        className={`product-card ${inCart ? 'in-cart' : ''}`}
+                                        onClick={() => !inCart && addToCart(p)}
+                                    >
+                                        <div className="product-card-name">{p.name}</div>
+                                        <div className="product-card-info">
+                                            <span className="product-card-price">{currency}{Number(p.selling_price).toFixed(2)}</span>
+                                            <span className={p.stock_quantity <= 5 ? 'text-danger' : ''}>
+                                                Stock: {p.stock_quantity}
+                                            </span>
+                                        </div>
+                                        {inCart ? (
+                                            <div className="product-card-qty" onClick={e => e.stopPropagation()}>
+                                                <button
+                                                    className="qty-btn"
+                                                    onClick={() => {
+                                                        if (cartItem.quantity <= 1) {
+                                                            removeFromCart(p.id);
+                                                        } else {
+                                                            updateQuantity(p.id, -1);
+                                                        }
+                                                    }}
+                                                >−</button>
+                                                <input
+                                                    type="number"
+                                                    className="qty-input"
+                                                    value={cartItem.quantity}
+                                                    onChange={e => {
+                                                        const val = e.target.value;
+                                                        if (val === '' || val === '0') return;
+                                                        setQuantity(p.id, val);
+                                                    }}
+                                                    onBlur={e => {
+                                                        if (!e.target.value || parseInt(e.target.value, 10) <= 0) {
+                                                            removeFromCart(p.id);
+                                                        }
+                                                    }}
+                                                    min="1"
+                                                    onClick={e => e.target.select()}
+                                                />
+                                                <button className="qty-btn" onClick={() => updateQuantity(p.id, 1)}>+</button>
+                                            </div>
+                                        ) : (
+                                            <div className="product-card-add">Tap to add</div>
+                                        )}
+                                    </div>
+                                );
+                            })}
+                            {productSearch && productResults.length === 0 && !isSearchingProducts && (
+                                <div className="text-muted p-3">No products found</div>
+                            )}
+                            {!productSearch && popularProducts.length === 0 && (
+                                <div className="text-muted p-3 text-center w-100">
+                                    No products yet
+                                </div>
+                            )}
+                        </div>
+                    )}
+                </section>
+            </div>
+
+            {/* Cart Drawer Overlay (mobile) */}
+            {isDrawerOpen && <div className="cart-drawer-overlay" onClick={() => setIsDrawerOpen(false)} />}
+
+            {/* Right Panel: Cart & Summary */}
+            <div
+                className={`pos-right-panel ${isDrawerOpen ? 'drawer-open' : ''}`}
+                ref={drawerRef}
+                onTouchStart={handleDrawerTouchStart}
+                onTouchMove={handleDrawerTouchMove}
+                onTouchEnd={handleDrawerTouchEnd}
+            >
+                {/* Drawer handle (mobile only) */}
+                <div className="cart-drawer-handle">
+                    <span className="drawer-handle-icon">&#x25BC;</span>
+                </div>
+                <div className="cart-header">
+                    <span>Cart ({cartItems.length} items)</span>
+                    {clearStage === 'idle' && (
+                        <button className="btn btn-ghost btn-sm text-danger" onClick={() => setClearStage('confirming')}>Clear</button>
+                    )}
+                    {clearStage === 'confirming' && (
+                        <span className="clear-confirming">Are you sure?</span>
+                    )}
+                    {clearStage === 'ready' && (
+                        <div className="clear-actions">
+                            <button className="btn btn-ghost btn-sm text-danger" onClick={() => { setCartItems([]); setClearStage('idle'); }}>Clear</button>
+                            <button className="btn btn-ghost btn-sm" onClick={() => setClearStage('idle')}>Cancel</button>
+                        </div>
+                    )}
+                </div>
+
+                <div className="cart-items-list">
+                    {cartItems.map(item => (
+                        <div key={item.id} className="cart-item">
+                            <div className="cart-item-main">
+                                <div className="cart-item-details">
+                                    <span className="cart-item-name">{item.name}</span>
+                                    <span className="cart-item-price-info">
+                                        {currency}{Number(item.selling_price).toFixed(2)} x {item.quantity}
+                                    </span>
+                                </div>
+                                <div className="cart-item-actions">
+                                    <div className="qty-controls">
+                                        <button className="qty-btn" onClick={() => updateQuantity(item.id, -1)}>-</button>
+                                        <span className="qty-val">{item.quantity}</span>
+                                        <button className="qty-btn" onClick={() => updateQuantity(item.id, 1)}>+</button>
+                                    </div>
+                                    <button className="btn btn-ghost btn-sm text-danger" onClick={() => removeFromCart(item.id)}>×</button>
+                                </div>
+                            </div>
+                            <div className="item-discount-row">
+                                <span>Disc:</span>
+                                <select
+                                    className="form-control form-control-sm"
+                                    style={{ width: '60px' }}
+                                    value={item.discountType}
+                                    onChange={e => updateItemDiscount(item.id, e.target.value, item.discountValue)}
+                                >
+                                    <option value="fixed">{currency}</option>
+                                    <option value="percent">%</option>
+                                </select>
+                                <input
+                                    type="number"
+                                    className="form-control form-control-sm item-discount-input"
+                                    value={item.discountValue}
+                                    onChange={e => updateItemDiscount(item.id, item.discountType, e.target.value)}
+                                />
+                            </div>
+                        </div>
+                    ))}
+                    {cartItems.length === 0 && (
+                        <div className="text-center p-5 text-muted">
+                            Cart is empty
+                        </div>
+                    )}
+                </div>
+
+                <div className="order-summary">
+                    <div className="summary-row">
+                        <span>Subtotal</span>
+                        <span>{currency}{subtotal.toFixed(2)}</span>
+                    </div>
+                    <div className="summary-row">
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                            <span>Order Discount</span>
+                            <select
+                                className="form-control form-control-sm"
+                                style={{ width: '50px', padding: '0 2px', height: '20px' }}
+                                value={orderDiscount.type}
+                                onChange={e => setOrderDiscount({ ...orderDiscount, type: e.target.value })}
+                            >
+                                <option value="fixed">{currency}</option>
+                                <option value="percent">%</option>
+                            </select>
+                        </div>
+                        <input
+                            type="number"
+                            className="form-control form-control-sm"
+                            style={{ width: '60px', textAlign: 'right' }}
+                            value={orderDiscount.value}
+                            onChange={e => setOrderDiscount({ ...orderDiscount, value: parseFloat(e.target.value) || 0 })}
+                        />
+                    </div>
+                    <div className="summary-row total">
+                        <span>Total</span>
+                        <span>{currency}{grandTotal.toFixed(2)}</span>
+                    </div>
+                </div>
+
+                <div className="payment-section">
+                    <div className="payment-controls">
+                        <select
+                            className="form-control form-select"
+                            value={paymentMethod}
+                            onChange={e => setPaymentMethod(e.target.value)}
+                        >
+                            {availablePaymentMethods.length > 0 ? (
+                                availablePaymentMethods.map(method => (
+                                    <option key={method.id} value={method.method_type}>
+                                        {method.name}
+                                    </option>
+                                ))
+                            ) : (
+                                <>
+                                    <option value="cash">Cash</option>
+                                    <option value="upi">UPI</option>
+                                </>
+                            )}
+                        </select>
+                        <input
+                            type="number"
+                            className="form-control"
+                            placeholder="Amount"
+                            value={paymentAmount}
+                            onChange={e => setPaymentAmount(e.target.value)}
+                            onKeyPress={e => e.key === 'Enter' && addPayment()}
+                        />
+                        <button className="btn btn-primary btn-sm" onClick={addPayment}>Add</button>
+                    </div>
+
+                    {/* UPI Account Selector */}
+                    {paymentMethod === 'upi' && availableUpiAccounts.length > 0 && (
+                        <div className="upi-account-selector mt-2">
+                            <label className="small text-muted">Select UPI Account:</label>
+                            <select
+                                className="form-control form-select"
+                                value={selectedUpiAccount}
+                                onChange={e => setSelectedUpiAccount(e.target.value)}
+                            >
+                                {availableUpiAccounts.map(account => (
+                                    <option key={account.id} value={account.upi_id}>
+                                        {account.display_name} ({account.upi_id})
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
+                    )}
+
+                    {/* QR Code Display */}
+                    {paymentMethod === 'upi' && paymentAmount > 0 && selectedUpiAccount && (() => {
+                        const upiUrl = `upi://pay?pa=${selectedUpiAccount}&pn=AZBooks&am=${paymentAmount}&cu=INR`;
+                        const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(upiUrl)}`;
+                        return (
+                            <div className="upi-qr-code text-center my-2">
+                                <img
+                                    src={qrUrl}
+                                    alt="UPI QR Code"
+                                    style={{ border: '1px solid #ddd', borderRadius: '8px' }}
+                                />
+                                <div className="small text-muted mt-1">Scan to pay {currency}{paymentAmount}</div>
+                            </div>
+                        );
+                    })()}
+
+                    <div className="payments-list">
+                        {payments.map((p, idx) => (
+                            <div key={idx} className="payment-item">
+                                <span>{p.method}</span>
+                                <span className="d-flex align-items-center gap-2">
+                                    {currency}{p.amount.toFixed(2)}
+                                    <button
+                                        className="btn-remove-payment"
+                                        onClick={() => removePayment(idx)}
+                                        title="Remove this payment"
+                                    >
+                                        ×
+                                    </button>
+                                </span>
+                            </div>
+                        ))}
+                    </div>
+
+                    <div className={`balance-due ${balanceDue <= 0 ? 'balance-paid' : ''}`}>
+                        <span>{balanceDue <= 0 ? 'Change/Balance' : 'Balance Due'}</span>
+                        <span>{currency}{Math.abs(balanceDue).toFixed(2)}</span>
+                    </div>
+                    {
+                        payments.length > 0 && (
+                            <button className="btn btn-link btn-sm p-0 mt-1" onClick={clearPayments}>Clear Payments</button>
+                        )
+                    }
+                </div >
+
+                {cartItems.length > 0 && !selectedCustomer && !isGuest && (
+                    <div className="inline-warning">
+                        ⚠ Please select a customer or use guest checkout
+                    </div>
+                )}
+
+                <div className="pos-actions">
+                    <button
+                        className="btn btn-secondary btn-full"
+                        disabled={isLoading || cartItems.length === 0 || (!selectedCustomer && !isGuest)}
+                        onClick={() => {
+                            if (window.confirm('Save this order as a draft (held order)? The form will reset after saving.')) {
+                                submitOrder('draft');
+                            }
+                        }}
+                    >
+                        {isLoading ? 'Saving...' : 'Hold Order'}
+                    </button>
+                    {isDrawerOpen && (
+                        <button
+                            className="btn btn-ghost btn-full"
+                            onClick={() => {
+                                if (drawerRef.current) drawerRef.current.style.transform = '';
+                                setIsDrawerOpen(false);
+                            }}
+                        >
+                            ← Back
+                        </button>
+                    )}
+                    <button
+                        className="btn btn-success btn-full complete-btn"
+                        disabled={isLoading || cartItems.length === 0 || (!selectedCustomer && !isGuest)}
+                        onClick={() => submitOrder('completed')}
+                    >
+                        {isLoading ? 'Processing...' :
+                            cartItems.length === 0 ? '+ Add items to confirm' :
+                                'Confirm Order ✓'}
+                    </button>
+                </div>
+            </div >
+
+            {/* Quick Product Modal (P4 3.3.1.2.3: Name, Estimated Price, Category, Reference Photo) */}
+            {
+                showQuickProduct && (
+                    <div className="modal-overlay">
+                        <div className="modal-content">
+                            <h3>Quick Add Product</h3>
+                            <form onSubmit={handleCreateProduct}>
+                                <div className="form-group">
+                                    <label>Product Name</label>
+                                    <input
+                                        type="text"
+                                        required
+                                        className="form-control"
+                                        value={newProduct.name}
+                                        onChange={e => setNewProduct({ ...newProduct, name: e.target.value })}
+                                    />
+                                </div>
+                                <div className="form-row">
+                                    <div className="form-group col-6">
+                                        <label>Estimated Price</label>
+                                        <input
+                                            type="number"
+                                            required
+                                            min="0"
+                                            step="0.01"
+                                            className="form-control"
+                                            value={newProduct.selling_price}
+                                            onChange={e => setNewProduct({ ...newProduct, selling_price: e.target.value })}
+                                        />
+                                    </div>
+                                    <div className="form-group col-6">
+                                        <label>Category</label>
+                                        <select
+                                            className="form-control"
+                                            value={newProduct.category}
+                                            onChange={e => setNewProduct({ ...newProduct, category: e.target.value })}
+                                        >
+                                            <option value="">— Select —</option>
+                                            {availableCategories.map(cat => (
+                                                <option key={cat.id} value={cat.id}>{cat.name}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                </div>
+                                <div className="form-group">
+                                    <label>Reference Photo</label>
+                                    <input
+                                        type="file"
+                                        accept="image/*"
+                                        className="form-control"
+                                        onChange={e => setReferencePhoto(e.target.files[0] || null)}
+                                    />
+                                    {referencePhoto && (
+                                        <div className="mt-1 small text-muted">
+                                            Selected: {referencePhoto.name}
+                                        </div>
+                                    )}
+                                </div>
+                                <div className="modal-actions">
+                                    <button type="button" className="btn btn-ghost" onClick={() => {
+                                        setShowQuickProduct(false);
+                                        setReferencePhoto(null);
+                                    }}>Cancel</button>
+                                    <button type="submit" className="btn btn-primary" disabled={isCreatingProduct}>
+                                        {isCreatingProduct ? 'Creating...' : 'Create & Add'}
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                )
+            }
+        </div >
+    );
+}

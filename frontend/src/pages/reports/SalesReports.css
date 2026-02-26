@@ -1,0 +1,197 @@
+.sales-reports-page {
+    padding: 1.5rem;
+    max-width: 1400px;
+    margin: 0 auto;
+}
+
+.reports-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 2rem;
+    flex-wrap: wrap;
+    gap: 1rem;
+}
+
+.reports-header h1 {
+    font-size: 1.8rem;
+    color: #fff;
+    margin: 0;
+}
+
+.header-actions {
+    display: flex;
+    gap: 1rem;
+    align-items: center;
+}
+
+.date-filter {
+    display: flex;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.date-filter button {
+    padding: 0.5rem 1rem;
+    background: transparent;
+    border: none;
+    color: #888;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.date-filter button.active,
+.date-filter button:hover {
+    background: #40cdba;
+    color: #0d1117;
+}
+
+.export-btn {
+    padding: 0.5rem 1rem;
+    background: linear-gradient(135deg, #388bfd, #40cdba);
+    border: none;
+    border-radius: 8px;
+    color: #fff;
+    cursor: pointer;
+    font-weight: 500;
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.export-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 15px rgba(64, 205, 186, 0.3);
+}
+
+.summary-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1rem;
+    margin-bottom: 2rem;
+}
+
+.summary-card {
+    background: rgba(255, 255, 255, 0.03);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 12px;
+    padding: 1.25rem;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.card-icon {
+    font-size: 2rem;
+    padding: 0.75rem;
+    background: rgba(64, 205, 186, 0.1);
+    border-radius: 10px;
+}
+
+.card-content {
+    display: flex;
+    flex-direction: column;
+}
+
+.card-value {
+    font-size: 1.5rem;
+    font-weight: 600;
+    color: #fff;
+}
+
+.card-label {
+    font-size: 0.85rem;
+    color: #888;
+}
+
+.charts-row {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+    gap: 1.5rem;
+    margin-bottom: 2rem;
+}
+
+.chart-card {
+    background: rgba(255, 255, 255, 0.03);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 12px;
+    padding: 1.25rem;
+}
+
+.chart-card h3 {
+    margin: 0 0 1rem 0;
+    color: #fff;
+    font-size: 1rem;
+}
+
+.chart-container {
+    height: 250px;
+}
+
+.tables-row {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+    gap: 1.5rem;
+}
+
+.table-card {
+    background: rgba(255, 255, 255, 0.03);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 12px;
+    padding: 1.25rem;
+}
+
+.table-card h3 {
+    margin: 0 0 1rem 0;
+    color: #fff;
+    font-size: 1rem;
+}
+
+.data-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.data-table th,
+.data-table td {
+    padding: 0.75rem;
+    text-align: left;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.data-table th {
+    color: #888;
+    font-weight: 500;
+    font-size: 0.85rem;
+}
+
+.data-table td {
+    color: #fff;
+}
+
+.data-table tbody tr:hover {
+    background: rgba(255, 255, 255, 0.03);
+}
+
+.reports-loading {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 400px;
+    color: #888;
+    font-size: 1.1rem;
+}
+
+@media (max-width: 768px) {
+    .reports-header {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .charts-row,
+    .tables-row {
+        grid-template-columns: 1fr;
+    }
+}

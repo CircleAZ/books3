@@ -1,0 +1,288 @@
+.add-customer-container {
+    padding: 2rem;
+    padding-bottom: calc(var(--bottom-nav-height, 64px) + 5rem);
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+.add-customer-container.embedded {
+    padding: 0;
+    margin: 0;
+    max-width: none;
+}
+
+.add-customer-header {
+    margin-bottom: 2rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.add-customer-header h1 {
+    color: var(--color-text-primary);
+    font-size: 1.75rem;
+    margin: 0;
+}
+
+.add-customer-form {
+    background: var(--color-bg-secondary);
+    border: 1px solid var(--color-border-light);
+    border-radius: 12px;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3);
+    overflow: hidden;
+    margin-bottom: 6rem;
+}
+
+.embedded .add-customer-form {
+    border: none;
+    box-shadow: none;
+    background: transparent;
+    border-radius: 0;
+}
+
+.collapsible-section {
+    border-bottom: 1px solid var(--color-border);
+}
+
+.collapsible-section:last-child {
+    border-bottom: none;
+}
+
+.section-header {
+    padding: 1.5rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    cursor: pointer;
+    background: var(--color-bg-secondary);
+    transition: background-color 0.2s;
+}
+
+.section-header:hover {
+    background: var(--color-bg-hover);
+}
+
+.section-header h2 {
+    margin: 0;
+    font-size: 1.1rem;
+    color: var(--color-text-primary);
+    font-weight: 600;
+}
+
+.chevron {
+    transition: transform 0.3s ease;
+    width: 20px;
+    height: 20px;
+    color: var(--color-text-secondary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.8rem;
+}
+
+.chevron.open {
+    transform: rotate(180deg);
+}
+
+.section-content {
+    background: var(--color-bg-primary);
+    /* Slightly darker for content area */
+    padding: 0 1.5rem;
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.3s ease-out, padding 0.3s ease;
+    opacity: 0;
+}
+
+.section-content.open {
+    padding: 1.5rem;
+    max-height: 1000px;
+    opacity: 1;
+    overflow: visible;
+}
+
+.form-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 1.5rem;
+}
+
+.form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.form-group.full-width {
+    grid-column: 1 / -1;
+}
+
+.form-group label {
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: var(--color-text-secondary);
+}
+
+.form-group input,
+.form-group select,
+.form-group textarea {
+    padding: 0.75rem;
+    border: 1px solid var(--color-border);
+    border-radius: 6px;
+    background: var(--color-bg-tertiary);
+    color: var(--color-text-primary);
+    font-size: 0.95rem;
+    transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.form-group input:focus,
+.form-group select:focus,
+.form-group textarea:focus {
+    outline: none;
+    border-color: var(--color-primary);
+    box-shadow: 0 0 0 3px rgba(56, 139, 253, 0.2);
+}
+
+.form-group textarea {
+    resize: vertical;
+    min-height: 80px;
+}
+
+.form-actions {
+    padding: 1.5rem;
+    background: var(--color-bg-secondary);
+    border-top: 1px solid var(--color-border);
+    display: flex;
+    justify-content: flex-end;
+    gap: 1rem;
+}
+
+.embedded .form-actions {
+    background: transparent;
+    padding-bottom: 0;
+}
+
+/* Location Tags Chip Selector */
+.tag-chips-container {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    padding: 0.5rem 0;
+}
+
+.tag-chip {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.35rem 0.75rem;
+    border-radius: 999px;
+    border: 1px solid var(--color-border);
+    background: var(--color-bg-tertiary);
+    color: var(--color-text-secondary);
+    font-size: 0.85rem;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    white-space: nowrap;
+}
+
+.tag-chip:hover {
+    border-color: var(--color-primary);
+    color: var(--color-text-primary);
+}
+
+.tag-chip.selected {
+    background: var(--color-primary);
+    border-color: var(--color-primary);
+    color: white;
+}
+
+.required-star {
+    color: var(--color-danger);
+    margin-left: 2px;
+}
+
+/* Helper classes */
+.fade-in {
+    animation: fadeIn 0.3s ease-in-out;
+}
+
+.text-muted {
+    font-size: 0.8rem;
+    color: var(--color-text-muted);
+    margin-top: 0.25rem;
+}
+
+/* Responsive Map */
+.map-container {
+    height: min(350px, 40vh);
+}
+
+/* Info Tooltip Icon */
+.info-tooltip {
+    cursor: help;
+    color: var(--color-text-muted);
+    font-size: 0.85rem;
+    margin-left: 4px;
+    opacity: 0.7;
+    transition: opacity 0.2s;
+}
+
+.info-tooltip:hover {
+    opacity: 1;
+}
+
+/* Tag Chip Pulse Animation */
+.tag-chip-new {
+    animation: chipPulse 0.6s ease;
+}
+
+@keyframes chipPulse {
+    0% {
+        transform: scale(0.8);
+        opacity: 0.5;
+    }
+
+    50% {
+        transform: scale(1.1);
+    }
+
+    100% {
+        transform: scale(1);
+        opacity: 1;
+    }
+}
+
+/* Loading Spinner */
+.loading-spinner {
+    width: 24px;
+    height: 24px;
+    border: 3px solid var(--color-border);
+    border-top-color: var(--color-primary);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+@media (max-width: 640px) {
+    .form-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .add-customer-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 1rem;
+    }
+
+    .add-customer-header button {
+        width: 100%;
+    }
+
+    .map-container {
+        height: min(300px, 35vh);
+    }
+}

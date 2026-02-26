@@ -4,23 +4,69 @@
     flex-direction: column;
 }
 
+/* UX1: Skip-to-content link — visually hidden until focused */
+.skip-to-content {
+    position: fixed;
+    top: -100%;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--color-primary);
+    color: white;
+    padding: var(--space-sm) var(--space-lg);
+    border-radius: 0 0 var(--radius-md) var(--radius-md);
+    font-weight: 600;
+    font-size: var(--font-size-sm);
+    z-index: 10000;
+    text-decoration: none;
+    transition: top 0.2s ease;
+}
+
+.skip-to-content:focus {
+    top: 0;
+    outline: 2px solid white;
+    outline-offset: 2px;
+}
+
 .main-content {
     flex: 1;
+    min-width: 0;
+    overflow-x: hidden;
     padding-top: var(--header-height);
-    padding-bottom: var(--bottom-nav-height);
+    padding-bottom: calc(var(--bottom-nav-height) + env(safe-area-inset-bottom, 0px));
     padding-left: var(--space-md);
     padding-right: var(--space-md);
     max-width: 1400px;
-    margin: 0 auto;
     width: 100%;
+    transition: margin-left var(--transition-normal) ease;
 }
 
-/* Desktop layout with sidebar */
+/* Desktop layout */
 @media (min-width: 1024px) {
     .main-content {
-        margin-left: var(--drawer-width);
         padding-bottom: var(--space-lg);
         padding-left: var(--space-xl);
         padding-right: var(--space-xl);
+    }
+}
+
+/* Sidebar-aware content positioning */
+.main-content.sidebar-full {
+    margin-left: var(--drawer-width);
+    width: calc(100% - var(--drawer-width));
+}
+
+.main-content.sidebar-mini {
+    margin-left: var(--drawer-width-collapsed);
+    width: calc(100% - var(--drawer-width-collapsed));
+}
+
+/* F9: prefers-reduced-motion */
+@media (prefers-reduced-motion: reduce) {
+    .main-content {
+        transition: none;
+    }
+
+    .skip-to-content {
+        transition: none;
     }
 }

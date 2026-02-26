@@ -2,33 +2,29 @@
 Account app serializers for AZ Books
 """
 from rest_framework import serializers
-from django.contrib.auth.models import User
+from django.contrib.auth import get_user_model
 from django.contrib.auth.password_validation import validate_password
-from .models import UserProfile, ActivityLog
+from .models import ActivityLog
 
+User = get_user_model()
 
 class UserSerializer(serializers.ModelSerializer):
-    """Basic user serializer"""
-    class Meta:
-        model = User
-        fields = ['id', 'username', 'email', 'first_name', 'last_name']
-        read_only_fields = ['id', 'username']
-
-
-class ProfileSerializer(serializers.ModelSerializer):
-    """User profile serializer with nested user data"""
-    user = UserSerializer()
+    """
+    Serializer for the Custom User model.
+    Includes profile fields which are now part of the User model.
+    """
     full_name = serializers.CharField(read_only=True)
     initials = serializers.CharField(read_only=True)
     profile_picture_url = serializers.SerializerMethodField()
     
     class Meta:
-        model = UserProfile
+        model = User
         fields = [
-            'id', 'user', 'phone', 'profile_picture', 'profile_picture_url',
-            'role', 'full_name', 'initials', 'created_at', 'updated_at'
+            'id', 'username', 'email', 'first_name', 'last_name',
+            'phone', 'profile_picture', 'profile_picture_url',
+            'role', 'full_name', 'initials', 'date_joined', 'last_login'
         ]
-        read_only_fields = ['id', 'role', 'created_at', 'updated_at']
+        read_only_fields = ['id', 'role', 'date_joined', 'last_login']
     
     def get_profile_picture_url(self, obj):
         if obj.profile_picture:
@@ -37,29 +33,12 @@ class ProfileSerializer(serializers.ModelSerializer):
                 return request.build_absolute_uri(obj.profile_picture.url)
             return obj.profile_picture.url
         return None
-    
-    def update(self, instance, validated_data):
-        # Handle nested user data
-        user_data = validated_data.pop('user', None)
-        if user_data:
-            user = instance.user
-            user.first_name = user_data.get('first_name', user.first_name)
-            user.last_name = user_data.get('last_name', user.last_name)
-            user.email = user_data.get('email', user.email)
-            user.save()
-        
-        # Update profile fields
-        for attr, value in validated_data.items():
-            setattr(instance, attr, value)
-        instance.save()
-        
-        return instance
 
 
 class LoginSerializer(serializers.Serializer):
     """Login request serializer"""
     username = serializers.CharField(max_length=150)
-    password = serializers.CharField(write_only=True)
+    password = serializers.CharField(write_only=True, max_length=128)
     remember_me = serializers.BooleanField(default=False, required=False)
 
 

@@ -172,6 +172,6 @@ class DisplayIDMixin(models.Model):
     
     def save(self, *args, **kwargs):
         """Override save to generate display_id if not set."""
-        if self.display_id is None and not self.provisional_id:
+        if self.display_id is None:
             self.generate_display_id()
         super().save(*args, **kwargs)

@@ -1,0 +1,140 @@
+import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../../context/AuthContext';
+import { useCurrency } from '../../context/CurrencyContext';
+import { ENDPOINTS } from '../../config/api';
+import './CustomerList.css';
+
+const CustomerList = () => {
+    const { currency } = useCurrency();
+    const [customers, setCustomers] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [search, setSearch] = useState('');
+    const [page, setPage] = useState(1);
+    const [totalPages, setTotalPages] = useState(1);
+    const navigate = useNavigate();
+    const { fetchWithAuth } = useAuth();
+
+    const fetchCustomers = async () => {
+        setLoading(true);
+        try {
+            const response = await fetchWithAuth(`${ENDPOINTS.CUSTOMERS}?page=${page}&search=${search}`);
+            if (response.ok) {
+                const data = await response.json();
+                setCustomers(data.results || []);
+                setTotalPages(Math.ceil((data.count || 0) / 20));
+            }
+        } catch (error) {
+            console.error('Error fetching customers:', error);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    useEffect(() => {
+        fetchCustomers();
+    }, [page, search]);
+
+    const handleSearchChange = (e) => {
+        setSearch(e.target.value);
+        setPage(1);
+    };
+
+    return (
+        <div className="customer-list-container fade-in">
+            <div className="page-header">
+                <h1>Customers</h1>
+                <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                    <button
+                        className="btn btn-secondary btn-icon"
+                        onClick={() => navigate('/customers/settings')}
+                        title="Customer Settings"
+                        style={{ padding: '0.5rem 0.75rem', fontSize: '1.1rem', lineHeight: 1 }}
+                    >
+                        ⚙️
+                    </button>
+                    <button className="btn btn-primary" onClick={() => navigate('/customers/add')}>
+                        + Add New Customer
+                    </button>
+                </div>
+            </div>
+
+            <div className="search-bar">
+                <input
+                    type="text"
+                    placeholder="Search by name, phone, email..."
+                    value={search}
+                    onChange={handleSearchChange}
+                    className="form-input"
+                />
+            </div>
+
+            {loading ? (
+                <div className="loading-spinner">Loading...</div>
+            ) : (
+                <div className="table-responsive">
+                    <table className="data-table">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Name</th>
+                                <th>Phone</th>
+                                <th>Email</th>
+                                <th>Wallet</th>
+                                <th>Action</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {customers.length === 0 ? (
+                                <tr>
+                                    <td colSpan="6" className="text-center">No customers found.</td>
+                                </tr>
+                            ) : (
+                                customers.map((customer) => (
+                                    <tr key={customer.id} onClick={() => navigate(`/customers/${customer.id}`)} className="clickable-row">
+                                        <td>{customer.display_id || customer.id.slice(0, 8)}</td>
+                                        <td>{customer.full_name}</td>
+                                        <td>{customer.phone}</td>
+                                        <td>{customer.email || '-'}</td>
+                                        <td>{currency}{customer.wallet_balance}</td>
+                                        <td>
+                                            <button
+                                                className="btn btn-sm btn-secondary"
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    navigate(`/customers/${customer.id}/edit`);
+                                                }}
+                                            >
+                                                Edit
+                                            </button>
+                                        </td>
+                                    </tr>
+                                ))
+                            )}
+                        </tbody>
+                    </table>
+                </div>
+            )}
+
+            <div className="pagination">
+                <button
+                    disabled={page === 1}
+                    onClick={() => setPage(page - 1)}
+                    className="btn btn-secondary"
+                >
+                    Previous
+                </button>
+                <span>Page {page} of {totalPages}</span>
+                <button
+                    disabled={page === totalPages}
+                    onClick={() => setPage(page + 1)}
+                    className="btn btn-secondary"
+                >
+                    Next
+                </button>
+            </div>
+        </div>
+    );
+};
+
+export default CustomerList;

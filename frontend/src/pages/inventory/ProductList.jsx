@@ -1,21 +1,27 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
-import { ENDPOINTS } from '../../config/api';
+import { useCurrency } from '../../context/CurrencyContext';
+import { ENDPOINTS, API_BASE } from '../../config/api';
 import './ProductList.css';
+
+const MEDIA_BASE = API_BASE.replace(/\/api\/?$/, '');
 
 export default function ProductList() {
     const { fetchWithAuth } = useAuth();
+    const { currency } = useCurrency();
     const navigate = useNavigate();
 
     const [products, setProducts] = useState([]);
     const [loading, setLoading] = useState(true);
     const [search, setSearch] = useState('');
+    // LENS-03: Search loading indicator
+    const [isSearching, setIsSearching] = useState(false);
     const [category, setCategory] = useState('');
     const [vendor, setVendor] = useState('');
     const [page, setPage] = useState(1);
     const [totalPages, setTotalPages] = useState(1);
-    
+
     // Filter options
     const [categories, setCategories] = useState([]);
     const [vendors, setVendors] = useState([]);
@@ -29,7 +35,7 @@ export default function ProductList() {
                 category,
                 vendor
             });
-            
+
             const response = await fetchWithAuth(`${ENDPOINTS.INVENTORY_PRODUCTS}?${queryParams.toString()}`);
             if (response.ok) {
                 const data = await response.json();
@@ -67,8 +73,9 @@ export default function ProductList() {
 
     // Debounce search
     useEffect(() => {
+        if (search) setIsSearching(true); // LENS-03
         const timer = setTimeout(() => {
-            fetchProducts();
+            fetchProducts().finally(() => setIsSearching(false));
         }, 500);
         return () => clearTimeout(timer);
     }, [fetchProducts, search]);
@@ -124,12 +131,12 @@ export default function ProductList() {
                     <input
                         type="text"
                         placeholder="Search products..."
-                        className="search-input"
+                        className={`search-input ${isSearching ? 'searching' : ''}`}
                         value={search}
                         onChange={handleSearchChange}
                     />
                 </div>
-                
+
                 <select className="filter-select" value={category} onChange={handleCategoryChange}>
                     <option value="">All Categories</option>
                     {categories.map(cat => (
@@ -164,6 +171,7 @@ export default function ProductList() {
                                     <th>Selling</th>
                                     <th>Stock</th>
                                     <th>Status</th>
+                                    <th>Actions</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -171,34 +179,42 @@ export default function ProductList() {
                                     products.map(product => {
                                         const status = getStatus(product);
                                         return (
-                                            <tr key={product.id}>
+                                            <tr key={product.id} onClick={() => navigate(`/inventory/product/${product.id}`)} style={{ cursor: 'pointer' }}>
                                                 <td className="product-image-cell">
-                                                    {product.image ? (
-                                                        <img src={product.image} alt={product.name} className="product-image" />
+                                                    {product.primary_image_url ? (
+                                                        <img src={`${MEDIA_BASE}${product.primary_image_url}`} alt={product.name} className="product-image" />
                                                     ) : (
-                                                        <div className="product-image" style={{display: 'flex', alignItems: 'center', justifyContent: 'center'}}>
-                                                            <span style={{fontSize: '0.7rem', color: 'var(--color-text-muted)'}}>IMG</span>
+                                                        <div className="product-image" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                                            <span style={{ fontSize: '0.7rem', color: 'var(--color-text-muted)' }}>IMG</span>
                                                         </div>
                                                     )}
                                                 </td>
-                                                <td>{product.id}</td>
+                                                <td>{product.display_id || product.id.substring(0, 8)}</td>
                                                 <td>{product.name}</td>
                                                 <td>{product.category_name || product.category || '-'}</td>
                                                 <td>{product.vendor_name || product.vendor || '-'}</td>
-                                                <td>${Number(product.cost_price).toFixed(2)}</td>
-                                                <td>${Number(product.selling_price).toFixed(2)}</td>
+                                                <td>{currency}{Number(product.cost_price).toFixed(2)}</td>
+                                                <td>{currency}{Number(product.selling_price).toFixed(2)}</td>
                                                 <td>{product.stock_quantity}</td>
                                                 <td>
                                                     <span className={`status-badge status-${status}`}>
                                                         {getStatusLabel(status)}
                                                     </span>
                                                 </td>
+                                                <td onClick={(e) => e.stopPropagation()}>
+                                                    <button
+                                                        className="btn btn-sm btn-ghost"
+                                                        onClick={() => navigate(`/inventory/edit/${product.id}`)}
+                                                    >
+                                                        Edit
+                                                    </button>
+                                                </td>
                                             </tr>
                                         );
                                     })
                                 ) : (
                                     <tr>
-                                        <td colSpan="9" style={{textAlign: 'center', padding: '2rem'}}>
+                                        <td colSpan="10" style={{ textAlign: 'center', padding: '2rem' }}>
                                             No products found.
                                         </td>
                                     </tr>
@@ -207,21 +223,21 @@ export default function ProductList() {
                         </table>
                     </>
                 )}
-                
+
                 <div className="pagination-controls">
                     <span className="page-info">
                         Page {page} of {totalPages || 1}
                     </span>
-                    <button 
-                        className="btn btn-ghost" 
-                        disabled={page <= 1} 
+                    <button
+                        className="btn btn-ghost"
+                        disabled={page <= 1}
                         onClick={() => setPage(p => Math.max(1, p - 1))}
                     >
                         Previous
                     </button>
-                    <button 
-                        className="btn btn-ghost" 
-                        disabled={page >= totalPages} 
+                    <button
+                        className="btn btn-ghost"
+                        disabled={page >= totalPages}
                         onClick={() => setPage(p => Math.min(totalPages, p + 1))}
                     >
                         Next

@@ -1,4 +1,4 @@
-from django.db import models
+from django.db import models, transaction
 from django.conf import settings
 from core.models import SoftDeleteModel, UUIDPrimaryKeyModel, DisplayIDMixin
 
@@ -6,6 +6,14 @@ from core.models import SoftDeleteModel, UUIDPrimaryKeyModel, DisplayIDMixin
 class Category(DisplayIDMixin, SoftDeleteModel):
     name = models.CharField(max_length=100, unique=True)
     description = models.TextField(blank=True)
+    tax_rate = models.ForeignKey(
+        'settings_app.TaxSettings', 
+        on_delete=models.SET_NULL, 
+        null=True, 
+        blank=True, 
+        related_name='categories',
+        help_text="Tax rate applicable to products in this category"
+    )
 
     class Meta:
         verbose_name_plural = "Categories"
@@ -17,11 +25,37 @@ class Category(DisplayIDMixin, SoftDeleteModel):
 class Vendor(SoftDeleteModel):
     name = models.CharField(max_length=200, unique=True)
     description = models.TextField(blank=True)
+    contact_name = models.CharField(max_length=100, blank=True)
     contact_email = models.EmailField(blank=True, null=True)
     contact_phone = models.CharField(max_length=50, blank=True, null=True)
+    address = models.TextField(blank=True)
+    notes = models.TextField(blank=True)
 
     def __str__(self):
         return self.name
+
+
+class StockAdjustment(UUIDPrimaryKeyModel):
+    ADJUSTMENT_TYPES = [
+        ('increase', 'Increase'),
+        ('decrease', 'Decrease'),
+        ('set', 'Set Total'),
+    ]
+
+    product = models.ForeignKey('Product', on_delete=models.CASCADE, related_name='adjustments')
+    adjustment_type = models.CharField(max_length=10, choices=ADJUSTMENT_TYPES)
+    quantity = models.PositiveIntegerField()
+    unit_cost = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True, help_text="Cost per unit for this adjustment (used for AVCO)")
+    reason = models.CharField(max_length=255)
+    notes = models.TextField(blank=True)
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.get_adjustment_type_display()} {self.quantity} for {self.product.name}"
+
+    # save() method removed. Logic moved to StockService.
+
 
 
 class Tag(UUIDPrimaryKeyModel):

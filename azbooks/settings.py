@@ -60,6 +60,7 @@ INSTALLED_APPS = [
     'reports',
     'finance',
     'settings_app',
+    'messaging',
 ]
 
 MIDDLEWARE = [
@@ -226,6 +227,10 @@ LOGGING = {
     },
 }
 
+
+
+# Custom User Model
+AUTH_USER_MODEL = 'account.User'
 
 # CORS Configuration (for frontend SPA on different port/domain)
 CORS_ALLOWED_ORIGINS = os.getenv(

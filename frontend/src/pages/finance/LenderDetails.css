@@ -1,0 +1,174 @@
+.lender-details-container {
+    padding: 2rem;
+    max-width: 1400px;
+    margin: 0 auto;
+}
+
+.lender-details-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 2.5rem;
+}
+
+.header-left {
+    display: flex;
+    gap: 1.5rem;
+    align-items: flex-start;
+}
+
+.back-btn {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: white;
+    padding: 0.5rem 1rem;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.back-btn:hover {
+    background: rgba(255, 255, 255, 0.1);
+}
+
+.lender-meta {
+    display: flex;
+    gap: 1.5rem;
+    margin-top: 0.5rem;
+    color: var(--color-text-muted);
+    font-size: 0.9rem;
+}
+
+.header-actions {
+    display: flex;
+    gap: 1rem;
+}
+
+.summary-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 1.5rem;
+    margin-bottom: 3rem;
+}
+
+.summary-card {
+    padding: 1.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.summary-label {
+    color: var(--color-text-muted);
+    font-size: 0.9rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.summary-value {
+    font-size: 1.8rem;
+    font-weight: 700;
+}
+
+.summary-card.highlighted .summary-value {
+    color: var(--color-primary);
+}
+
+.section-title {
+    font-size: 1.5rem;
+    margin-bottom: 1.5rem;
+    font-weight: 600;
+}
+
+.loans-table-container {
+    padding: 0;
+    overflow: hidden;
+}
+
+.loans-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.loans-table th {
+    padding: 1.2rem 1.5rem;
+    background: rgba(255, 255, 255, 0.03);
+    color: var(--color-text-muted);
+    font-size: 0.85rem;
+    text-align: left;
+    text-transform: uppercase;
+}
+
+.loans-table td {
+    padding: 1.2rem 1.5rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.loan-number {
+    font-weight: 600;
+    color: #60a5fa;
+}
+
+.balance-due {
+    font-weight: 600;
+    color: #f87171;
+}
+
+.progress-container {
+    width: 120px;
+    height: 8px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 4px;
+    position: relative;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+}
+
+.progress-bar {
+    height: 100%;
+    background: var(--color-primary);
+    border-radius: 4px;
+}
+
+.progress-text {
+    position: absolute;
+    right: -35px;
+    font-size: 0.75rem;
+    color: var(--color-text-muted);
+}
+
+.status-badge {
+    padding: 0.3rem 0.7rem;
+    border-radius: 12px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+}
+
+.status-active {
+    background: rgba(34, 197, 94, 0.15);
+    color: #4ade80;
+}
+
+.status-closed {
+    background: rgba(107, 114, 128, 0.15);
+    color: #9ca3af;
+}
+
+.status-defaulted {
+    background: rgba(239, 68, 68, 0.15);
+    color: #f87171;
+}
+
+@media (max-width: 768px) {
+    .lender-details-header {
+        flex-direction: column;
+        gap: 1.5rem;
+    }
+    
+    .lender-meta {
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+}

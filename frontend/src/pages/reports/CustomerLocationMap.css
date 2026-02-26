@@ -1,0 +1,89 @@
+.location-map-section {
+    margin-top: 2rem;
+    background: var(--card-bg, #1e2332);
+    border-radius: 12px;
+    padding: 1.5rem;
+    border: 1px solid var(--border-color, #2d3548);
+}
+
+.map-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
+.map-header h3 {
+    margin: 0;
+    color: var(--text-primary, #f0f0f0);
+}
+
+.map-filters {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+}
+
+.map-filter-input,
+.map-filter-select {
+    background: var(--input-bg, #151b28);
+    border: 1px solid var(--border-color, #2d3548);
+    color: var(--text-primary, #f0f0f0);
+    padding: 0.4rem 0.8rem;
+    border-radius: 6px;
+    font-size: 0.85rem;
+}
+
+.map-filter-select {
+    min-width: 140px;
+}
+
+.map-loading {
+    text-align: center;
+    padding: 2rem;
+    color: var(--text-secondary, #999);
+}
+
+.leaflet-map-container {
+    background: #1a1a2e;
+    z-index: 1;
+}
+
+.map-stats {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin-top: 1rem;
+    flex-wrap: wrap;
+}
+
+.map-stat {
+    font-size: 0.85rem;
+    color: var(--text-secondary, #999);
+}
+
+.map-tag-badge {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.25rem 0.6rem;
+    border-radius: 999px;
+    border: 1px solid;
+    font-size: 0.8rem;
+    color: var(--text-primary, #f0f0f0);
+}
+
+.tag-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    display: inline-block;
+}
+
+/* Fix leaflet default icon issue */
+.custom-marker {
+    background: none !important;
+    border: none !important;
+}

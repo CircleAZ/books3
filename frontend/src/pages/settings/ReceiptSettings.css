@@ -1,0 +1,189 @@
+.receipt-settings-layout {
+    display: grid;
+    grid-template-columns: 1fr 400px;
+    gap: var(--space-xl);
+    align-items: start;
+}
+
+.settings-panel {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-xl);
+}
+
+.form-group {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-sm);
+    margin-bottom: var(--space-md);
+}
+
+.form-group label {
+    font-size: var(--font-size-sm);
+    font-weight: 500;
+    color: var(--color-text-secondary);
+}
+
+.settings-section h3 {
+    font-size: var(--font-size-lg);
+    margin-bottom: var(--space-lg);
+    color: var(--color-primary-light);
+}
+
+.toggle-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: var(--space-md) 0;
+    border-bottom: 1px solid var(--color-border-light);
+}
+
+.toggle-info {
+    display: flex;
+    flex-direction: column;
+}
+
+.toggle-label {
+    font-weight: 500;
+}
+
+.toggle-desc {
+    font-size: var(--font-size-xs);
+    color: var(--color-text-muted);
+}
+
+.panel-actions {
+    margin-top: var(--space-md);
+}
+
+/* Preview Styles */
+.receipt-preview {
+    background: var(--color-bg-tertiary);
+    padding: var(--space-xl);
+    border-radius: var(--radius-md);
+    display: flex;
+    justify-content: center;
+}
+
+.receipt-paper {
+    background: white;
+    color: #333;
+    width: 250px;
+    padding: var(--space-lg);
+    box-shadow: var(--shadow-lg);
+    font-family: 'Courier New', Courier, monospace;
+    font-size: 12px;
+    text-align: center;
+}
+
+.preview-logo {
+    font-weight: bold;
+    font-size: 24px;
+    margin-bottom: var(--space-sm);
+    color: #000;
+}
+
+.preview-header {
+    font-weight: bold;
+    font-size: 14px;
+    margin-bottom: 4px;
+    white-space: pre-wrap;
+}
+
+.preview-subtext {
+    font-size: 10px;
+    color: #666;
+}
+
+.preview-divider {
+    border-top: 1px dashed #ccc;
+    margin: var(--space-md) 0;
+}
+
+.preview-item {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 4px;
+}
+
+.preview-total {
+    display: flex;
+    justify-content: space-between;
+    font-weight: bold;
+    font-size: 14px;
+}
+
+.preview-footer {
+    margin-top: var(--space-lg);
+    font-size: 10px;
+    font-style: italic;
+    white-space: pre-wrap;
+}
+
+.mt-md { margin-top: var(--space-md); }
+.text-center { text-align: center; }
+
+@media (max-width: 900px) {
+    .receipt-settings-layout {
+        grid-template-columns: 1fr;
+    }
+    
+    .preview-panel {
+        order: -1;
+    }
+}
+
+/* Reusing switch styles from FinancialSettings.css or global if they were there */
+.switch {
+    position: relative;
+    display: inline-block;
+    width: 44px;
+    height: 24px;
+}
+
+.switch input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
+.slider {
+    position: absolute;
+    cursor: pointer;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: var(--color-bg-hover);
+    transition: .4s;
+    border: 1px solid var(--color-border);
+}
+
+.slider:before {
+    position: absolute;
+    content: "";
+    height: 16px;
+    width: 16px;
+    left: 3px;
+    bottom: 3px;
+    background-color: var(--color-text-secondary);
+    transition: .4s;
+}
+
+input:checked + .slider {
+    background-color: var(--color-accent);
+    border-color: var(--color-accent-dark);
+}
+
+input:checked + .slider:before {
+    transform: translateX(20px);
+    background-color: white;
+}
+
+.slider.round {
+    border-radius: 24px;
+}
+
+.slider.round:before {
+    border-radius: 50%;
+}

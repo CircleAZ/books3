@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { NavLink } from 'react-router-dom';
 import './NavigationDrawer.css';
 
@@ -12,17 +12,28 @@ const menuSections = [
     {
         id: 'orders',
         label: 'Orders',
+        path: '/orders',
         icon: 'shopping-cart',
         children: [
             { label: 'Create New Order', path: '/orders/new' },
             { label: 'View Orders', path: '/orders' },
-            { label: 'Manage Returns/Refunds', path: '/orders/returns' },
             { label: 'Sales Reports', path: '/reports/sales' },
+        ],
+    },
+    {
+        id: 'returns',
+        label: 'Returns & Refunds',
+        path: '/returns',
+        icon: 'rotate-ccw',
+        children: [
+            { label: 'All Returns', path: '/returns' },
+            { label: 'New Return', path: '/returns/new' },
         ],
     },
     {
         id: 'inventory',
         label: 'Inventory Management',
+        path: '/inventory',
         icon: 'package',
         children: [
             { label: 'Product List', path: '/inventory' },
@@ -37,6 +48,7 @@ const menuSections = [
     {
         id: 'customers',
         label: 'Customer Management',
+        path: '/customers',
         icon: 'users',
         children: [
             { label: 'Customer List', path: '/customers' },
@@ -46,14 +58,42 @@ const menuSections = [
         ],
     },
     {
+        id: 'finance',
+        label: 'Finance & Accounting',
+        path: '/finance',
+        icon: 'dollar-sign',
+        children: [
+            { label: 'Finance Overview', path: '/finance' },
+            { label: 'Financial Dashboard', path: '/finance/dashboard' },
+            { label: 'Expense List', path: '/finance/expenses' },
+            { label: 'Add Expense', path: '/finance/expenses/add' },
+            { label: 'Expense Categories', path: '/finance/categories' },
+            { label: 'Profit & Loss', path: '/reports/profit-loss' },
+        ],
+    },
+    {
+        id: 'messaging',
+        label: 'Messaging & Notifications',
+        path: '/messaging',
+        icon: 'mail',
+        children: [
+            { label: 'Messaging Overview', path: '/messaging' },
+            { label: 'Gateway Management', path: '/messaging/gateways' },
+            { label: 'Message Queue', path: '/messaging/queue' },
+            { label: 'Message Templates', path: '/messaging/templates' },
+        ],
+    },
+    {
         id: 'reports',
         label: 'Reporting & Analytics',
+        path: '/reports/sales',
         icon: 'bar-chart',
         children: [
             { label: 'Sales Reports', path: '/reports/sales' },
             { label: 'Inventory Reports', path: '/reports/inventory' },
             { label: 'Customer Reports', path: '/reports/customers' },
             { label: 'Profit & Loss', path: '/reports/profit-loss' },
+            { label: 'Activity Log', path: '/reports/activity' },
             { label: 'Export Data', path: '/reports/export' },
         ],
     },
@@ -61,15 +101,19 @@ const menuSections = [
     {
         id: 'settings',
         label: 'Settings & Configuration',
+        path: '/settings',
         icon: 'settings',
         children: [
             { label: 'Store Details', path: '/settings/store' },
-            { label: 'User Management', path: '/settings/users' },
+            { label: 'Employee Management', path: '/settings/employees' },
+            { label: 'Roles & Permissions', path: '/settings/roles' },
+            { label: 'Financial Settings', path: '/settings/finance' },
             { label: 'Payment Methods', path: '/settings/payments' },
-            { label: 'Receipt Customization', path: '/settings/receipts' },
+            { label: 'Receipt Customization', path: '/settings/receipt' },
             { label: 'Notification Preferences', path: '/settings/notifications' },
             { label: 'Integrations', path: '/settings/integrations' },
             { label: 'Data Management', path: '/settings/data' },
+            { label: 'System Information', path: '/settings/system' },
         ],
     },
 ];
@@ -80,45 +124,69 @@ const icons = {
     'package': <><path d="M16.5 9.4l-9-5.19M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" /><polyline points="3.27,6.96 12,12.01 20.73,6.96" /><line x1="12" y1="22.08" x2="12" y2="12" /></>,
     'users': <><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75" /></>,
     'bar-chart': <><line x1="18" y1="20" x2="18" y2="10" /><line x1="12" y1="20" x2="12" y2="4" /><line x1="6" y1="20" x2="6" y2="14" /></>,
+    'rotate-ccw': <><polyline points="1 4 1 10 7 10" /><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10" /></>,
     'settings': <><circle cx="12" cy="12" r="3" /><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" /></>,
+    'dollar-sign': <><line x1="12" y1="1" x2="12" y2="23" /><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" /></>,
+    'mail': <><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" /><polyline points="22,6 12,13 2,6" /></>,
 };
 
+// F6: SVGs are decorative — mark them aria-hidden
 function Icon({ name }) {
     return (
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false">
             {icons[name]}
         </svg>
     );
 }
 
-function MenuItem({ item, onNavigate }) {
+function MenuItem({ item, onNavigate, isMini }) {
     const [expanded, setExpanded] = useState(false);
 
     if (item.type === 'separator') {
-        return <div className="menu-separator" />;
+        return <div className="menu-separator" role="separator" />;
     }
 
     if (item.children) {
+        // Mini mode: render as a NavLink that navigates to the group's primary page
+        if (isMini && item.path) {
+            return (
+                <NavLink
+                    to={item.path}
+                    className={({ isActive }) => `menu-item ${isActive ? 'active' : ''}`}
+                    onClick={onNavigate}
+                    aria-label={item.label}
+                >
+                    <Icon name={item.icon} />
+                </NavLink>
+            );
+        }
+
         return (
             <div className={`menu-group ${expanded ? 'expanded' : ''}`}>
-                <button className="menu-group-header" onClick={() => setExpanded(!expanded)}>
+                <button
+                    className="menu-group-header"
+                    onClick={() => setExpanded(!expanded)}
+                    aria-expanded={expanded}
+                >
                     <Icon name={item.icon} />
                     <span className="menu-label">{item.label}</span>
-                    <svg className="chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <svg className="chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true" focusable="false">
                         <polyline points="6,9 12,15 18,9" />
                     </svg>
                 </button>
-                <div className="menu-children">
-                    {item.children.map(child => (
-                        <NavLink
-                            key={child.path}
-                            to={child.path}
-                            className={({ isActive }) => `menu-child ${isActive ? 'active' : ''}`}
-                            onClick={onNavigate}
-                        >
-                            {child.label}
-                        </NavLink>
-                    ))}
+                <div className="menu-children" role="region" aria-label={`${item.label} submenu`}>
+                    <div className="menu-children-inner">
+                        {item.children.map(child => (
+                            <NavLink
+                                key={child.path}
+                                to={child.path}
+                                className={({ isActive }) => `menu-child ${isActive ? 'active' : ''}`}
+                                onClick={onNavigate}
+                            >
+                                {child.label}
+                            </NavLink>
+                        ))}
+                    </div>
                 </div>
             </div>
         );
@@ -130,34 +198,116 @@ function MenuItem({ item, onNavigate }) {
             className={({ isActive }) => `menu-item ${isActive ? 'active' : ''}`}
             onClick={onNavigate}
             end
+            aria-label={isMini ? item.label : undefined}
         >
             <Icon name={item.icon} />
-            <span className="menu-label">{item.label}</span>
+            {!isMini && <span className="menu-label">{item.label}</span>}
         </NavLink>
     );
 }
 
-export default function NavigationDrawer({ isOpen, onClose }) {
+export default function NavigationDrawer({ drawerMode, overlayOpen, onClose, onMenuClick, hamburgerRef, hamburgerLabel }) {
+    const drawerRef = useRef(null);
+
+    // Determine the CSS classes for the drawer
+    const isPersistent = drawerMode === 'full' || drawerMode === 'mini';
+    const isMini = drawerMode === 'mini' && !overlayOpen;
+
+    let drawerClasses = 'navigation-drawer';
+    if (isPersistent) drawerClasses += ' persistent';
+    if (isMini) drawerClasses += ' mini';
+    if (isPersistent || overlayOpen) drawerClasses += ' open';
+
+    // F4: Focus trap for overlay mode
+    useEffect(() => {
+        if (!overlayOpen || !drawerRef.current) return;
+
+        const drawer = drawerRef.current;
+        const focusableSelector = 'a[href], button:not([disabled]), [tabindex]:not([tabindex="-1"])';
+
+        // Move focus into the drawer when overlay opens
+        const firstFocusable = drawer.querySelector(focusableSelector);
+        if (firstFocusable) {
+            // Small delay for CSS transition to complete
+            requestAnimationFrame(() => firstFocusable.focus());
+        }
+
+        function trapFocus(e) {
+            if (e.key !== 'Tab') return;
+
+            const focusables = drawer.querySelectorAll(focusableSelector);
+            if (focusables.length === 0) return;
+
+            const first = focusables[0];
+            const last = focusables[focusables.length - 1];
+
+            if (e.shiftKey) {
+                if (document.activeElement === first) {
+                    e.preventDefault();
+                    last.focus();
+                }
+            } else {
+                if (document.activeElement === last) {
+                    e.preventDefault();
+                    first.focus();
+                }
+            }
+        }
+
+        drawer.addEventListener('keydown', trapFocus);
+        return () => drawer.removeEventListener('keydown', trapFocus);
+    }, [overlayOpen]);
+
     return (
         <>
-            {isOpen && <div className="drawer-overlay" onClick={onClose} />}
-            <aside className={`navigation-drawer ${isOpen ? 'open' : ''}`}>
+            {/* Overlay backdrop — click to close */}
+            {overlayOpen && (
+                <div
+                    className="drawer-overlay"
+                    onClick={onClose}
+                    aria-hidden="true"
+                />
+            )}
+
+            {/* F1: aria-label on <aside> landmark */}
+            <aside
+                ref={drawerRef}
+                className={drawerClasses}
+                aria-label="Main navigation sidebar"
+                aria-hidden={!isPersistent && !overlayOpen ? true : undefined}
+            >
                 <div className="drawer-header">
-                    <NavLink to="/" className="drawer-logo" onClick={onClose}>
-                        <div className="logo-icon">AZ</div>
-                        <span className="logo-text">AZ Books</span>
-                    </NavLink>
+                    {/* Hamburger lives in sidebar — stays fixed like YouTube Music */}
+                    <button
+                        ref={hamburgerRef}
+                        className="icon-btn hamburger-btn"
+                        onClick={onMenuClick}
+                        aria-label={hamburgerLabel}
+                    >
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true" focusable="false">
+                            <path d="M3 12h18M3 6h18M3 18h18" />
+                        </svg>
+                    </button>
+                    {!isMini && (
+                        <NavLink to="/" className="drawer-logo" onClick={onClose}>
+                            <div className="logo-icon" aria-hidden="true">AZ</div>
+                            <span className="logo-text">AZ Books</span>
+                        </NavLink>
+                    )}
                 </div>
 
-                <nav className="drawer-nav">
+                {/* F2: aria-label on <nav> to distinguish from BottomNavBar */}
+                <nav className="drawer-nav" aria-label="Sidebar navigation">
                     {menuSections.map((item, idx) => (
-                        <MenuItem key={item.id || idx} item={item} onNavigate={onClose} />
+                        <MenuItem key={item.id || idx} item={item} onNavigate={onClose} isMini={isMini} />
                     ))}
                 </nav>
 
-                <div className="drawer-footer">
-                    <p className="version-text">v1.0.0</p>
-                </div>
+                {!isMini && (
+                    <div className="drawer-footer">
+                        <p className="version-text">v1.0.0</p>
+                    </div>
+                )}
             </aside>
         </>
     );

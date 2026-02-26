@@ -1,0 +1,104 @@
+.settings-container {
+    padding: var(--space-lg);
+    max-width: 1400px;
+    margin: 0 auto;
+}
+
+.settings-header {
+    margin-bottom: var(--space-xl);
+}
+
+.settings-layout {
+    display: grid;
+    grid-template-columns: 250px 1fr;
+    gap: var(--space-xl);
+    align-items: start;
+}
+
+.settings-sidebar {
+    background: var(--color-bg-secondary);
+    border: 1px solid var(--color-border-light);
+    border-radius: var(--radius-lg);
+    padding: var(--space-md);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-xs);
+}
+
+.settings-nav-item {
+    padding: var(--space-md);
+    text-align: left;
+    border-radius: var(--radius-md);
+    color: var(--color-text-secondary);
+    font-weight: 500;
+    transition: all var(--transition-fast);
+}
+
+.settings-nav-item:hover {
+    background: var(--color-bg-hover);
+    color: var(--color-text-primary);
+}
+
+.settings-nav-item.active {
+    background: var(--color-primary);
+    color: white;
+}
+
+.settings-content {
+    background: var(--color-bg-secondary);
+    border: 1px solid var(--color-border-light);
+    border-radius: var(--radius-lg);
+    padding: var(--space-lg);
+    min-height: 500px;
+}
+
+/* Common Styles for Sub-components */
+.manager-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: var(--space-lg);
+    padding-bottom: var(--space-md);
+    border-bottom: 1px solid var(--color-border-light);
+}
+
+.manager-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.manager-table th,
+.manager-table td {
+    padding: var(--space-md);
+    text-align: left;
+    border-bottom: 1px solid var(--color-border-light);
+}
+
+.manager-table th {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+    font-weight: 600;
+    text-transform: uppercase;
+}
+
+.actions-cell {
+    display: flex;
+    gap: var(--space-sm);
+    justify-content: flex-end;
+}
+
+@media (max-width: 768px) {
+    .settings-layout {
+        grid-template-columns: 1fr;
+    }
+    
+    .settings-sidebar {
+        flex-direction: row;
+        overflow-x: auto;
+        padding-bottom: var(--space-sm);
+    }
+    
+    .settings-nav-item {
+        white-space: nowrap;
+    }
+}

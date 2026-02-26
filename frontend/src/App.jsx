@@ -1,14 +1,69 @@
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import { CurrencyProvider } from './context/CurrencyContext';
+import { CartProvider } from './context/CartContext';
 import MainLayout from './components/layout/MainLayout';
 import Dashboard from './pages/Dashboard';
 import ProductList from './pages/inventory/ProductList';
 import AddProduct from './pages/inventory/AddProduct';
-import Customers from './pages/Customers';
-import Orders from './pages/Orders';
-import NewOrder from './pages/NewOrder';
+import EditProduct from './pages/inventory/EditProduct';
+import ProductDetails from './pages/inventory/ProductDetails';
+import Categories from './pages/inventory/Categories';
+import Vendors from './pages/inventory/Vendors';
+import StockControl from './pages/inventory/StockControl';
+import DeletedProducts from './pages/inventory/DeletedProducts';
+import CustomerList from './pages/customers/CustomerList';
+import AddCustomer from './pages/customers/AddCustomer';
+import CustomerDetails from './pages/customers/CustomerDetails';
+import CustomerSettings from './pages/settings/CustomerSettings';
+import SettingsIndex from './pages/settings/SettingsIndex';
+import StoreSettings from './pages/settings/StoreSettings';
+import EmployeeManagement from './pages/settings/EmployeeManagement';
+import RolesPermissions from './pages/settings/RolesPermissions';
+import FinancialSettings from './pages/settings/FinancialSettings';
+import DataManagement from './pages/settings/DataManagement';
+import SystemInfo from './pages/settings/SystemInfo';
+import ReceiptSettings from './pages/settings/ReceiptSettings';
+import PaymentSettings from './pages/settings/PaymentSettings';
+import NotificationSettings from './pages/settings/NotificationSettings';
+import IntegrationSettings from './pages/settings/IntegrationSettings';
+import OrderList from './pages/orders/OrderList';
+import OrderDetails from './pages/orders/OrderDetails';
+import NewOrder from './pages/orders/NewOrder';
+import EditOrder from './pages/orders/EditOrder';
+import OrderReceipt from './pages/orders/OrderReceipt';
+import ReturnsList from './pages/returns/ReturnsList';
+import InitiateReturn from './pages/returns/InitiateReturn';
+import ReturnDetails from './pages/returns/ReturnDetails';
+import ReportsIndex from './pages/reports/ReportsIndex';
+import SalesReports from './pages/reports/SalesReports';
+import InventoryReports from './pages/reports/InventoryReports';
+import CustomerReports from './pages/reports/CustomerReports';
+import DataExport from './pages/reports/DataExport';
+import ActivityLog from './pages/reports/ActivityLog';
 import Login from './pages/Login';
 import Profile from './pages/Profile';
+import FinanceIndex from './pages/finance/FinanceIndex';
+import FinancialDashboard from './pages/finance/FinancialDashboard';
+import ExpenseList from './pages/finance/ExpenseList';
+import AddExpense from './pages/finance/AddExpense';
+import ExpenseDetails from './pages/finance/ExpenseDetails';
+import ExpenseCategories from './pages/finance/ExpenseCategories';
+import EmployeeExpenses from './pages/finance/EmployeeExpenses';
+import EmployeeSalaries from './pages/finance/EmployeeSalaries';
+import BankAccounts from './pages/finance/BankAccounts';
+import BankTransactions from './pages/finance/BankTransactions';
+import RecordTransaction from './pages/finance/RecordTransaction';
+import FinancialReports from './pages/finance/FinancialReports';
+import ProfitLossReport from './pages/finance/ProfitLossReport';
+import CashFlowReport from './pages/finance/CashFlowReport';
+import BalanceSheet from './pages/finance/BalanceSheet';
+import TaxReport from './pages/finance/TaxReport';
+import MessagingIndex from './pages/messaging/MessagingIndex';
+import GatewayManagement from './pages/messaging/GatewayManagement';
+import MessageQueue from './pages/messaging/MessageQueue';
+import MessageTemplates from './pages/messaging/MessageTemplates';
+import PublicReceipt from './pages/public/PublicReceipt';
 import './index.css';
 
 // Protected Route wrapper
@@ -48,6 +103,7 @@ function AppRoutes() {
     <Routes>
       {/* Public routes */}
       <Route path="/login" element={<Login />} />
+      <Route path="/r/:uuid" element={<PublicReceipt />} />
 
       {/* Protected routes */}
       <Route path="/" element={
@@ -65,14 +121,67 @@ function AppRoutes() {
           <MainLayout><AddProduct /></MainLayout>
         </ProtectedRoute>
       } />
-      <Route path="/customers" element={
+      <Route path="/inventory/categories" element={
         <ProtectedRoute>
-          <MainLayout><Customers /></MainLayout>
+          <MainLayout><Categories /></MainLayout>
         </ProtectedRoute>
       } />
+      <Route path="/inventory/vendors" element={
+        <ProtectedRoute>
+          <MainLayout><Vendors /></MainLayout>
+        </ProtectedRoute>
+      } />
+      <Route path="/inventory/stock" element={
+        <ProtectedRoute>
+          <MainLayout><StockControl /></MainLayout>
+        </ProtectedRoute>
+      } />
+      <Route path="/inventory/product/:id" element={
+        <ProtectedRoute>
+          <MainLayout><ProductDetails /></MainLayout>
+        </ProtectedRoute>
+      } />
+      <Route path="/inventory/edit/:id" element={
+        <ProtectedRoute>
+          <MainLayout><EditProduct /></MainLayout>
+        </ProtectedRoute>
+      } />
+
+      {/* Customer routes */}
+      <Route path="/customers" element={
+        <ProtectedRoute>
+          <MainLayout><CustomerList /></MainLayout>
+        </ProtectedRoute>
+      } />
+      <Route path="/customers/add" element={
+        <ProtectedRoute>
+          <MainLayout><AddCustomer /></MainLayout>
+        </ProtectedRoute>
+      } />
+      <Route path="/customers/settings" element={
+        <ProtectedRoute>
+          <MainLayout><CustomerSettings /></MainLayout>
+        </ProtectedRoute>
+      } />
+      <Route path="/customers/:id" element={
+        <ProtectedRoute>
+          <MainLayout><CustomerDetails /></MainLayout>
+        </ProtectedRoute>
+      } />
+      <Route path="/customers/:id/edit" element={
+        <ProtectedRoute>
+          <MainLayout><AddCustomer /></MainLayout>
+        </ProtectedRoute>
+      } />
+
       <Route path="/orders" element={
         <ProtectedRoute>
-          <MainLayout><Orders /></MainLayout>
+          <MainLayout><OrderList /></MainLayout>
+        </ProtectedRoute>
+      } />
+      <Route path="/orders/:id" element={
+        <ProtectedRoute>
+          <MainLayout><OrderDetails /></MainLayout>
         </ProtectedRoute>
       } />
       <Route path="/orders/new" element={
@@ -80,9 +189,182 @@ function AppRoutes() {
           <MainLayout><NewOrder /></MainLayout>
         </ProtectedRoute>
       } />
+      <Route path="/orders/:id/edit" element={
+        <ProtectedRoute>
+          <MainLayout><EditOrder /></MainLayout>
+        </ProtectedRoute>
+      } />
+      <Route path="/orders/:id/receipt" element={
+        <ProtectedRoute>
+          <OrderReceipt />
+        </ProtectedRoute>
+      } />
+      <Route path="/returns" element={
+        <ProtectedRoute>
+          <MainLayout><ReturnsList /></MainLayout>
+        </ProtectedRoute>
+      } />
+      <Route path="/returns/new" element={
+        <ProtectedRoute>
+          <MainLayout><InitiateReturn /></MainLayout>
+        </ProtectedRoute>
+      } />
+      <Route path="/returns/:id" element={
+        <ProtectedRoute>
+          <MainLayout><ReturnDetails /></MainLayout>
+        </ProtectedRoute>
+      } />
+
+      {/* Finance Routes */}
+      <Route path="/finance" element={
+        <ProtectedRoute>
+          <MainLayout><FinanceIndex /></MainLayout>
+        </ProtectedRoute>
+      } />
+      <Route path="/finance/dashboard" element={
+        <ProtectedRoute>
+          <MainLayout><FinancialDashboard /></MainLayout>
+        </ProtectedRoute>
+      } />
+      <Route path="/finance/expenses" element={
+        <ProtectedRoute>
+          <MainLayout><ExpenseList /></MainLayout>
+        </ProtectedRoute>
+      } />
+      <Route path="/finance/expenses/add" element={
+        <ProtectedRoute>
+          <MainLayout><AddExpense /></MainLayout>
+        </ProtectedRoute>
+      } />
+      <Route path="/finance/expenses/:id" element={
+        <ProtectedRoute>
+          <MainLayout><ExpenseDetails /></MainLayout>
+        </ProtectedRoute>
+      } />
+      <Route path="/finance/categories" element={
+        <ProtectedRoute>
+          <MainLayout><ExpenseCategories /></MainLayout>
+        </ProtectedRoute>
+      } />
+      <Route path="/finance/employee-expenses" element={
+        <ProtectedRoute>
+          <MainLayout><EmployeeExpenses /></MainLayout>
+        </ProtectedRoute>
+      } />
+      <Route path="/finance/salaries" element={
+        <ProtectedRoute>
+          <MainLayout><EmployeeSalaries /></MainLayout>
+        </ProtectedRoute>
+      } />
+      <Route path="/finance/reports" element={
+        <ProtectedRoute>
+          <MainLayout><FinancialReports /></MainLayout>
+        </ProtectedRoute>
+      } />
+      <Route path="/finance/reports/profit-loss" element={
+        <ProtectedRoute>
+          <MainLayout><ProfitLossReport /></MainLayout>
+        </ProtectedRoute>
+      } />
+      <Route path="/finance/reports/balance-sheet" element={
+        <ProtectedRoute>
+          <MainLayout><BalanceSheet /></MainLayout>
+        </ProtectedRoute>
+      } />
+      <Route path="/finance/reports/cash-flow" element={
+        <ProtectedRoute>
+          <MainLayout><CashFlowReport /></MainLayout>
+        </ProtectedRoute>
+      } />
+      <Route path="/finance/reports/expenses" element={
+        <ProtectedRoute>
+          <MainLayout><PlaceholderPage title="Expense Report" phase="Phase 13" /></MainLayout>
+        </ProtectedRoute>
+      } />
+      <Route path="/finance/reports/sales-tax" element={
+        <ProtectedRoute>
+          <MainLayout><TaxReport /></MainLayout>
+        </ProtectedRoute>
+      } />
+      <Route path="/finance/banking" element={
+        <ProtectedRoute>
+          <MainLayout><BankAccounts /></MainLayout>
+        </ProtectedRoute>
+      } />
+      <Route path="/finance/banking/transactions" element={
+        <ProtectedRoute>
+          <MainLayout><BankTransactions /></MainLayout>
+        </ProtectedRoute>
+      } />
+      <Route path="/finance/banking/record" element={
+        <ProtectedRoute>
+          <MainLayout><RecordTransaction /></MainLayout>
+        </ProtectedRoute>
+      } />
+
       <Route path="/account/profile" element={
         <ProtectedRoute>
           <MainLayout><Profile /></MainLayout>
+        </ProtectedRoute>
+      } />
+
+      {/* Messaging Routes */}
+      <Route path="/messaging" element={
+        <ProtectedRoute>
+          <MainLayout><MessagingIndex /></MainLayout>
+        </ProtectedRoute>
+      } />
+      <Route path="/messaging/gateways" element={
+        <ProtectedRoute>
+          <MainLayout><GatewayManagement /></MainLayout>
+        </ProtectedRoute>
+      } />
+      <Route path="/messaging/queue" element={
+        <ProtectedRoute>
+          <MainLayout><MessageQueue /></MainLayout>
+        </ProtectedRoute>
+      } />
+      <Route path="/messaging/templates" element={
+        <ProtectedRoute>
+          <MainLayout><MessageTemplates /></MainLayout>
+        </ProtectedRoute>
+      } />
+
+      {/* Reports Routes */}
+      <Route path="/reports" element={
+        <ProtectedRoute>
+          <MainLayout><ReportsIndex /></MainLayout>
+        </ProtectedRoute>
+      } />
+      <Route path="/reports/sales" element={
+        <ProtectedRoute>
+          <MainLayout><SalesReports /></MainLayout>
+        </ProtectedRoute>
+      } />
+      <Route path="/reports/inventory" element={
+        <ProtectedRoute>
+          <MainLayout><InventoryReports /></MainLayout>
+        </ProtectedRoute>
+      } />
+      <Route path="/reports/customers" element={
+        <ProtectedRoute>
+          <MainLayout><CustomerReports /></MainLayout>
+        </ProtectedRoute>
+      } />
+      <Route path="/reports/export" element={
+        <ProtectedRoute>
+          <MainLayout><DataExport /></MainLayout>
+        </ProtectedRoute>
+      } />
+      <Route path="/reports/activity" element={
+        <ProtectedRoute>
+          <MainLayout><ActivityLog /></MainLayout>
+        </ProtectedRoute>
+      } />
+
+      <Route path="/inventory/deleted" element={
+        <ProtectedRoute>
+          <MainLayout><DeletedProducts /></MainLayout>
         </ProtectedRoute>
       } />
 
@@ -92,19 +374,78 @@ function AppRoutes() {
           <MainLayout><PlaceholderPage title="Inventory" phase="Phase 5" /></MainLayout>
         </ProtectedRoute>
       } />
-      <Route path="/customers/*" element={
+
+      {/* Settings Routes */}
+      <Route path="/settings" element={
         <ProtectedRoute>
-          <MainLayout><PlaceholderPage title="Customers" phase="Phase 7" /></MainLayout>
+          <MainLayout><SettingsIndex /></MainLayout>
         </ProtectedRoute>
       } />
-      <Route path="/orders/*" element={
+      <Route path="/settings/store" element={
         <ProtectedRoute>
-          <MainLayout><PlaceholderPage title="Orders" phase="Phase 9" /></MainLayout>
+          <MainLayout><StoreSettings /></MainLayout>
         </ProtectedRoute>
       } />
-      <Route path="/reports/*" element={
+      <Route path="/settings/employees" element={
         <ProtectedRoute>
-          <MainLayout><PlaceholderPage title="Reports" phase="Phase 12" /></MainLayout>
+          <MainLayout><EmployeeManagement /></MainLayout>
+        </ProtectedRoute>
+      } />
+      <Route path="/settings/roles" element={
+        <ProtectedRoute>
+          <MainLayout><RolesPermissions /></MainLayout>
+        </ProtectedRoute>
+      } />
+      <Route path="/settings/finance" element={
+        <ProtectedRoute>
+          <MainLayout><FinancialSettings /></MainLayout>
+        </ProtectedRoute>
+      } />
+      <Route path="/settings/data" element={
+        <ProtectedRoute>
+          <MainLayout><DataManagement /></MainLayout>
+        </ProtectedRoute>
+      } />
+      <Route path="/settings/info" element={
+        <ProtectedRoute>
+          <MainLayout><SystemInfo /></MainLayout>
+        </ProtectedRoute>
+      } />
+
+      <Route path="/settings/customers" element={
+        <ProtectedRoute>
+          <MainLayout><CustomerSettings /></MainLayout>
+        </ProtectedRoute>
+      } />
+      <Route path="/settings/financial" element={
+        <ProtectedRoute>
+          <MainLayout><FinancialSettings /></MainLayout>
+        </ProtectedRoute>
+      } />
+      <Route path="/settings/receipt" element={
+        <ProtectedRoute>
+          <MainLayout><ReceiptSettings /></MainLayout>
+        </ProtectedRoute>
+      } />
+      <Route path="/settings/payments" element={
+        <ProtectedRoute>
+          <MainLayout><PaymentSettings /></MainLayout>
+        </ProtectedRoute>
+      } />
+      <Route path="/settings/notifications" element={
+        <ProtectedRoute>
+          <MainLayout><NotificationSettings /></MainLayout>
+        </ProtectedRoute>
+      } />
+      <Route path="/settings/integrations" element={
+        <ProtectedRoute>
+          <MainLayout><IntegrationSettings /></MainLayout>
+        </ProtectedRoute>
+      } />
+
+      <Route path="/settings/system" element={
+        <ProtectedRoute>
+          <MainLayout><SystemInfo /></MainLayout>
         </ProtectedRoute>
       } />
       <Route path="/settings/*" element={
@@ -125,7 +466,11 @@ export default function App() {
   return (
     <BrowserRouter>
       <AuthProvider>
-        <AppRoutes />
+        <CurrencyProvider>
+          <CartProvider>
+            <AppRoutes />
+          </CartProvider>
+        </CurrencyProvider>
       </AuthProvider>
     </BrowserRouter>
   );

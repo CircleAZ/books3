@@ -1,16 +1,42 @@
 from rest_framework import serializers
-from .models import Category, Vendor, Tag, Product, ProductImage
+from .models import Category, Vendor, Tag, Product, ProductImage, StockAdjustment, StockHistory
 
 class CategorySerializer(serializers.ModelSerializer):
+    product_count = serializers.IntegerField(read_only=True)
+
     class Meta:
         model = Category
-        fields = ['id', 'name', 'description', 'display_id']
+        fields = ['id', 'name', 'description', 'display_id', 'product_count']
         read_only_fields = ['display_id']
 
 class VendorSerializer(serializers.ModelSerializer):
+    product_count = serializers.IntegerField(read_only=True)
+
     class Meta:
         model = Vendor
-        fields = ['id', 'name', 'description', 'contact_email', 'contact_phone']
+        fields = [
+            'id', 'name', 'description', 
+            'contact_name', 'contact_email', 'contact_phone', 
+            'address', 'notes', 'product_count'
+        ]
+
+class StockAdjustmentSerializer(serializers.ModelSerializer):
+    product_name = serializers.CharField(source='product.name', read_only=True)
+
+    class Meta:
+        model = StockAdjustment
+        fields = [
+            'id', 'product', 'product_name', 'adjustment_type', 
+            'quantity', 'unit_cost', 'reason', 'notes', 'created_by', 'created_at'
+        ]
+        read_only_fields = ['created_by', 'created_at']
+
+    def create(self, validated_data):
+        # Ensure created_by is set from context if available
+        request = self.context.get('request')
+        if request and hasattr(request, 'user'):
+            validated_data['created_by'] = request.user
+        return super().create(validated_data)
 
 class TagSerializer(serializers.ModelSerializer):
     class Meta:
@@ -33,24 +59,27 @@ class ProductListSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'display_id', 'name', 'category_name', 'vendor_name',
             'cost_price', 'selling_price', 'stock_quantity',
-            'low_stock_threshold', 'primary_image_url', 'is_low_stock'
+            'low_stock_threshold', 'primary_image_url', 'is_low_stock',
+            'deleted_at'
         ]
         read_only_fields = ['display_id']
 
     def get_primary_image_url(self, obj):
-        image = obj.images.filter(is_primary=True).first()
-        if image:
-            try:
-                return image.image.url
-            except ValueError:
-                return None
-        first_image = obj.images.first()
-        if first_image:
-             try:
-                return first_image.image.url
-             except ValueError:
-                return None
-        return None
+        # Use .all() to leverage prefetch_related cache
+        images = list(obj.images.all())
+        if not images:
+            return None
+            
+        # Find primary image in python
+        primary = next((img for img in images if img.is_primary), None)
+        
+        # Fallback to first image
+        target_image = primary if primary else images[0]
+        
+        try:
+            return target_image.image.url
+        except ValueError:
+            return None
 
     def get_is_low_stock(self, obj):
         return obj.stock_quantity <= obj.low_stock_threshold
@@ -81,10 +110,33 @@ class ProductCreateUpdateSerializer(serializers.ModelSerializer):
     class Meta:
         model = Product
         fields = [
-            'name', 'description', 'category', 'vendor', 'tags',
+            'id', 'display_id', 'name', 'description', 'category', 'vendor', 'tags',
             'cost_price', 'selling_price', 'stock_quantity', 'low_stock_threshold',
             'is_additional', 'images'
         ]
+        read_only_fields = ['id', 'display_id']
+    
+    def validate_name(self, value):
+        """Sanitize name to prevent XSS."""
+        from django.utils.html import strip_tags
+        return strip_tags(value).strip() if value else value
+    
+    def validate_description(self, value):
+        """Sanitize description to prevent XSS."""
+        from django.utils.html import strip_tags
+        return strip_tags(value) if value else value
+    
+    def validate_selling_price(self, value):
+        """Prevent negative prices."""
+        if value is not None and value < 0:
+            raise serializers.ValidationError("Price cannot be negative")
+        return value
+    
+    def validate_cost_price(self, value):
+        """Prevent negative costs."""
+        if value is not None and value < 0:
+            raise serializers.ValidationError("Cost price cannot be negative")
+        return value
 
     def create(self, validated_data):
         tags_data = validated_data.pop('tags', [])
@@ -104,3 +156,45 @@ class ProductCreateUpdateSerializer(serializers.ModelSerializer):
             )
 
         return product
+
+    def update(self, instance, validated_data):
+        tags_data = validated_data.pop('tags', None)
+        images_data = validated_data.pop('images', None)
+
+        # Update scalar fields
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+        instance.save()
+
+        # Update tags if provided (clear and re-add)
+        if tags_data is not None:
+            instance.tags.clear()
+            for tag_name in tags_data:
+                tag, _ = Tag.objects.get_or_create(name=tag_name)
+                instance.tags.add(tag)
+
+        # Update images if provided (replace all)
+        if images_data is not None:
+            instance.images.all().delete()
+            for i, image_data in enumerate(images_data):
+                ProductImage.objects.create(
+                    product=instance,
+                    image=image_data,
+                    is_primary=(i == 0)
+                )
+
+        return instance
+
+
+class StockHistorySerializer(serializers.ModelSerializer):
+    product_name = serializers.CharField(source='product.name', read_only=True)
+    created_by_name = serializers.CharField(source='created_by.username', read_only=True)
+
+    class Meta:
+        model = StockHistory
+        fields = [
+            'id', 'product', 'product_name', 'quantity_change', 
+            'quantity_after', 'cost_at_time', 'reason', 
+            'notes', 'created_by', 'created_by_name', 'created_at'
+        ]
+        read_only_fields = ['quantity_after', 'cost_at_time', 'created_by']

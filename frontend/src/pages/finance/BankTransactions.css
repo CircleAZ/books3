@@ -1,0 +1,116 @@
+.transactions-container {
+    padding: 2rem;
+    max-width: 1400px;
+    margin: 0 auto;
+}
+
+.transactions-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 2rem;
+}
+
+.transactions-title {
+    font-size: 2rem;
+    font-weight: 700;
+    margin: 0;
+    background: linear-gradient(135deg, #fff 0%, #a5a5a5 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+
+.transactions-subtitle {
+    color: var(--color-text-muted);
+    margin: 0.5rem 0 0 0;
+}
+
+.transactions-controls {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 1.5rem;
+    padding: 1.5rem;
+    margin-bottom: 2rem;
+    align-items: flex-end;
+}
+
+.transactions-table-container {
+    padding: 0;
+    overflow: hidden;
+    position: relative;
+    min-height: 400px;
+}
+
+.transactions-table {
+    width: 100%;
+    border-collapse: collapse;
+    text-align: left;
+}
+
+.transactions-table th {
+    padding: 1.2rem 1.5rem;
+    background: rgba(255, 255, 255, 0.03);
+    color: var(--color-text-muted);
+    font-weight: 600;
+    font-size: 0.9rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.transactions-table td {
+    padding: 1.2rem 1.5rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    font-size: 0.95rem;
+}
+
+.type-badge {
+    padding: 0.2rem 0.6rem;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    border: 1px solid transparent;
+}
+
+.amount-cell {
+    font-weight: 600;
+}
+
+.tx-desc {
+    display: flex;
+    flex-direction: column;
+}
+
+.tx-ref {
+    font-size: 0.75rem;
+    color: var(--color-text-muted);
+}
+
+.status-badge {
+    padding: 0.4rem 0.8rem;
+    border-radius: 20px;
+    font-size: 0.75rem;
+    font-weight: 600;
+}
+
+.status-badge.reconciled {
+    background: rgba(22, 163, 74, 0.1);
+    color: #4ade80;
+}
+
+.status-badge.pending {
+    background: rgba(234, 179, 8, 0.1);
+    color: #facc15;
+}
+
+@media (max-width: 1024px) {
+    .transactions-controls {
+        grid-template-columns: repeat(3, 1fr);
+    }
+}
+
+@media (max-width: 768px) {
+    .transactions-controls {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}

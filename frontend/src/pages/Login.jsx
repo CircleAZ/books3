@@ -102,7 +102,7 @@ export default function Login() {
                 </form>
 
                 <div className="login-footer">
-                    <p>Demo: admin / admin123</p>
+                    <p>Demo: admin / admin</p>
                 </div>
             </div>
         </div>

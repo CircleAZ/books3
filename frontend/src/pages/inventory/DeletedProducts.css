@@ -1,0 +1,203 @@
+/* Deleted Products Page */
+.deleted-products-container {
+    padding: var(--space-lg);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-lg);
+    height: 100%;
+}
+
+.deleted-products-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: var(--space-md);
+}
+
+.deleted-products-header h2 {
+    margin: 0;
+    color: var(--color-text-primary);
+}
+
+.deleted-count {
+    color: var(--color-text-muted);
+    font-size: var(--font-size-sm);
+}
+
+/* Empty state */
+.deleted-empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: var(--space-xxl) var(--space-lg);
+    text-align: center;
+    color: var(--color-text-muted);
+    gap: var(--space-md);
+}
+
+.deleted-empty-state .empty-icon {
+    font-size: 3rem;
+    opacity: 0.5;
+}
+
+.deleted-empty-state p {
+    margin: 0;
+    max-width: 360px;
+}
+
+/* Action buttons */
+.deleted-actions {
+    display: flex;
+    gap: var(--space-xs);
+}
+
+.btn-restore {
+    background-color: rgba(34, 197, 94, 0.1);
+    color: var(--color-success);
+    border: 1px solid rgba(34, 197, 94, 0.2);
+    padding: var(--space-xs) var(--space-sm);
+    border-radius: var(--radius-md);
+    cursor: pointer;
+    font-size: var(--font-size-sm);
+    font-weight: 500;
+    transition: all 0.15s ease;
+}
+
+.btn-restore:hover {
+    background-color: rgba(34, 197, 94, 0.2);
+    border-color: rgba(34, 197, 94, 0.4);
+}
+
+.btn-destroy {
+    background-color: rgba(239, 68, 68, 0.1);
+    color: var(--color-danger);
+    border: 1px solid rgba(239, 68, 68, 0.2);
+    padding: var(--space-xs) var(--space-sm);
+    border-radius: var(--radius-md);
+    cursor: pointer;
+    font-size: var(--font-size-sm);
+    font-weight: 500;
+    transition: all 0.15s ease;
+}
+
+.btn-destroy:hover {
+    background-color: rgba(239, 68, 68, 0.2);
+    border-color: rgba(239, 68, 68, 0.4);
+}
+
+.btn-view {
+    background-color: rgba(99, 102, 241, 0.1);
+    color: var(--color-primary);
+    border: 1px solid rgba(99, 102, 241, 0.2);
+    padding: var(--space-xs) var(--space-sm);
+    border-radius: var(--radius-md);
+    cursor: pointer;
+    font-size: var(--font-size-sm);
+    font-weight: 500;
+    transition: all 0.15s ease;
+}
+
+.btn-view:hover {
+    background-color: rgba(99, 102, 241, 0.2);
+    border-color: rgba(99, 102, 241, 0.4);
+}
+
+/* Confirm modal overlay */
+.confirm-modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(4px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    padding: var(--space-md);
+}
+
+.confirm-modal {
+    background: var(--color-bg-secondary);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    padding: var(--space-xl);
+    max-width: 440px;
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-lg);
+}
+
+.confirm-modal h3 {
+    margin: 0;
+    color: var(--color-danger);
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
+}
+
+.confirm-modal p {
+    margin: 0;
+    color: var(--color-text-secondary);
+    line-height: 1.5;
+}
+
+.confirm-modal .product-name-highlight {
+    color: var(--color-text-primary);
+    font-weight: 600;
+}
+
+.confirm-modal-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: var(--space-sm);
+}
+
+/* Toast notification */
+.deleted-toast {
+    position: fixed;
+    bottom: var(--space-xl);
+    right: var(--space-xl);
+    padding: var(--space-md) var(--space-lg);
+    border-radius: var(--radius-md);
+    font-size: var(--font-size-sm);
+    font-weight: 500;
+    z-index: 1001;
+    animation: toastSlideIn 0.3s ease;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+}
+
+.deleted-toast.success {
+    background-color: rgba(34, 197, 94, 0.15);
+    color: var(--color-success);
+    border: 1px solid rgba(34, 197, 94, 0.3);
+}
+
+.deleted-toast.error {
+    background-color: rgba(239, 68, 68, 0.15);
+    color: var(--color-danger);
+    border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+@keyframes toastSlideIn {
+    from {
+        transform: translateY(20px);
+        opacity: 0;
+    }
+
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+
+@media (max-width: 768px) {
+    .deleted-products-container {
+        padding: var(--space-md);
+    }
+
+    .deleted-actions {
+        flex-direction: column;
+    }
+}

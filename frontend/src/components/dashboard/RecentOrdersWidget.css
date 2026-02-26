@@ -1,0 +1,73 @@
+.recent-orders-widget {
+    background-color: var(--card-bg);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-lg);
+    padding: var(--space-lg);
+    height: 100%;
+}
+
+.widget-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: var(--space-md);
+}
+
+.widget-header h3 {
+    margin: 0;
+    font-size: 1.1rem;
+    color: var(--text-primary);
+}
+
+.widget-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.widget-table th {
+    text-align: left;
+    padding: var(--space-sm);
+    color: var(--text-secondary);
+    font-size: 0.8rem;
+    font-weight: 500;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.widget-table td {
+    padding: var(--space-sm);
+    color: var(--text-primary);
+    font-size: 0.9rem;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.widget-table tr:last-child td {
+    border-bottom: none;
+}
+
+.empty-state {
+    text-align: center !important;
+    color: var(--text-secondary) !important;
+    padding: var(--space-lg) !important;
+}
+
+.status-badge {
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-size: 0.75rem;
+    font-weight: 600;
+}
+
+.status-badge.completed {
+    background-color: rgba(64, 205, 186, 0.15);
+    color: #40cdba;
+}
+
+.status-badge.pending {
+    background-color: rgba(255, 171, 0, 0.15);
+    color: #ffab00;
+}
+
+.status-badge.cancelled {
+    background-color: rgba(255, 82, 82, 0.15);
+    color: #ff5252;
+}

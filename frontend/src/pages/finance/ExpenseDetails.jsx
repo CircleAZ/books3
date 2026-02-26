@@ -1,0 +1,350 @@
+import { useState, useEffect, useCallback } from 'react';
+import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useAuth } from '../../context/AuthContext';
+import { useCurrency } from '../../context/CurrencyContext';
+import { ENDPOINTS } from '../../config/api';
+import './ExpenseDetails.css';
+
+export default function ExpenseDetails() {
+    const { id } = useParams();
+    const navigate = useNavigate();
+    const { fetchWithAuth } = useAuth();
+    const { currency } = useCurrency();
+
+    const [expense, setExpense] = useState(null);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState(null);
+    const [submitting, setSubmitting] = useState(false);
+
+    // Payment Form State
+    const [paymentForm, setPaymentForm] = useState({
+        date: new Date().toISOString().split('T')[0],
+        amount: '',
+        method: 'Cash',
+        reference: '',
+        notes: ''
+    });
+
+    const fetchExpenseDetails = useCallback(async () => {
+        setLoading(true);
+        try {
+            const response = await fetchWithAuth(`${ENDPOINTS.FINANCE_EXPENSES}${id}/`);
+            if (response.ok) {
+                const data = await response.json();
+                setExpense(data);
+                // Pre-fill amount with remaining balance
+                setPaymentForm(prev => ({
+                    ...prev,
+                    amount: (data.total_amount - data.paid_amount).toFixed(2)
+                }));
+            } else {
+                setError('Failed to fetch expense details');
+            }
+        } catch (err) {
+            console.error('Error:', err);
+            setError('An error occurred while fetching data');
+        } finally {
+            setLoading(false);
+        }
+    }, [id, fetchWithAuth]);
+
+    useEffect(() => {
+        fetchExpenseDetails();
+    }, [fetchExpenseDetails]);
+
+    const handleInputChange = (e) => {
+        const { name, value } = e.target;
+        setPaymentForm(prev => ({ ...prev, [name]: value }));
+    };
+
+    const handlePaymentSubmit = async (e) => {
+        e.preventDefault();
+        if (!paymentForm.amount || parseFloat(paymentForm.amount) <= 0) {
+            alert('Please enter a valid payment amount');
+            return;
+        }
+
+        setSubmitting(true);
+        try {
+            const response = await fetchWithAuth(`${ENDPOINTS.FINANCE_EXPENSES}${id}/add_payment/`, {
+                method: 'POST',
+                body: JSON.stringify(paymentForm)
+            });
+
+            if (response.ok) {
+                // Refresh data
+                await fetchExpenseDetails();
+                // Reset form but keep the date
+                setPaymentForm(prev => ({
+                    ...prev,
+                    amount: '',
+                    reference: '',
+                    notes: ''
+                }));
+                alert('Payment added successfully!');
+            } else {
+                const errorData = await response.json();
+                alert(`Failed to add payment: ${errorData.detail || 'Unknown error'}`);
+            }
+        } catch (err) {
+            console.error('Error submitting payment:', err);
+            alert('An error occurred while processing the payment');
+        } finally {
+            setSubmitting(false);
+        }
+    };
+
+    const getStatusClass = (status) => {
+        switch (status?.toLowerCase()) {
+            case 'paid': return 'status-paid';
+            case 'partial': return 'status-partial';
+            case 'unpaid': return 'status-unpaid';
+            default: return '';
+        }
+    };
+
+    if (loading) {
+        return (
+            <div className="loading-container">
+                <div className="spinner-large"></div>
+                <p>Loading expense details...</p>
+            </div>
+        );
+    }
+
+    if (error || !expense) {
+        return (
+            <div className="error-container glass-card">
+                <div className="error-icon">⚠️</div>
+                <h2>Oops!</h2>
+                <p>{error || 'Expense not found'}</p>
+                <button className="btn btn-primary" onClick={() => navigate('/finance/expenses')}>
+                    Back to Expenses
+                </button>
+            </div>
+        );
+    }
+
+    const remainingBalance = expense.total_amount - expense.paid_amount;
+
+    return (
+        <div className="expense-details-container fade-in">
+            {/* Header Section */}
+            <div className="details-header">
+                <div className="header-left">
+                    <Link to="/finance/expenses" className="back-link">
+                        ← Back to Expenses
+                    </Link>
+                    <div className="header-title-row">
+                        <h1>{expense.payee_name}</h1>
+                        <span className={`status-badge ${getStatusClass(expense.payment_status)}`}>
+                            {expense.payment_status}
+                        </span>
+                    </div>
+                    <div className="header-meta">
+                        <span>📅 {new Date(expense.date).toLocaleDateString()}</span>
+                        <span className="separator">•</span>
+                        <span>📁 {expense.category_name}</span>
+                    </div>
+                </div>
+                <div className="header-right">
+                    <button className="btn btn-outline" onClick={() => navigate(`/finance/expenses/${id}/edit`)}>
+                        ✏️ Edit Expense
+                    </button>
+                </div>
+            </div>
+
+            <div className="details-grid">
+                {/* Main Details Card */}
+                <div className="details-main">
+                    <div className="glass-card info-card">
+                        <div className="card-header">
+                            <h3>Expense Information</h3>
+                        </div>
+                        <div className="info-grid">
+                            <div className="info-item">
+                                <label>Base Amount</label>
+                                <span className="amount">{currency}{Number(expense.amount).toLocaleString()}</span>
+                            </div>
+                            <div className="info-item">
+                                <label>Tax Amount</label>
+                                <span className="amount">{currency}{Number(expense.tax_amount || 0).toLocaleString()}</span>
+                            </div>
+                            <div className="info-item highlight">
+                                <label>Total Amount</label>
+                                <span className="amount total">{currency}{Number(expense.total_amount).toLocaleString()}</span>
+                            </div>
+                            <div className="info-item">
+                                <label>Paid Amount</label>
+                                <span className="amount paid">{currency}{Number(expense.paid_amount).toLocaleString()}</span>
+                            </div>
+                            <div className="info-item">
+                                <label>Balance Due</label>
+                                <span className={`amount due ${remainingBalance > 0 ? 'warning' : ''}`}>
+                                    {currency}{Number(remainingBalance).toLocaleString()}
+                                </span>
+                            </div>
+                        </div>
+
+                        <div className="description-section">
+                            <label>Description</label>
+                            <p>{expense.description || 'No description provided.'}</p>
+                        </div>
+
+                        <div className="meta-footer">
+                            <div className="meta-item">
+                                <label>Created By</label>
+                                <span>{expense.created_by_name || 'System'}</span>
+                            </div>
+                            <div className="meta-item">
+                                <label>Created At</label>
+                                <span>{new Date(expense.created_at).toLocaleString()}</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Payment History Section */}
+                    <div className="glass-card history-card">
+                        <div className="card-header">
+                            <h3>Payment History</h3>
+                        </div>
+                        <div className="table-responsive">
+                            <table className="payment-table">
+                                <thead>
+                                    <tr>
+                                        <th>Date</th>
+                                        <th>Method</th>
+                                        <th>Reference</th>
+                                        <th>Amount</th>
+                                        <th>Balance</th>
+                                        <th>Payer</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {expense.payments && expense.payments.length > 0 ? (
+                                        expense.payments.map((payment, index) => {
+                                            // Calculate running balance
+                                            // We assume payments are in chronological order
+                                            let cumulativePaid = 0;
+                                            for (let i = 0; i <= index; i++) {
+                                                cumulativePaid += parseFloat(expense.payments[i].amount);
+                                            }
+                                            const balanceAfter = expense.total_amount - cumulativePaid;
+
+                                            return (
+                                                <tr key={payment.id || index}>
+                                                    <td>{new Date(payment.date).toLocaleDateString()}</td>
+                                                    <td>
+                                                        <span className="payment-method">{payment.method}</span>
+                                                    </td>
+                                                    <td>{payment.reference || '-'}</td>
+                                                    <td className="amount">{currency}{Number(payment.amount).toLocaleString()}</td>
+                                                    <td className="amount balance">{currency}{Number(balanceAfter).toLocaleString()}</td>
+                                                    <td>{payment.paid_by_name || 'Admin'}</td>
+                                                </tr>
+                                            );
+                                        })
+                                    ) : (
+                                        <tr>
+                                            <td colSpan="6" className="empty-row">No payments recorded yet.</td>
+                                        </tr>
+                                    )}
+                                </tbody>
+                                {expense.payments && expense.payments.length > 0 && (
+                                    <tfoot>
+                                        <tr className="summary-row">
+                                            <td colSpan="3">Total Paid</td>
+                                            <td className="amount total-paid">{currency}{Number(expense.paid_amount).toLocaleString()}</td>
+                                            <td className="amount total-due">{currency}{Number(remainingBalance).toLocaleString()} due</td>
+                                            <td></td>
+                                        </tr>
+                                    </tfoot>
+                                )}
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Add Payment Form Section */}
+                <div className="details-sidebar">
+                    {remainingBalance > 0 ? (
+                        <div className="glass-card payment-form-card">
+                            <div className="card-header">
+                                <h3>Record Payment</h3>
+                            </div>
+                            <form onSubmit={handlePaymentSubmit}>
+                                <div className="form-group">
+                                    <label>Payment Date</label>
+                                    <input
+                                        type="date"
+                                        name="date"
+                                        value={paymentForm.date}
+                                        onChange={handleInputChange}
+                                        required
+                                    />
+                                </div>
+                                <div className="form-group">
+                                    <label>Amount ({currency})</label>
+                                    <input
+                                        type="number"
+                                        name="amount"
+                                        step="0.01"
+                                        max={remainingBalance}
+                                        value={paymentForm.amount}
+                                        onChange={handleInputChange}
+                                        placeholder="0.00"
+                                        required
+                                    />
+                                </div>
+                                <div className="form-group">
+                                    <label>Payment Method</label>
+                                    <select
+                                        name="method"
+                                        value={paymentForm.method}
+                                        onChange={handleInputChange}
+                                        required
+                                    >
+                                        <option value="Cash">Cash</option>
+                                        <option value="UPI">UPI</option>
+                                        <option value="Bank">Bank Transfer</option>
+                                        <option value="Cheque">Cheque</option>
+                                        <option value="Card">Card</option>
+                                    </select>
+                                </div>
+                                <div className="form-group">
+                                    <label>Reference #</label>
+                                    <input
+                                        type="text"
+                                        name="reference"
+                                        value={paymentForm.reference}
+                                        onChange={handleInputChange}
+                                        placeholder="TXN ID, Cheque #, etc."
+                                    />
+                                </div>
+                                <div className="form-group">
+                                    <label>Notes</label>
+                                    <textarea
+                                        name="notes"
+                                        rows="2"
+                                        value={paymentForm.notes}
+                                        onChange={handleInputChange}
+                                        placeholder="Optional payment notes..."
+                                    ></textarea>
+                                </div>
+                                <button type="submit" className="btn btn-primary full-width" disabled={submitting}>
+                                    {submitting ? 'Processing...' : 'Submit Payment'}
+                                </button>
+                            </form>
+                        </div>
+                    ) : (
+                        <div className="glass-card paid-confirmation-card">
+                            <div className="success-icon">✅</div>
+                            <h3>Fully Paid</h3>
+                            <p>This expense has been completely settled. No further payments are due.</p>
+                        </div>
+                    )}
+                </div>
+            </div>
+        </div>
+    );
+}

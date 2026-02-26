@@ -1,45 +1,46 @@
 /* AZ Books - Global Design System */
 /* Premium dark mode with vibrant accents */
+@import 'leaflet/dist/leaflet.css';
 
 :root {
   /* Colors - Primary Palette */
   --color-primary: hsl(220, 90%, 56%);
   --color-primary-dark: hsl(220, 90%, 45%);
   --color-primary-light: hsl(220, 90%, 70%);
-  
+
   /* Colors - Accent */
   --color-accent: hsl(160, 84%, 45%);
   --color-accent-dark: hsl(160, 84%, 35%);
-  
+
   /* Colors - Semantic */
   --color-success: hsl(142, 76%, 45%);
   --color-warning: hsl(38, 92%, 50%);
   --color-danger: hsl(0, 84%, 60%);
   --color-info: hsl(200, 80%, 50%);
-  
+
   /* Colors - Neutral (Dark Theme) */
   --color-bg-primary: hsl(225, 25%, 8%);
   --color-bg-secondary: hsl(225, 20%, 12%);
   --color-bg-tertiary: hsl(225, 18%, 16%);
   --color-bg-elevated: hsl(225, 20%, 18%);
   --color-bg-hover: hsl(225, 18%, 22%);
-  
+
   /* Colors - Text */
   --color-text-primary: hsl(220, 20%, 96%);
   --color-text-secondary: hsl(220, 15%, 70%);
   --color-text-muted: hsl(220, 10%, 50%);
   --color-text-inverse: hsl(225, 25%, 8%);
-  
+
   /* Colors - Borders */
   --color-border: hsl(225, 15%, 25%);
   --color-border-light: hsl(225, 15%, 20%);
-  
+
   /* Shadows */
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
   --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.4);
   --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.5);
   --shadow-glow: 0 0 20px rgba(56, 139, 253, 0.3);
-  
+
   /* Spacing */
   --space-xs: 0.25rem;
   --space-sm: 0.5rem;
@@ -47,7 +48,7 @@
   --space-lg: 1.5rem;
   --space-xl: 2rem;
   --space-2xl: 3rem;
-  
+
   /* Typography */
   --font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   --font-size-xs: 0.75rem;
@@ -57,24 +58,24 @@
   --font-size-xl: 1.25rem;
   --font-size-2xl: 1.5rem;
   --font-size-3xl: 2rem;
-  
+
   /* Layout */
   --header-height: 56px;
   --bottom-nav-height: 64px;
   --drawer-width: 280px;
   --drawer-width-collapsed: 72px;
-  
+
   /* Borders */
   --radius-sm: 6px;
   --radius-md: 10px;
   --radius-lg: 16px;
   --radius-full: 9999px;
-  
+
   /* Transitions */
   --transition-fast: 150ms ease;
   --transition-normal: 250ms ease;
   --transition-slow: 400ms ease;
-  
+
   /* Z-index layers */
   --z-base: 1;
   --z-dropdown: 100;
@@ -84,7 +85,9 @@
 }
 
 /* Global Reset */
-*, *::before, *::after {
+*,
+*::before,
+*::after {
   box-sizing: border-box;
   margin: 0;
   padding: 0;
@@ -107,16 +110,32 @@ body {
 }
 
 /* Typography */
-h1, h2, h3, h4, h5, h6 {
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
   font-weight: 600;
   line-height: 1.25;
   color: var(--color-text-primary);
 }
 
-h1 { font-size: var(--font-size-3xl); }
-h2 { font-size: var(--font-size-2xl); }
-h3 { font-size: var(--font-size-xl); }
-h4 { font-size: var(--font-size-lg); }
+h1 {
+  font-size: var(--font-size-3xl);
+}
+
+h2 {
+  font-size: var(--font-size-2xl);
+}
+
+h3 {
+  font-size: var(--font-size-xl);
+}
+
+h4 {
+  font-size: var(--font-size-lg);
+}
 
 p {
   color: var(--color-text-secondary);
@@ -212,7 +231,9 @@ button {
 }
 
 /* Inputs */
-input, textarea, select {
+input,
+textarea,
+select {
   font-family: inherit;
   font-size: inherit;
   padding: var(--space-sm) var(--space-md);
@@ -224,10 +245,23 @@ input, textarea, select {
   width: 100%;
 }
 
-input:focus, textarea:focus, select:focus {
+input:focus,
+textarea:focus,
+select:focus {
   outline: none;
   border-color: var(--color-primary);
   box-shadow: 0 0 0 3px rgba(56, 139, 253, 0.2);
+}
+
+/* Fix dropdown options in dark theme — browsers render native <option> on light backgrounds */
+select option {
+  background: #1e2332;
+  color: var(--color-text-primary);
+}
+
+select option:checked {
+  background: var(--color-primary);
+  color: white;
 }
 
 input::placeholder {
@@ -254,19 +288,53 @@ input::placeholder {
 }
 
 /* Utility Classes */
-.flex { display: flex; }
-.flex-col { flex-direction: column; }
-.items-center { align-items: center; }
-.justify-center { justify-content: center; }
-.justify-between { justify-content: space-between; }
-.gap-sm { gap: var(--space-sm); }
-.gap-md { gap: var(--space-md); }
-.gap-lg { gap: var(--space-lg); }
+.flex {
+  display: flex;
+}
 
-.text-muted { color: var(--color-text-muted); }
-.text-secondary { color: var(--color-text-secondary); }
-.text-sm { font-size: var(--font-size-sm); }
-.text-xs { font-size: var(--font-size-xs); }
+.flex-col {
+  flex-direction: column;
+}
+
+.items-center {
+  align-items: center;
+}
+
+.justify-center {
+  justify-content: center;
+}
+
+.justify-between {
+  justify-content: space-between;
+}
+
+.gap-sm {
+  gap: var(--space-sm);
+}
+
+.gap-md {
+  gap: var(--space-md);
+}
+
+.gap-lg {
+  gap: var(--space-lg);
+}
+
+.text-muted {
+  color: var(--color-text-muted);
+}
+
+.text-secondary {
+  color: var(--color-text-secondary);
+}
+
+.text-sm {
+  font-size: var(--font-size-sm);
+}
+
+.text-xs {
+  font-size: var(--font-size-xs);
+}
 
 .sr-only {
   position: absolute;
@@ -304,30 +372,67 @@ input::placeholder {
 
 /* Animations */
 @keyframes fadeIn {
-  from { opacity: 0; }
-  to { opacity: 1; }
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
 }
 
 @keyframes slideInRight {
-  from { transform: translateX(100%); }
-  to { transform: translateX(0); }
+  from {
+    transform: translateX(100%);
+  }
+
+  to {
+    transform: translateX(0);
+  }
 }
 
 @keyframes slideInLeft {
-  from { transform: translateX(-100%); }
-  to { transform: translateX(0); }
+  from {
+    transform: translateX(-100%);
+  }
+
+  to {
+    transform: translateX(0);
+  }
 }
 
 @keyframes slideInUp {
-  from { transform: translateY(100%); opacity: 0; }
-  to { transform: translateY(0); opacity: 1; }
+  from {
+    transform: translateY(100%);
+    opacity: 0;
+  }
+
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
 }
 
 @keyframes pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.5; }
+
+  0%,
+  100% {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: 0.5;
+  }
 }
 
-.animate-fade-in { animation: fadeIn var(--transition-normal) ease; }
-.animate-slide-in-right { animation: slideInRight var(--transition-normal) ease; }
-.animate-slide-in-left { animation: slideInLeft var(--transition-normal) ease; }
+.animate-fade-in {
+  animation: fadeIn var(--transition-normal) ease;
+}
+
+.animate-slide-in-right {
+  animation: slideInRight var(--transition-normal) ease;
+}
+
+.animate-slide-in-left {
+  animation: slideInLeft var(--transition-normal) ease;
+}

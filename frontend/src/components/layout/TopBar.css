@@ -11,6 +11,33 @@
     justify-content: space-between;
     padding: 0 var(--space-md);
     z-index: var(--z-dropdown);
+    transition: left 0.3s cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+/* Push topbar when sidebar is persistent */
+.topbar.sidebar-full {
+    left: var(--drawer-width);
+}
+
+.topbar.sidebar-mini {
+    left: var(--drawer-width-collapsed);
+}
+
+/* W4: Minimum 44x44 touch target for icon buttons */
+.icon-btn {
+    min-width: 44px;
+    min-height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* F5: Focus-visible indicators for all TopBar buttons */
+.icon-btn:focus-visible,
+.profile-btn:focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
+    border-radius: var(--radius-md);
 }
 
 .topbar-left {
@@ -24,6 +51,15 @@
     font-weight: 600;
     color: var(--color-text-primary);
     margin: 0;
+}
+
+.topbar-logo {
+    height: 32px;
+    width: auto;
+    max-width: 80px;
+    object-fit: contain;
+    border-radius: var(--radius-sm);
+    flex-shrink: 0;
 }
 
 .topbar-right {
@@ -108,5 +144,17 @@
         overflow: hidden;
         text-overflow: ellipsis;
         white-space: nowrap;
+    }
+}
+
+/* F9: prefers-reduced-motion */
+@media (prefers-reduced-motion: reduce) {
+    .topbar {
+        transition: none;
+    }
+
+    .profile-btn,
+    .search-btn::after {
+        transition: none;
     }
 }

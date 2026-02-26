@@ -3,13 +3,13 @@
     bottom: 0;
     left: 0;
     right: 0;
-    height: var(--bottom-nav-height);
+    height: calc(var(--bottom-nav-height) + env(safe-area-inset-bottom, 0px));
     background: var(--color-bg-secondary);
     border-top: 1px solid var(--color-border-light);
     display: flex;
     align-items: center;
     justify-content: space-around;
-    padding: 0 var(--space-sm);
+    padding: 0 var(--space-sm) env(safe-area-inset-bottom, 0px);
     z-index: var(--z-dropdown);
 }
 
@@ -88,9 +88,59 @@
     box-shadow: 0 4px 16px rgba(56, 139, 253, 0.4);
 }
 
-/* Hide on larger screens if needed */
-@media (min-width: 1024px) {
+/* Cart Mode — button reset for main-action */
+button.bottom-nav-item.main-action {
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-family: inherit;
+}
+
+/* Cart Badge — pill shape that stretches */
+.cart-badge {
+    position: absolute;
+    top: -4px;
+    right: -4px;
+    background: var(--color-danger, #e74c3c);
+    color: #fff;
+    font-size: 10px;
+    font-weight: 700;
+    line-height: 1;
+    padding: 3px 5px;
+    border-radius: 10px;
+    min-width: 16px;
+    text-align: center;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+    pointer-events: none;
+}
+
+/* Cart total label */
+.cart-total-label {
+    color: var(--color-primary) !important;
+    font-weight: 700 !important;
+    font-size: 11px !important;
+    letter-spacing: 0 !important;
+    text-transform: none !important;
+}
+
+/* W5: Hide bottom nav when sidebar mini rail appears (768px, not 1024px) */
+@media (min-width: 768px) {
     .bottom-nav {
         display: none;
+    }
+}
+
+/* F5: Focus-visible indicators for bottom nav items */
+.bottom-nav-item:focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
+}
+
+/* F9: prefers-reduced-motion */
+@media (prefers-reduced-motion: reduce) {
+
+    .bottom-nav-item,
+    .nav-icon {
+        transition: none;
     }
 }

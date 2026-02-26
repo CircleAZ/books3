@@ -1,18 +1,19 @@
 """
 Account app models for AZ Books
-- UserProfile: Extended user profile with additional fields
+- User: Custom User model with UUID and extended fields (merged UserProfile)
 - ActivityLog: Tracks user actions for audit trail
 """
 import uuid
+from django.contrib.auth.models import AbstractUser
 from django.db import models
-from django.contrib.auth.models import User
-from django.db.models.signals import post_save
-from django.dispatch import receiver
-from core.models import TimestampedModel, UUIDPrimaryKeyModel
+from core.models import UUIDPrimaryKeyModel, TimestampedModel, SoftDeleteModel
 
-
-class UserProfile(TimestampedModel):
-    """Extended user profile with additional fields"""
+class User(AbstractUser, UUIDPrimaryKeyModel):
+    """
+    Custom User model for AZ Books.
+    Uses UUID as primary key.
+    Includes fields previously in UserProfile.
+    """
     
     class Role(models.TextChoices):
         OWNER = 'owner', 'Owner'
@@ -20,11 +21,9 @@ class UserProfile(TimestampedModel):
         CASHIER = 'cashier', 'Cashier'
         STAFF = 'staff', 'Staff'
     
-    user = models.OneToOneField(
-        User, 
-        on_delete=models.CASCADE, 
-        related_name='profile'
-    )
+    # UUID is inherited from UUIDPrimaryKeyModel
+    
+    # Extended Fields
     phone = models.CharField(max_length=20, blank=True, default='')
     profile_picture = models.ImageField(
         upload_to='profile_pictures/', 
@@ -42,21 +41,24 @@ class UserProfile(TimestampedModel):
     last_login_ip = models.GenericIPAddressField(blank=True, null=True)
     
     class Meta:
-        verbose_name = 'User Profile'
-        verbose_name_plural = 'User Profiles'
-    
+        verbose_name = 'User'
+        verbose_name_plural = 'Users'
+        # AbstractUser already has 'db_table' = 'auth_user' by default, 
+        # but since we are replacing it, we can let Django handle the table name (app_label_model_name -> account_user)
+        # or force it to be something specific. Default is fine.
+
     def __str__(self):
-        return f"{self.user.username}'s Profile"
-    
+        return self.username
+
     @property
     def full_name(self):
-        return f"{self.user.first_name} {self.user.last_name}".strip() or self.user.username
+        return f"{self.first_name} {self.last_name}".strip() or self.username
     
     @property
     def initials(self):
-        if self.user.first_name and self.user.last_name:
-            return f"{self.user.first_name[0]}{self.user.last_name[0]}".upper()
-        return self.user.username[:2].upper()
+        if self.first_name and self.last_name:
+            return f"{self.first_name[0]}{self.last_name[0]}".upper()
+        return self.username[:2].upper()
 
 
 class ActivityLog(UUIDPrimaryKeyModel):
@@ -76,7 +78,7 @@ class ActivityLog(UUIDPrimaryKeyModel):
         OTHER = 'other', 'Other'
     
     user = models.ForeignKey(
-        User, 
+        'account.User',  # Reference the custom user model
         on_delete=models.CASCADE, 
         related_name='activity_logs'
     )
@@ -117,16 +119,3 @@ class ActivityLog(UUIDPrimaryKeyModel):
             user_agent=user_agent,
             metadata=metadata or {}
         )
-
-
-# Signal to create UserProfile when User is created
-@receiver(post_save, sender=User)
-def create_user_profile(sender, instance, created, **kwargs):
-    if created:
-        UserProfile.objects.create(user=instance)
-
-
-@receiver(post_save, sender=User)
-def save_user_profile(sender, instance, **kwargs):
-    if hasattr(instance, 'profile'):
-        instance.profile.save()

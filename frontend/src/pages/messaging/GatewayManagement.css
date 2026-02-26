@@ -1,0 +1,141 @@
+.gateway-management {
+    padding: var(--space-lg) 0;
+}
+
+.table-card {
+    margin-top: var(--space-xl);
+    padding: 0;
+    overflow: hidden;
+    background: rgba(30, 35, 60, 0.95);
+    backdrop-filter: blur(12px);
+}
+
+.gateway-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.gateway-table th {
+    text-align: left;
+    padding: var(--space-lg);
+    background: rgba(255, 255, 255, 0.03);
+    color: var(--color-text-muted);
+    font-size: var(--font-size-sm);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.gateway-table td {
+    padding: var(--space-lg);
+    border-top: 1px solid var(--color-border-light);
+}
+
+.gateway-info {
+    display: flex;
+    flex-direction: column;
+}
+
+.gateway-name {
+    font-weight: 600;
+    color: var(--color-text-primary);
+}
+
+.gateway-desc {
+    font-size: var(--font-size-xs);
+    color: var(--color-text-muted);
+}
+
+.status-badge {
+    padding: 4px 10px;
+    border-radius: var(--radius-full);
+    font-size: var(--font-size-xs);
+    font-weight: 600;
+    text-transform: uppercase;
+}
+
+.status-badge.online {
+    background: rgba(0, 184, 148, 0.15);
+    color: #00b894;
+    border: 1px solid rgba(0, 184, 148, 0.3);
+}
+
+.status-badge.offline {
+    background: rgba(255, 118, 117, 0.15);
+    color: #ff7675;
+    border: 1px solid rgba(255, 118, 117, 0.3);
+}
+
+.btn-status {
+    padding: 6px 12px;
+    border-radius: var(--radius-sm);
+    font-size: var(--font-size-xs);
+    font-weight: 500;
+    transition: all var(--transition-fast);
+}
+
+.btn-status.activate {
+    background: rgba(108, 92, 231, 0.1);
+    color: #6c5ce7;
+    border: 1px solid rgba(108, 92, 231, 0.3);
+}
+
+.btn-status.activate:hover {
+    background: #6c5ce7;
+    color: white;
+}
+
+.btn-status.deactivate {
+    background: rgba(255, 118, 117, 0.1);
+    color: #ff7675;
+    border: 1px solid rgba(255, 118, 117, 0.3);
+}
+
+.btn-status.deactivate:hover {
+    background: #ff7675;
+    color: white;
+}
+
+/* Modal */
+.modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.7);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: var(--z-modal);
+    backdrop-filter: blur(4px);
+}
+
+.modal-content {
+    width: 100%;
+    max-width: 500px;
+    padding: var(--space-2xl);
+    border-radius: var(--radius-lg);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.modal-content h2 {
+    margin-bottom: var(--space-xl);
+}
+
+.form-group {
+    margin-bottom: var(--space-lg);
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: var(--space-xs);
+    font-size: var(--font-size-sm);
+    color: var(--color-text-secondary);
+}
+
+.modal-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: var(--space-md);
+    margin-top: var(--space-2xl);
+}

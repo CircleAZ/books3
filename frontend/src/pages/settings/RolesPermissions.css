@@ -1,0 +1,289 @@
+.roles-page {
+    padding: 24px;
+    max-width: 1400px;
+    margin: 0 auto;
+}
+
+.page-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 32px;
+}
+
+.header-content h1 {
+    font-size: 28px;
+    color: #f0f6fc;
+    margin-bottom: 8px;
+}
+
+.header-content p {
+    color: #8b949e;
+}
+
+.add-btn {
+    padding: 12px 24px;
+    background: linear-gradient(135deg, #40cdba, #388bfd);
+    border: none;
+    border-radius: 10px;
+    color: #fff;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s;
+}
+
+.add-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 20px rgba(64, 205, 186, 0.3);
+}
+
+/* Roles List */
+.roles-list {
+    margin-bottom: 40px;
+}
+
+.roles-list h3 {
+    color: #40cdba;
+    margin-bottom: 16px;
+    text-transform: uppercase;
+    font-size: 14px;
+    letter-spacing: 1px;
+}
+
+.roles-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+    gap: 16px;
+}
+
+.role-card {
+    background: rgba(21, 27, 35, 0.8);
+    backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 12px;
+    padding: 20px;
+}
+
+.role-card.system {
+    border-color: rgba(64, 205, 186, 0.3);
+}
+
+.role-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+}
+
+.role-header h4 {
+    color: #f0f6fc;
+    font-size: 18px;
+}
+
+.default-badge {
+    padding: 3px 8px;
+    background: rgba(64, 205, 186, 0.2);
+    border-radius: 12px;
+    font-size: 10px;
+    color: #40cdba;
+    text-transform: uppercase;
+}
+
+.role-card p {
+    color: #8b949e;
+    font-size: 14px;
+    margin-bottom: 12px;
+}
+
+.role-stats {
+    color: #8b949e;
+    font-size: 12px;
+    margin-bottom: 12px;
+}
+
+.role-actions {
+    display: flex;
+    gap: 8px;
+}
+
+.role-actions button {
+    padding: 6px 12px;
+    border: none;
+    border-radius: 6px;
+    font-size: 12px;
+    cursor: pointer;
+    background: rgba(255, 255, 255, 0.1);
+    color: #f0f6fc;
+    transition: all 0.2s;
+}
+
+.role-actions button:hover {
+    background: rgba(255, 255, 255, 0.15);
+}
+
+.role-actions button.delete {
+    background: rgba(239, 68, 68, 0.2);
+    color: #ef4444;
+}
+
+/* Permission Matrix */
+.permission-matrix-container {
+    background: rgba(21, 27, 35, 0.8);
+    backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 16px;
+    padding: 24px;
+}
+
+.permission-matrix-container h3 {
+    color: #40cdba;
+    margin-bottom: 20px;
+    text-transform: uppercase;
+    font-size: 14px;
+    letter-spacing: 1px;
+}
+
+.matrix-wrapper {
+    overflow-x: auto;
+}
+
+.permission-matrix {
+    width: 100%;
+    border-collapse: collapse;
+    min-width: 600px;
+}
+
+.permission-matrix th,
+.permission-matrix td {
+    padding: 12px 16px;
+    text-align: center;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.permission-matrix th {
+    background: rgba(13, 17, 23, 0.6);
+    color: #f0f6fc;
+    font-weight: 600;
+    font-size: 14px;
+}
+
+.permission-matrix .sticky-col {
+    position: sticky;
+    left: 0;
+    background: rgba(21, 27, 35, 0.95);
+    text-align: left;
+    min-width: 200px;
+}
+
+.category-row .category-header {
+    background: rgba(64, 205, 186, 0.1);
+    color: #40cdba;
+    font-weight: 600;
+    text-align: left;
+    text-transform: uppercase;
+    font-size: 12px;
+    letter-spacing: 1px;
+}
+
+.perm-name {
+    color: #f0f6fc;
+    font-size: 14px;
+}
+
+.checkbox-cell {
+    cursor: pointer;
+}
+
+.checkbox-cell input[type="checkbox"] {
+    width: 18px;
+    height: 18px;
+    accent-color: #40cdba;
+    cursor: pointer;
+}
+
+.checkbox-cell input[type="checkbox"]:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+/* Modal */
+.modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.7);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+}
+
+.modal {
+    background: #151b23;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 16px;
+    padding: 32px;
+    width: 90%;
+    max-width: 450px;
+}
+
+.modal h2 {
+    color: #f0f6fc;
+    margin-bottom: 24px;
+}
+
+.modal .form-group {
+    margin-bottom: 16px;
+}
+
+.modal .form-group label {
+    display: block;
+    color: #8b949e;
+    margin-bottom: 6px;
+    font-size: 14px;
+}
+
+.modal .form-group input,
+.modal .form-group textarea {
+    width: 100%;
+    padding: 12px;
+    background: rgba(13, 17, 23, 0.8);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
+    color: #f0f6fc;
+    font-family: inherit;
+}
+
+.modal-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 12px;
+    margin-top: 24px;
+}
+
+.cancel-btn {
+    padding: 12px 24px;
+    background: rgba(255, 255, 255, 0.1);
+    border: none;
+    border-radius: 8px;
+    color: #f0f6fc;
+    cursor: pointer;
+}
+
+.submit-btn {
+    padding: 12px 24px;
+    background: linear-gradient(135deg, #40cdba, #388bfd);
+    border: none;
+    border-radius: 8px;
+    color: #fff;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.loading {
+    text-align: center;
+    color: #8b949e;
+    padding: 40px;
+}

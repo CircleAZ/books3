@@ -1,4 +1,6 @@
-import { NavLink } from 'react-router-dom';
+import { NavLink, useLocation } from 'react-router-dom';
+import { useCart } from '../../context/CartContext';
+import { useCurrency } from '../../context/CurrencyContext';
 import './BottomNavBar.css';
 
 const navItems = [
@@ -29,6 +31,13 @@ const icons = {
             <path d="M12 8v8M8 12h8" />
         </svg>
     ),
+    cart: (
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <circle cx="9" cy="21" r="1" />
+            <circle cx="20" cy="21" r="1" />
+            <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6" />
+        </svg>
+    ),
     users: (
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
@@ -48,23 +57,53 @@ const icons = {
 };
 
 export default function BottomNavBar({ hidden = false }) {
+    const location = useLocation();
+    const { itemCount, total, toggleDrawer } = useCart();
+    const { currency } = useCurrency();
+
     if (hidden) return null;
+
+    const isOnNewOrder = location.pathname === '/orders/new';
 
     return (
         <nav className="bottom-nav" role="navigation" aria-label="Main navigation">
-            {navItems.map(item => (
-                <NavLink
-                    key={item.path}
-                    to={item.path}
-                    className={({ isActive }) =>
-                        `bottom-nav-item ${item.isMain ? 'main-action' : ''} ${isActive ? 'active' : ''}`
-                    }
-                    end={item.path === '/'}
-                >
-                    <span className="nav-icon">{icons[item.icon]}</span>
-                    <span className="nav-label">{item.label}</span>
-                </NavLink>
-            ))}
+            {navItems.map(item => {
+                // When on New Order page, replace center button with cart button
+                if (item.isMain && isOnNewOrder) {
+                    return (
+                        <button
+                            key={item.path}
+                            className={`bottom-nav-item main-action active cart-mode`}
+                            onClick={toggleDrawer}
+                            type="button"
+                        >
+                            <span className="nav-icon">
+                                {icons.cart}
+                                {itemCount > 0 && (
+                                    <span className="cart-badge">{itemCount}</span>
+                                )}
+                            </span>
+                            <span className="nav-label cart-total-label">
+                                {itemCount > 0 ? `${currency}${total.toFixed(2)}` : 'Cart'}
+                            </span>
+                        </button>
+                    );
+                }
+
+                return (
+                    <NavLink
+                        key={item.path}
+                        to={item.path}
+                        className={({ isActive }) =>
+                            `bottom-nav-item ${item.isMain ? 'main-action' : ''} ${isActive ? 'active' : ''}`
+                        }
+                        end={item.path === '/'}
+                    >
+                        <span className="nav-icon">{icons[item.icon]}</span>
+                        <span className="nav-label">{item.label}</span>
+                    </NavLink>
+                );
+            })}
         </nav>
     );
 }

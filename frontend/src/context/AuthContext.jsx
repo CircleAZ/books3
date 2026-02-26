@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect } from 'react';
+import { createContext, useContext, useState, useEffect, useRef } from 'react';
 
 const AuthContext = createContext(null);
 
@@ -8,6 +8,9 @@ export function AuthProvider({ children }) {
     const [user, setUser] = useState(null);
     const [token, setToken] = useState(null);
     const [loading, setLoading] = useState(true);
+
+    // LENS-17 fix: Prevent concurrent refresh attempts
+    const refreshPromiseRef = useRef(null);
 
     // Load auth state from localStorage on mount
     useEffect(() => {
@@ -83,9 +86,14 @@ export function AuthProvider({ children }) {
 
     const fetchWithAuth = async (url, options = {}) => {
         const headers = {
-            'Content-Type': 'application/json',
             ...options.headers,
         };
+
+        // Only set Content-Type to JSON if body is NOT FormData
+        // (FormData needs the browser to set multipart boundary automatically)
+        if (!(options.body instanceof FormData)) {
+            headers['Content-Type'] = headers['Content-Type'] || 'application/json';
+        }
 
         if (token) {
             headers['Authorization'] = `Bearer ${token}`;
@@ -110,25 +118,34 @@ export function AuthProvider({ children }) {
     };
 
     const refreshToken = async () => {
-        try {
-            const refresh = localStorage.getItem('refresh_token');
-            if (!refresh) return false;
+        // LENS-17: If a refresh is already in-flight, reuse it
+        if (refreshPromiseRef.current) return refreshPromiseRef.current;
 
-            const response = await fetch(`${API_BASE}/token/refresh/`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ refresh }),
-            });
+        refreshPromiseRef.current = (async () => {
+            try {
+                const refresh = localStorage.getItem('refresh_token');
+                if (!refresh) return false;
 
-            if (!response.ok) return false;
+                const response = await fetch(`${API_BASE}/token/refresh/`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ refresh }),
+                });
 
-            const data = await response.json();
-            localStorage.setItem('access_token', data.access);
-            setToken(data.access);
-            return true;
-        } catch {
-            return false;
-        }
+                if (!response.ok) return false;
+
+                const data = await response.json();
+                localStorage.setItem('access_token', data.access);
+                setToken(data.access);
+                return true;
+            } catch {
+                return false;
+            } finally {
+                refreshPromiseRef.current = null;
+            }
+        })();
+
+        return refreshPromiseRef.current;
     };
 
     const value = {

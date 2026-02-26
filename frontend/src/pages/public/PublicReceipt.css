@@ -1,0 +1,406 @@
+.public-receipt-page {
+    min-height: 100vh;
+    background: linear-gradient(135deg, #0f0f23 0%, #1a1a3e 50%, #0f0f23 100%);
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    padding: 2rem 1rem;
+}
+
+.receipt-container {
+    width: 100%;
+    max-width: 500px;
+    background: rgba(30, 35, 60, 0.95);
+    border-radius: 20px;
+    border: 1px solid rgba(108, 92, 231, 0.3);
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+    padding: 2rem;
+    backdrop-filter: blur(20px);
+}
+
+/* Loading & Error States */
+.loading-container,
+.error-container {
+    text-align: center;
+    padding: 4rem 2rem;
+    color: #a0a0c0;
+}
+
+.loading-spinner {
+    width: 50px;
+    height: 50px;
+    border: 4px solid rgba(108, 92, 231, 0.2);
+    border-top-color: #6c5ce7;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin: 0 auto 1rem;
+}
+
+@keyframes spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+.error-icon {
+    font-size: 3rem;
+    margin-bottom: 1rem;
+}
+
+/* Store Header */
+.store-header {
+    text-align: center;
+    margin-bottom: 1.5rem;
+    padding-bottom: 1.5rem;
+    border-bottom: 1px dashed rgba(108, 92, 231, 0.3);
+}
+
+.store-logo {
+    width: 80px;
+    height: 80px;
+    object-fit: contain;
+    margin-bottom: 1rem;
+    border-radius: 12px;
+}
+
+.store-name {
+    color: #ffffff;
+    font-size: 1.5rem;
+    font-weight: 700;
+    margin: 0 0 0.5rem;
+}
+
+.store-address,
+.store-phone {
+    color: #a0a0c0;
+    font-size: 0.9rem;
+    margin: 0.25rem 0;
+}
+
+.receipt-header-text {
+    text-align: center;
+    color: #6c5ce7;
+    font-size: 0.95rem;
+    padding: 1rem;
+    background: rgba(108, 92, 231, 0.1);
+    border-radius: 10px;
+    margin-bottom: 1.5rem;
+}
+
+/* Order Info */
+.order-info {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 1rem;
+    padding: 1rem;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 10px;
+}
+
+.order-number,
+.order-date {
+    display: flex;
+    flex-direction: column;
+}
+
+.order-info .label {
+    color: #a0a0c0;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.order-info .value {
+    color: #ffffff;
+    font-size: 1rem;
+    font-weight: 600;
+}
+
+/* Customer Info */
+.customer-info {
+    display: flex;
+    justify-content: space-between;
+    padding: 0.75rem 1rem;
+    background: rgba(108, 92, 231, 0.1);
+    border-radius: 10px;
+    margin-bottom: 1.5rem;
+}
+
+.customer-name,
+.customer-phone {
+    color: #d0d0e0;
+    font-size: 0.9rem;
+}
+
+/* Items Table */
+.items-section {
+    margin-bottom: 1.5rem;
+}
+
+.items-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.items-table th {
+    background: rgba(108, 92, 231, 0.2);
+    color: #ffffff;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    padding: 0.75rem 0.5rem;
+    text-align: left;
+}
+
+.items-table th:last-child,
+.items-table td:last-child {
+    text-align: right;
+}
+
+.items-table th:nth-child(2),
+.items-table td:nth-child(2),
+.items-table th:nth-child(3),
+.items-table td:nth-child(3) {
+    text-align: center;
+}
+
+.items-table tr:nth-child(even) {
+    background: rgba(255, 255, 255, 0.02);
+}
+
+.items-table td {
+    padding: 0.75rem 0.5rem;
+    color: #d0d0e0;
+    font-size: 0.9rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.item-name {
+    color: #ffffff;
+}
+
+/* Totals */
+.totals-section {
+    border-top: 1px dashed rgba(108, 92, 231, 0.3);
+    padding-top: 1rem;
+    margin-bottom: 1rem;
+}
+
+.total-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 0.5rem 0;
+    color: #d0d0e0;
+    font-size: 0.95rem;
+}
+
+.total-row.discount span:last-child {
+    color: #00b894;
+}
+
+.total-row.grand-total {
+    font-size: 1.2rem;
+    font-weight: 700;
+    color: #ffffff;
+    border-top: 1px solid rgba(108, 92, 231, 0.3);
+    border-bottom: 1px solid rgba(108, 92, 231, 0.3);
+    padding: 0.75rem 0;
+    margin: 0.5rem 0;
+}
+
+.total-row.balance span:last-child {
+    color: #ff7675;
+}
+
+/* Payment Status */
+.payment-status-container {
+    text-align: center;
+    margin-bottom: 1.5rem;
+}
+
+.payment-badge {
+    display: inline-block;
+    padding: 0.5rem 1.5rem;
+    border-radius: 20px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.payment-badge.paid {
+    background: rgba(0, 184, 148, 0.2);
+    color: #00b894;
+}
+
+.payment-badge.partial {
+    background: rgba(253, 203, 110, 0.2);
+    color: #fdcb6e;
+}
+
+.payment-badge.pending {
+    background: rgba(255, 118, 117, 0.2);
+    color: #ff7675;
+}
+
+/* Download Button */
+.download-btn {
+    width: 100%;
+    padding: 1rem;
+    background: linear-gradient(135deg, #6c5ce7, #a29bfe);
+    color: white;
+    border: none;
+    border-radius: 12px;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    margin-bottom: 1rem;
+}
+
+.download-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(108, 92, 231, 0.4);
+}
+
+/* Footer */
+.receipt-footer {
+    text-align: center;
+    color: #a0a0c0;
+    font-size: 0.85rem;
+    padding: 1rem;
+    border-top: 1px dashed rgba(108, 92, 231, 0.3);
+    margin-top: 1rem;
+}
+
+.powered-by {
+    text-align: center;
+    color: #6c5ce7;
+    font-size: 0.75rem;
+    margin-top: 1rem;
+    opacity: 0.7;
+}
+
+/* Modal */
+.modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.8);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+    padding: 1rem;
+}
+
+.modal-content {
+    background: rgba(30, 35, 60, 0.98);
+    border-radius: 20px;
+    border: 1px solid rgba(108, 92, 231, 0.3);
+    padding: 2rem;
+    max-width: 400px;
+    width: 100%;
+    text-align: center;
+}
+
+.modal-content h3 {
+    color: #ffffff;
+    margin: 0 0 0.5rem;
+}
+
+.modal-content p {
+    color: #a0a0c0;
+    margin-bottom: 1.5rem;
+}
+
+.phone-input {
+    width: 100%;
+    padding: 1rem;
+    font-size: 1.5rem;
+    text-align: center;
+    letter-spacing: 0.5rem;
+    background: rgba(255, 255, 255, 0.05);
+    border: 2px solid rgba(108, 92, 231, 0.3);
+    border-radius: 12px;
+    color: #ffffff;
+    outline: none;
+    transition: border-color 0.3s;
+}
+
+.phone-input:focus {
+    border-color: #6c5ce7;
+}
+
+.verify-error {
+    color: #ff7675;
+    font-size: 0.9rem;
+    margin: 1rem 0;
+}
+
+.modal-buttons {
+    display: flex;
+    gap: 1rem;
+    margin-top: 1.5rem;
+}
+
+.cancel-btn,
+.verify-btn {
+    flex: 1;
+    padding: 0.875rem;
+    border-radius: 10px;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.cancel-btn {
+    background: rgba(255, 255, 255, 0.1);
+    color: #a0a0c0;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.cancel-btn:hover {
+    background: rgba(255, 255, 255, 0.15);
+}
+
+.verify-btn {
+    background: linear-gradient(135deg, #6c5ce7, #a29bfe);
+    color: white;
+    border: none;
+}
+
+.verify-btn:hover:not(:disabled) {
+    transform: translateY(-2px);
+    box-shadow: 0 5px 20px rgba(108, 92, 231, 0.4);
+}
+
+.verify-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+/* Mobile Responsive */
+@media (max-width: 480px) {
+    .public-receipt-page {
+        padding: 1rem 0.5rem;
+    }
+
+    .receipt-container {
+        padding: 1.5rem;
+        border-radius: 16px;
+    }
+
+    .store-name {
+        font-size: 1.25rem;
+    }
+
+    .items-table th,
+    .items-table td {
+        padding: 0.5rem 0.25rem;
+        font-size: 0.8rem;
+    }
+}

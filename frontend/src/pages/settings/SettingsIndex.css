@@ -1,0 +1,160 @@
+.settings-index {
+    padding: var(--space-lg);
+    max-width: 700px;
+    margin: 0 auto;
+}
+
+/* Shared back button for all settings pages */
+.settings-back-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: none;
+    border: none;
+    color: var(--color-text-muted);
+    cursor: pointer;
+    padding: var(--space-xs);
+    transition: color 0.15s ease;
+    font-size: 28px;
+    font-weight: 700;
+    line-height: 1;
+}
+
+.settings-back-btn:hover {
+    color: var(--color-text-primary);
+}
+
+.settings-back-btn-wide {
+    font-size: var(--font-size-sm);
+    font-weight: 500;
+    padding: var(--space-sm) var(--space-md);
+    border-radius: var(--radius-md);
+    gap: var(--space-xs);
+    white-space: nowrap;
+}
+
+.settings-back-btn-wide:hover {
+    background: var(--color-bg-elevated);
+}
+
+/* Sub-page header: back button left, title centered */
+.settings-page-header {
+    display: flex;
+    align-items: center;
+    position: relative;
+    margin-bottom: var(--space-lg);
+    min-height: 40px;
+}
+
+.settings-page-header .settings-back-btn {
+    position: absolute;
+    left: 0;
+}
+
+.settings-page-header h1 {
+    flex: 1;
+    text-align: center;
+    font-size: var(--font-size-xl);
+    color: var(--color-text-primary);
+    margin: 0;
+}
+
+.settings-index h1 {
+    font-size: var(--font-size-xl);
+    color: var(--color-text-primary);
+    margin-bottom: var(--space-lg);
+}
+
+/* Settings List */
+.settings-list {
+    display: flex;
+    flex-direction: column;
+    background: var(--color-bg-secondary);
+    border-radius: var(--radius-lg);
+    border: 1px solid var(--color-border-light);
+    overflow: hidden;
+}
+
+/* Individual Row */
+.settings-row {
+    display: flex;
+    align-items: center;
+    gap: var(--space-md);
+    padding: var(--space-md) var(--space-lg);
+    text-decoration: none;
+    transition: background 0.15s ease;
+    border-bottom: 1px solid var(--color-border-light);
+}
+
+.settings-row:last-child {
+    border-bottom: none;
+}
+
+.settings-row:hover {
+    background: var(--color-bg-elevated);
+}
+
+.settings-row:active {
+    background: var(--color-bg-tertiary);
+}
+
+/* Icon */
+.settings-row-icon {
+    font-size: 24px;
+    flex-shrink: 0;
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--color-bg-elevated);
+    border-radius: var(--radius-md);
+}
+
+/* Text Block */
+.settings-row-text {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.settings-row-title {
+    font-size: var(--font-size-md);
+    font-weight: 600;
+    color: var(--color-text-primary);
+}
+
+.settings-row-summary {
+    font-size: var(--font-size-sm);
+    color: var(--color-text-muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* Arrow */
+.settings-row-arrow {
+    font-size: 22px;
+    color: var(--color-text-muted);
+    flex-shrink: 0;
+    opacity: 0.4;
+    transition: opacity 0.15s ease, transform 0.15s ease;
+}
+
+.settings-row:hover .settings-row-arrow {
+    opacity: 1;
+    transform: translateX(2px);
+}
+
+/* Mobile */
+@media (max-width: 768px) {
+    .settings-index {
+        padding: var(--space-md);
+    }
+
+    .settings-row {
+        padding: var(--space-md);
+    }
+}

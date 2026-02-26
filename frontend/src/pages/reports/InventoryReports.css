@@ -1,0 +1,171 @@
+.inventory-reports-page {
+    padding: 1.5rem;
+    max-width: 1400px;
+    margin: 0 auto;
+}
+
+.valuation-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 1rem;
+    margin-bottom: 2rem;
+}
+
+.valuation-card {
+    background: rgba(255, 255, 255, 0.03);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 12px;
+    padding: 1.5rem;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.valuation-card.cost {
+    border-left: 3px solid #f59e0b;
+}
+
+.valuation-card.selling {
+    border-left: 3px solid #40cdba;
+}
+
+.valuation-card.profit {
+    border-left: 3px solid #22c55e;
+}
+
+.valuation-card.items {
+    border-left: 3px solid #388bfd;
+}
+
+.valuation-icon {
+    font-size: 2rem;
+    padding: 0.75rem;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 10px;
+}
+
+.valuation-content {
+    display: flex;
+    flex-direction: column;
+}
+
+.valuation-value {
+    font-size: 1.5rem;
+    font-weight: 600;
+    color: #fff;
+}
+
+.valuation-label {
+    font-size: 0.85rem;
+    color: #888;
+}
+
+.report-tabs {
+    display: flex;
+    gap: 0.5rem;
+    margin-bottom: 1.5rem;
+    background: rgba(255, 255, 255, 0.03);
+    padding: 0.5rem;
+    border-radius: 10px;
+}
+
+.report-tabs button {
+    padding: 0.75rem 1.5rem;
+    background: transparent;
+    border: none;
+    color: #888;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.report-tabs button.active,
+.report-tabs button:hover {
+    background: #40cdba;
+    color: #0d1117;
+}
+
+.tab-content .table-card {
+    background: rgba(255, 255, 255, 0.03);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 12px;
+    padding: 1.5rem;
+}
+
+.tab-content .table-card h3 {
+    margin: 0 0 1rem 0;
+    color: #fff;
+}
+
+.status-badge {
+    padding: 0.25rem 0.75rem;
+    border-radius: 20px;
+    font-size: 0.75rem;
+    font-weight: 500;
+}
+
+.status-badge.low {
+    background: rgba(245, 158, 11, 0.2);
+    color: #f59e0b;
+}
+
+.status-badge.out {
+    background: rgba(239, 68, 68, 0.2);
+    color: #ef4444;
+}
+
+/* Reuse from SalesReports */
+.reports-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 2rem;
+}
+
+.reports-header h1 {
+    font-size: 1.8rem;
+    color: #fff;
+    margin: 0;
+}
+
+.export-btn {
+    padding: 0.5rem 1rem;
+    background: linear-gradient(135deg, #388bfd, #40cdba);
+    border: none;
+    border-radius: 8px;
+    color: #fff;
+    cursor: pointer;
+    font-weight: 500;
+}
+
+.data-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.data-table th,
+.data-table td {
+    padding: 0.75rem;
+    text-align: left;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.data-table th {
+    color: #888;
+    font-weight: 500;
+    font-size: 0.85rem;
+}
+
+.data-table td {
+    color: #fff;
+}
+
+.reports-loading {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 400px;
+    color: #888;
+}

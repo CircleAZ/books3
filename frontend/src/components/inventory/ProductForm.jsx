@@ -1,0 +1,508 @@
+import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../../context/AuthContext';
+import { useCurrency } from '../../context/CurrencyContext';
+import { ENDPOINTS } from '../../config/api';
+import CategoryModal from './CategoryModal';
+import VendorModal from './VendorModal';
+import './ProductForm.css';
+
+export default function ProductForm({ initialData = null, isEdit = false }) {
+    const { fetchWithAuth } = useAuth();
+    const { currency } = useCurrency();
+    const navigate = useNavigate();
+    const [loading, setLoading] = useState(false);
+
+    // LENS-02/10/01: Validation & feedback state
+    const [fieldErrors, setFieldErrors] = useState({});
+    const [submitError, setSubmitError] = useState(null);
+    const [submitSuccess, setSubmitSuccess] = useState(null);
+
+    // Dropdown data
+    const [categories, setCategories] = useState([]);
+    const [vendors, setVendors] = useState([]);
+
+    // Form State
+    const [formData, setFormData] = useState({
+        name: '',
+        description: '',
+        category: '',
+        vendor: '',
+        cost_price: '0',
+        selling_price: '',
+        stock_quantity: '',
+        low_stock_threshold: '5',
+        is_additional: false
+    });
+
+    const [tags, setTags] = useState([]);
+    const [tagInput, setTagInput] = useState('');
+    const [images, setImages] = useState([]);
+    const [imagePreviews, setImagePreviews] = useState([]);
+    const [existingImages, setExistingImages] = useState([]); // For edit mode
+
+    // Modal State
+    const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
+    const [isVendorModalOpen, setIsVendorModalOpen] = useState(false);
+
+    useEffect(() => {
+        if (initialData) {
+            setFormData({
+                name: initialData.name || '',
+                description: initialData.description || '',
+                category: initialData.category?.id || initialData.category || '',
+                vendor: initialData.vendor?.id || initialData.vendor || '',
+                cost_price: initialData.cost_price || '',
+                selling_price: initialData.selling_price || '',
+                stock_quantity: initialData.stock_quantity || '',
+                low_stock_threshold: initialData.low_stock_threshold || '5',
+                is_additional: initialData.is_additional || false
+            });
+            setTags(initialData.tags ? initialData.tags.map(t => t.name || t) : []);
+            setExistingImages(initialData.images || []);
+        }
+    }, [initialData]);
+
+    useEffect(() => {
+        const fetchDropdowns = async () => {
+            try {
+                const [catRes, vendRes] = await Promise.all([
+                    fetchWithAuth(ENDPOINTS.INVENTORY_CATEGORIES),
+                    fetchWithAuth(ENDPOINTS.INVENTORY_VENDORS)
+                ]);
+
+                if (catRes.ok) {
+                    const data = await catRes.json();
+                    setCategories(data.results || data || []);
+                }
+                if (vendRes.ok) {
+                    const data = await vendRes.json();
+                    setVendors(data.results || data || []);
+                }
+            } catch (error) {
+                console.error('Error fetching dropdowns:', error);
+            }
+        };
+        fetchDropdowns();
+    }, [fetchWithAuth]);
+
+    const handleInputChange = (e) => {
+        const { name, value, type, checked } = e.target;
+        setFormData(prev => ({
+            ...prev,
+            [name]: type === 'checkbox' ? checked : value
+        }));
+        // Clear field error when user starts fixing it
+        if (fieldErrors[name]) {
+            setFieldErrors(prev => ({ ...prev, [name]: null }));
+        }
+    };
+
+    // LENS-02 + LENS-10: Client-side validation
+    const validate = () => {
+        const errors = {};
+        if (!formData.name.trim()) {
+            errors.name = 'Product name is required';
+        }
+        if (!formData.selling_price && formData.selling_price !== 0) {
+            errors.selling_price = 'Selling price is required';
+        } else if (Number(formData.selling_price) < 0) {
+            errors.selling_price = 'Selling price cannot be negative';
+        }
+        if (formData.cost_price && Number(formData.cost_price) < 0) {
+            errors.cost_price = 'Cost price cannot be negative';
+        }
+        if (!isEdit && formData.stock_quantity && Number(formData.stock_quantity) < 0) {
+            errors.stock_quantity = 'Stock quantity cannot be negative';
+        }
+        if (formData.low_stock_threshold && Number(formData.low_stock_threshold) < 0) {
+            errors.low_stock_threshold = 'Threshold cannot be negative';
+        }
+        return errors;
+    };
+
+    const handleTagKeyDown = (e) => {
+        if (e.key === 'Enter' || e.key === ',') {
+            e.preventDefault();
+            const newTag = tagInput.trim();
+            if (newTag && !tags.includes(newTag)) {
+                setTags([...tags, newTag]);
+                setTagInput('');
+            }
+        }
+    };
+
+    const removeTag = (tagToRemove) => {
+        setTags(tags.filter(tag => tag !== tagToRemove));
+    };
+
+    const handleImageChange = (e) => {
+        const files = Array.from(e.target.files);
+        setImages(prev => [...prev, ...files]);
+
+        const newPreviews = files.map(file => URL.createObjectURL(file));
+        setImagePreviews(prev => [...prev, ...newPreviews]);
+    };
+
+    const handleCategoryAdded = (newCategory) => {
+        setCategories(prev => [...prev, newCategory]);
+        setFormData(prev => ({ ...prev, category: newCategory.id }));
+    };
+
+    const handleVendorAdded = (newVendor) => {
+        setVendors(prev => [...prev, newVendor]);
+        setFormData(prev => ({ ...prev, vendor: newVendor.id }));
+    };
+
+    const removeImage = (index) => {
+        setImages(prev => prev.filter((_, i) => i !== index));
+        setImagePreviews(prev => {
+            URL.revokeObjectURL(prev[index]);
+            return prev.filter((_, i) => i !== index);
+        });
+    };
+
+    // TODO: Handle removing existing images in Edit mode if API supports it
+
+    const handleSubmit = async (addAnother = false) => {
+        // LENS-02: Run client-side validation first
+        const errors = validate();
+        setFieldErrors(errors);
+        setSubmitError(null);
+        setSubmitSuccess(null);
+
+        if (Object.keys(errors).length > 0) {
+            // Scroll to first error
+            const firstErrorField = document.querySelector('.field-error');
+            if (firstErrorField) firstErrorField.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            return;
+        }
+
+        setLoading(true);
+        try {
+            const submitData = new FormData();
+
+            Object.keys(formData).forEach(key => {
+                submitData.append(key, formData[key] === null ? '' : formData[key]);
+            });
+
+            tags.forEach(tag => {
+                submitData.append('tags', tag);
+            });
+
+            images.forEach(image => {
+                submitData.append('images', image);
+            });
+
+            const url = isEdit && initialData?.id
+                ? `${ENDPOINTS.INVENTORY_PRODUCTS}${initialData.id}/`
+                : ENDPOINTS.INVENTORY_PRODUCTS;
+
+            const method = isEdit ? 'PATCH' : 'POST';
+
+            const response = await fetchWithAuth(url, {
+                method: method,
+                headers: {},
+                body: submitData
+            });
+
+            if (response.ok) {
+                if (addAnother && !isEdit) {
+                    setFormData({
+                        name: '',
+                        description: '',
+                        category: '',
+                        vendor: '',
+                        cost_price: '0',
+                        selling_price: '',
+                        stock_quantity: '',
+                        low_stock_threshold: '5',
+                        is_additional: false
+                    });
+                    setTags([]);
+                    setImages([]);
+                    setImagePreviews([]);
+                    setTagInput('');
+                    setFieldErrors({});
+                    setSubmitSuccess('Product saved successfully!');
+                    window.scrollTo(0, 0);
+                    // Auto-clear success message after 3s
+                    setTimeout(() => setSubmitSuccess(null), 3000);
+                } else {
+                    navigate('/inventory');
+                }
+            } else {
+                // LENS-01: Inline error instead of alert()
+                try {
+                    const errorData = await response.json();
+                    // Map server-side field errors to field-level display
+                    const serverFieldErrors = {};
+                    Object.keys(errorData).forEach(key => {
+                        if (key !== 'detail' && key !== 'non_field_errors') {
+                            serverFieldErrors[key] = Array.isArray(errorData[key]) ? errorData[key][0] : errorData[key];
+                        }
+                    });
+                    if (Object.keys(serverFieldErrors).length > 0) {
+                        setFieldErrors(serverFieldErrors);
+                    }
+                    const message = errorData.detail || errorData.non_field_errors?.[0] || 'Failed to save product. Please check the form.';
+                    setSubmitError(message);
+                } catch {
+                    setSubmitError('Failed to save product. Please check the form.');
+                }
+            }
+        } catch (error) {
+            console.error('Error saving product:', error);
+            // LENS-01: Inline error instead of alert()
+            setSubmitError('A network error occurred. Please try again.');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    return (
+        <div className="product-form-container">
+            <div className="card product-form">
+                <div className="form-section">
+                    <h3>Basic Information</h3>
+                    <div className="form-group">
+                        <label>Product Name <span className="required-mark">*</span></label>
+                        <input
+                            type="text"
+                            name="name"
+                            value={formData.name}
+                            onChange={handleInputChange}
+                            className={fieldErrors.name ? 'input-error' : ''}
+                        />
+                        {fieldErrors.name && <span className="field-error">{fieldErrors.name}</span>}
+                    </div>
+                    <div className="form-group">
+                        <label>Description</label>
+                        <textarea
+                            name="description"
+                            value={formData.description}
+                            onChange={handleInputChange}
+                            rows="3"
+                        />
+                    </div>
+                    <div className="form-row">
+                        <div className="form-group">
+                            <label>Category</label>
+                            <div className="input-with-action">
+                                <select
+                                    name="category"
+                                    required
+                                    value={formData.category}
+                                    onChange={handleInputChange}
+                                >
+                                    <option value="">Select Category</option>
+                                    {categories.map(c => (
+                                        <option key={c.id} value={c.id}>{c.name}</option>
+                                    ))}
+                                </select>
+                                <button type="button" className="btn-icon-add" onClick={() => setIsCategoryModalOpen(true)} title="Add Category">+</button>
+                            </div>
+                        </div>
+
+                        <div className="form-group">
+                            <label>Vendor</label>
+                            <div className="input-with-action">
+                                <select
+                                    name="vendor"
+                                    value={formData.vendor}
+                                    onChange={handleInputChange}
+                                >
+                                    <option value="">Select Vendor</option>
+                                    {vendors.map(v => (
+                                        <option key={v.id} value={v.id}>{v.name}</option>
+                                    ))}
+                                </select>
+                                <button type="button" className="btn-icon-add" onClick={() => setIsVendorModalOpen(true)} title="Add Vendor">+</button>
+                            </div>
+                        </div>
+                    </div>
+                    <div className="form-group checkbox-group">
+                        <input
+                            type="checkbox"
+                            name="is_additional"
+                            id="is_additional"
+                            checked={formData.is_additional}
+                            onChange={handleInputChange}
+                        />
+                        <label htmlFor="is_additional">This is a service or add-on (not a physical product)</label>
+                        <small className="helper-text">Services and add-ons won't track stock levels</small>
+                    </div>
+                </div>
+
+                <div className="form-section">
+                    <h3>Pricing & Inventory</h3>
+                    <div className="form-row">
+                        <div className="form-group">
+                            <label>Cost Price ({currency})</label>
+                            <input
+                                type="number"
+                                name="cost_price"
+                                value={formData.cost_price}
+                                onChange={handleInputChange}
+                                min="0"
+                                step="0.01"
+                                className={fieldErrors.cost_price ? 'input-error' : ''}
+                            />
+                            {fieldErrors.cost_price && <span className="field-error">{fieldErrors.cost_price}</span>}
+                            <small className="helper-text">What you paid the supplier</small>
+                        </div>
+                        <div className="form-group">
+                            <label>Selling Price ({currency}) <span className="required-mark">*</span></label>
+                            <input
+                                type="number"
+                                name="selling_price"
+                                value={formData.selling_price}
+                                onChange={handleInputChange}
+                                min="0"
+                                step="0.01"
+                                className={fieldErrors.selling_price ? 'input-error' : ''}
+                            />
+                            {fieldErrors.selling_price && <span className="field-error">{fieldErrors.selling_price}</span>}
+                            <small className="helper-text">What the customer pays</small>
+                        </div>
+                    </div>
+                    <div className="form-row">
+                        <div className="form-group">
+                            <label>Initial Stock</label>
+                            <input
+                                type="number"
+                                name="stock_quantity"
+                                value={formData.stock_quantity}
+                                onChange={handleInputChange}
+                                min="0"
+                                disabled={isEdit}
+                                className={fieldErrors.stock_quantity ? 'input-error' : ''}
+                            />
+                            {fieldErrors.stock_quantity && <span className="field-error">{fieldErrors.stock_quantity}</span>}
+                            {isEdit && <small className="helper-text">Use Stock Control for adjustments</small>}
+                        </div>
+                        <div className="form-group">
+                            <label>Low Stock Threshold</label>
+                            <input
+                                type="number"
+                                name="low_stock_threshold"
+                                value={formData.low_stock_threshold}
+                                onChange={handleInputChange}
+                                min="0"
+                                className={fieldErrors.low_stock_threshold ? 'input-error' : ''}
+                            />
+                            {fieldErrors.low_stock_threshold && <span className="field-error">{fieldErrors.low_stock_threshold}</span>}
+                            <small className="helper-text">You'll see an alert when stock drops below this number</small>
+                        </div>
+                    </div>
+                </div>
+
+                <div className="form-section">
+                    <h3>Organization & Media</h3>
+                    <div className="form-group">
+                        <label>Tags</label>
+                        <div className="tags-input-container">
+                            {tags.map((tag, index) => (
+                                <span key={index} className="tag-chip">
+                                    {tag}
+                                    <button type="button" className="tag-remove" onClick={() => removeTag(tag)} aria-label={`Remove tag ${tag}`}>×</button>
+                                </span>
+                            ))}
+                            <input
+                                type="text"
+                                className="tags-input"
+                                placeholder="Type and press Enter..."
+                                value={tagInput}
+                                onChange={(e) => setTagInput(e.target.value)}
+                                onKeyDown={handleTagKeyDown}
+                            />
+                        </div>
+                    </div>
+                    <div className="form-group">
+                        <label>Images</label>
+                        <div className="image-upload-container" onClick={() => document.getElementById('image-input').click()}>
+                            <p>Click to upload images</p>
+                            <input
+                                type="file"
+                                id="image-input"
+                                multiple
+                                accept="image/*"
+                                style={{ display: 'none' }}
+                                onChange={handleImageChange}
+                            />
+                        </div>
+
+                        {/* Existing Images (Edit Mode) */}
+                        {existingImages.length > 0 && (
+                            <div className="image-previews existing">
+                                <h4>Current Images:</h4>
+                                <div className="preview-grid">
+                                    {existingImages.map((img, index) => (
+                                        <div key={index} className="image-preview">
+                                            <img src={img.image || img} alt={`Existing ${index}`} />
+                                            {/* TODO: Add remove functionality for existing images */}
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* New Upload Previews */}
+                        {imagePreviews.length > 0 && (
+                            <div className="image-previews">
+                                <h4>New Uploads:</h4>
+                                <div className="preview-grid">
+                                    {imagePreviews.map((src, index) => (
+                                        <div key={index} className="image-preview">
+                                            <img src={src} alt={`Preview ${index}`} />
+                                            <button className="remove-image" onClick={() => removeImage(index)}>×</button>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                </div>
+
+                {/* LENS-01: Inline submit feedback — at bottom near buttons */}
+                {submitError && (
+                    <div className="form-error-banner" role="alert">
+                        <span>⚠️ {submitError}</span>
+                        <button type="button" className="banner-dismiss" onClick={() => setSubmitError(null)}>×</button>
+                    </div>
+                )}
+                {submitSuccess && (
+                    <div className="form-success-banner" role="status">
+                        <span>✓ {submitSuccess}</span>
+                    </div>
+                )}
+
+                <div className="form-actions">
+                    <button className="btn btn-ghost" onClick={() => navigate('/inventory')} disabled={loading}>
+                        Cancel
+                    </button>
+                    {!isEdit && (
+                        <button className="btn btn-secondary" onClick={() => handleSubmit(true)} disabled={loading}>
+                            {loading ? 'Saving...' : 'Save & Add Another'}
+                        </button>
+                    )}
+                    <button className="btn btn-primary" onClick={() => handleSubmit(false)} disabled={loading}>
+                        {loading ? 'Saving...' : (isEdit ? 'Update Product' : 'Save Product')}
+                    </button>
+                </div>
+            </div>
+            {loading && <div className="loading-overlay">Saving...</div>}
+
+            <CategoryModal
+                isOpen={isCategoryModalOpen}
+                onClose={() => setIsCategoryModalOpen(false)}
+                onSuccess={handleCategoryAdded}
+            />
+            <VendorModal
+                isOpen={isVendorModalOpen}
+                onClose={() => setIsVendorModalOpen(false)}
+                onSuccess={handleVendorAdded}
+            />
+        </div>
+    );
+}

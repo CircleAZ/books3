@@ -8,16 +8,16 @@ from rest_framework.response import Response
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.parsers import MultiPartParser, FormParser
 from rest_framework_simplejwt.tokens import RefreshToken
-from django.contrib.auth import authenticate
-from django.contrib.auth.models import User
+from django.contrib.auth import authenticate, get_user_model
 from datetime import timedelta
 
-from .models import UserProfile, ActivityLog
+from .models import ActivityLog
 from .serializers import (
-    ProfileSerializer, LoginSerializer, ChangePasswordSerializer,
+    UserSerializer, LoginSerializer, ChangePasswordSerializer,
     ActivityLogSerializer, ProfilePictureSerializer
 )
 
+User = get_user_model()
 
 class LoginView(APIView):
     """
@@ -59,15 +59,14 @@ class LoginView(APIView):
         else:
             access_token = refresh.access_token
         
-        # Update profile
-        if hasattr(user, 'profile'):
-            user.profile.remember_me_enabled = remember_me
-            x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
-            if x_forwarded_for:
-                user.profile.last_login_ip = x_forwarded_for.split(',')[0]
-            else:
-                user.profile.last_login_ip = request.META.get('REMOTE_ADDR')
-            user.profile.save()
+        # Update user settings
+        user.remember_me_enabled = remember_me
+        x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
+        if x_forwarded_for:
+            user.last_login_ip = x_forwarded_for.split(',')[0]
+        else:
+            user.last_login_ip = request.META.get('REMOTE_ADDR')
+        user.save()
         
         # Log activity
         ActivityLog.log_action(
@@ -77,10 +76,8 @@ class LoginView(APIView):
             request=request
         )
         
-        # Get profile data
-        profile_data = None
-        if hasattr(user, 'profile'):
-            profile_data = ProfileSerializer(user.profile, context={'request': request}).data
+        # Get profile data (now part of User)
+        profile_data = UserSerializer(user, context={'request': request}).data
         
         return Response({
             'access': str(access_token),
@@ -91,8 +88,9 @@ class LoginView(APIView):
                 'email': user.email,
                 'first_name': user.first_name,
                 'last_name': user.last_name,
+                'role': user.role, # Added role here for convenience
             },
-            'profile': profile_data
+            'profile': profile_data # Kept 'profile' key for frontend compatibility, but it contains user data
         })
 
 
@@ -129,11 +127,10 @@ class ProfileView(generics.RetrieveUpdateAPIView):
     PUT/PATCH /api/account/profile/ - Update profile
     """
     permission_classes = [IsAuthenticated]
-    serializer_class = ProfileSerializer
+    serializer_class = UserSerializer # Changed from ProfileSerializer
     
     def get_object(self):
-        profile, created = UserProfile.objects.get_or_create(user=self.request.user)
-        return profile
+        return self.request.user # Directly return the user
     
     def perform_update(self, serializer):
         serializer.save()
@@ -159,14 +156,14 @@ class ProfilePictureView(APIView):
         serializer = ProfilePictureSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         
-        profile = request.user.profile
+        user = request.user
         
         # Delete old picture if exists
-        if profile.profile_picture:
-            profile.profile_picture.delete(save=False)
+        if user.profile_picture:
+            user.profile_picture.delete(save=False)
         
-        profile.profile_picture = serializer.validated_data['profile_picture']
-        profile.save()
+        user.profile_picture = serializer.validated_data['profile_picture']
+        user.save()
         
         # Log activity
         ActivityLog.log_action(
@@ -178,13 +175,13 @@ class ProfilePictureView(APIView):
         
         return Response({
             'message': 'Profile picture updated',
-            'profile_picture_url': request.build_absolute_uri(profile.profile_picture.url)
+            'profile_picture_url': request.build_absolute_uri(user.profile_picture.url)
         })
     
     def delete(self, request):
-        profile = request.user.profile
-        if profile.profile_picture:
-            profile.profile_picture.delete()
+        user = request.user
+        if user.profile_picture:
+            user.profile_picture.delete()
         
         return Response({'message': 'Profile picture removed'})
 
