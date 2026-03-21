@@ -12,6 +12,8 @@ export const ENDPOINTS = {
     PROFILE_PICTURE: `${API_BASE}/account/profile/picture/`,
     CHANGE_PASSWORD: `${API_BASE}/account/change-password/`,
     ACTIVITY: `${API_BASE}/account/activity/`,
+    NOTIFICATIONS: `${API_BASE}/account/notifications/`,
+    NOTIFICATIONS_COUNT: `${API_BASE}/account/notifications/count/`,
 
     // Dashboard
     DASHBOARD_STATS: `${API_BASE}/dashboard/stats/`,
@@ -37,6 +39,16 @@ export const ENDPOINTS = {
     CUSTOMERS_LINK_TYPES: `${API_BASE}/customers/link-types/`,
     CUSTOMERS_SUBDIVISIONS: `${API_BASE}/customers/subdivisions/`,
 
+    // Template Catalogs (reusable name pools)
+    CLASS_TEMPLATES: `${API_BASE}/customers/class-templates/`,
+    DIVISION_TEMPLATES: `${API_BASE}/customers/division-templates/`,
+    SUBDIVISION_TEMPLATES: `${API_BASE}/customers/subdivision-templates/`,
+
+    // School Structure Actions
+    SCHOOL_STRUCTURE: (id) => `${API_BASE}/customers/schools/${id}/structure/`,
+    SCHOOL_ASSIGN_STRUCTURE: (id) => `${API_BASE}/customers/schools/${id}/assign-structure/`,
+    SCHOOL_DELETE_WITH_STRUCTURE: (id) => `${API_BASE}/customers/schools/${id}/delete-with-structure/`,
+
     // Orders
     ORDERS: `${API_BASE}/orders/orders/`,
     RETURNS: `${API_BASE}/orders/returns/`,
@@ -52,6 +64,11 @@ export const ENDPOINTS = {
     FINANCE_BANK_TRANSACTIONS: `${API_BASE}/finance/bank-transactions/`,
     FINANCE_LENDERS: `${API_BASE}/finance/lenders/`,
     FINANCE_LOANS: `${API_BASE}/finance/loans/`,
+    FINANCE_INCOME_CATEGORIES: `${API_BASE}/finance/income-categories/`,
+    FINANCE_RECURRING_EXPENSES: `${API_BASE}/finance/recurring-expenses/`,
+    FINANCE_CATEGORY_BUDGETS: `${API_BASE}/finance/category-budgets/`,
+    FINANCE_AUDIT_LOGS: `${API_BASE}/finance/audit-logs/`,
+    FINANCE_EXPENSE_TRIPS: `${API_BASE}/finance/expense-trips/`,
 
     // Reports
     REPORTS_SALES: `${API_BASE}/reports/sales/`,
@@ -59,12 +76,12 @@ export const ENDPOINTS = {
     REPORTS_CUSTOMERS: `${API_BASE}/reports/customers/`,
     REPORTS_ACTIVITY: `${API_BASE}/reports/activity/`,
     REPORTS_EXPORT: `${API_BASE}/reports/export/`,
+    REPORTS_FINANCE: `${API_BASE}/reports/finance/`,
 
     // Settings
     SETTINGS_STORE: `${API_BASE}/settings/store/`,
     SETTINGS_USERS: `${API_BASE}/settings/users/`,
     SETTINGS_ROLES: `${API_BASE}/settings/roles/`,
-    SETTINGS_TAXES: `${API_BASE}/settings/taxes/`,
     SETTINGS_TAXES: `${API_BASE}/settings/taxes/`,
     SETTINGS_NOTIFICATIONS: `${API_BASE}/settings/notifications/`,
     SETTINGS_RECEIPT: `${API_BASE}/settings/receipts/`,

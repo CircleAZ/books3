@@ -248,6 +248,19 @@
     font-style: italic;
 }
 
+.empty-state-actions {
+    display: flex;
+    justify-content: center;
+    gap: var(--space-sm);
+    margin-top: var(--space-md);
+}
+
+.quick-filters {
+    display: flex;
+    gap: var(--space-sm);
+    align-items: center;
+}
+
 .pagination-bar {
     display: flex;
     justify-content: space-between;

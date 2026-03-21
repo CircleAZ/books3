@@ -107,7 +107,7 @@ export default function LoanDetails() {
         return <div className="error-message">Loan not found</div>;
     }
 
-    const progress = Math.min(100, (loan.total_paid / (loan.principal + (loan.total_interest || 0))) * 100) || 0;
+    const progress = Math.min(100, (loan.total_paid / (loan.principal_amount + (loan.total_interest || 0))) * 100) || 0;
 
     return (
         <div className="loan-details-container fade-in">
@@ -117,7 +117,7 @@ export default function LoanDetails() {
                     <div>
                         <div className="lender-badge">{loan.lender_name}</div>
                         <h1 className="loan-title">Loan: {loan.loan_number}</h1>
-                        <p className="principal-subtitle">Principal: {currency}{Number(loan.principal).toLocaleString()}</p>
+                        <p className="principal-subtitle">Principal: {currency}{Number(loan.principal_amount).toLocaleString()}</p>
                     </div>
                 </div>
                 <div className="header-actions">

@@ -101,9 +101,11 @@ export default function Login() {
                     </button>
                 </form>
 
-                <div className="login-footer">
-                    <p>Demo: admin / admin</p>
-                </div>
+                {import.meta.env.DEV && (
+                    <div className="login-footer">
+                        <p>Demo: admin / admin</p>
+                    </div>
+                )}
             </div>
         </div>
     );

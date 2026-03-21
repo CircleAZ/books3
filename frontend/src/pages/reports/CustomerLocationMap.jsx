@@ -29,9 +29,10 @@ export default function CustomerLocationMap() {
                 markersRef.current = [];
             } else {
                 // Initialize map centered on India
-                mapInstanceRef.current = L.map(mapRef.current).setView([20.5937, 78.9629], 5);
-                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                    attribution: '&copy; OpenStreetMap contributors'
+                mapInstanceRef.current = L.map(mapRef.current, { maxZoom: 22 }).setView([20.81746, 72.88007], 11);
+                L.tileLayer('https://api.maptiler.com/maps/hybrid/{z}/{x}/{y}.jpg?key=BQQceBuFb4tKDPHoivOL', {
+                    attribution: '&copy; <a href="https://www.maptiler.com/copyright/">MapTiler</a> &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+                    maxZoom: 22
                 }).addTo(mapInstanceRef.current);
             }
 

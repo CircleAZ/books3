@@ -4,19 +4,23 @@ import { useCurrency } from '../../context/CurrencyContext';
 import { useCart } from '../../context/CartContext';
 import { ENDPOINTS } from '../../config/api';
 import AddCustomer from '../customers/AddCustomer';
+import { useToast } from '../../context/ToastContext';
 import '../NewOrder.css';
 
 export default function NewOrder() {
     const { fetchWithAuth } = useAuth();
     const { currency } = useCurrency();
     const { isDrawerOpen, setIsDrawerOpen, setCartData } = useCart();
+    const { showToast } = useToast();
 
     // State
     const [customerSearch, setCustomerSearch] = useState('');
     const [customerResults, setCustomerResults] = useState([]);
     const [selectedCustomer, setSelectedCustomer] = useState(null);
-    const [isGuest, setIsGuest] = useState(false);
-    const [guestInfo, setGuestInfo] = useState({ name: '', phone: '', email: '' });
+    const [isQuickAdd, setIsQuickAdd] = useState(false);
+    const [quickAddInfo, setQuickAddInfo] = useState({ first_name: '', phone: '' });
+    const [isQuickAddSaving, setIsQuickAddSaving] = useState(false);
+    const [quickAddPhoneWarning, setQuickAddPhoneWarning] = useState('');
 
     const [productSearch, setProductSearch] = useState('');
     const [productResults, setProductResults] = useState([]);
@@ -37,6 +41,7 @@ export default function NewOrder() {
     const [isSearchingProducts, setIsSearchingProducts] = useState(false);
     const [isSearchingCustomers, setIsSearchingCustomers] = useState(false);
     const [clearStage, setClearStage] = useState('idle'); // idle → confirming → ready
+    const [selectedCategory, setSelectedCategory] = useState('');
 
     // Quick Product Modal State (P4 3.3.1.2.3: Name, Estimated Price, Category, Reference Photo)
     const [showQuickProduct, setShowQuickProduct] = useState(false);
@@ -185,7 +190,7 @@ export default function NewOrder() {
         const fetchPopularProducts = async () => {
             try {
                 const response = await fetchWithAuth(
-                    `${ENDPOINTS.INVENTORY_PRODUCTS}?ordering=-order_count&page_size=30`
+                    `${ENDPOINTS.INVENTORY_PRODUCTS}?ordering=-order_count&page_size=30${selectedCategory ? `&category=${selectedCategory}` : ''}`
                 );
                 if (response.ok) {
                     const data = await response.json();
@@ -196,7 +201,7 @@ export default function NewOrder() {
             }
         };
         fetchPopularProducts();
-    }, [fetchWithAuth]);
+    }, [fetchWithAuth, selectedCategory]);
 
     // Fetch Payment Methods, UPI Accounts, and Categories
     useEffect(() => {
@@ -240,6 +245,9 @@ export default function NewOrder() {
 
     // Cart Logic
     const addToCart = (product) => {
+        if (product.stock_quantity <= 0) {
+            showToast(`⚠ ${product.name} is out of stock (${product.stock_quantity}). Adding anyway.`, 'warning');
+        }
         setCartItems(prev => {
             const existing = prev.find(item => item.id === product.id);
             if (existing) {
@@ -280,7 +288,13 @@ export default function NewOrder() {
     };
 
     const removeFromCart = (id) => {
+        const removed = cartItems.find(item => item.id === id);
         setCartItems(prev => prev.filter(item => item.id !== id));
+        if (removed) {
+            showToast(`${removed.name} removed`, 'info', {
+                undo: () => setCartItems(prev => [...prev, removed])
+            });
+        }
     };
 
     const setQuantity = (id, qty) => {
@@ -397,14 +411,14 @@ export default function NewOrder() {
                 setShowQuickProduct(false);
                 setNewProduct({ name: '', selling_price: '', category: '', is_additional: true });
                 setReferencePhoto(null);
-                alert('Product created and added to cart');
+                showToast('Product created and added to cart', 'success');
             } else {
                 const err = await response.json();
-                alert('Failed to create product: ' + JSON.stringify(err));
+                showToast('Failed to create product: ' + JSON.stringify(err), 'error');
             }
         } catch (error) {
             console.error('Error creating product:', error);
-            alert('Error creating product');
+            showToast('Error creating product', 'error');
         } finally {
             setIsCreatingProduct(false);
         }
@@ -418,7 +432,7 @@ export default function NewOrder() {
             phone: customer.phone
         });
         setShowAddCustomer(false);
-        alert('Customer added and selected!');
+        showToast('Customer added and selected!', 'success');
     };
 
     // Final Actions
@@ -426,8 +440,8 @@ export default function NewOrder() {
         if (window.confirm('Clear all items and reset order?')) {
             setCartItems([]);
             setSelectedCustomer(null);
-            setIsGuest(false);
-            setGuestInfo({ name: '', phone: '', email: '' });
+            setIsQuickAdd(false);
+            setQuickAddInfo({ first_name: '', phone: '' });
             setPayments([]);
             setOrderDiscount({ type: 'fixed', value: 0 });
         }
@@ -438,12 +452,12 @@ export default function NewOrder() {
         if (isSubmittingRef.current) return;
 
         if (cartItems.length === 0) {
-            alert('Cart is empty');
+            showToast('Cart is empty', 'warning');
             return;
         }
 
-        if (!selectedCustomer && !isGuest) {
-            alert('Please select a customer or use guest checkout');
+        if (!selectedCustomer) {
+            showToast('Please select a customer or quick-add one', 'warning');
             return;
         }
 
@@ -454,10 +468,6 @@ export default function NewOrder() {
         try {
             const orderData = {
                 customer: selectedCustomer?.id || null,
-                is_guest: isGuest,
-                guest_name: isGuest ? guestInfo.name : '',
-                guest_phone: isGuest ? guestInfo.phone : '',
-                guest_email: isGuest ? guestInfo.email : '',
                 order_status: status,
                 discount_type: orderDiscount.type,
                 discount_value: orderDiscount.value,
@@ -475,7 +485,7 @@ export default function NewOrder() {
                 }))
             };
 
-            console.log('Submitting order:', JSON.stringify(orderData, null, 2));
+
 
             const response = await fetchWithAuth(ENDPOINTS.ORDERS, {
                 method: 'POST',
@@ -483,12 +493,12 @@ export default function NewOrder() {
             });
 
             if (response.ok) {
-                alert(`Order ${status === 'draft' ? 'held' : 'completed'} successfully!`);
+                showToast(`Order ${status === 'draft' ? 'held' : 'completed'} successfully!`, 'success');
                 // Reset state
                 setCartItems([]);
                 setSelectedCustomer(null);
-                setIsGuest(false);
-                setGuestInfo({ name: '', phone: '', email: '' });
+                setIsQuickAdd(false);
+                setQuickAddInfo({ first_name: '', phone: '' });
                 setPayments([]);
                 setOrderDiscount({ type: 'fixed', value: 0 });
             } else {
@@ -502,11 +512,11 @@ export default function NewOrder() {
                     errMsg = text.slice(0, 200);
                     console.error('Order API error (non-JSON):', text.slice(0, 500));
                 }
-                alert('Order failed: ' + errMsg);
+                showToast('Order failed: ' + errMsg, 'error');
             }
         } catch (error) {
             console.error('Order submission error:', error);
-            alert('Failed to submit order: ' + error.message);
+            showToast('Failed to submit order: ' + error.message, 'error');
         } finally {
             isSubmittingRef.current = false;
             setIsLoading(false);
@@ -522,13 +532,13 @@ export default function NewOrder() {
                 <section className="pos-section">
                     <div className="section-title">
                         <span>Customer</span>
-                        {!selectedCustomer && !isGuest && (
+                        {!selectedCustomer && !isQuickAdd && (
                             <div className="d-flex gap-2">
-                                <button className="btn btn-primary btn-sm" onClick={() => setShowAddCustomer(prev => !prev)}>
+                                <button type="button" className="btn btn-primary btn-sm" onClick={() => setShowAddCustomer(prev => !prev)}>
                                     {showAddCustomer ? 'Close' : 'New Customer'}
                                 </button>
-                                <button className="btn btn-ghost btn-sm" onClick={() => setIsGuest(true)}>
-                                    Guest Checkout
+                                <button type="button" className="btn btn-ghost btn-sm" onClick={() => setIsQuickAdd(true)}>
+                                    Quick Add
                                 </button>
                             </div>
                         )}
@@ -545,32 +555,97 @@ export default function NewOrder() {
                             </div>
                             <button className="btn btn-ghost btn-sm" onClick={() => setSelectedCustomer(null)}>Change</button>
                         </div>
-                    ) : isGuest ? (
+                    ) : isQuickAdd ? (
                         <div className="guest-info-form">
                             <div className="guest-inputs">
                                 <input
                                     type="text"
-                                    placeholder="Guest Name"
+                                    placeholder="Customer Name *"
                                     className="form-control"
-                                    value={guestInfo.name}
-                                    onChange={e => setGuestInfo({ ...guestInfo, name: e.target.value })}
+                                    value={quickAddInfo.first_name}
+                                    onChange={e => setQuickAddInfo({ ...quickAddInfo, first_name: e.target.value })}
                                 />
                                 <input
-                                    type="text"
-                                    placeholder="Guest Phone"
+                                    type="tel"
+                                    placeholder="Phone (10 digits) *"
                                     className="form-control"
-                                    value={guestInfo.phone}
-                                    onChange={e => setGuestInfo({ ...guestInfo, phone: e.target.value })}
-                                />
-                                <input
-                                    type="email"
-                                    placeholder="Guest Email (optional)"
-                                    className="form-control"
-                                    value={guestInfo.email}
-                                    onChange={e => setGuestInfo({ ...guestInfo, email: e.target.value })}
+                                    maxLength="10"
+                                    value={quickAddInfo.phone}
+                                    onChange={e => {
+                                        const val = e.target.value.replace(/\D/g, '').slice(0, 10);
+                                        setQuickAddInfo({ ...quickAddInfo, phone: val });
+                                        if (val.length < 10) setQuickAddPhoneWarning('');
+                                    }}
+                                    onBlur={async () => {
+                                        const phone = quickAddInfo.phone;
+                                        if (phone.length !== 10) return;
+                                        try {
+                                            const res = await fetchWithAuth(`${ENDPOINTS.CUSTOMERS}?search=${phone}`);
+                                            if (res.ok) {
+                                                const data = await res.json();
+                                                const matches = (data.results || []).filter(c => c.phone === phone);
+                                                if (matches.length > 0) {
+                                                    setQuickAddPhoneWarning(`⚠ Phone already used by: ${matches[0].full_name} (#${matches[0].display_id})`);
+                                                } else {
+                                                    setQuickAddPhoneWarning('');
+                                                }
+                                            }
+                                        } catch (e) { /* ignore */ }
+                                    }}
                                 />
                             </div>
-                            <button className="btn btn-link btn-sm mt-1" onClick={() => setIsGuest(false)}>Back to search</button>
+                            {quickAddPhoneWarning && (
+                                <div style={{ color: '#e6a817', fontSize: '0.8rem', marginTop: '0.25rem' }}>{quickAddPhoneWarning}</div>
+                            )}
+                            <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.5rem' }}>
+                                <button
+                                    className="btn btn-primary btn-sm"
+                                    disabled={!quickAddInfo.first_name.trim() || quickAddInfo.phone.length !== 10 || isQuickAddSaving}
+                                    type="button"
+                                    onClick={async () => {
+                                        setIsQuickAddSaving(true);
+                                        try {
+                                            const res = await fetchWithAuth(ENDPOINTS.CUSTOMERS, {
+                                                method: 'POST',
+                                                headers: { 'Content-Type': 'application/json' },
+                                                body: JSON.stringify({
+                                                    first_name: quickAddInfo.first_name.trim(),
+                                                    phone: quickAddInfo.phone,
+                                                    notes: ''
+                                                })
+                                            });
+                                            if (res.ok) {
+                                                const customer = await res.json();
+                                                setSelectedCustomer({
+                                                    id: customer.id,
+                                                    display_id: customer.display_id,
+                                                    name: customer.first_name || quickAddInfo.first_name,
+                                                    phone: customer.phone || quickAddInfo.phone
+                                                });
+                                                setIsQuickAdd(false);
+                                                setQuickAddInfo({ first_name: '', phone: '' });
+                                            } else {
+                                                const err = await res.json();
+                                                const flatten = (obj) => {
+                                                    return Object.entries(obj).flatMap(([k, v]) => {
+                                                        if (Array.isArray(v)) return v.map(item => typeof item === 'object' ? flatten(item) : `${k}: ${item}`).flat();
+                                                        if (typeof v === 'object' && v !== null) return flatten(v);
+                                                        return [`${k}: ${v}`];
+                                                    });
+                                                };
+                                                showToast('Failed: ' + flatten(err).join(', '), 'error');
+                                            }
+                                        } catch (e) {
+                                            showToast('Error creating customer', 'error');
+                                        } finally {
+                                            setIsQuickAddSaving(false);
+                                        }
+                                    }}
+                                >
+                                    {isQuickAddSaving ? 'Saving...' : 'Create & Select'}
+                                </button>
+                                <button className="btn btn-link btn-sm" onClick={() => setIsQuickAdd(false)}>Back to search</button>
+                            </div>
                         </div>
                     ) : (
                         <>
@@ -628,6 +703,7 @@ export default function NewOrder() {
                     <div className="section-title">
                         <span>Products</span>
                         <button
+                            type="button"
                             className="btn btn-primary btn-sm"
                             onClick={() => setShowQuickProduct(true)}
                             title="Quick Add Product"
@@ -644,6 +720,21 @@ export default function NewOrder() {
                             onChange={e => setProductSearch(e.target.value)}
                         />
                     </div>
+
+                    {!productSearch && availableCategories.length > 0 && (
+                        <div className="category-filter">
+                            <select
+                                className="form-control form-control-sm"
+                                value={selectedCategory}
+                                onChange={e => setSelectedCategory(e.target.value)}
+                            >
+                                <option value="">All Categories</option>
+                                {availableCategories.map(cat => (
+                                    <option key={cat.id} value={cat.id}>{cat.name}</option>
+                                ))}
+                            </select>
+                        </div>
+                    )}
 
                     {isSearchingProducts ? (
                         <div className="loading-container"><div className="spinner"></div></div>
@@ -713,7 +804,7 @@ export default function NewOrder() {
                         </div>
                     )}
                 </section>
-            </div>
+            </div >
 
             {/* Cart Drawer Overlay (mobile) */}
             {isDrawerOpen && <div className="cart-drawer-overlay" onClick={() => setIsDrawerOpen(false)} />}
@@ -918,16 +1009,17 @@ export default function NewOrder() {
                     }
                 </div >
 
-                {cartItems.length > 0 && !selectedCustomer && !isGuest && (
+                {cartItems.length > 0 && !selectedCustomer && (
                     <div className="inline-warning">
-                        ⚠ Please select a customer or use guest checkout
+                        ⚠ Please select a customer or quick-add one
                     </div>
                 )}
 
                 <div className="pos-actions">
                     <button
+                        type="button"
                         className="btn btn-secondary btn-full"
-                        disabled={isLoading || cartItems.length === 0 || (!selectedCustomer && !isGuest)}
+                        disabled={isLoading || cartItems.length === 0 || !selectedCustomer}
                         onClick={() => {
                             if (window.confirm('Save this order as a draft (held order)? The form will reset after saving.')) {
                                 submitOrder('draft');
@@ -948,8 +1040,9 @@ export default function NewOrder() {
                         </button>
                     )}
                     <button
+                        type="button"
                         className="btn btn-success btn-full complete-btn"
-                        disabled={isLoading || cartItems.length === 0 || (!selectedCustomer && !isGuest)}
+                        disabled={isLoading || cartItems.length === 0 || !selectedCustomer}
                         onClick={() => submitOrder('completed')}
                     >
                         {isLoading ? 'Processing...' :

@@ -2,53 +2,23 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { ENDPOINTS } from '../../config/api';
+import { getPageTitle, getBreadcrumbs } from '../../config/navigation';
 import TopBar from './TopBar';
 import BottomNavBar from './BottomNavBar';
 import NavigationDrawer from './NavigationDrawer';
 import UserProfileDropdown from './UserProfileDropdown';
+import NotificationPanel from './NotificationPanel';
+import Breadcrumbs from './Breadcrumbs';
 import OmniSearch from '../common/OmniSearch';
 import './MainLayout.css';
 
-// Map routes to page titles
-const routeTitles = {
-    '/': 'Dashboard',
-    '/inventory': 'Products',
-    '/inventory/add': 'Add Product',
-    '/inventory/categories': 'Categories',
-    '/inventory/vendors': 'Vendors',
-    '/inventory/stock': 'Stock Adjustments',
-    '/inventory/deleted': 'Deleted Products',
-    '/customers': 'Customers',
-    '/customers/add': 'Add Customer',
-    '/customers/settings': 'Customer Settings',
-    '/orders': 'Orders',
-    '/orders/new': 'New Order',
-    '/orders/returns': 'Returns & Refunds',
-    '/reports': 'Reports',
-    '/reports/sales': 'Sales Reports',
-    '/reports/inventory': 'Inventory Reports',
-    '/reports/customers': 'Customer Reports',
-    '/reports/profit-loss': 'Profit & Loss',
-    '/reports/export': 'Export Data',
-    '/settings': 'Settings',
-    '/settings/store': 'Store Details',
-    '/settings/users': 'User Management',
-    '/settings/payments': 'Payment Methods',
-    '/settings/receipts': 'Receipt Customization',
-    '/settings/notifications': 'Notifications',
-    '/settings/integrations': 'Integrations',
-    '/settings/data': 'Data Management',
-    '/settings/system': 'System Information',
-    '/account/profile': 'My Profile',
-    '/finance': 'Finance',
-    '/finance/expenses': 'Expenses',
-    '/finance/expenses/add': 'Add Expense',
-};
-
 export default function MainLayout({ children }) {
     const location = useLocation();
+    const { user, fetchWithAuth } = useAuth();
     const [profileOpen, setProfileOpen] = useState(false);
     const [searchOpen, setSearchOpen] = useState(false);
+    const [notifOpen, setNotifOpen] = useState(false);
+    const [notifCount, setNotifCount] = useState(0);
 
     // Responsive sidebar states:
     // 'full'    – full sidebar always visible (≥1200px)
@@ -65,8 +35,27 @@ export default function MainLayout({ children }) {
     // Store logo
     const [storeLogo, setStoreLogo] = useState(null);
 
-    // Get title from route
-    const pageTitle = routeTitles[location.pathname] || 'AZ Books';
+    // Fetch unread notification count
+    useEffect(() => {
+        const fetchCount = async () => {
+            try {
+                const res = await fetchWithAuth(ENDPOINTS.NOTIFICATIONS_COUNT);
+                if (res.ok) {
+                    const data = await res.json();
+                    setNotifCount(data.unread_count);
+                }
+            } catch (err) { /* silent */ }
+        };
+        fetchCount();
+        const interval = setInterval(fetchCount, 60000); // Poll every 60s
+        return () => clearInterval(interval);
+    }, [fetchWithAuth]);
+
+    // NAV-A3: Page title derived from shared navigation config
+    const pageTitle = getPageTitle(location.pathname);
+
+    // NAV-U3: Breadcrumbs derived from shared navigation config
+    const breadcrumbs = getBreadcrumbs(location.pathname);
 
     // Compute sidebar mode from screen width
     useEffect(() => {
@@ -98,11 +87,12 @@ export default function MainLayout({ children }) {
     // Fetch store logo once on mount
     useEffect(() => {
         const fetchStoreLogo = async () => {
+            if (!fetchWithAuth) return;
             try {
                 const res = await fetchWithAuth(ENDPOINTS.SETTINGS_STORE);
-                if (res.ok) {
+                if (res && res.ok) {
                     const data = await res.json();
-                    if (data.logo) setStoreLogo(data.logo);
+                    if (data && data.logo) setStoreLogo(data.logo);
                 }
             } catch (err) {
                 console.error('Error fetching store logo:', err);
@@ -167,7 +157,6 @@ export default function MainLayout({ children }) {
     const sidebarClass = drawerMode === 'full' ? 'sidebar-full' : drawerMode === 'mini' ? 'sidebar-mini' : '';
 
     // Usage of AuthContext to get real user data
-    const { user } = useAuth();
 
     return (
         <div className="app-layout">
@@ -179,12 +168,14 @@ export default function MainLayout({ children }) {
                 storeLogo={storeLogo}
                 onMenuClick={handleMenuClick}
                 onSearchClick={() => setSearchOpen(true)}
-                onProfileClick={() => setProfileOpen(prev => !prev)}
-                notificationCount={3}
+                onProfileClick={() => { setProfileOpen(prev => !prev); setNotifOpen(false); }}
+                onNotificationClick={() => { setNotifOpen(prev => !prev); setProfileOpen(false); }}
+                notificationCount={notifCount}
                 sidebarClass={sidebarClass}
                 showHamburger={sidebarMode === 'hidden'}
                 hamburgerLabel={hamburgerLabel}
                 hamburgerRef={sidebarMode === 'hidden' ? hamburgerRef : undefined}
+                user={user}
             />
 
             <NavigationDrawer
@@ -199,7 +190,6 @@ export default function MainLayout({ children }) {
             <UserProfileDropdown
                 isOpen={profileOpen}
                 onClose={() => setProfileOpen(false)}
-                user={user}
             />
 
             <OmniSearch
@@ -207,7 +197,14 @@ export default function MainLayout({ children }) {
                 onClose={() => setSearchOpen(false)}
             />
 
+            <NotificationPanel
+                isOpen={notifOpen}
+                onClose={() => setNotifOpen(false)}
+                onCountUpdate={setNotifCount}
+            />
+
             <main id="main-content" className={`main-content ${sidebarClass}`}>
+                <Breadcrumbs items={breadcrumbs} />
                 {children}
             </main>
 

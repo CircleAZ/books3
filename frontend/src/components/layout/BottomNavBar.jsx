@@ -66,7 +66,7 @@ export default function BottomNavBar({ hidden = false }) {
     const isOnNewOrder = location.pathname === '/orders/new';
 
     return (
-        <nav className="bottom-nav" role="navigation" aria-label="Main navigation">
+        <nav className="bottom-nav" role="navigation" aria-label="Bottom navigation">
             {navItems.map(item => {
                 // When on New Order page, replace center button with cart button
                 if (item.isMain && isOnNewOrder) {

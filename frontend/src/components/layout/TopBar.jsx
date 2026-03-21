@@ -1,7 +1,6 @@
-import { useState } from 'react';
 import './TopBar.css';
 
-export default function TopBar({ title, storeLogo, onMenuClick, onSearchClick, onProfileClick, notificationCount = 0, sidebarClass = '', showHamburger = false, hamburgerLabel = 'Open navigation menu', hamburgerRef }) {
+export default function TopBar({ title, storeLogo, onMenuClick, onSearchClick, onProfileClick, onNotificationClick, notificationCount = 0, sidebarClass = '', showHamburger = false, hamburgerLabel = 'Open navigation menu', hamburgerRef, user }) {
     return (
         <header className={`topbar ${sidebarClass}`}>
             <div className="topbar-left">
@@ -35,7 +34,7 @@ export default function TopBar({ title, storeLogo, onMenuClick, onSearchClick, o
                     </svg>
                 </button>
 
-                <button className="icon-btn notification-btn" aria-label="Notifications">
+                <button className="icon-btn notification-btn" onClick={onNotificationClick} aria-label={notificationCount > 0 ? `Notifications (${notificationCount} unread)` : 'Notifications'}>
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                         <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
                         <path d="M13.73 21a2 2 0 0 1-3.46 0" />
@@ -51,7 +50,7 @@ export default function TopBar({ title, storeLogo, onMenuClick, onSearchClick, o
                     aria-label="Open user menu"
                 >
                     <div className="avatar">
-                        <span>JD</span>
+                        <span>{user?.first_name && user?.last_name ? `${user.first_name[0]}${user.last_name[0]}`.toUpperCase() : user?.username?.slice(0, 2).toUpperCase() || 'U'}</span>
                     </div>
                 </button>
             </div>

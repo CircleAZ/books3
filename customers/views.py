@@ -1,21 +1,95 @@
-"""
-Views for Customer app.
-"""
 from rest_framework import viewsets, filters, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
+from rest_framework.views import APIView
+from rest_framework.throttling import UserRateThrottle
 from django_filters.rest_framework import DjangoFilterBackend
-from django.db.models import Sum, Q
+from django.db.models import Sum, Q, Count
+from django.db import transaction
 
+from core.permissions import HasRequiredPermission
 from .models import Customer, Address, CustomerLink, Wallet, WalletTransaction
 from .serializers import (
     CustomerListSerializer, CustomerDetailSerializer, CustomerCreateUpdateSerializer,
     AddressSerializer, CustomerLinkSerializer, WalletSerializer, WalletTransactionSerializer,
     SchoolSerializer, ClassSerializer, DivisionSerializer, SubdivisionSerializer,
-    CustomerGroupSerializer, LinkTypeSerializer, LocationTagSerializer
+    CustomerGroupSerializer, LinkTypeSerializer, LocationTagSerializer,
+    ClassTemplateSerializer, DivisionTemplateSerializer, SubdivisionTemplateSerializer
 )
-from settings_app.models import School, Class, Division, Subdivision, CustomerGroup, LinkType, LocationTag
+from settings_app.models import (
+    School, Class, Division, Subdivision, CustomerGroup, LinkType, LocationTag,
+    ClassTemplate, DivisionTemplate, SubdivisionTemplate
+)
+
+
+class InlineSchoolCreateView(APIView):
+    """
+    Lightweight endpoint for cashiers to create Schools/Classes/Divisions
+    inline during customer creation/editing. Requires only the
+    'customers.inline_create_taxonomy' permission, NOT the full
+    'customers.manage_tags' permission needed for the settings page.
+
+    POST /api/customers/inline-school/
+    { "type": "school", "name": "New School Name" }
+    { "type": "class", "name": "Class 5", "school_id": "uuid" }
+    { "type": "division", "name": "Section A", "class_id": "uuid" }
+    """
+    permission_classes = [HasRequiredPermission]
+    required_permission = 'customers.inline_create_taxonomy'
+    throttle_classes = [UserRateThrottle]  # CA-07: 30/min default
+
+    def post(self, request):
+        entity_type = request.data.get('type', '').strip().lower()
+        name = request.data.get('name', '').strip()
+
+        if not name:
+            return Response({'error': 'Name is required.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        if entity_type == 'school':
+            # ICE-05: case-insensitive lookup to prevent duplicates
+            obj, created = School.objects.get_or_create(
+                name__iexact=name, defaults={'name': name}
+            )
+            return Response({
+                'id': str(obj.id), 'name': obj.name, 'created': created
+            }, status=status.HTTP_201_CREATED if created else status.HTTP_200_OK)
+
+        elif entity_type == 'class':
+            school_id = request.data.get('school_id')
+            if not school_id:
+                return Response({'error': 'school_id is required for class creation.'},
+                                status=status.HTTP_400_BAD_REQUEST)
+            try:
+                school = School.objects.get(id=school_id)
+            except School.DoesNotExist:
+                return Response({'error': 'School not found.'}, status=status.HTTP_404_NOT_FOUND)
+            obj, created = Class.objects.get_or_create(
+                school=school, name__iexact=name, defaults={'name': name}
+            )
+            return Response({
+                'id': str(obj.id), 'name': obj.name, 'school_id': str(school.id), 'created': created
+            }, status=status.HTTP_201_CREATED if created else status.HTTP_200_OK)
+
+        elif entity_type == 'division':
+            class_id = request.data.get('class_id')
+            if not class_id:
+                return Response({'error': 'class_id is required for division creation.'},
+                                status=status.HTTP_400_BAD_REQUEST)
+            try:
+                class_obj = Class.objects.get(id=class_id)
+            except Class.DoesNotExist:
+                return Response({'error': 'Class not found.'}, status=status.HTTP_404_NOT_FOUND)
+            obj, created = Division.objects.get_or_create(
+                class_obj=class_obj, name__iexact=name, defaults={'name': name}
+            )
+            return Response({
+                'id': str(obj.id), 'name': obj.name, 'class_id': str(class_obj.id), 'created': created
+            }, status=status.HTTP_201_CREATED if created else status.HTTP_200_OK)
+
+        else:
+            return Response({'error': 'Invalid type. Use: school, class, or division.'},
+                            status=status.HTTP_400_BAD_REQUEST)
 
 
 class CustomerViewSet(viewsets.ModelViewSet):
@@ -144,6 +218,116 @@ class SchoolViewSet(viewsets.ModelViewSet):
     filter_backends = [filters.SearchFilter]
     search_fields = ['name']
 
+    def list(self, request, *args, **kwargs):
+        """Override list to include structure counts on each school."""
+        qs = self.filter_queryset(self.get_queryset()).annotate(
+            class_count=Count('classes', distinct=True),
+            division_count=Count('classes__divisions', distinct=True),
+            subdivision_count=Count('classes__divisions__subdivisions', distinct=True)
+        )
+        serializer = self.get_serializer(qs, many=True)
+        data = serializer.data
+        # Merge counts into response
+        counts_map = {str(s.id): {'class_count': s.class_count, 'division_count': s.division_count, 'subdivision_count': s.subdivision_count} for s in qs}
+        for item in data:
+            counts = counts_map.get(item['id'], {})
+            item['class_count'] = counts.get('class_count', 0)
+            item['division_count'] = counts.get('division_count', 0)
+            item['subdivision_count'] = counts.get('subdivision_count', 0)
+        return Response(data)
+
+    @action(detail=True, methods=['get'], url_path='structure')
+    def structure(self, request, pk=None):
+        """Return full nested tree for a school."""
+        school = self.get_object()
+        classes = Class.objects.filter(school=school).order_by('order', 'name')
+        tree = []
+        for cls in classes:
+            divisions = Division.objects.filter(class_obj=cls).order_by('name')
+            div_list = []
+            for div in divisions:
+                subdivs = Subdivision.objects.filter(division=div).order_by('name')
+                div_list.append({
+                    'id': str(div.id), 'name': div.name,
+                    'subdivisions': [{'id': str(s.id), 'name': s.name} for s in subdivs]
+                })
+            tree.append({
+                'id': str(cls.id), 'name': cls.name, 'order': cls.order,
+                'divisions': div_list
+            })
+        return Response({'school': str(school.id), 'name': school.name, 'tree': tree})
+
+    @action(detail=True, methods=['post'], url_path='assign-structure')
+    def assign_structure(self, request, pk=None):
+        """Assign class/division/subdivision structure from catalog templates."""
+        school = self.get_object()
+        structure = request.data.get('structure', [])
+
+        # Ironclad ICE-05: Limit max records per request
+        total_items = 0
+        for cls_data in structure:
+            total_items += 1
+            for div_data in cls_data.get('divisions', []):
+                total_items += 1
+                total_items += len(div_data.get('subdivisions', []))
+        if total_items > 500:
+            return Response(
+                {'error': 'Too many items. Maximum 500 per request.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        created = {'classes': 0, 'divisions': 0, 'subdivisions': 0}
+
+        with transaction.atomic():
+            for cls_data in structure:
+                class_name = cls_data.get('class_name', '').strip()
+                if not class_name:
+                    continue
+                class_obj, class_created = Class.objects.get_or_create(
+                    school=school,
+                    name=class_name,
+                    defaults={'order': cls_data.get('order', 0)}
+                )
+                if class_created:
+                    created['classes'] += 1
+
+                for div_data in cls_data.get('divisions', []):
+                    div_name = div_data.get('name', '').strip()
+                    if not div_name:
+                        continue
+                    div_obj, div_created = Division.objects.get_or_create(
+                        class_obj=class_obj,
+                        name=div_name
+                    )
+                    if div_created:
+                        created['divisions'] += 1
+
+                    for subdiv_name in div_data.get('subdivisions', []):
+                        subdiv_name = subdiv_name.strip() if isinstance(subdiv_name, str) else ''
+                        if not subdiv_name:
+                            continue
+                        _, subdiv_created = Subdivision.objects.get_or_create(
+                            division=div_obj,
+                            name=subdiv_name
+                        )
+                        if subdiv_created:
+                            created['subdivisions'] += 1
+
+        return Response({
+            'school': str(school.id),
+            'created': created,
+            'message': f"Created {created['classes']} classes, {created['divisions']} divisions, {created['subdivisions']} subdivisions"
+        }, status=status.HTTP_201_CREATED)
+
+    @action(detail=True, methods=['delete'], url_path='delete-with-structure')
+    def delete_with_structure(self, request, pk=None):
+        """Delete school and all its classes/divisions/subdivisions (CASCADE)."""
+        school = self.get_object()
+        name = school.name
+        with transaction.atomic():
+            school.delete()
+        return Response({'message': f"Deleted '{name}' and all its structure"})
+
 
 class ClassViewSet(viewsets.ModelViewSet):
     queryset = Class.objects.all().select_related('school')
@@ -167,6 +351,35 @@ class SubdivisionViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
     filter_backends = [DjangoFilterBackend]
     filterset_fields = ['division']
+
+
+# ============ Template Catalog ViewSets ============
+
+class ClassTemplateViewSet(viewsets.ModelViewSet):
+    queryset = ClassTemplate.objects.all()
+    serializer_class = ClassTemplateSerializer
+    permission_classes = [IsAuthenticated]
+    pagination_class = None
+    filter_backends = [filters.SearchFilter]
+    search_fields = ['name']
+
+
+class DivisionTemplateViewSet(viewsets.ModelViewSet):
+    queryset = DivisionTemplate.objects.all()
+    serializer_class = DivisionTemplateSerializer
+    permission_classes = [IsAuthenticated]
+    pagination_class = None
+    filter_backends = [filters.SearchFilter]
+    search_fields = ['name']
+
+
+class SubdivisionTemplateViewSet(viewsets.ModelViewSet):
+    queryset = SubdivisionTemplate.objects.all()
+    serializer_class = SubdivisionTemplateSerializer
+    permission_classes = [IsAuthenticated]
+    pagination_class = None
+    filter_backends = [filters.SearchFilter]
+    search_fields = ['name']
 
 
 class CustomerGroupViewSet(viewsets.ModelViewSet):

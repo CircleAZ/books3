@@ -1,10 +1,53 @@
 """
 Serializers for Customer app.
 """
+import re
 from rest_framework import serializers
 from django.utils.html import strip_tags
 from .models import Customer, Address, CustomerLink, Wallet, WalletTransaction
-from settings_app.models import School, Class, Division, Subdivision, CustomerGroup, LinkType, LocationTag
+from settings_app.models import (
+    School, Class, Division, Subdivision, CustomerGroup, LinkType, LocationTag,
+    ClassTemplate, DivisionTemplate, SubdivisionTemplate
+)
+
+
+# ============ Template Catalog Serializers ============
+
+class ClassTemplateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ClassTemplate
+        fields = ['id', 'name']
+
+    def validate_name(self, value):
+        return strip_tags(value).strip() if value else value
+
+
+class DivisionTemplateSerializer(serializers.ModelSerializer):
+    applicable_class_names = serializers.SerializerMethodField()
+
+    class Meta:
+        model = DivisionTemplate
+        fields = ['id', 'name', 'applicable_classes', 'applicable_class_names']
+
+    def validate_name(self, value):
+        return strip_tags(value).strip() if value else value
+
+    def get_applicable_class_names(self, obj):
+        return list(obj.applicable_classes.values_list('name', flat=True))
+
+
+class SubdivisionTemplateSerializer(serializers.ModelSerializer):
+    applicable_division_names = serializers.SerializerMethodField()
+
+    class Meta:
+        model = SubdivisionTemplate
+        fields = ['id', 'name', 'applicable_divisions', 'applicable_division_names']
+
+    def validate_name(self, value):
+        return strip_tags(value).strip() if value else value
+
+    def get_applicable_division_names(self, obj):
+        return list(obj.applicable_divisions.values_list('name', flat=True))
 
 
 # ============ Settings App Serializers (Nested) ============
@@ -88,6 +131,7 @@ class LocationTagSerializer(serializers.ModelSerializer):
 # ============ Address Serializers ============
 
 class AddressSerializer(serializers.ModelSerializer):
+    id = serializers.UUIDField(required=False)
     location_tags = LocationTagSerializer(many=True, read_only=True)
     location_tag_ids = serializers.PrimaryKeyRelatedField(
         queryset=LocationTag.objects.all(),
@@ -201,13 +245,9 @@ class CustomerCreateUpdateSerializer(serializers.ModelSerializer):
     
     def _sanitize_text(self, value):
         """Remove XSS and dangerous unicode control characters."""
-        import re
-        from django.utils.html import strip_tags
         if not value:
             return value
-        # Strip HTML tags
         value = strip_tags(value)
-        # Remove dangerous unicode control characters (RTL override, etc.)
         value = re.sub(r'[\u202a-\u202e\u2066-\u2069\u200b-\u200f]', '', value)
         return value.strip()
     
@@ -220,10 +260,29 @@ class CustomerCreateUpdateSerializer(serializers.ModelSerializer):
     def validate_last_name(self, value):
         return self._sanitize_text(value)
     
+    def validate_phone(self, value):
+        """Enforce exactly 10 digits."""
+        if value and not re.match(r'^\d{10}$', value):
+            raise serializers.ValidationError("Phone must be exactly 10 digits")
+        return value
+    
     def validate_notes(self, value):
         # Only strip HTML for notes, allow unicode
-        from django.utils.html import strip_tags
         return strip_tags(value) if value else value
+    
+    def validate(self, data):
+        """Check for duplicate phone numbers."""
+        phone = data.get('phone')
+        if phone:
+            qs = Customer.objects.filter(phone=phone)
+            if self.instance:
+                qs = qs.exclude(pk=self.instance.pk)
+            existing = qs.first()
+            if existing:
+                raise serializers.ValidationError({
+                    'phone': f'A customer with this phone already exists: {existing.full_name} (#{existing.display_id})'
+                })
+        return data
     
     def create(self, validated_data):
         addresses_data = validated_data.pop('addresses', [])
@@ -248,16 +307,35 @@ class CustomerCreateUpdateSerializer(serializers.ModelSerializer):
             setattr(instance, attr, value)
         instance.save()
         
-        # Update addresses if provided
+        # Safe address upsert: update existing, create new, delete removed
         if addresses_data is not None:
-            # Clear existing and recreate
-            instance.addresses.all().delete()
+            existing_ids = set(instance.addresses.values_list('id', flat=True))
+            incoming_ids = set()
+            
             for i, addr_data in enumerate(addresses_data):
                 location_tags = addr_data.pop('location_tags', [])
-                address = Address.objects.create(
-                    customer=instance, is_primary=(i == 0), **addr_data
-                )
-                address.location_tags.set(location_tags)
+                addr_id = addr_data.pop('id', None)
+                
+                if addr_id and addr_id in existing_ids:
+                    # Update existing address in place
+                    Address.objects.filter(pk=addr_id).update(
+                        is_primary=(i == 0), **addr_data
+                    )
+                    address = Address.objects.get(pk=addr_id)
+                    address.location_tags.set(location_tags)
+                    incoming_ids.add(addr_id)
+                else:
+                    # Create new address
+                    address = Address.objects.create(
+                        customer=instance, is_primary=(i == 0), **addr_data
+                    )
+                    address.location_tags.set(location_tags)
+                    incoming_ids.add(address.pk)
+            
+            # Delete addresses that were removed
+            removed = existing_ids - incoming_ids
+            if removed:
+                instance.addresses.filter(pk__in=removed).delete()
         
         return instance
 

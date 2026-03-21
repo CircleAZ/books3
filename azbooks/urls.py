@@ -30,6 +30,9 @@ urlpatterns = [
     path('api/finance/', include('finance.urls')),
     path('api/settings/', include('settings_app.urls')),
     path('api/messaging/', include('messaging.urls')),
+    
+    # Core RBAC endpoints
+    path('api/core/', include('core.urls')),
 ]
 
 # Serve media files in development

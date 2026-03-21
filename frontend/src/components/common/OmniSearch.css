@@ -89,6 +89,29 @@
     color: var(--color-primary-light);
 }
 
+.category-chip.active {
+    background: rgba(56, 139, 253, 0.15);
+    border-color: var(--color-primary);
+    color: var(--color-primary-light);
+    font-weight: 600;
+}
+
+.search-spinner {
+    width: 18px;
+    height: 18px;
+    border: 2px solid var(--color-border);
+    border-top-color: var(--color-primary);
+    border-radius: 50%;
+    animation: omni-spin 0.6s linear infinite;
+    flex-shrink: 0;
+}
+
+@keyframes omni-spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
 .search-results {
     max-height: 320px;
     overflow-y: auto;
@@ -133,10 +156,27 @@
     font-size: var(--font-size-xl);
 }
 
-.result-label {
+.result-content {
     flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+}
+
+.result-label {
     font-size: var(--font-size-sm);
     font-weight: 500;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.result-subtitle {
+    font-size: var(--font-size-xs);
+    color: var(--color-text-muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .result-hint {

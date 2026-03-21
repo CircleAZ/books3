@@ -18,7 +18,7 @@ export default function BankAccounts() {
         account_type: 'current',
         bank_name: '',
         account_number: '',
-        balance: 0,
+        opening_balance: 0,
         is_default: false
     });
 
@@ -112,7 +112,7 @@ export default function BankAccounts() {
                 account_type: account.account_type,
                 bank_name: account.bank_name,
                 account_number: account.account_number,
-                balance: account.balance,
+                opening_balance: account.opening_balance,
                 is_default: account.is_default
             });
         } else {
@@ -122,7 +122,7 @@ export default function BankAccounts() {
                 account_type: 'current',
                 bank_name: '',
                 account_number: '',
-                balance: 0,
+                opening_balance: 0,
                 is_default: false
             });
         }
@@ -185,7 +185,7 @@ export default function BankAccounts() {
                                 </div>
                                 <div className="account-balance">
                                     <span className="balance-label">Current Balance</span>
-                                    <span className="balance-value">{currency}{Number(account.balance).toLocaleString()}</span>
+                                    <span className="balance-value">{currency}{Number(account.current_balance).toLocaleString()}</span>
                                 </div>
                                 <div className="card-actions">
                                     {!account.is_default && (
@@ -268,8 +268,8 @@ export default function BankAccounts() {
                                     <label>Initial Balance</label>
                                     <input
                                         type="number"
-                                        name="balance"
-                                        value={formData.balance}
+                                        name="opening_balance"
+                                        value={formData.opening_balance}
                                         onChange={handleInputChange}
                                         required
                                         disabled={!!editingAccount}

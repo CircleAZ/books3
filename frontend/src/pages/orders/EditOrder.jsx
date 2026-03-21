@@ -1,9 +1,10 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useCurrency } from '../../context/CurrencyContext';
 import { ENDPOINTS } from '../../config/api';
 import AddCustomer from '../customers/AddCustomer';
+import { useToast } from '../../context/ToastContext';
 import '../NewOrder.css'; // Reusing POS styles
 
 export default function EditOrder() {
@@ -11,14 +12,14 @@ export default function EditOrder() {
     const navigate = useNavigate();
     const { fetchWithAuth } = useAuth();
     const { currency } = useCurrency();
+    const { showToast } = useToast();
 
     // State
     const [originalOrder, setOriginalOrder] = useState(null);
     const [customerSearch, setCustomerSearch] = useState('');
     const [customerResults, setCustomerResults] = useState([]);
     const [selectedCustomer, setSelectedCustomer] = useState(null);
-    const [isGuest, setIsGuest] = useState(false);
-    const [guestInfo, setGuestInfo] = useState({ name: '', phone: '' });
+
 
     const [productSearch, setProductSearch] = useState('');
     const [productResults, setProductResults] = useState([]);
@@ -50,7 +51,7 @@ export default function EditOrder() {
                     const data = await response.json();
 
                     if (data.delivery_status === 'delivered') {
-                        alert("Delivered orders cannot be edited.");
+                        showToast('Delivered orders cannot be edited.', 'warning');
                         navigate(`/orders/${id}`);
                         return;
                     }
@@ -58,16 +59,12 @@ export default function EditOrder() {
                     setOriginalOrder(data);
 
                     // Populate State
-                    setIsGuest(data.is_guest);
-                    if (data.is_guest) {
-                        setGuestInfo({ name: data.guest_name, phone: data.guest_phone });
-                    } else if (data.customer) {
+                    if (data.customer) {
                         setSelectedCustomer({
                             id: data.customer,
                             name: data.customer_name,
-                            phone: data.customer_phone // api might not return phone directly, handled below
+                            phone: data.customer_phone
                         });
-                        // Fetch full customer details to get phone if needed
                     }
 
                     setOrderDiscount({ type: data.discount_type || 'fixed', value: parseFloat(data.discount_value) || 0 });
@@ -80,12 +77,12 @@ export default function EditOrder() {
                         quantity: item.quantity,
                         discountType: item.discount_type || 'fixed',
                         discountValue: parseFloat(item.discount_value) || 0,
-                        stock_quantity: 9999 // We don't know current stock easily without fetching per product, assuming available for edit
+                        stock_quantity: item.product_stock ?? 9999
                     }));
                     setCartItems(mappedItems);
 
                 } else {
-                    alert("Failed to load order");
+                    showToast('Failed to load order', 'error');
                     navigate('/orders');
                 }
             } catch (error) {
@@ -168,23 +165,28 @@ export default function EditOrder() {
     }, 0), [cartItems]);
 
     const totalDiscount = useMemo(() => {
-        return orderDiscount.type === 'fixed' ? orderDiscount.value : (subtotal * orderDiscount.value / 100);
+        if (orderDiscount.type === 'fixed') {
+            return Math.min(orderDiscount.value, subtotal);
+        }
+        return (subtotal * Math.min(orderDiscount.value, 100)) / 100;
     }, [subtotal, orderDiscount]);
 
     const grandTotal = Math.max(0, subtotal - totalDiscount);
 
+    // I-04 fix: Submission lock to prevent duplicate PUT requests
+    const isSubmittingRef = useRef(false);
+
     // --- Submit ---
     const handleUpdateOrder = async () => {
+        if (isSubmittingRef.current) return;
+        isSubmittingRef.current = true;
         setProcessing(true);
         try {
             const orderData = {
                 customer: selectedCustomer?.id || null,
-                is_guest: isGuest,
-                guest_name: isGuest ? guestInfo.name : '',
-                guest_phone: isGuest ? guestInfo.phone : '',
-                // Payments not editable here, only items and customer
                 discount_type: orderDiscount.type,
                 discount_value: orderDiscount.value,
+                client_updated_at: originalOrder?.updated_at || '',
                 items: cartItems.map(item => ({
                     product: item.id,
                     quantity: item.quantity,
@@ -195,21 +197,24 @@ export default function EditOrder() {
             };
 
             const response = await fetchWithAuth(`${ENDPOINTS.ORDERS}${id}/`, {
-                method: 'PUT', // or PATCH
+                method: 'PUT',
                 body: JSON.stringify(orderData)
             });
 
             if (response.ok) {
-                alert("Order updated successfully");
+                showToast('Order updated successfully', 'success');
                 navigate(`/orders/${id}`);
+            } else if (response.status === 409) {
+                showToast('This order was modified by someone else. Please reload and try again.', 'warning');
             } else {
                 const err = await response.json();
-                alert('Update failed: ' + JSON.stringify(err));
+                showToast('Update failed: ' + JSON.stringify(err), 'error');
             }
         } catch (error) {
             console.error(error);
-            alert("Error updating order");
+            showToast('Error updating order', 'error');
         } finally {
+            isSubmittingRef.current = false;
             setProcessing(false);
         }
     };
@@ -229,7 +234,7 @@ export default function EditOrder() {
                 setShowQuickProduct(false);
                 setNewProduct({ name: '', selling_price: '', cost_price: '', stock_quantity: 1, is_additional: true });
             } else {
-                alert("Failed to create product");
+                showToast('Failed to create product', 'error');
             }
         } finally { setIsCreatingProduct(false); }
     };
@@ -254,12 +259,6 @@ export default function EditOrder() {
                             <strong>{selectedCustomer.name}</strong>
                             <button className="btn btn-ghost btn-sm" onClick={() => setSelectedCustomer(null)}>Change</button>
                         </div>
-                    ) : isGuest ? (
-                        <div className="guest-info-form">
-                            <input className="form-control mb-2" value={guestInfo.name} onChange={e => setGuestInfo({ ...guestInfo, name: e.target.value })} placeholder="Guest Name" />
-                            <input className="form-control" value={guestInfo.phone} onChange={e => setGuestInfo({ ...guestInfo, phone: e.target.value })} placeholder="Guest Phone" />
-                            <button className="btn btn-link btn-sm" onClick={() => setIsGuest(false)}>Back</button>
-                        </div>
                     ) : (
                         <div className="customer-search-wrapper">
                             <input className="form-control" placeholder="Search customer..." value={customerSearch} onChange={e => setCustomerSearch(e.target.value)} />
@@ -283,7 +282,6 @@ export default function EditOrder() {
                                     ))}
                                 </div>
                             )}
-                            <button className="btn btn-ghost btn-sm mt-2" onClick={() => setIsGuest(true)}>Switch to Guest</button>
                         </div>
                     )}
                 </section>

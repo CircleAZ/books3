@@ -1,17 +1,21 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { ENDPOINTS } from '../../config/api';
+import { useToast } from '../../context/ToastContext';
 
 export default function ManageTags() {
     const { fetchWithAuth } = useAuth();
+    const { showToast } = useToast();
     const [tags, setTags] = useState([]);
     const [loading, setLoading] = useState(true);
     const [isEditing, setIsEditing] = useState(false);
+    const [saving, setSaving] = useState(false);
     const [isMerging, setIsMerging] = useState(false);
     const [mergeSource, setMergeSource] = useState(null);
     const [mergeTarget, setMergeTarget] = useState('');
     const [currentItem, setCurrentItem] = useState(null);
     const [formData, setFormData] = useState({ name: '', color: '#6366f1' });
+    const [search, setSearch] = useState('');
 
     const fetchTags = useCallback(async () => {
         setLoading(true);
@@ -34,6 +38,10 @@ export default function ManageTags() {
 
     const handleSubmit = async (e) => {
         e.preventDefault();
+        if (saving) return;
+        const trimmed = { ...formData, name: formData.name.trim() };
+        if (!trimmed.name) { showToast('Tag name is required', 'error'); return; }
+        setSaving(true);
         try {
             const url = isEditing
                 ? `${ENDPOINTS.CUSTOMERS_LOCATION_TAGS}${currentItem.id}/`
@@ -44,17 +52,24 @@ export default function ManageTags() {
             const res = await fetchWithAuth(url, {
                 method,
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(formData)
+                body: JSON.stringify(trimmed)
             });
 
             if (res.ok) {
+                showToast(isEditing ? 'Tag updated' : 'Tag created', 'success');
                 setIsEditing(false);
                 setCurrentItem(null);
                 setFormData({ name: '', color: '#6366f1' });
                 fetchTags();
+            } else {
+                const errData = await res.json().catch(() => null);
+                showToast(errData?.name?.[0] || errData?.detail || 'Failed to save tag', 'error');
             }
         } catch (err) {
             console.error(err);
+            showToast('Network error saving tag', 'error');
+        } finally {
+            setSaving(false);
         }
     };
 
@@ -64,17 +79,23 @@ export default function ManageTags() {
         setCurrentItem(tag);
         setFormData({
             name: tag.name,
-            color: tag.color
+            color: tag.color || '#6366f1'
         });
     };
 
     const handleDelete = async (id) => {
-        if (!window.confirm('Are you sure?')) return;
+        if (!window.confirm('Are you sure? Addresses using this tag will lose their tag.')) return;
         try {
-            await fetchWithAuth(`${ENDPOINTS.CUSTOMERS_LOCATION_TAGS}${id}/`, { method: 'DELETE' });
-            fetchTags();
+            const res = await fetchWithAuth(`${ENDPOINTS.CUSTOMERS_LOCATION_TAGS}${id}/`, { method: 'DELETE' });
+            if (res.ok || res.status === 204) {
+                showToast('Tag deleted', 'success');
+                fetchTags();
+            } else {
+                showToast('Failed to delete tag', 'error');
+            }
         } catch (err) {
             console.error(err);
+            showToast('Error deleting tag', 'error');
         }
     };
 
@@ -91,6 +112,7 @@ export default function ManageTags() {
 
         if (!window.confirm(`Merge "${mergeSource.name}" into the selected tag? This will delete "${mergeSource.name}" and reassign all its addresses.`)) return;
 
+        setSaving(true);
         try {
             const res = await fetchWithAuth(
                 `${ENDPOINTS.CUSTOMERS_LOCATION_TAGS}${mergeSource.id}/merge/`,
@@ -101,24 +123,37 @@ export default function ManageTags() {
                 }
             );
             if (res.ok) {
+                showToast(`Tag "${mergeSource.name}" merged successfully`, 'success');
                 setIsMerging(false);
                 setMergeSource(null);
                 setMergeTarget('');
                 fetchTags();
+            } else {
+                showToast('Failed to merge tags', 'error');
             }
         } catch (err) {
             console.error(err);
+            showToast('Error merging tags', 'error');
+        } finally {
+            setSaving(false);
         }
     };
 
+    const filtered = tags.filter(t =>
+        t.name?.toLowerCase().includes(search.toLowerCase())
+    );
+
     if (loading && !isEditing && tags.length === 0) {
-        return <div className="p-4 text-center">Loading...</div>;
+        return <div className="manager-empty">Loading...</div>;
     }
 
     return (
         <div>
             <div className="manager-header">
-                <h2>Location Tags</h2>
+                <div>
+                    <h2>Location Tags</h2>
+                    <div className="manager-subtitle">Color-coded tags for customer addresses</div>
+                </div>
                 <button
                     className="btn btn-primary"
                     onClick={() => {
@@ -133,11 +168,11 @@ export default function ManageTags() {
             </div>
 
             {isEditing && (
-                <div className="card mb-4" style={{ marginBottom: '1.5rem' }}>
-                    <h3 style={{ marginBottom: '1rem' }}>{currentItem ? 'Edit Tag' : 'New Tag'}</h3>
+                <div className="card manager-form-card">
+                    <h3>{currentItem ? 'Edit Tag' : 'New Tag'}</h3>
                     <form onSubmit={handleSubmit}>
-                        <div className="form-group mb-2" style={{ marginBottom: '1rem' }}>
-                            <label style={{ display: 'block', marginBottom: '0.5rem' }}>Tag Name</label>
+                        <div className="manager-form-group">
+                            <label>Tag Name</label>
                             <input
                                 type="text"
                                 value={formData.name}
@@ -145,8 +180,8 @@ export default function ManageTags() {
                                 required
                             />
                         </div>
-                        <div className="form-group mb-2" style={{ marginBottom: '1rem' }}>
-                            <label style={{ display: 'block', marginBottom: '0.5rem' }}>Color</label>
+                        <div className="manager-form-group">
+                            <label>Color</label>
                             <input
                                 type="color"
                                 value={formData.color}
@@ -155,7 +190,7 @@ export default function ManageTags() {
                             />
                         </div>
                         <div className="flex gap-sm">
-                            <button type="submit" className="btn btn-primary">Save</button>
+                            <button type="submit" className="btn btn-primary" disabled={saving}>{saving ? 'Saving...' : 'Save'}</button>
                             <button
                                 type="button"
                                 className="btn btn-ghost"
@@ -169,20 +204,19 @@ export default function ManageTags() {
             )}
 
             {isMerging && mergeSource && (
-                <div className="card mb-4" style={{ marginBottom: '1.5rem', borderLeft: '4px solid var(--warning)' }}>
-                    <h3 style={{ marginBottom: '1rem' }}>Merge Tag: {mergeSource.name}</h3>
+                <div className="card manager-form-card" style={{ borderLeft: '4px solid var(--warning)' }}>
+                    <h3>Merge Tag: {mergeSource.name}</h3>
                     <p style={{ marginBottom: '1rem', color: 'var(--text-secondary)' }}>
                         All addresses using "{mergeSource.name}" will be reassigned to the target tag.
                         The source tag will be deleted.
                     </p>
                     <form onSubmit={handleMergeSubmit}>
-                        <div className="form-group mb-2" style={{ marginBottom: '1rem' }}>
-                            <label style={{ display: 'block', marginBottom: '0.5rem' }}>Merge Into</label>
+                        <div className="manager-form-group">
+                            <label>Merge Into</label>
                             <select
                                 value={mergeTarget}
                                 onChange={e => setMergeTarget(e.target.value)}
                                 required
-                                style={{ width: '100%', padding: '0.5rem' }}
                             >
                                 <option value="">Select target tag...</option>
                                 {tags.filter(t => t.id !== mergeSource.id).map(t => (
@@ -191,7 +225,7 @@ export default function ManageTags() {
                             </select>
                         </div>
                         <div className="flex gap-sm">
-                            <button type="submit" className="btn btn-primary">Merge</button>
+                            <button type="submit" className="btn btn-primary" disabled={saving}>{saving ? 'Merging...' : 'Merge'}</button>
                             <button
                                 type="button"
                                 className="btn btn-ghost"
@@ -204,6 +238,17 @@ export default function ManageTags() {
                 </div>
             )}
 
+            {tags.length > 3 && (
+                <div className="manager-search">
+                    <input
+                        type="text"
+                        placeholder="Filter tags..."
+                        value={search}
+                        onChange={e => setSearch(e.target.value)}
+                    />
+                </div>
+            )}
+
             <table className="manager-table">
                 <thead>
                     <tr>
@@ -213,15 +258,10 @@ export default function ManageTags() {
                     </tr>
                 </thead>
                 <tbody>
-                    {tags.map(tag => (
+                    {filtered.map(tag => (
                         <tr key={tag.id}>
                             <td style={{ width: '60px' }}>
-                                <div style={{
-                                    width: '24px',
-                                    height: '24px',
-                                    borderRadius: '50%',
-                                    backgroundColor: tag.color
-                                }}></div>
+                                <div className="tag-color-swatch" style={{ backgroundColor: tag.color }}></div>
                             </td>
                             <td>{tag.name}</td>
                             <td className="actions-cell">
@@ -247,9 +287,11 @@ export default function ManageTags() {
                             </td>
                         </tr>
                     ))}
-                    {tags.length === 0 && (
+                    {filtered.length === 0 && (
                         <tr>
-                            <td colSpan="3" className="text-center p-4">No tags found.</td>
+                            <td colSpan="3" className="manager-empty">
+                                {search ? 'No tags match your filter.' : 'No location tags found.'}
+                            </td>
                         </tr>
                     )}
                 </tbody>

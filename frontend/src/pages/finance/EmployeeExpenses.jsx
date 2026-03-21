@@ -12,6 +12,16 @@ export default function EmployeeExpenses() {
     const [expenses, setExpenses] = useState([]);
     const [loading, setLoading] = useState(true);
     const [filterStatus, setFilterStatus] = useState('');
+    const [showSubmitModal, setShowSubmitModal] = useState(false);
+    const [categories, setCategories] = useState([]);
+    const [submitting, setSubmitting] = useState(false);
+    const [formData, setFormData] = useState({
+        date: new Date().toISOString().split('T')[0],
+        category: '',
+        amount: '',
+        description: '',
+        receipt: null
+    });
 
     const profileData = localStorage.getItem('profile');
     const profile = profileData ? JSON.parse(profileData) : null;
@@ -39,6 +49,18 @@ export default function EmployeeExpenses() {
         }
     }, [fetchWithAuth, filterStatus]);
 
+    const fetchCategories = useCallback(async () => {
+        try {
+            const response = await fetchWithAuth(ENDPOINTS.FINANCE_EXPENSE_CATEGORIES);
+            if (response.ok) {
+                const data = await response.json();
+                setCategories(data.results || data || []);
+            }
+        } catch (error) {
+            console.error('Error fetching categories:', error);
+        }
+    }, [fetchWithAuth]);
+
     useEffect(() => {
         fetchExpenses();
     }, [fetchExpenses]);
@@ -60,6 +82,57 @@ export default function EmployeeExpenses() {
         }
     };
 
+    const handleOpenSubmitModal = () => {
+        fetchCategories();
+        setFormData({
+            date: new Date().toISOString().split('T')[0],
+            category: '',
+            amount: '',
+            description: '',
+            receipt: null
+        });
+        setShowSubmitModal(true);
+    };
+
+    const handleFormChange = (e) => {
+        const { name, value } = e.target;
+        setFormData(prev => ({ ...prev, [name]: value }));
+    };
+
+    const handleSubmitExpense = async (e) => {
+        e.preventDefault();
+        if (!formData.category || !formData.amount) {
+            alert('Please fill in all required fields');
+            return;
+        }
+        setSubmitting(true);
+        try {
+            const payload = {
+                date: formData.date,
+                category: formData.category,
+                amount: formData.amount,
+                description: formData.description
+            };
+            const response = await fetchWithAuth(ENDPOINTS.FINANCE_EMPLOYEE_EXPENSES, {
+                method: 'POST',
+                body: JSON.stringify(payload)
+            });
+            if (response.ok) {
+                setShowSubmitModal(false);
+                fetchExpenses();
+                alert('Expense claim submitted successfully!');
+            } else {
+                const err = await response.json();
+                alert(`Failed to submit: ${JSON.stringify(err)}`);
+            }
+        } catch (error) {
+            console.error('Error submitting expense:', error);
+            alert('An error occurred while submitting');
+        } finally {
+            setSubmitting(false);
+        }
+    };
+
     const getStatusClass = (status) => {
         switch (status?.toLowerCase()) {
             case 'pending': return 'status-pending';
@@ -78,7 +151,7 @@ export default function EmployeeExpenses() {
                     <p className="page-subtitle">Track and manage employee expense claims</p>
                 </div>
                 <div className="page-actions">
-                    <button className="btn btn-primary" onClick={() => navigate('/finance/employee-expenses/submit')}>
+                    <button className="btn btn-primary" onClick={handleOpenSubmitModal} id="submit-expense-btn">
                         <span className="icon">➕</span> Submit New Expense
                     </button>
                 </div>
@@ -122,7 +195,16 @@ export default function EmployeeExpenses() {
                                     <tr key={expense.id}>
                                         <td>{new Date(expense.date).toLocaleDateString()}</td>
                                         <td>{expense.employee_name}</td>
-                                        <td>{expense.category_name}</td>
+                                        <td>
+                                            {expense.category_name}
+                                            {expense.description?.startsWith('Trip:') && (
+                                                <span style={{
+                                                    marginLeft: 8, padding: '2px 8px', borderRadius: 10,
+                                                    fontSize: 11, fontWeight: 600,
+                                                    background: '#0ea5e922', color: '#0ea5e9'
+                                                }}>🧳 Trip</span>
+                                            )}
+                                        </td>
                                         <td className="amount">{currency}{Number(expense.amount).toLocaleString()}</td>
                                         <td>
                                             <span className={`status-badge ${getStatusClass(expense.status)}`}>
@@ -131,7 +213,7 @@ export default function EmployeeExpenses() {
                                         </td>
                                         <td>
                                             <div className="action-buttons">
-                                                {isManager && expense.status === 'pending' && (
+                                                {isManager && expense.status === 'pending' && !expense.description?.startsWith('Trip:') && (
                                                     <>
                                                         <button
                                                             className="btn-icon approve"
@@ -149,7 +231,11 @@ export default function EmployeeExpenses() {
                                                         </button>
                                                     </>
                                                 )}
-                                                <button className="btn-icon" title="View Details">👁️</button>
+                                                <button 
+                                                    className="btn-icon" 
+                                                    title="View Details"
+                                                    onClick={() => navigate(`/finance/expenses/${expense.id}`)}
+                                                >👁️</button>
                                             </div>
                                         </td>
                                     </tr>
@@ -163,6 +249,79 @@ export default function EmployeeExpenses() {
                     </table>
                 )}
             </div>
+
+            {/* Submit Expense Modal */}
+            {showSubmitModal && (
+                <div className="modal-overlay" onClick={() => setShowSubmitModal(false)}>
+                    <div className="modal-content glass-card fade-in" onClick={e => e.stopPropagation()}>
+                        <div className="modal-header">
+                            <h2>Submit Expense Claim</h2>
+                            <button className="close-btn" onClick={() => setShowSubmitModal(false)}>&times;</button>
+                        </div>
+                        <form onSubmit={handleSubmitExpense}>
+                            <div className="form-grid">
+                                <div className="form-group">
+                                    <label>Date *</label>
+                                    <input
+                                        type="date"
+                                        name="date"
+                                        value={formData.date}
+                                        onChange={handleFormChange}
+                                        required
+                                    />
+                                </div>
+                                <div className="form-group">
+                                    <label>Category *</label>
+                                    <select
+                                        name="category"
+                                        value={formData.category}
+                                        onChange={handleFormChange}
+                                        required
+                                        id="expense-category-select"
+                                    >
+                                        <option value="">Select category...</option>
+                                        {categories.map(cat => (
+                                            <option key={cat.id} value={cat.id}>{cat.name}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                                <div className="form-group">
+                                    <label>Amount ({currency}) *</label>
+                                    <input
+                                        type="number"
+                                        name="amount"
+                                        step="0.01"
+                                        min="0.01"
+                                        value={formData.amount}
+                                        onChange={handleFormChange}
+                                        placeholder="0.00"
+                                        required
+                                        id="expense-amount-input"
+                                    />
+                                </div>
+                                <div className="form-group full-width">
+                                    <label>Description</label>
+                                    <textarea
+                                        name="description"
+                                        rows="3"
+                                        value={formData.description}
+                                        onChange={handleFormChange}
+                                        placeholder="Describe the expense (e.g. client dinner at restaurant X)"
+                                        id="expense-description"
+                                    ></textarea>
+                                </div>
+                            </div>
+                            <div className="modal-actions">
+                                <button type="button" className="btn btn-ghost" onClick={() => setShowSubmitModal(false)}>Cancel</button>
+                                <button type="submit" className="btn btn-primary" disabled={submitting} id="submit-expense-confirm">
+                                    {submitting ? 'Submitting...' : 'Submit Claim'}
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }
+

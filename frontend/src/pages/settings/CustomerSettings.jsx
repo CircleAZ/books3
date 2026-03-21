@@ -41,7 +41,7 @@ const CustomerSettings = () => {
             case 'links':
                 return <ManageLinkTypes />;
             default:
-                return <ManageSchools />;
+                return null;
         }
     };
 

@@ -113,6 +113,14 @@
     margin-bottom: var(--space-md);
 }
 
+.category-filter {
+    margin-bottom: var(--space-sm);
+}
+
+.category-filter select {
+    max-width: 200px;
+}
+
 .product-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));

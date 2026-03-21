@@ -29,7 +29,7 @@ export const getStatusClass = (status) => {
         'refund in progress',
         'return in progress',
         'ready for pickup',
-        'received' // Added: Return received needs attention
+        'received'
     ].includes(lowerStatus)) {
         return 'status-warning';
     }
@@ -43,8 +43,13 @@ export const getStatusClass = (status) => {
         return 'status-danger';
     }
 
-    // Action Needed: High priority
-    if (lowerStatus === 'action needed') {
+    // Action Critical: Specific urgent action labels (split from generic 'Action Needed')
+    if ([
+        'cancelled \u2014 refund pending',
+        'return received \u2014 process refund',
+        'overpaid \u2014 refund due',
+        'action needed'
+    ].includes(lowerStatus)) {
         return 'status-action-needed';
     }
 
@@ -106,6 +111,7 @@ export const STATUS_OPTIONS = {
         { value: 'overpaid', label: 'Overpaid' },
         { value: 'refunded', label: 'Refunded' }
     ],
+    // NOTE: payment_status is auto-computed — dropdown is read-only in the UI
     delivery_status: [
         { value: 'pending', label: 'Pending' },
         { value: 'processing', label: 'Processing' },

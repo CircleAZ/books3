@@ -1,122 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
-import { NavLink } from 'react-router-dom';
+import { NavLink, useLocation } from 'react-router-dom';
+import { menuSections } from '../../config/navigation';
 import './NavigationDrawer.css';
-
-const menuSections = [
-    {
-        id: 'dashboard',
-        label: 'Dashboard',
-        path: '/',
-        icon: 'home',
-    },
-    {
-        id: 'orders',
-        label: 'Orders',
-        path: '/orders',
-        icon: 'shopping-cart',
-        children: [
-            { label: 'Create New Order', path: '/orders/new' },
-            { label: 'View Orders', path: '/orders' },
-            { label: 'Sales Reports', path: '/reports/sales' },
-        ],
-    },
-    {
-        id: 'returns',
-        label: 'Returns & Refunds',
-        path: '/returns',
-        icon: 'rotate-ccw',
-        children: [
-            { label: 'All Returns', path: '/returns' },
-            { label: 'New Return', path: '/returns/new' },
-        ],
-    },
-    {
-        id: 'inventory',
-        label: 'Inventory Management',
-        path: '/inventory',
-        icon: 'package',
-        children: [
-            { label: 'Product List', path: '/inventory' },
-            { label: 'Add New Product', path: '/inventory/add' },
-            { label: 'Manage Categories', path: '/inventory/categories' },
-            { label: 'Manage Vendors', path: '/inventory/vendors' },
-            { label: 'Stock Adjustments', path: '/inventory/stock' },
-            { label: 'Deleted Products', path: '/inventory/deleted' },
-            { label: 'Inventory Reports', path: '/reports/inventory' },
-        ],
-    },
-    {
-        id: 'customers',
-        label: 'Customer Management',
-        path: '/customers',
-        icon: 'users',
-        children: [
-            { label: 'Customer List', path: '/customers' },
-            { label: 'Add New Customer', path: '/customers/add' },
-            { label: 'Customer Settings', path: '/customers/settings' },
-            { label: 'Customer Reports', path: '/reports/customers' },
-        ],
-    },
-    {
-        id: 'finance',
-        label: 'Finance & Accounting',
-        path: '/finance',
-        icon: 'dollar-sign',
-        children: [
-            { label: 'Finance Overview', path: '/finance' },
-            { label: 'Financial Dashboard', path: '/finance/dashboard' },
-            { label: 'Expense List', path: '/finance/expenses' },
-            { label: 'Add Expense', path: '/finance/expenses/add' },
-            { label: 'Expense Categories', path: '/finance/categories' },
-            { label: 'Profit & Loss', path: '/reports/profit-loss' },
-        ],
-    },
-    {
-        id: 'messaging',
-        label: 'Messaging & Notifications',
-        path: '/messaging',
-        icon: 'mail',
-        children: [
-            { label: 'Messaging Overview', path: '/messaging' },
-            { label: 'Gateway Management', path: '/messaging/gateways' },
-            { label: 'Message Queue', path: '/messaging/queue' },
-            { label: 'Message Templates', path: '/messaging/templates' },
-        ],
-    },
-    {
-        id: 'reports',
-        label: 'Reporting & Analytics',
-        path: '/reports/sales',
-        icon: 'bar-chart',
-        children: [
-            { label: 'Sales Reports', path: '/reports/sales' },
-            { label: 'Inventory Reports', path: '/reports/inventory' },
-            { label: 'Customer Reports', path: '/reports/customers' },
-            { label: 'Profit & Loss', path: '/reports/profit-loss' },
-            { label: 'Activity Log', path: '/reports/activity' },
-            { label: 'Export Data', path: '/reports/export' },
-        ],
-    },
-    { type: 'separator' },
-    {
-        id: 'settings',
-        label: 'Settings & Configuration',
-        path: '/settings',
-        icon: 'settings',
-        children: [
-            { label: 'Store Details', path: '/settings/store' },
-            { label: 'Employee Management', path: '/settings/employees' },
-            { label: 'Roles & Permissions', path: '/settings/roles' },
-            { label: 'Financial Settings', path: '/settings/finance' },
-            { label: 'Payment Methods', path: '/settings/payments' },
-            { label: 'Receipt Customization', path: '/settings/receipt' },
-            { label: 'Notification Preferences', path: '/settings/notifications' },
-            { label: 'Integrations', path: '/settings/integrations' },
-            { label: 'Data Management', path: '/settings/data' },
-            { label: 'System Information', path: '/settings/system' },
-        ],
-    },
-];
 
 const icons = {
     'home': <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />,
@@ -139,8 +24,19 @@ function Icon({ name }) {
     );
 }
 
-function MenuItem({ item, onNavigate, isMini }) {
-    const [expanded, setExpanded] = useState(false);
+function MenuItem({ item, onNavigate, isMini, currentPath }) {
+    // NAV-U1: Auto-expand if current path matches any child route
+    const isChildActive = item.children?.some(child =>
+        currentPath === child.path || currentPath.startsWith(child.path + '/')
+    );
+    const [expanded, setExpanded] = useState(isChildActive);
+
+    // Re-expand when navigating to a child route (e.g. via direct URL)
+    useEffect(() => {
+        if (isChildActive && !expanded) {
+            setExpanded(true);
+        }
+    }, [currentPath]); // eslint-disable-line react-hooks/exhaustive-deps
 
     if (item.type === 'separator') {
         return <div className="menu-separator" role="separator" />;
@@ -208,6 +104,7 @@ function MenuItem({ item, onNavigate, isMini }) {
 
 export default function NavigationDrawer({ drawerMode, overlayOpen, onClose, onMenuClick, hamburgerRef, hamburgerLabel }) {
     const drawerRef = useRef(null);
+    const location = useLocation();
 
     // Determine the CSS classes for the drawer
     const isPersistent = drawerMode === 'full' || drawerMode === 'mini';
@@ -299,7 +196,7 @@ export default function NavigationDrawer({ drawerMode, overlayOpen, onClose, onM
                 {/* F2: aria-label on <nav> to distinguish from BottomNavBar */}
                 <nav className="drawer-nav" aria-label="Sidebar navigation">
                     {menuSections.map((item, idx) => (
-                        <MenuItem key={item.id || idx} item={item} onNavigate={onClose} isMini={isMini} />
+                        <MenuItem key={item.id || idx} item={item} onNavigate={onClose} isMini={isMini} currentPath={location.pathname} />
                     ))}
                 </nav>
 

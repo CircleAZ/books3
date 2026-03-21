@@ -15,12 +15,15 @@ export default function ExpenseDetails() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [submitting, setSubmitting] = useState(false);
+    const [approving, setApproving] = useState(false);
+    const [showRejectModal, setShowRejectModal] = useState(false);
+    const [rejectReason, setRejectReason] = useState('');
 
     // Payment Form State
     const [paymentForm, setPaymentForm] = useState({
         date: new Date().toISOString().split('T')[0],
         amount: '',
-        method: 'Cash',
+        method: 'cash',
         reference: '',
         notes: ''
     });
@@ -94,12 +97,73 @@ export default function ExpenseDetails() {
         }
     };
 
+    const handleApprove = async () => {
+        if (!window.confirm('Are you sure you want to approve this expense?')) return;
+        setApproving(true);
+        try {
+            const response = await fetchWithAuth(`${ENDPOINTS.FINANCE_EXPENSES}${id}/approve_expense/`, {
+                method: 'POST'
+            });
+            if (response.ok) {
+                await fetchExpenseDetails();
+            } else {
+                const err = await response.json();
+                alert(`Failed to approve: ${err.error || 'Unknown error'}`);
+            }
+        } catch (err) {
+            console.error('Error approving:', err);
+        } finally {
+            setApproving(false);
+        }
+    };
+
+    const handleReject = async () => {
+        setApproving(true);
+        try {
+            const response = await fetchWithAuth(`${ENDPOINTS.FINANCE_EXPENSES}${id}/reject_expense/`, {
+                method: 'POST',
+                body: JSON.stringify({ reason: rejectReason })
+            });
+            if (response.ok) {
+                setShowRejectModal(false);
+                setRejectReason('');
+                await fetchExpenseDetails();
+            } else {
+                const err = await response.json();
+                alert(`Failed to reject: ${err.error || 'Unknown error'}`);
+            }
+        } catch (err) {
+            console.error('Error rejecting:', err);
+        } finally {
+            setApproving(false);
+        }
+    };
+
     const getStatusClass = (status) => {
         switch (status?.toLowerCase()) {
             case 'paid': return 'status-paid';
             case 'partial': return 'status-partial';
             case 'unpaid': return 'status-unpaid';
             default: return '';
+        }
+    };
+
+    const getApprovalBadgeClass = (status) => {
+        switch (status?.toLowerCase()) {
+            case 'approved': case 'auto_approved': return 'approval-approved';
+            case 'pending': return 'approval-pending';
+            case 'rejected': return 'approval-rejected';
+            default: return '';
+        }
+    };
+
+    const getApprovalLabel = (status) => {
+        switch (status?.toLowerCase()) {
+            case 'auto_approved': return '✅ Auto-Approved';
+            case 'approved': return '✅ Approved';
+            case 'pending': return '⏳ Pending Approval';
+            case 'rejected': return '❌ Rejected';
+            default: return status;
         }
     };
 
@@ -139,6 +203,9 @@ export default function ExpenseDetails() {
                         <h1>{expense.payee_name}</h1>
                         <span className={`status-badge ${getStatusClass(expense.payment_status)}`}>
                             {expense.payment_status}
+                        </span>
+                        <span className={`status-badge ${getApprovalBadgeClass(expense.approval_status)}`}>
+                            {getApprovalLabel(expense.approval_status)}
                         </span>
                     </div>
                     <div className="header-meta">
@@ -265,76 +332,123 @@ export default function ExpenseDetails() {
                     </div>
                 </div>
 
-                {/* Add Payment Form Section */}
+                {/* Sidebar: Approval + Payment */}
                 <div className="details-sidebar">
+                    {/* Approval Section */}
+                    {expense.approval_status === 'pending' && (
+                        <div className="glass-card approval-card" id="approval-section">
+                            <div className="card-header">
+                                <h3>⚖️ Approval Required</h3>
+                            </div>
+                            <p className="approval-notice">
+                                This expense of <strong>{currency}{Number(expense.total_amount).toLocaleString()}</strong> requires manager approval before payment can be processed.
+                            </p>
+                            <div className="approval-actions">
+                                <button
+                                    className="btn btn-success full-width"
+                                    onClick={handleApprove}
+                                    disabled={approving}
+                                    id="approve-button"
+                                >
+                                    {approving ? 'Processing...' : '✅ Approve Expense'}
+                                </button>
+                                <button
+                                    className="btn btn-danger full-width"
+                                    onClick={() => setShowRejectModal(true)}
+                                    disabled={approving}
+                                    id="reject-button"
+                                >
+                                    ❌ Reject Expense
+                                </button>
+                            </div>
+                        </div>
+                    )}
+
+                    {expense.approval_status === 'rejected' && (
+                        <div className="glass-card rejection-card">
+                            <div className="card-header">
+                                <h3>❌ Rejected</h3>
+                            </div>
+                            <p>This expense was rejected{expense.approved_by_name ? ` by ${expense.approved_by_name}` : ''}.</p>
+                            {expense.approved_at && <p className="rejection-date">On {new Date(expense.approved_at).toLocaleString()}</p>}
+                        </div>
+                    )}
+
+                    {/* Payment Form Section */}
                     {remainingBalance > 0 ? (
                         <div className="glass-card payment-form-card">
                             <div className="card-header">
                                 <h3>Record Payment</h3>
                             </div>
-                            <form onSubmit={handlePaymentSubmit}>
-                                <div className="form-group">
-                                    <label>Payment Date</label>
-                                    <input
-                                        type="date"
-                                        name="date"
-                                        value={paymentForm.date}
-                                        onChange={handleInputChange}
-                                        required
-                                    />
-                                </div>
-                                <div className="form-group">
-                                    <label>Amount ({currency})</label>
-                                    <input
-                                        type="number"
-                                        name="amount"
-                                        step="0.01"
-                                        max={remainingBalance}
-                                        value={paymentForm.amount}
-                                        onChange={handleInputChange}
-                                        placeholder="0.00"
-                                        required
-                                    />
-                                </div>
-                                <div className="form-group">
-                                    <label>Payment Method</label>
-                                    <select
-                                        name="method"
-                                        value={paymentForm.method}
-                                        onChange={handleInputChange}
-                                        required
-                                    >
-                                        <option value="Cash">Cash</option>
-                                        <option value="UPI">UPI</option>
-                                        <option value="Bank">Bank Transfer</option>
-                                        <option value="Cheque">Cheque</option>
-                                        <option value="Card">Card</option>
-                                    </select>
-                                </div>
-                                <div className="form-group">
-                                    <label>Reference #</label>
-                                    <input
-                                        type="text"
-                                        name="reference"
-                                        value={paymentForm.reference}
-                                        onChange={handleInputChange}
-                                        placeholder="TXN ID, Cheque #, etc."
-                                    />
-                                </div>
-                                <div className="form-group">
-                                    <label>Notes</label>
-                                    <textarea
-                                        name="notes"
-                                        rows="2"
-                                        value={paymentForm.notes}
-                                        onChange={handleInputChange}
-                                        placeholder="Optional payment notes..."
-                                    ></textarea>
-                                </div>
-                                <button type="submit" className="btn btn-primary full-width" disabled={submitting}>
-                                    {submitting ? 'Processing...' : 'Submit Payment'}
-                                </button>
-                            </form>
+                            {expense.approval_status === 'pending' ? (
+                                <p className="payment-blocked-notice">⚠️ Payment blocked until expense is approved.</p>
+                            ) : expense.approval_status === 'rejected' ? (
+                                <p className="payment-blocked-notice">❌ Cannot pay a rejected expense.</p>
+                            ) : (
+                                <form onSubmit={handlePaymentSubmit}>
+                                    <div className="form-group">
+                                        <label>Payment Date</label>
+                                        <input
+                                            type="date"
+                                            name="date"
+                                            value={paymentForm.date}
+                                            onChange={handleInputChange}
+                                            required
+                                        />
+                                    </div>
+                                    <div className="form-group">
+                                        <label>Amount ({currency})</label>
+                                        <input
+                                            type="number"
+                                            name="amount"
+                                            step="0.01"
+                                            max={remainingBalance}
+                                            value={paymentForm.amount}
+                                            onChange={handleInputChange}
+                                            placeholder="0.00"
+                                            required
+                                        />
+                                    </div>
+                                    <div className="form-group">
+                                        <label>Payment Method</label>
+                                        <select
+                                            name="method"
+                                            value={paymentForm.method}
+                                            onChange={handleInputChange}
+                                            required
+                                        >
+                                            <option value="cash">Cash</option>
+                                            <option value="upi">UPI</option>
+                                            <option value="bank">Bank Transfer</option>
+                                            <option value="cheque">Cheque</option>
+                                            <option value="card">Card</option>
+                                        </select>
+                                    </div>
+                                    <div className="form-group">
+                                        <label>Reference #</label>
+                                        <input
+                                            type="text"
+                                            name="reference"
+                                            value={paymentForm.reference}
+                                            onChange={handleInputChange}
+                                            placeholder="TXN ID, Cheque #, etc."
+                                        />
+                                    </div>
+                                    <div className="form-group">
+                                        <label>Notes</label>
+                                        <textarea
+                                            name="notes"
+                                            rows="2"
+                                            value={paymentForm.notes}
+                                            onChange={handleInputChange}
+                                            placeholder="Optional payment notes..."
+                                        ></textarea>
+                                    </div>
+                                    <button type="submit" className="btn btn-primary full-width" disabled={submitting}>
+                                        {submitting ? 'Processing...' : 'Submit Payment'}
+                                    </button>
+                                </form>
+                            )}
                         </div>
                     ) : (
                         <div className="glass-card paid-confirmation-card">
@@ -345,6 +459,33 @@ export default function ExpenseDetails() {
                     )}
                 </div>
             </div>
+            {/* Reject Modal */}
+            {showRejectModal && (
+                <div className="modal-overlay" onClick={() => setShowRejectModal(false)}>
+                    <div className="modal-content glass-card fade-in" onClick={e => e.stopPropagation()}>
+                        <div className="modal-header">
+                            <h2>Reject Expense</h2>
+                            <button className="close-btn" onClick={() => setShowRejectModal(false)}>&times;</button>
+                        </div>
+                        <div className="form-group">
+                            <label>Reason for Rejection (optional)</label>
+                            <textarea
+                                id="reject-reason"
+                                rows="3"
+                                value={rejectReason}
+                                onChange={(e) => setRejectReason(e.target.value)}
+                                placeholder="Explain why this expense is being rejected..."
+                            ></textarea>
+                        </div>
+                        <div className="modal-actions">
+                            <button className="btn btn-ghost" onClick={() => setShowRejectModal(false)}>Cancel</button>
+                            <button className="btn btn-danger" onClick={handleReject} disabled={approving}>
+                                {approving ? 'Rejecting...' : 'Confirm Rejection'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

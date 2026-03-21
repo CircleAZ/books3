@@ -24,12 +24,37 @@
     margin: 0;
 }
 
+.sticky-header {
+    position: fixed;
+    top: var(--header-height, 56px);
+    left: 0;
+    right: 0;
+    z-index: 100;
+    background: var(--color-bg-secondary);
+    border-bottom: 1px solid var(--color-border);
+    padding: 0.75rem 1.5rem;
+    max-width: 1400px;
+    margin: 0 auto;
+}
+
+.sticky-header-spacer {
+    height: 64px;
+}
+
+.success-message {
+    padding: 0.75rem 1.5rem;
+    background: rgba(40, 167, 69, 0.15);
+    color: var(--color-success, #28a745);
+    border-left: 3px solid var(--color-success, #28a745);
+    font-weight: 500;
+}
+
 .add-customer-form {
     background: var(--color-bg-secondary);
     border: 1px solid var(--color-border-light);
     border-radius: 12px;
     box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3);
-    overflow: hidden;
+    overflow: clip;
     margin-bottom: 6rem;
 }
 
@@ -285,4 +310,75 @@
     .map-container {
         height: min(300px, 35vh);
     }
+}
+
+/* ============================
+   Customer Links Section
+   ============================ */
+.link-add-row {
+    display: flex;
+    gap: 0.75rem;
+    align-items: flex-end;
+    flex-wrap: wrap;
+}
+
+.link-count-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: var(--color-primary);
+    color: #fff;
+    font-size: 0.7rem;
+    font-weight: 700;
+    margin-left: 8px;
+    vertical-align: middle;
+}
+
+.pending-links-list {
+    margin-top: 0.75rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.pending-link-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.5rem 0.75rem;
+    background: var(--color-bg-tertiary);
+    border-radius: var(--radius-md);
+    border: 1px solid var(--color-border-light);
+}
+
+.pending-link-info {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.pending-link-name {
+    font-weight: 500;
+    color: var(--color-text-primary);
+}
+
+.pending-link-type {
+    font-size: 0.75rem;
+    padding: 2px 8px;
+    border-radius: var(--radius-full);
+    background: rgba(99, 102, 241, 0.1);
+    color: var(--color-primary-light);
+    font-weight: 600;
+}
+
+.pending-link-saved {
+    font-size: 0.7rem;
+    padding: 1px 6px;
+    border-radius: var(--radius-sm);
+    background: rgba(16, 185, 129, 0.1);
+    color: #10b981;
+    font-weight: 600;
 }

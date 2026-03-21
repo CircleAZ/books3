@@ -1,31 +1,34 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { ENDPOINTS } from '../../config/api';
+import { useToast } from '../../context/ToastContext';
 
 export default function ManageSubdivisions() {
     const { fetchWithAuth } = useAuth();
-    const [subdivisions, setSubdivisions] = useState([]);
-    const [divisions, setDivisions] = useState([]);
+    const { showToast } = useToast();
+    const [templates, setTemplates] = useState([]);
+    const [divisionTemplates, setDivisionTemplates] = useState([]);
     const [loading, setLoading] = useState(true);
     const [isEditing, setIsEditing] = useState(false);
+    const [saving, setSaving] = useState(false);
     const [currentItem, setCurrentItem] = useState(null);
-    const [formData, setFormData] = useState({ name: '', division: '' });
+    const [formData, setFormData] = useState({ name: '', applicable_divisions: [] });
+    const [search, setSearch] = useState('');
 
-    const fetchData = useCallback(async () => {
+    const fetchTemplates = useCallback(async () => {
         setLoading(true);
         try {
-            const [subdivisionsRes, divisionsRes] = await Promise.all([
-                fetchWithAuth(ENDPOINTS.CUSTOMERS_SUBDIVISIONS),
-                fetchWithAuth(ENDPOINTS.CUSTOMERS_DIVISIONS)
+            const [subRes, divRes] = await Promise.all([
+                fetchWithAuth(ENDPOINTS.SUBDIVISION_TEMPLATES),
+                fetchWithAuth(ENDPOINTS.DIVISION_TEMPLATES)
             ]);
-
-            if (subdivisionsRes.ok) {
-                const data = await subdivisionsRes.json();
-                setSubdivisions(data.results || data || []);
+            if (subRes.ok) {
+                const data = await subRes.json();
+                setTemplates(data.results || data || []);
             }
-            if (divisionsRes.ok) {
-                const data = await divisionsRes.json();
-                setDivisions(data.results || data || []);
+            if (divRes.ok) {
+                const data = await divRes.json();
+                setDivisionTemplates(data.results || data || []);
             }
         } catch (err) {
             console.error(err);
@@ -35,68 +38,104 @@ export default function ManageSubdivisions() {
     }, [fetchWithAuth]);
 
     useEffect(() => {
-        fetchData();
-    }, [fetchData]);
+        fetchTemplates();
+    }, [fetchTemplates]);
 
     const handleSubmit = async (e) => {
         e.preventDefault();
+        if (saving) return;
+        const trimmed = {
+            name: formData.name.trim(),
+            applicable_divisions: formData.applicable_divisions
+        };
+        if (!trimmed.name) { showToast('Subdivision name is required', 'error'); return; }
+        setSaving(true);
         try {
-            const url = isEditing
-                ? `${ENDPOINTS.CUSTOMERS_SUBDIVISIONS}${currentItem.id}/`
-                : ENDPOINTS.CUSTOMERS_SUBDIVISIONS;
-
-            const method = isEditing ? 'PUT' : 'POST';
-
+            const url = currentItem
+                ? `${ENDPOINTS.SUBDIVISION_TEMPLATES}${currentItem.id}/`
+                : ENDPOINTS.SUBDIVISION_TEMPLATES;
+            const method = currentItem ? 'PUT' : 'POST';
             const res = await fetchWithAuth(url, {
                 method,
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(formData)
+                body: JSON.stringify(trimmed)
             });
-
             if (res.ok) {
+                showToast(currentItem ? 'Subdivision updated' : 'Subdivision created', 'success');
                 setIsEditing(false);
                 setCurrentItem(null);
-                setFormData({ name: '', division: '' });
-                fetchData();
+                setFormData({ name: '', applicable_divisions: [] });
+                fetchTemplates();
+            } else {
+                const errData = await res.json().catch(() => null);
+                showToast(errData?.name?.[0] || errData?.detail || 'Failed to save', 'error');
             }
         } catch (err) {
-            console.error(err);
+            showToast('Network error', 'error');
+        } finally {
+            setSaving(false);
         }
     };
 
-    const handleEdit = (sub) => {
+    const handleEdit = (item) => {
         setIsEditing(true);
-        setCurrentItem(sub);
+        setCurrentItem(item);
         setFormData({
-            name: sub.name,
-            division: sub.division
+            name: item.name,
+            applicable_divisions: item.applicable_divisions || []
         });
     };
 
     const handleDelete = async (id) => {
-        if (!window.confirm('Are you sure?')) return;
+        if (!window.confirm('Delete this subdivision template? Schools using this name will not be affected.')) return;
         try {
-            await fetchWithAuth(`${ENDPOINTS.CUSTOMERS_SUBDIVISIONS}${id}/`, { method: 'DELETE' });
-            fetchData();
+            const res = await fetchWithAuth(`${ENDPOINTS.SUBDIVISION_TEMPLATES}${id}/`, { method: 'DELETE' });
+            if (res.ok || res.status === 204) {
+                showToast('Subdivision template deleted', 'success');
+                fetchTemplates();
+            } else {
+                showToast('Failed to delete', 'error');
+            }
         } catch (err) {
-            console.error(err);
+            showToast('Error deleting', 'error');
         }
     };
 
-    if (loading && !isEditing && subdivisions.length === 0) {
-        return <div className="p-4 text-center">Loading...</div>;
+    const toggleDivisionSelection = (divId) => {
+        setFormData(prev => {
+            const current = prev.applicable_divisions || [];
+            const updated = current.includes(divId)
+                ? current.filter(id => id !== divId)
+                : [...current, divId];
+            return { ...prev, applicable_divisions: updated };
+        });
+    };
+
+    const sortedDivisions = [...divisionTemplates].sort((a, b) =>
+        a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' })
+    );
+
+    const filtered = templates
+        .filter(t => t.name?.toLowerCase().includes(search.toLowerCase()))
+        .sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' }));
+
+    if (loading && !isEditing && templates.length === 0) {
+        return <div className="manager-empty">Loading...</div>;
     }
 
     return (
         <div>
             <div className="manager-header">
-                <h2>Manage Subdivisions</h2>
+                <div>
+                    <h2>Subdivision Catalog</h2>
+                    <div className="manager-subtitle">Reusable subdivision names — e.g. PCM, PCB, Computer Applications</div>
+                </div>
                 <button
                     className="btn btn-primary"
                     onClick={() => {
                         setIsEditing(true);
                         setCurrentItem(null);
-                        setFormData({ name: '', division: '' });
+                        setFormData({ name: '', applicable_divisions: [] });
                     }}
                 >
                     + Add Subdivision
@@ -104,78 +143,98 @@ export default function ManageSubdivisions() {
             </div>
 
             {isEditing && (
-                <div className="card mb-4" style={{ marginBottom: '1.5rem' }}>
-                    <h3 style={{ marginBottom: '1rem' }}>{currentItem ? 'Edit Subdivision' : 'New Subdivision'}</h3>
+                <div className="card manager-form-card">
+                    <h3>{currentItem ? 'Edit Subdivision' : 'New Subdivision'}</h3>
                     <form onSubmit={handleSubmit}>
-                        <div className="form-group mb-2" style={{ marginBottom: '1rem' }}>
-                            <label style={{ display: 'block', marginBottom: '0.5rem' }}>Division</label>
-                            <select
-                                value={formData.division}
-                                onChange={e => setFormData({ ...formData, division: e.target.value })}
-                                required
-                                style={{ width: '100%', padding: '0.5rem' }}
-                            >
-                                <option value="">Select Division</option>
-                                {divisions.map(d => (
-                                    <option key={d.id} value={d.id}>{d.name} {d.class_name ? `(${d.class_name})` : ''}</option>
-                                ))}
-                            </select>
-                        </div>
-                        <div className="form-group mb-2" style={{ marginBottom: '1rem' }}>
-                            <label style={{ display: 'block', marginBottom: '0.5rem' }}>Subdivision Name</label>
+                        <div className="manager-form-group">
+                            <label>Subdivision Name</label>
                             <input
                                 type="text"
                                 value={formData.name}
                                 onChange={e => setFormData({ ...formData, name: e.target.value })}
+                                placeholder="e.g. PCM, PCB, Computer Applications"
                                 required
                             />
                         </div>
+                        <div className="manager-form-group">
+                            <label>Applicable to Divisions</label>
+                            <small style={{ display: 'block', marginBottom: '0.5rem', color: 'var(--text-secondary)' }}>
+                                Leave empty to show this subdivision under ALL divisions
+                            </small>
+                            <div className="chip-picker">
+                                {sortedDivisions.map(div => {
+                                    const isSelected = formData.applicable_divisions.includes(div.id);
+                                    return (
+                                        <button
+                                            key={div.id}
+                                            type="button"
+                                            className={`chip ${isSelected ? 'chip--active' : ''}`}
+                                            onClick={() => toggleDivisionSelection(div.id)}
+                                        >
+                                            {isSelected && '✓ '}{div.name}
+                                        </button>
+                                    );
+                                })}
+                                {sortedDivisions.length === 0 && (
+                                    <span style={{ color: 'var(--text-secondary)', fontSize: '0.8rem' }}>
+                                        No division templates yet. Add divisions first.
+                                    </span>
+                                )}
+                            </div>
+                        </div>
                         <div className="flex gap-sm">
-                            <button type="submit" className="btn btn-primary">Save</button>
-                            <button
-                                type="button"
-                                className="btn btn-ghost"
-                                onClick={() => setIsEditing(false)}
-                            >
-                                Cancel
-                            </button>
+                            <button type="submit" className="btn btn-primary" disabled={saving}>{saving ? 'Saving...' : 'Save'}</button>
+                            <button type="button" className="btn btn-ghost" onClick={() => setIsEditing(false)}>Cancel</button>
                         </div>
                     </form>
+                </div>
+            )}
+
+            {templates.length > 3 && (
+                <div className="manager-search">
+                    <input
+                        type="text"
+                        placeholder="Filter subdivisions..."
+                        value={search}
+                        onChange={e => setSearch(e.target.value)}
+                    />
                 </div>
             )}
 
             <table className="manager-table">
                 <thead>
                     <tr>
-                        <th>Subdivision</th>
-                        <th>Division</th>
+                        <th>Subdivision Name</th>
+                        <th>Applicable Divisions</th>
                         <th>Actions</th>
                     </tr>
                 </thead>
                 <tbody>
-                    {subdivisions.map(sub => (
-                        <tr key={sub.id}>
-                            <td>{sub.name}</td>
-                            <td>{divisions.find(d => d.id === sub.division)?.name || '-'}</td>
+                    {filtered.map(item => (
+                        <tr key={item.id}>
+                            <td>{item.name}</td>
+                            <td>
+                                {item.applicable_division_names?.length > 0 ? (
+                                    <span style={{ display: 'flex', gap: '0.25rem', flexWrap: 'wrap' }}>
+                                        {item.applicable_division_names
+                                            .sort((a, b) => a.localeCompare(b, undefined, { numeric: true }))
+                                            .map(n => <span key={n} className="manager-badge">{n}</span>)}
+                                    </span>
+                                ) : (
+                                    <span style={{ color: 'var(--text-secondary)', fontSize: '0.8rem' }}>All divisions</span>
+                                )}
+                            </td>
                             <td className="actions-cell">
-                                <button
-                                    className="btn btn-ghost"
-                                    onClick={() => handleEdit(sub)}
-                                >
-                                    Edit
-                                </button>
-                                <button
-                                    className="btn btn-ghost text-danger"
-                                    onClick={() => handleDelete(sub.id)}
-                                >
-                                    Delete
-                                </button>
+                                <button className="btn btn-ghost" onClick={() => handleEdit(item)}>Edit</button>
+                                <button className="btn btn-ghost text-danger" onClick={() => handleDelete(item.id)}>Delete</button>
                             </td>
                         </tr>
                     ))}
-                    {subdivisions.length === 0 && (
+                    {filtered.length === 0 && (
                         <tr>
-                            <td colSpan="3" className="text-center p-4">No subdivisions found.</td>
+                            <td colSpan="3" className="manager-empty">
+                                {search ? 'No subdivisions match your filter.' : 'No subdivision templates yet. Add your first subdivision name above.'}
+                            </td>
                         </tr>
                     )}
                 </tbody>

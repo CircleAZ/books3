@@ -3,12 +3,14 @@ import { useParams } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useCurrency } from '../../context/CurrencyContext';
 import { ENDPOINTS } from '../../config/api';
+import { useToast } from '../../context/ToastContext';
 import './OrderReceipt.css';
 
 export default function OrderReceipt() {
     const { id } = useParams();
     const { fetchWithAuth } = useAuth();
     const { currency } = useCurrency();
+    const { showToast } = useToast();
     const [order, setOrder] = useState(null);
     const [storeSettings, setStoreSettings] = useState(null);
     const [loading, setLoading] = useState(true);
@@ -25,7 +27,7 @@ export default function OrderReceipt() {
                 if (orderRes.ok) {
                     setOrder(await orderRes.json());
                 } else {
-                    alert('Failed to load order for receipt');
+                    showToast('Failed to load order for receipt', 'error');
                 }
 
                 if (storeRes.ok) {

@@ -15,7 +15,7 @@ export default function LenderDetails() {
     const [loading, setLoading] = useState(true);
     const [showAddLoanModal, setShowAddLoanModal] = useState(false);
     const [loanFormData, setLoanFormData] = useState({
-        principal: '',
+        principal_amount: '',
         interest_rate: '',
         term_months: '',
         start_date: new Date().toISOString().split('T')[0],
@@ -67,7 +67,7 @@ export default function LenderDetails() {
             if (response.ok) {
                 setShowAddLoanModal(false);
                 setLoanFormData({
-                    principal: '',
+                    principal_amount: '',
                     interest_rate: '',
                     term_months: '',
                     start_date: new Date().toISOString().split('T')[0],
@@ -151,7 +151,7 @@ export default function LenderDetails() {
                         <tbody>
                             {lender.loans && lender.loans.length > 0 ? (
                                 lender.loans.map(loan => {
-                                    const progress = Math.min(100, (loan.total_paid / (loan.principal + (loan.interest_amount || 0))) * 100) || 0;
+                                    const progress = Math.min(100, (loan.total_paid / (loan.principal_amount + (loan.interest_amount || 0))) * 100) || 0;
                                     return (
                                         <tr
                                             key={loan.id}
@@ -159,7 +159,7 @@ export default function LenderDetails() {
                                             onClick={() => navigate(`/finance/loans/${loan.id}`)}
                                         >
                                             <td className="loan-number">{loan.loan_number}</td>
-                                            <td>{currency}{Number(loan.principal).toLocaleString()}</td>
+                                            <td>{currency}{Number(loan.principal_amount).toLocaleString()}</td>
                                             <td>{loan.interest_rate}%</td>
                                             <td>{new Date(loan.start_date).toLocaleDateString()}</td>
                                             <td>{currency}{Number(loan.total_paid || 0).toLocaleString()}</td>
@@ -203,8 +203,8 @@ export default function LenderDetails() {
                                     <label>Principal Amount ({currency}) *</label>
                                     <input
                                         type="number"
-                                        name="principal"
-                                        value={loanFormData.principal}
+                                        name="principal_amount"
+                                        value={loanFormData.principal_amount}
                                         onChange={handleLoanInputChange}
                                         required
                                     />

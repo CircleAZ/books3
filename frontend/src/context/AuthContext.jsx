@@ -1,16 +1,41 @@
-import { createContext, useContext, useState, useEffect, useRef } from 'react';
+import { createContext, useContext, useState, useEffect, useRef, useCallback } from 'react';
+import { API_BASE } from '../config/api';
 
 const AuthContext = createContext(null);
 
-const API_BASE = 'http://localhost:8000/api';
+// Token expiry offset — refresh 5 minutes before actual expiry
+const REFRESH_BUFFER_MS = 5 * 60 * 1000;
+
+/**
+ * Decode RBAC claims (role, roles, permissions) from a JWT access token.
+ * This is synchronous — zero network dependency, works offline.
+ */
+function decodeRbacClaims(tokenStr) {
+    try {
+        const payload = JSON.parse(atob(tokenStr.split('.')[1]));
+        return {
+            role: payload.role || null,
+            roles: payload.roles || [],
+            permissions: payload.permissions || [],
+            is_staff: payload.is_staff || false,
+            is_superuser: payload.is_superuser || false,
+        };
+    } catch {
+        return { role: null, roles: [], permissions: [], is_staff: false, is_superuser: false };
+    }
+}
 
 export function AuthProvider({ children }) {
     const [user, setUser] = useState(null);
     const [token, setToken] = useState(null);
     const [loading, setLoading] = useState(true);
+    // RBAC state — decoded from JWT, no network fetch required
+    const [rbac, setRbac] = useState({ role: null, roles: [], permissions: [], is_staff: false, is_superuser: false });
 
     // LENS-17 fix: Prevent concurrent refresh attempts
     const refreshPromiseRef = useRef(null);
+    // Proactive refresh timer (ARCH-3)
+    const refreshTimerRef = useRef(null);
 
     // Load auth state from localStorage on mount
     useEffect(() => {
@@ -18,10 +43,94 @@ export function AuthProvider({ children }) {
         const storedUser = localStorage.getItem('user');
 
         if (storedToken && storedUser) {
-            setToken(storedToken);
-            setUser(JSON.parse(storedUser));
+            try {
+                setToken(storedToken);
+                setUser(JSON.parse(storedUser));
+                setRbac(decodeRbacClaims(storedToken));
+            } catch (e) {
+                // BUG-1: Corrupted localStorage — clear and force re-login
+                console.error('Corrupted auth data in localStorage, clearing');
+                localStorage.removeItem('access_token');
+                localStorage.removeItem('refresh_token');
+                localStorage.removeItem('user');
+                localStorage.removeItem('profile');
+            }
         }
         setLoading(false);
+    }, []);
+
+    // Session expiry warning timer
+    const expiryWarningRef = useRef(null);
+
+    // ARCH-3: Schedule proactive token refresh
+    const scheduleTokenRefresh = useCallback((tokenStr) => {
+        if (refreshTimerRef.current) clearTimeout(refreshTimerRef.current);
+        if (expiryWarningRef.current) clearTimeout(expiryWarningRef.current);
+
+        try {
+            // Decode JWT payload to get exp
+            const payload = JSON.parse(atob(tokenStr.split('.')[1]));
+            const expiresAt = payload.exp * 1000; // convert to ms
+            const now = Date.now();
+            const timeUntilRefresh = expiresAt - now - REFRESH_BUFFER_MS;
+
+            if (timeUntilRefresh > 0) {
+                refreshTimerRef.current = setTimeout(async () => {
+                    const refreshed = await refreshToken();
+                    if (!refreshed) {
+                        // UX-1: Warn user before force-logout
+                        // Dispatch a custom event that the ToastContext or any listener can pick up
+                        window.dispatchEvent(new CustomEvent('session-expiring', {
+                            detail: { message: 'Your session is expiring. Please save your work.' }
+                        }));
+
+                        // Give user 60 seconds to finish before force-logout
+                        expiryWarningRef.current = setTimeout(() => {
+                            logout();
+                        }, 60000);
+                    }
+                }, timeUntilRefresh);
+            }
+        } catch (e) {
+            // Can't decode token — skip proactive refresh
+        }
+    }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+    // Start proactive refresh when token changes
+    useEffect(() => {
+        if (token) {
+            scheduleTokenRefresh(token);
+        }
+        return () => {
+            if (refreshTimerRef.current) clearTimeout(refreshTimerRef.current);
+        };
+    }, [token, scheduleTokenRefresh]);
+
+    // ARCH-4: Multi-tab sync — listen for storage changes
+    useEffect(() => {
+        const handleStorageChange = (e) => {
+            if (e.key === 'access_token') {
+                if (!e.newValue) {
+                    // Another tab logged out
+                    setToken(null);
+                    setUser(null);
+                } else {
+                    setToken(e.newValue);
+                }
+            }
+            if (e.key === 'user') {
+                if (e.newValue) {
+                    try {
+                        setUser(JSON.parse(e.newValue));
+                    } catch { /* ignore corrupted */ }
+                } else {
+                    setUser(null);
+                }
+            }
+        };
+
+        window.addEventListener('storage', handleStorageChange);
+        return () => window.removeEventListener('storage', handleStorageChange);
     }, []);
 
     const login = async (username, password, rememberMe = false) => {
@@ -49,6 +158,7 @@ export function AuthProvider({ children }) {
 
             setToken(data.access);
             setUser(data.user);
+            setRbac(decodeRbacClaims(data.access));
 
             return { success: true };
         } catch (error) {
@@ -58,21 +168,42 @@ export function AuthProvider({ children }) {
 
     const logout = async () => {
         try {
-            const refreshToken = localStorage.getItem('refresh_token');
+            const refreshTokenStr = localStorage.getItem('refresh_token');
+            let currentToken = token || localStorage.getItem('access_token');
 
-            if (token && refreshToken) {
-                await fetch(`${API_BASE}/account/logout/`, {
+            if (currentToken && refreshTokenStr) {
+                // BUG-2: If access token is expired, try refreshing first for a clean logout
+                let res = await fetch(`${API_BASE}/account/logout/`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${token}`,
+                        'Authorization': `Bearer ${currentToken}`,
                     },
-                    body: JSON.stringify({ refresh: refreshToken }),
+                    body: JSON.stringify({ refresh: refreshTokenStr }),
                 });
+
+                // If 401, try getting a fresh token to blacklist the refresh
+                if (res.status === 401) {
+                    const refreshed = await refreshToken();
+                    if (refreshed) {
+                        currentToken = localStorage.getItem('access_token');
+                        await fetch(`${API_BASE}/account/logout/`, {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'Authorization': `Bearer ${currentToken}`,
+                            },
+                            body: JSON.stringify({ refresh: refreshTokenStr }),
+                        });
+                    }
+                }
             }
         } catch (error) {
             console.error('Logout error:', error);
         } finally {
+            // Clear proactive refresh timer
+            if (refreshTimerRef.current) clearTimeout(refreshTimerRef.current);
+
             // Clear local storage
             localStorage.removeItem('access_token');
             localStorage.removeItem('refresh_token');
@@ -90,7 +221,6 @@ export function AuthProvider({ children }) {
         };
 
         // Only set Content-Type to JSON if body is NOT FormData
-        // (FormData needs the browser to set multipart boundary automatically)
         if (!(options.body instanceof FormData)) {
             headers['Content-Type'] = headers['Content-Type'] || 'application/json';
         }
@@ -112,6 +242,16 @@ export function AuthProvider({ children }) {
             } else {
                 logout();
             }
+        }
+
+        // RBAC 403 interceptor: force token refresh to sync permissions (Tribunal Consensus 3)
+        if (response.status === 403) {
+            const refreshed = await refreshToken();
+            if (refreshed) {
+                const freshToken = localStorage.getItem('access_token');
+                setRbac(decodeRbacClaims(freshToken));
+            }
+            // Still return the 403 response so the calling code can handle it
         }
 
         return response;
@@ -136,7 +276,11 @@ export function AuthProvider({ children }) {
 
                 const data = await response.json();
                 localStorage.setItem('access_token', data.access);
+                if (data.refresh) {
+                    localStorage.setItem('refresh_token', data.refresh);
+                }
                 setToken(data.access);
+                setRbac(decodeRbacClaims(data.access));
                 return true;
             } catch {
                 return false;
@@ -156,6 +300,8 @@ export function AuthProvider({ children }) {
         login,
         logout,
         fetchWithAuth,
+        // RBAC claims (decoded from JWT — zero network dependency)
+        rbac,
     };
 
     return (

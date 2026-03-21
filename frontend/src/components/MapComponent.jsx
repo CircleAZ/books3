@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import './MapComponent.css';
 import { MapContainer, TileLayer, Marker, useMap, useMapEvents } from 'react-leaflet';
 import L from 'leaflet';
 
@@ -39,19 +40,21 @@ function LocationMarker({ position, onLocationSelect, readonly }) {
 }
 
 const MapComponent = ({ position, onLocationSelect, height = '300px', readonly = false }) => {
-    // Default center (Gujarat/India approx) if no position
-    const defaultCenter = [22.2587, 71.1924];
+    // Default center (Navsari/South Gujarat)
+    const defaultCenter = [20.81746, 72.88007];
     const center = position || defaultCenter;
 
     return (
         <MapContainer
             center={center}
-            zoom={13}
+            zoom={11}
+            maxZoom={22}
             style={{ height: height, width: '100%', borderRadius: '8px', zIndex: 0 }}
         >
             <TileLayer
-                attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-                url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                attribution='&copy; <a href="https://www.maptiler.com/copyright/">MapTiler</a> &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+                url="https://api.maptiler.com/maps/hybrid/{z}/{x}/{y}.jpg?key=BQQceBuFb4tKDPHoivOL"
+                maxZoom={22}
             />
             <LocationMarker
                 position={position}

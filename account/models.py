@@ -78,8 +78,9 @@ class ActivityLog(UUIDPrimaryKeyModel):
         OTHER = 'other', 'Other'
     
     user = models.ForeignKey(
-        'account.User',  # Reference the custom user model
-        on_delete=models.CASCADE, 
+        'account.User',
+        on_delete=models.SET_NULL,
+        null=True,
         related_name='activity_logs'
     )
     action = models.CharField(max_length=50, choices=ActionType.choices)
@@ -118,4 +119,51 @@ class ActivityLog(UUIDPrimaryKeyModel):
             ip_address=ip_address,
             user_agent=user_agent,
             metadata=metadata or {}
+        )
+
+
+class Notification(UUIDPrimaryKeyModel):
+    """User notifications for the notification panel"""
+
+    class NotificationType(models.TextChoices):
+        INFO = 'info', 'Info'
+        WARNING = 'warning', 'Warning'
+        SUCCESS = 'success', 'Success'
+        ERROR = 'error', 'Error'
+        STOCK = 'stock', 'Stock Alert'
+        ORDER = 'order', 'Order'
+
+    user = models.ForeignKey(
+        'account.User',
+        on_delete=models.CASCADE,
+        related_name='notifications'
+    )
+    type = models.CharField(
+        max_length=20,
+        choices=NotificationType.choices,
+        default=NotificationType.INFO
+    )
+    title = models.CharField(max_length=200)
+    message = models.CharField(max_length=500)
+    link = models.CharField(max_length=500, blank=True, default='')
+    is_read = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        verbose_name = 'Notification'
+        verbose_name_plural = 'Notifications'
+
+    def __str__(self):
+        return f"{self.user.username} - {self.title} ({'read' if self.is_read else 'unread'})"
+
+    @classmethod
+    def notify(cls, user, title, message, notification_type='info', link=''):
+        """Helper to create a notification"""
+        return cls.objects.create(
+            user=user,
+            type=notification_type,
+            title=title,
+            message=message,
+            link=link
         )

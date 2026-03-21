@@ -2,11 +2,60 @@
 Account app serializers for AZ Books
 """
 from rest_framework import serializers
+from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from django.contrib.auth import get_user_model
 from django.contrib.auth.password_validation import validate_password
 from .models import ActivityLog
 
 User = get_user_model()
+
+
+class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
+    """
+    Injects role + permissions into the JWT Access Token payload.
+    
+    This allows the React frontend to decode the token synchronously
+    via jwt-decode, eliminating network dependency on /api/users/me/.
+    Supports offline-first PWA architecture.
+    """
+    @classmethod
+    def get_token(cls, user):
+        token = super().get_token(user)
+
+        # Inject basic user info
+        token['username'] = user.username
+        token['is_staff'] = user.is_staff
+        token['is_superuser'] = user.is_superuser
+
+        # Inject RBAC claims (multi-role aggregation)
+        try:
+            from settings_app.models import Role, RolePermission
+            user_roles = Role.objects.filter(role_users__user=user)
+
+            if user_roles.exists():
+                # Use primary role name for display, aggregate all permissions
+                token['role'] = user_roles.first().name
+                token['roles'] = list(user_roles.values_list('name', flat=True))
+
+                # Collect ALL permission codenames across ALL roles
+                permissions = list(
+                    RolePermission.objects.filter(
+                        role__in=user_roles
+                    ).values_list(
+                        'permission__codename', flat=True
+                    ).distinct()
+                )
+                token['permissions'] = permissions
+            else:
+                token['role'] = None
+                token['roles'] = []
+                token['permissions'] = []
+        except Exception:
+            token['role'] = None
+            token['roles'] = []
+            token['permissions'] = []
+
+        return token
 
 class UserSerializer(serializers.ModelSerializer):
     """
@@ -72,15 +121,70 @@ class ActivityLogSerializer(serializers.ModelSerializer):
             'id', 'action', 'action_display', 'description', 
             'created_at', 'ip_address', 'metadata'
         ]
-        read_only_fields = ['__all__']
+        read_only_fields = [
+            'id', 'action', 'action_display', 'description',
+            'created_at', 'ip_address', 'metadata'
+        ]
 
 
 class ProfilePictureSerializer(serializers.Serializer):
     """Profile picture upload serializer"""
     profile_picture = serializers.ImageField()
     
+    ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp']
+    ALLOWED_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.gif', '.webp']
+    
     def validate_profile_picture(self, value):
+        import os
         # Limit file size to 5MB
         if value.size > 5 * 1024 * 1024:
             raise serializers.ValidationError('Image file too large (max 5MB).')
+        
+        # SEC-10: Validate MIME type
+        if hasattr(value, 'content_type') and value.content_type not in self.ALLOWED_TYPES:
+            raise serializers.ValidationError(
+                f'Invalid file type: {value.content_type}. Allowed: JPEG, PNG, GIF, WebP.'
+            )
+        
+        # SEC-10: Validate file extension
+        ext = os.path.splitext(value.name)[1].lower()
+        if ext not in self.ALLOWED_EXTENSIONS:
+            raise serializers.ValidationError(
+                f'Invalid file extension: {ext}. Allowed: .jpg, .png, .gif, .webp.'
+            )
+        
         return value
+
+
+class NotificationSerializer(serializers.ModelSerializer):
+    """Serializer for user notifications"""
+    time_ago = serializers.SerializerMethodField()
+
+    class Meta:
+        model = None  # Set below after import
+        fields = ['id', 'type', 'title', 'message', 'link', 'is_read', 'created_at', 'time_ago']
+        read_only_fields = ['id', 'type', 'title', 'message', 'link', 'created_at', 'time_ago']
+
+    def get_time_ago(self, obj):
+        from django.utils import timezone
+        delta = timezone.now() - obj.created_at
+        seconds = int(delta.total_seconds())
+        if seconds < 60:
+            return 'just now'
+        if seconds < 3600:
+            mins = seconds // 60
+            return f'{mins}m ago'
+        if seconds < 86400:
+            hours = seconds // 3600
+            return f'{hours}h ago'
+        days = seconds // 86400
+        if days == 1:
+            return 'yesterday'
+        if days < 7:
+            return f'{days}d ago'
+        return obj.created_at.strftime('%b %d')
+
+
+# Deferred model assignment to avoid circular import
+from .models import Notification
+NotificationSerializer.Meta.model = Notification

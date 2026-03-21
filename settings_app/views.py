@@ -3,6 +3,7 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from django.contrib.auth import get_user_model
+from core.permissions import HasRequiredPermission
 from .models import (
     StoreSettings, Role, Permission, TaxSettings, 
     PaymentMethod, NotificationPreference, IntegrationSettings
@@ -66,7 +67,8 @@ class StoreSettingsViewSet(viewsets.GenericViewSet):
 class UserViewSet(viewsets.ModelViewSet):
     queryset = User.objects.all()
     serializer_class = UserSerializer
-    permission_classes = [IsAdminUser]
+    permission_classes = [HasRequiredPermission]
+    required_permission = 'settings.manage_users'
     
     def get_queryset(self):
         # Prevent Deleting/Editing Superuser by normal admins if needed
@@ -84,7 +86,8 @@ class UserViewSet(viewsets.ModelViewSet):
 
 class RoleViewSet(viewsets.ModelViewSet):
     queryset = Role.objects.all()
-    permission_classes = [IsAdminUser]
+    permission_classes = [HasRequiredPermission]
+    required_permission = 'settings.manage_roles'
     
     def get_serializer_class(self):
         if self.action in ['create', 'update', 'partial_update']:

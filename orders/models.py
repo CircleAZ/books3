@@ -3,6 +3,7 @@ Order Management models for POS functionality.
 """
 from django.db import models
 from django.conf import settings
+from django.core.exceptions import ValidationError
 from decimal import Decimal
 from core.models import SoftDeleteModel, UUIDPrimaryKeyModel, DisplayIDMixin
 
@@ -62,6 +63,44 @@ class Order(DisplayIDMixin, SoftDeleteModel):
         ('percent', 'Percentage'),
         ('fixed', 'Fixed Amount'),
     ]
+
+    # ── State Transition Matrix ──
+    # Defines legal transitions for each status field.
+    # payment_status is EXCLUDED — it's always auto-computed.
+    VALID_TRANSITIONS = {
+        'order_status': {
+            'draft': ['confirmed', 'cancelled'],
+            'confirmed': ['completed', 'cancelled'],
+            'completed': [],   # Terminal — use returns/refunds
+            'cancelled': [],   # Terminal
+        },
+        'delivery_status': {
+            'pending': ['processing'],
+            'processing': ['ready', 'pending'],   # Allow rollback
+            'ready': ['delivered', 'processing'],  # Allow rollback
+            'delivered': [],  # Terminal — Ironclad lock
+        },
+        'cancellation_status': {
+            'na': ['pending'],
+            'pending': ['completed', 'cancelled'],  # Approve or reject
+            'completed': [],
+            'cancelled': ['na'],  # Reset after rejected cancellation
+        },
+        'return_status': {
+            'na': ['pending'],
+            'pending': ['received', 'cancelled'],
+            'received': ['completed'],
+            'completed': [],
+            'cancelled': ['na'],
+        },
+        'refund_status': {
+            'na': ['pending'],
+            'pending': ['partial', 'completed', 'cancelled'],
+            'partial': ['completed'],
+            'completed': [],
+            'cancelled': ['na'],
+        },
+    }
     
     # Customer - either registered or guest
     customer = models.ForeignKey(
@@ -82,6 +121,9 @@ class Order(DisplayIDMixin, SoftDeleteModel):
     return_status = models.CharField(max_length=20, choices=RETURN_STATUS, default='na')
     refund_status = models.CharField(max_length=20, choices=REFUND_STATUS, default='na')
     cancellation_status = models.CharField(max_length=20, choices=CANCELLATION_STATUS, default='na')
+    
+    # Cached derived status for DB-level filtering
+    overall_status = models.CharField(max_length=40, default='Draft', blank=True)
     
     # Financial
     subtotal = models.DecimalField(max_digits=12, decimal_places=2, default=0)
@@ -122,10 +164,15 @@ class Order(DisplayIDMixin, SoftDeleteModel):
         self.save(update_fields=['subtotal', 'discount_amount', 'total'])
     
     def update_payment_status(self):
-        """Update payment status based on payments received."""
+        """Update payment status based on payments and refunds."""
         total_paid = sum(p.amount for p in self.payments.all())
+        total_refunded = sum(
+            r.amount for r in self.refunds.filter(status='completed')
+        )
         
-        if total_paid > self.total:
+        if total_refunded >= total_paid and total_paid > 0:
+            self.payment_status = 'refunded'
+        elif total_paid > self.total:
             self.payment_status = 'overpaid'
         elif total_paid == self.total:
             self.payment_status = 'paid'
@@ -134,7 +181,12 @@ class Order(DisplayIDMixin, SoftDeleteModel):
         else:
             self.payment_status = 'pending'
         
-        self.save(update_fields=['payment_status'])
+        # Auto-transition: first payment on draft → confirmed
+        if total_paid > 0 and self.order_status == 'draft':
+            self.order_status = 'confirmed'
+            self.save(update_fields=['payment_status', 'order_status'])
+        else:
+            self.save(update_fields=['payment_status'])
     
     @property
     def amount_paid(self):
@@ -153,111 +205,141 @@ class Order(DisplayIDMixin, SoftDeleteModel):
     def derived_status(self):
         """
         Compute overall order status from sub-statuses.
-        Follows P4.md §3.6 precedence rules with UI-friendly enhancements.
-
-        Precedence (per P4 §3.6):
-          1. Cancellation Pending  (§3.6.1)
-          2. Cancellation Completed → Action Needed / Order Cancelled  (§3.6.2)
-          3. Return Received + refund unresolved → Action Needed  (§3.6.3.1)
-          4. Overpaid + refund unresolved → Action Needed  (§3.6.3.2)
-          5. Delivered + unpaid → Delivered - Awaiting Payment  (§3.6.3.3)
-          6. Delivered + paid + all resolved → Order Complete  (§3.6.3.4)
-          7. Enhancement: Refund/Return in-progress states
-          8. Delivery in-progress states
-          9. Default catch-all → Processing  (§3.6.3.5)
+        Priority ladder — first match wins.
         """
-        # ── §3.6.1: Cancellation Pending (absolute precedence) ──
+        # ── Priority 1: Cancellation Pending ──
         if self.cancellation_status == 'pending':
             return 'Cancellation Pending'
 
-        # ── §3.6.2: Cancellation Completed ──
+        # ── Priority 2: Cancellation Completed ──
         if self.cancellation_status == 'completed':
-            # §3.6.2.1: Payment was collected but refund not fully resolved
             if (self.payment_status in ('partial', 'paid', 'overpaid')
                     and self.refund_status in ('na', 'pending', 'partial')):
-                return 'Action Needed'
-            # §3.6.2.2: No payment made, or refund already resolved
+                return 'Cancelled \u2014 Refund Pending'
             return 'Order Cancelled'
 
-        # ── §3.6.3: Order not cancelled (cancellation is NA or itself cancelled) ──
-
-        # §3.6.3.1: Returned items received, refund/resolution pending
+        # ── Priority 3: Post-delivery exceptions ──
         if (self.return_status == 'received'
                 and self.refund_status in ('na', 'pending', 'partial')):
-            return 'Action Needed'
+            return 'Return Received \u2014 Process Refund'
 
-        # §3.6.3.2: Overpaid, refund for overage not resolved
         if (self.payment_status == 'overpaid'
                 and self.refund_status in ('na', 'pending', 'partial')):
-            return 'Action Needed'
+            return 'Overpaid \u2014 Refund Due'
 
-        # §3.6.3.3: Delivered but awaiting payment
         if (self.delivery_status == 'delivered'
                 and self.payment_status in ('pending', 'partial')):
             return 'Delivered - Awaiting Payment'
 
-        # §3.6.3.4: Order Complete (fully delivered, paid, all processes resolved)
+        # ── Priority 4: Perfect completion ──
         if (self.delivery_status == 'delivered'
-                and self.payment_status in ('paid', 'overpaid')
+                and self.payment_status in ('paid', 'overpaid', 'refunded')
                 and self.return_status in ('na', 'completed', 'cancelled')
                 and self.refund_status in ('na', 'completed', 'cancelled')):
             return 'Order Complete'
 
-        # ── Enhancement: Active refund/return on delivered orders ──
-        # (Cases not explicitly in P4 but useful for UI clarity)
+        # ── Priority 5: Active processes on delivered orders ──
         if self.delivery_status == 'delivered':
             if self.refund_status in ('pending', 'partial'):
                 return 'Refund in Progress'
             if self.return_status == 'pending':
                 return 'Return in Progress'
 
-        # ── Delivery in-progress states ──
+        # ── Priority 6: Delivery workflow ──
         if self.delivery_status == 'processing':
             return 'Processing'
         if self.delivery_status == 'ready':
             return 'Ready for Pickup'
 
-        # ── §3.6.3.5: Default catch-all for active orders ──
-        # Default catch-all for active orders
+        # ── Priority 7: Order lifecycle ──
         if self.order_status == 'draft':
             return 'Draft'
         if self.order_status == 'confirmed':
             return 'Confirmed'
-
-        # order_status == 'completed' but delivery/payment still pending
         if self.delivery_status == 'pending':
             return 'Pending'
 
         return 'Processing'
+
+    def _refresh_overall_status(self):
+        """Recompute and cache the overall_status DB field."""
+        self.overall_status = self.derived_status
     
     @property
     def can_edit(self):
-        """Check if order can be edited (not delivered yet)."""
-        return self.delivery_status != 'delivered' and self.cancellation_status == 'na'
+        """Check if order can be edited."""
+        return (
+            self.delivery_status != 'delivered'
+            and self.cancellation_status in ('na', 'cancelled')
+        )
     
     @property
     def can_cancel(self):
         """Check if order can be cancelled."""
-        return self.delivery_status != 'delivered' and self.order_status != 'completed' and self.cancellation_status == 'na'
+        return (
+            self.delivery_status != 'delivered'
+            and self.order_status not in ('completed', 'cancelled')
+            and self.cancellation_status == 'na'
+        )
+
+    def validate_transition(self, field, new_value):
+        """Validate that a status transition is legal per the transition matrix."""
+        if field == 'payment_status':
+            raise ValidationError("Payment status is auto-computed and cannot be set manually.")
+        if field not in self.VALID_TRANSITIONS:
+            raise ValidationError(f"Unknown status field: {field}")
+        
+        old_value = getattr(self, field)
+        allowed = self.VALID_TRANSITIONS[field].get(old_value, [])
+        if new_value not in allowed:
+            raise ValidationError(
+                f"Illegal transition: {field} cannot go from '{old_value}' to '{new_value}'. "
+                f"Allowed: {allowed or 'none (terminal state)'}."
+            )
+
+    def validate_state_consistency(self):
+        """Guard impossible state combinations."""
+        if self.delivery_status == 'delivered' and self.order_status == 'draft':
+            raise ValidationError("Impossible state: delivered order cannot be in draft.")
+        if self.cancellation_status in ('pending', 'completed') and self.delivery_status == 'delivered':
+            raise ValidationError("Cannot cancel a delivered order. Use Return workflow.")
 
     def clean(self):
         """Validate state constraints."""
-        from django.core.exceptions import ValidationError
-        if self.cancellation_status != 'na' and self.delivery_status == 'delivered':
-             # This is the 'Ironclad' check
-             raise ValidationError("Cannot cancel a delivered order. Use Return workflow.")
+        self.validate_state_consistency()
              
-    def cancel_order(self, reason=''):
-        """
-        Cancel the order if allowed.
-        """
+    def cancel_order(self):
+        """Request cancellation (step 1 of 2-step flow). Sets status to pending."""
         if not self.can_cancel:
-            from django.core.exceptions import ValidationError
             raise ValidationError("Order cannot be cancelled in its current state.")
-            
-        self.cancellation_status = 'completed' # Or pending/completed based on workflow
+        self.cancellation_status = 'pending'
+        self._refresh_overall_status()
+        self.save(update_fields=['cancellation_status', 'overall_status'])
+
+    def approve_cancellation(self):
+        """Approve a pending cancellation (step 2). Finalizes the cancellation."""
+        if self.cancellation_status != 'pending':
+            raise ValidationError("No pending cancellation to approve.")
+        self.cancellation_status = 'completed'
         self.order_status = 'cancelled'
-        self.save(update_fields=['cancellation_status', 'order_status'])
+        self._refresh_overall_status()
+        self.save(update_fields=['cancellation_status', 'order_status', 'overall_status'])
+
+    def reject_cancellation(self):
+        """Reject a pending cancellation. Resets to normal."""
+        if self.cancellation_status != 'pending':
+            raise ValidationError("No pending cancellation to reject.")
+        self.cancellation_status = 'na'
+        self._refresh_overall_status()
+        self.save(update_fields=['cancellation_status', 'overall_status'])
+
+    def save(self, *args, **kwargs):
+        """Auto-refresh overall_status on every save."""
+        # Auto-transition: delivery=delivered → order=completed
+        if self.delivery_status == 'delivered' and self.order_status in ('draft', 'confirmed'):
+            self.order_status = 'completed'
+        self._refresh_overall_status()
+        super().save(*args, **kwargs)
 
 
 class OrderItem(UUIDPrimaryKeyModel):
@@ -549,6 +631,8 @@ class Refund(UUIDPrimaryKeyModel):
             self.order.refund_status = 'pending'
         
         self.order.save(update_fields=['refund_status'])
+        # Also refresh payment_status to handle 'refunded' state
+        self.order.update_payment_status()
 
 
 class CreditNote(DisplayIDMixin, UUIDPrimaryKeyModel):

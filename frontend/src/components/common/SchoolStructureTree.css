@@ -1,0 +1,249 @@
+/* SchoolStructureTree Component Styles */
+
+.structure-tree {
+    border: 1px solid var(--border-color, rgba(255, 255, 255, 0.08));
+    border-radius: 8px;
+    background: var(--card-bg, rgba(255, 255, 255, 0.03));
+    overflow: hidden;
+}
+
+/* Toolbar: search + bulk actions */
+.structure-tree__toolbar {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.75rem;
+    border-bottom: 1px solid var(--border-color, rgba(255, 255, 255, 0.08));
+    background: var(--surface-hover, rgba(255, 255, 255, 0.02));
+}
+
+.structure-tree__search {
+    flex: 1;
+    padding: 0.4rem 0.6rem;
+    border-radius: 6px;
+    border: 1px solid var(--border-color, rgba(255, 255, 255, 0.1));
+    background: var(--input-bg, rgba(0, 0, 0, 0.2));
+    color: var(--text-primary, #fff);
+    font-size: 0.85rem;
+}
+
+.structure-tree__search::placeholder {
+    color: var(--text-secondary, rgba(255, 255, 255, 0.4));
+}
+
+.structure-tree__bulk-actions {
+    display: flex;
+    gap: 0.25rem;
+}
+
+/* Selection summary bar */
+.structure-tree__summary {
+    padding: 0.5rem 0.75rem;
+    background: rgba(99, 102, 241, 0.08);
+    border-bottom: 1px solid rgba(99, 102, 241, 0.15);
+    font-size: 0.8rem;
+    color: var(--primary-color, #8b5cf6);
+    font-weight: 500;
+}
+
+/* Tree list container */
+.structure-tree__list {
+    padding: 0.25rem 0;
+    max-height: 420px;
+    overflow-y: auto;
+}
+
+/* Empty state */
+.structure-tree__empty {
+    padding: 2rem 1rem;
+    text-align: center;
+    color: var(--text-secondary, rgba(255, 255, 255, 0.4));
+    font-size: 0.85rem;
+}
+
+.structure-tree__empty a {
+    color: var(--primary-color, #8b5cf6);
+    text-decoration: underline;
+}
+
+.structure-tree__empty-child {
+    padding: 0.35rem 0.75rem;
+    font-size: 0.8rem;
+    color: var(--text-secondary, rgba(255, 255, 255, 0.35));
+    font-style: italic;
+}
+
+/* Tree nodes — nested structure via children */
+.structure-tree__node {
+    position: relative;
+}
+
+/* Tree rows — the clickable line for each item */
+.structure-tree__row {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.4rem 0.75rem;
+    cursor: default;
+    transition: background 0.15s;
+    min-height: 36px;
+}
+
+.structure-tree__row:hover {
+    background: var(--surface-hover, rgba(255, 255, 255, 0.04));
+}
+
+/* Indentation via nesting: class=0, division=24px, subdivision=48px */
+.structure-tree__row--class {
+    padding-left: 0.5rem;
+}
+
+.structure-tree__row--division {
+    padding-left: calc(0.5rem + 24px);
+}
+
+.structure-tree__row--subdivision {
+    padding-left: calc(0.5rem + 48px);
+}
+
+/* Connecting lines (border-left) */
+.structure-tree__children {
+    border-left: 2px solid var(--border-color, rgba(255, 255, 255, 0.06));
+    margin-left: 1.1rem;
+}
+
+.structure-tree__row--division+.structure-tree__children {
+    margin-left: calc(1.1rem + 24px);
+}
+
+/* Expand/collapse button */
+.structure-tree__expand {
+    background: none;
+    border: none;
+    color: var(--text-secondary, rgba(255, 255, 255, 0.4));
+    cursor: pointer;
+    font-size: 0.75rem;
+    width: 20px;
+    height: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    border-radius: 4px;
+    transition: background 0.15s, color 0.15s;
+}
+
+.structure-tree__expand:hover {
+    background: rgba(255, 255, 255, 0.08);
+    color: var(--text-primary, #fff);
+}
+
+/* Checkboxes */
+.structure-tree__checkbox {
+    width: 16px;
+    height: 16px;
+    flex-shrink: 0;
+    cursor: pointer;
+    accent-color: var(--primary-color, #8b5cf6);
+}
+
+/* Labels */
+.structure-tree__label {
+    flex: 1;
+    font-size: 0.85rem;
+    color: var(--text-primary, #fff);
+    cursor: pointer;
+    user-select: none;
+}
+
+.structure-tree__row--class .structure-tree__label {
+    font-weight: 600;
+    font-size: 0.9rem;
+}
+
+/* Badge (count) */
+.structure-tree__badge {
+    font-size: 0.7rem;
+    padding: 0.1rem 0.45rem;
+    border-radius: 10px;
+    background: rgba(99, 102, 241, 0.12);
+    color: var(--primary-color, #8b5cf6);
+    font-weight: 500;
+    flex-shrink: 0;
+}
+
+/* Level-specific actions (select all divisions etc.) */
+.structure-tree__level-actions {
+    padding: 0.2rem 0.75rem 0.2rem calc(0.75rem + 24px);
+}
+
+/* Inline add inputs */
+.structure-tree__inline-add {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.35rem 0.75rem;
+}
+
+.structure-tree__inline-add--root {
+    padding-left: 0.75rem;
+    border-top: 1px solid var(--border-color, rgba(255, 255, 255, 0.06));
+}
+
+.structure-tree__inline-add input {
+    flex: 1;
+    padding: 0.3rem 0.5rem;
+    border: 1px solid var(--border-color, rgba(255, 255, 255, 0.15));
+    border-radius: 4px;
+    background: var(--input-bg, rgba(0, 0, 0, 0.2));
+    color: var(--text-primary, #fff);
+    font-size: 0.8rem;
+}
+
+/* + Add buttons */
+.structure-tree__add-btn {
+    background: none;
+    border: none;
+    color: var(--primary-color, #8b5cf6);
+    cursor: pointer;
+    font-size: 0.8rem;
+    padding: 0.35rem 0.75rem;
+    opacity: 0.7;
+    transition: opacity 0.15s;
+}
+
+.structure-tree__add-btn:hover {
+    opacity: 1;
+}
+
+.structure-tree__add-btn--root {
+    border-top: 1px solid var(--border-color, rgba(255, 255, 255, 0.06));
+    display: block;
+    width: 100%;
+    text-align: left;
+    padding: 0.5rem 0.75rem;
+}
+
+/* Extra-small button variant */
+.btn-xs {
+    padding: 0.2rem 0.5rem;
+    font-size: 0.75rem;
+}
+
+/* Mobile: bigger tap targets */
+@media (max-width: 768px) {
+    .structure-tree__row {
+        min-height: 44px;
+        /* WCAG tap target */
+        padding: 0.5rem 0.75rem;
+    }
+
+    .structure-tree__checkbox {
+        width: 20px;
+        height: 20px;
+    }
+
+    .structure-tree__label {
+        font-size: 0.9rem;
+    }
+}

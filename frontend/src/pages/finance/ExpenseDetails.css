@@ -302,6 +302,128 @@
 .status-partial { background: rgba(245, 158, 11, 0.2); color: #f59e0b; }
 .status-unpaid { background: rgba(239, 68, 68, 0.2); color: #ef4444; }
 
+/* Approval Badges */
+.approval-approved { background: rgba(16, 185, 129, 0.15); color: #34d399; }
+.approval-pending { background: rgba(245, 158, 11, 0.15); color: #fbbf24; }
+.approval-rejected { background: rgba(239, 68, 68, 0.15); color: #f87171; }
+
+/* Approval Card */
+.approval-card {
+    border: 1px solid rgba(245, 158, 11, 0.3);
+    background: rgba(245, 158, 11, 0.05);
+}
+
+.approval-notice {
+    color: #94a3b8;
+    font-size: 0.9rem;
+    line-height: 1.6;
+    margin-bottom: 1.25rem;
+}
+
+.approval-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.btn-success {
+    background: linear-gradient(135deg, #059669, #10b981);
+    color: white;
+    border: none;
+    padding: 0.75rem 1.5rem;
+    border-radius: 0.5rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.btn-success:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3); }
+.btn-success:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.btn-danger {
+    background: linear-gradient(135deg, #dc2626, #ef4444);
+    color: white;
+    border: none;
+    padding: 0.75rem 1.5rem;
+    border-radius: 0.5rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.btn-danger:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3); }
+.btn-danger:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* Rejection Card */
+.rejection-card {
+    border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+.rejection-card p {
+    color: #94a3b8;
+    font-size: 0.9rem;
+}
+
+.rejection-date {
+    font-size: 0.8rem;
+    color: #64748b;
+}
+
+/* Payment Blocked */
+.payment-blocked-notice {
+    color: #fbbf24;
+    background: rgba(245, 158, 11, 0.08);
+    padding: 1rem;
+    border-radius: 0.5rem;
+    font-size: 0.9rem;
+    text-align: center;
+}
+
+/* Reject Modal */
+.modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(4px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+}
+
+.modal-content {
+    width: 90%;
+    max-width: 480px;
+    padding: 2rem;
+}
+
+.modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1.5rem;
+}
+
+.modal-header h2 {
+    margin: 0;
+    font-size: 1.25rem;
+}
+
+.close-btn {
+    background: none;
+    border: none;
+    color: #94a3b8;
+    font-size: 1.5rem;
+    cursor: pointer;
+}
+
+.modal-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.75rem;
+    margin-top: 1.5rem;
+}
+
 /* Responsive */
 @media (max-width: 1024px) {
     .details-grid {

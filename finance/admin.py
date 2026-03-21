@@ -6,7 +6,9 @@ from django.contrib import admin
 from .models import (
     ExpenseCategory, Expense, ExpensePayment, OtherIncome,
     BankAccount, BankTransaction, EmployeeExpense, EmployeeSalary,
-    SalaryPayment, Lender, Loan, LoanRepayment
+    SalaryPayment, Lender, Loan, LoanRepayment,
+    IncomeCategory, RecurringExpense, CategoryBudget, FinanceAuditLog,
+    ExpenseTrip, ExpenseTripItem
 )
 
 
@@ -25,8 +27,9 @@ class ExpensePaymentInline(admin.TabularInline):
 
 @admin.register(Expense)
 class ExpenseAdmin(admin.ModelAdmin):
-    list_display = ['date', 'payee_name', 'category', 'total_amount', 'payment_status', 'paid_amount']
-    list_filter = ['payment_status', 'payee_type', 'category', 'date']
+    list_display = ['date', 'payee_name', 'category', 'total_amount', 'payment_status',
+                    'approval_status', 'paid_amount']
+    list_filter = ['payment_status', 'approval_status', 'payee_type', 'category', 'date']
     search_fields = ['payee_name', 'description', 'notes']
     date_hierarchy = 'date'
     inlines = [ExpensePaymentInline]
@@ -57,10 +60,16 @@ class BankTransactionInline(admin.TabularInline):
 
 @admin.register(BankAccount)
 class BankAccountAdmin(admin.ModelAdmin):
-    list_display = ['name', 'account_type', 'bank_name', 'current_balance', 'is_active', 'is_default']
+    list_display = ['name', 'account_type', 'bank_name', 'masked_account', 'current_balance', 'is_active', 'is_default']
     list_filter = ['account_type', 'is_active', 'is_default']
-    search_fields = ['name', 'bank_name', 'account_number']
+    search_fields = ['name', 'bank_name']
     inlines = [BankTransactionInline]
+
+    @admin.display(description='Account Number')
+    def masked_account(self, obj):
+        if obj.account_number and len(obj.account_number) > 4:
+            return '•' * (len(obj.account_number) - 4) + obj.account_number[-4:]
+        return obj.account_number or ''
 
 
 @admin.register(BankTransaction)
@@ -122,8 +131,9 @@ class LoanRepaymentInline(admin.TabularInline):
 
 @admin.register(Loan)
 class LoanAdmin(admin.ModelAdmin):
-    list_display = ['lender', 'principal_amount', 'interest_rate', 'start_date', 'total_paid', 'is_active']
-    list_filter = ['is_active', 'start_date', 'lender']
+    list_display = ['lender', 'principal_amount', 'interest_rate', 'interest_type',
+                    'start_date', 'total_paid', 'is_active']
+    list_filter = ['is_active', 'interest_type', 'start_date', 'lender']
     search_fields = ['lender__name', 'loan_number']
     inlines = [LoanRepaymentInline]
 
@@ -134,3 +144,54 @@ class LoanRepaymentAdmin(admin.ModelAdmin):
     list_filter = ['date', 'loan__lender']
     search_fields = ['loan__lender__name', 'reference']
     date_hierarchy = 'date'
+
+
+# ======== New Models ========
+
+@admin.register(IncomeCategory)
+class IncomeCategoryAdmin(admin.ModelAdmin):
+    list_display = ['name', 'is_active', 'created_at']
+    list_filter = ['is_active']
+    search_fields = ['name']
+
+
+@admin.register(RecurringExpense)
+class RecurringExpenseAdmin(admin.ModelAdmin):
+    list_display = ['name', 'category', 'payee_name', 'amount', 'frequency', 'next_date', 'is_active']
+    list_filter = ['frequency', 'is_active', 'category']
+    search_fields = ['name', 'payee_name']
+    date_hierarchy = 'next_date'
+
+
+@admin.register(CategoryBudget)
+class CategoryBudgetAdmin(admin.ModelAdmin):
+    list_display = ['category', 'period_start', 'period_end', 'budget_amount']
+    list_filter = ['category']
+    date_hierarchy = 'period_start'
+
+
+@admin.register(FinanceAuditLog)
+class FinanceAuditLogAdmin(admin.ModelAdmin):
+    list_display = ['timestamp', 'action', 'model_name', 'object_id', 'user']
+    list_filter = ['action', 'model_name', 'timestamp']
+    search_fields = ['object_id', 'user__username']
+    date_hierarchy = 'timestamp'
+    readonly_fields = ['action', 'model_name', 'object_id', 'user', 'timestamp', 'details']
+
+
+# ======== Trip / Expense Group ========
+
+class ExpenseTripItemInline(admin.TabularInline):
+    model = ExpenseTripItem
+    extra = 0
+    readonly_fields = ['expense', 'employee_expense', 'created_at']
+
+
+@admin.register(ExpenseTrip)
+class ExpenseTripAdmin(admin.ModelAdmin):
+    list_display = ['name', 'date', 'purpose', 'settlement_status', 'created_by']
+    list_filter = ['settlement_status', 'date']
+    search_fields = ['name', 'purpose']
+    date_hierarchy = 'date'
+    inlines = [ExpenseTripItemInline]
+    readonly_fields = ['created_at', 'updated_at']

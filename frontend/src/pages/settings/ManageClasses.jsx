@@ -1,31 +1,26 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { ENDPOINTS } from '../../config/api';
+import { useToast } from '../../context/ToastContext';
 
 export default function ManageClasses() {
     const { fetchWithAuth } = useAuth();
-    const [classes, setClasses] = useState([]);
-    const [schools, setSchools] = useState([]);
+    const { showToast } = useToast();
+    const [templates, setTemplates] = useState([]);
     const [loading, setLoading] = useState(true);
     const [isEditing, setIsEditing] = useState(false);
+    const [saving, setSaving] = useState(false);
     const [currentItem, setCurrentItem] = useState(null);
-    const [formData, setFormData] = useState({ name: '', school: '', order: 0 });
+    const [formData, setFormData] = useState({ name: '' });
+    const [search, setSearch] = useState('');
 
-    const fetchData = useCallback(async () => {
+    const fetchTemplates = useCallback(async () => {
         setLoading(true);
         try {
-            const [classesRes, schoolsRes] = await Promise.all([
-                fetchWithAuth(ENDPOINTS.CUSTOMERS_CLASSES),
-                fetchWithAuth(ENDPOINTS.SCHOOLS)
-            ]);
-
-            if (classesRes.ok) {
-                const data = await classesRes.json();
-                setClasses(data.results || data || []);
-            }
-            if (schoolsRes.ok) {
-                const data = await schoolsRes.json();
-                setSchools(data.results || data || []);
+            const res = await fetchWithAuth(ENDPOINTS.CLASS_TEMPLATES);
+            if (res.ok) {
+                const data = await res.json();
+                setTemplates(data.results || data || []);
             }
         } catch (err) {
             console.error(err);
@@ -35,69 +30,84 @@ export default function ManageClasses() {
     }, [fetchWithAuth]);
 
     useEffect(() => {
-        fetchData();
-    }, [fetchData]);
+        fetchTemplates();
+    }, [fetchTemplates]);
 
     const handleSubmit = async (e) => {
         e.preventDefault();
+        if (saving) return;
+        const trimmed = { name: formData.name.trim() };
+        if (!trimmed.name) { showToast('Class name is required', 'error'); return; }
+        setSaving(true);
         try {
-            const url = isEditing 
-                ? `${ENDPOINTS.CUSTOMERS_CLASSES}${currentItem.id}/` 
-                : ENDPOINTS.CUSTOMERS_CLASSES;
-            
-            const method = isEditing ? 'PUT' : 'POST';
-            
+            const url = currentItem
+                ? `${ENDPOINTS.CLASS_TEMPLATES}${currentItem.id}/`
+                : ENDPOINTS.CLASS_TEMPLATES;
+            const method = currentItem ? 'PUT' : 'POST';
             const res = await fetchWithAuth(url, {
                 method,
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(formData)
+                body: JSON.stringify(trimmed)
             });
-
             if (res.ok) {
+                showToast(currentItem ? 'Class updated' : 'Class created', 'success');
                 setIsEditing(false);
                 setCurrentItem(null);
-                setFormData({ name: '', school: '', order: 0 });
-                fetchData();
+                setFormData({ name: '' });
+                fetchTemplates();
+            } else {
+                const errData = await res.json().catch(() => null);
+                showToast(errData?.name?.[0] || errData?.detail || 'Failed to save', 'error');
             }
         } catch (err) {
-            console.error(err);
+            showToast('Network error', 'error');
+        } finally {
+            setSaving(false);
         }
     };
 
-    const handleEdit = (cls) => {
+    const handleEdit = (item) => {
         setIsEditing(true);
-        setCurrentItem(cls);
-        setFormData({ 
-            name: cls.name, 
-            school: cls.school, 
-            order: cls.order || 0 
-        });
+        setCurrentItem(item);
+        setFormData({ name: item.name });
     };
 
     const handleDelete = async (id) => {
-        if (!window.confirm('Are you sure? This may affect linked customers.')) return;
+        if (!window.confirm('Delete this class template? Schools using this name will not be affected.')) return;
         try {
-            await fetchWithAuth(`${ENDPOINTS.CUSTOMERS_CLASSES}${id}/`, { method: 'DELETE' });
-            fetchData();
+            const res = await fetchWithAuth(`${ENDPOINTS.CLASS_TEMPLATES}${id}/`, { method: 'DELETE' });
+            if (res.ok || res.status === 204) {
+                showToast('Class template deleted', 'success');
+                fetchTemplates();
+            } else {
+                showToast('Failed to delete', 'error');
+            }
         } catch (err) {
-            console.error(err);
+            showToast('Error deleting', 'error');
         }
     };
 
-    if (loading && !isEditing && classes.length === 0) {
-        return <div className="p-4 text-center">Loading...</div>;
+    const filtered = templates
+        .filter(t => t.name?.toLowerCase().includes(search.toLowerCase()))
+        .sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' }));
+
+    if (loading && !isEditing && templates.length === 0) {
+        return <div className="manager-empty">Loading...</div>;
     }
 
     return (
         <div>
             <div className="manager-header">
-                <h2>Manage Classes</h2>
-                <button 
+                <div>
+                    <h2>Class Catalog</h2>
+                    <div className="manager-subtitle">Reusable class names — add once, assign to any school</div>
+                </div>
+                <button
                     className="btn btn-primary"
                     onClick={() => {
                         setIsEditing(true);
                         setCurrentItem(null);
-                        setFormData({ name: '', school: '', order: 0 });
+                        setFormData({ name: '' });
                     }}
                 >
                     + Add Class
@@ -105,51 +115,35 @@ export default function ManageClasses() {
             </div>
 
             {isEditing && (
-                <div className="card mb-4" style={{ marginBottom: '1.5rem' }}>
-                    <h3 style={{ marginBottom: '1rem' }}>{currentItem ? 'Edit Class' : 'New Class'}</h3>
+                <div className="card manager-form-card">
+                    <h3>{currentItem ? 'Edit Class' : 'New Class'}</h3>
                     <form onSubmit={handleSubmit}>
-                        <div className="form-group mb-2" style={{ marginBottom: '1rem' }}>
-                            <label style={{ display: 'block', marginBottom: '0.5rem' }}>School</label>
-                            <select
-                                value={formData.school}
-                                onChange={e => setFormData({...formData, school: e.target.value})}
+                        <div className="manager-form-group">
+                            <label>Class Name</label>
+                            <input
+                                type="text"
+                                value={formData.name}
+                                onChange={e => setFormData({ ...formData, name: e.target.value })}
+                                placeholder="e.g. Class 1, Class 2, ..."
                                 required
-                                style={{ width: '100%', padding: '0.5rem' }}
-                            >
-                                <option value="">Select School</option>
-                                {schools.map(s => (
-                                    <option key={s.id} value={s.id}>{s.name}</option>
-                                ))}
-                            </select>
-                        </div>
-                        <div className="form-group mb-2" style={{ marginBottom: '1rem' }}>
-                            <label style={{ display: 'block', marginBottom: '0.5rem' }}>Class Name</label>
-                            <input 
-                                type="text" 
-                                value={formData.name} 
-                                onChange={e => setFormData({...formData, name: e.target.value})}
-                                required 
-                            />
-                        </div>
-                        <div className="form-group mb-2" style={{ marginBottom: '1rem' }}>
-                            <label style={{ display: 'block', marginBottom: '0.5rem' }}>Order (Sort Priority)</label>
-                            <input 
-                                type="number" 
-                                value={formData.order} 
-                                onChange={e => setFormData({...formData, order: parseInt(e.target.value)})}
                             />
                         </div>
                         <div className="flex gap-sm">
-                            <button type="submit" className="btn btn-primary">Save</button>
-                            <button 
-                                type="button" 
-                                className="btn btn-ghost" 
-                                onClick={() => setIsEditing(false)}
-                            >
-                                Cancel
-                            </button>
+                            <button type="submit" className="btn btn-primary" disabled={saving}>{saving ? 'Saving...' : 'Save'}</button>
+                            <button type="button" className="btn btn-ghost" onClick={() => setIsEditing(false)}>Cancel</button>
                         </div>
                     </form>
+                </div>
+            )}
+
+            {templates.length > 3 && (
+                <div className="manager-search">
+                    <input
+                        type="text"
+                        placeholder="Filter classes..."
+                        value={search}
+                        onChange={e => setSearch(e.target.value)}
+                    />
                 </div>
             )}
 
@@ -157,36 +151,24 @@ export default function ManageClasses() {
                 <thead>
                     <tr>
                         <th>Class Name</th>
-                        <th>School</th>
-                        <th>Order</th>
                         <th>Actions</th>
                     </tr>
                 </thead>
                 <tbody>
-                    {classes.map(cls => (
-                        <tr key={cls.id}>
-                            <td>{cls.name}</td>
-                            <td>{cls.school_name || schools.find(s => s.id === cls.school)?.name || '-'}</td>
-                            <td>{cls.order}</td>
+                    {filtered.map(item => (
+                        <tr key={item.id}>
+                            <td>{item.name}</td>
                             <td className="actions-cell">
-                                <button 
-                                    className="btn btn-ghost"
-                                    onClick={() => handleEdit(cls)}
-                                >
-                                    Edit
-                                </button>
-                                <button 
-                                    className="btn btn-ghost text-danger"
-                                    onClick={() => handleDelete(cls.id)}
-                                >
-                                    Delete
-                                </button>
+                                <button className="btn btn-ghost" onClick={() => handleEdit(item)}>Edit</button>
+                                <button className="btn btn-ghost text-danger" onClick={() => handleDelete(item.id)}>Delete</button>
                             </td>
                         </tr>
                     ))}
-                    {classes.length === 0 && (
+                    {filtered.length === 0 && (
                         <tr>
-                            <td colSpan="4" className="text-center p-4">No classes found.</td>
+                            <td colSpan="2" className="manager-empty">
+                                {search ? 'No classes match your filter.' : 'No class templates yet. Add your first class name above.'}
+                            </td>
                         </tr>
                     )}
                 </tbody>

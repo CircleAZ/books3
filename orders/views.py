@@ -1,6 +1,7 @@
 """
 Views for Order Management.
 """
+import logging
 from rest_framework import viewsets, filters, status
 from rest_framework.decorators import action
 from django.db.models import Count, Case, When, Value, CharField, F
@@ -23,6 +24,8 @@ from .serializers import (
     RefundSerializer, CreditNoteSerializer
 )
 
+logger = logging.getLogger(__name__)
+
 
 class OrderFilter(django_filters.FilterSet):
     """Custom filter for orders with date range support."""
@@ -32,7 +35,7 @@ class OrderFilter(django_filters.FilterSet):
     class Meta:
         model = Order
         fields = ['order_status', 'payment_status', 'delivery_status', 'return_status', 
-                  'refund_status', 'cancellation_status', 'customer', 'is_guest']
+                  'refund_status', 'cancellation_status', 'overall_status', 'customer', 'is_guest']
 
 
 class OrderViewSet(viewsets.ModelViewSet):
@@ -94,7 +97,9 @@ class OrderViewSet(viewsets.ModelViewSet):
 
         # Stock Management for Completed Orders
         is_completed = instance.order_status == 'completed'
-        old_items = list(instance.items.all()) if is_completed else []
+        old_items = []
+        if is_completed:
+            old_items = list(instance.items.all())
 
         with transaction.atomic():
             # If previously completed, restore stock for old items before update
@@ -234,22 +239,84 @@ class OrderViewSet(viewsets.ModelViewSet):
                 )
         except Exception as e:
             # Don't fail transaction if messaging fails
-            print(f"Failed to queue message: {e}")
+            logger.error("Failed to queue message for order #%s: %s", order.display_id, e)
         
         return Response({'status': 'Order completed'})
     
     @action(detail=True, methods=['post'])
     def cancel(self, request, pk=None):
-        """Cancel the order."""
+        """Request cancellation (step 1 of 2-step flow)."""
         order = self.get_object()
-        if order.order_status == 'completed':
+        from django.core.exceptions import ValidationError
+        try:
+            order.cancel_order()
+            return Response({
+                'status': 'Cancellation requested',
+                'cancellation_status': order.cancellation_status,
+                'derived_status': order.derived_status
+            })
+        except ValidationError as e:
             return Response(
-                {'error': 'Cannot cancel completed order'},
+                {'error': str(e.message if hasattr(e, 'message') else e.messages[0] if hasattr(e, 'messages') else str(e))},
                 status=status.HTTP_400_BAD_REQUEST
             )
-        order.order_status = 'cancelled'
-        order.save(update_fields=['order_status'])
-        return Response({'status': 'Order cancelled'})
+
+    @action(detail=True, methods=['post'])
+    def approve_cancellation(self, request, pk=None):
+        """Approve a pending cancellation (step 2)."""
+        order = self.get_object()
+        from django.core.exceptions import ValidationError
+        try:
+            old_cancellation = order.cancellation_status
+            old_order_status = order.order_status
+            order.approve_cancellation()
+            # Audit trail
+            OrderStatusHistory.objects.create(
+                order=order, status_field='cancellation_status',
+                old_value=old_cancellation, new_value='completed',
+                note='Cancellation approved', created_by=request.user
+            )
+            OrderStatusHistory.objects.create(
+                order=order, status_field='order_status',
+                old_value=old_order_status, new_value='cancelled',
+                note='Order cancelled via approved cancellation', created_by=request.user
+            )
+            return Response({
+                'status': 'Cancellation approved',
+                'cancellation_status': order.cancellation_status,
+                'order_status': order.order_status,
+                'derived_status': order.derived_status
+            })
+        except ValidationError as e:
+            return Response(
+                {'error': str(e.message if hasattr(e, 'message') else str(e))},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+    @action(detail=True, methods=['post'])
+    def reject_cancellation(self, request, pk=None):
+        """Reject a pending cancellation."""
+        order = self.get_object()
+        from django.core.exceptions import ValidationError
+        try:
+            old_cancellation = order.cancellation_status
+            order.reject_cancellation()
+            # Audit trail
+            OrderStatusHistory.objects.create(
+                order=order, status_field='cancellation_status',
+                old_value=old_cancellation, new_value='na',
+                note='Cancellation rejected', created_by=request.user
+            )
+            return Response({
+                'status': 'Cancellation rejected',
+                'cancellation_status': order.cancellation_status,
+                'derived_status': order.derived_status
+            })
+        except ValidationError as e:
+            return Response(
+                {'error': str(e.message if hasattr(e, 'message') else str(e))},
+                status=status.HTTP_400_BAD_REQUEST
+            )
     
     @action(detail=True, methods=['post'])
     def add_payment(self, request, pk=None):
@@ -317,12 +384,19 @@ class OrderViewSet(viewsets.ModelViewSet):
     
     @action(detail=True, methods=['post'])
     def update_status(self, request, pk=None):
-        """Update a status field with history tracking."""
+        """Update a status field with transition validation and history tracking."""
         order = self.get_object()
         
         field = request.data.get('field')
         new_value = request.data.get('value')
         note = request.data.get('note', '')
+        
+        # Block manual payment_status changes
+        if field == 'payment_status':
+            return Response(
+                {'error': 'Payment status is auto-computed and cannot be set manually.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
         
         # Validate field name
         valid_fields = ['delivery_status', 'order_status', 
@@ -340,6 +414,25 @@ class OrderViewSet(viewsets.ModelViewSet):
         }
         if new_value not in valid_choices.get(field, []):
             return Response({'error': f'Invalid value for {field}: {new_value}'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        # Enforce state transition matrix
+        from django.core.exceptions import ValidationError
+        try:
+            order.validate_transition(field, new_value)
+        except ValidationError as e:
+            return Response(
+                {'error': str(e.message if hasattr(e, 'message') else str(e))},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Require explicit confirmation for delivery
+        if field == 'delivery_status' and new_value == 'delivered':
+            if not request.data.get('confirm'):
+                return Response(
+                    {'error': 'Delivery confirmation required. This action cannot be undone.',
+                     'requires_confirmation': True},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
             
         # V-01: Offline Sync Protection
         client_updated_at = request.data.get('client_updated_at')
@@ -407,7 +500,8 @@ class PaymentViewSet(viewsets.ModelViewSet):
     filterset_fields = ['order', 'method']
     
     def perform_create(self, serializer):
-        serializer.save(created_by=self.request.user)
+        with transaction.atomic():
+            serializer.save(created_by=self.request.user)
 
 
 class OrderNoteViewSet(viewsets.ModelViewSet):

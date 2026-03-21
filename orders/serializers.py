@@ -40,11 +40,12 @@ class PaymentSerializer(serializers.ModelSerializer):
 class OrderItemSerializer(serializers.ModelSerializer):
     product_name = serializers.CharField(source='product.name', read_only=True)
     product_display_id = serializers.IntegerField(source='product.display_id', read_only=True)
+    product_stock = serializers.IntegerField(source='product.stock_quantity', read_only=True)
     
     class Meta:
         model = OrderItem
         fields = [
-            'id', 'product', 'product_name', 'product_display_id',
+            'id', 'product', 'product_name', 'product_display_id', 'product_stock',
             'quantity', 'unit_price', 
             'discount_type', 'discount_value', 'discount_amount',
             'line_total'
@@ -174,7 +175,12 @@ class OrderCreateSerializer(serializers.ModelSerializer):
         from inventory.models import Product
         
         for item_data in items_data:
-            product = Product.objects.get(pk=item_data['product'])
+            try:
+                product = Product.objects.get(pk=item_data['product'])
+            except Product.DoesNotExist:
+                raise serializers.ValidationError(
+                    {'items': [f"Product with ID {item_data['product']} does not exist."]}
+                )
             OrderItem.objects.create(
                 order=order,
                 product=product,
@@ -210,6 +216,10 @@ class OrderCreateSerializer(serializers.ModelSerializer):
                     user=user
                 )
 
+            # B-05 fix: Create receipt for POS completed orders
+            from orders.receipt_models import Receipt
+            Receipt.objects.get_or_create(order=order)
+
         return order
     
     def update(self, instance, validated_data):
@@ -227,7 +237,12 @@ class OrderCreateSerializer(serializers.ModelSerializer):
             from inventory.models import Product
             
             for item_data in items_data:
-                product = Product.objects.get(pk=item_data['product'])
+                try:
+                    product = Product.objects.get(pk=item_data['product'])
+                except Product.DoesNotExist:
+                    raise serializers.ValidationError(
+                        {'items': [f"Product with ID {item_data['product']} does not exist."]}
+                    )
                 OrderItem.objects.create(
                     order=instance,
                     product=product,

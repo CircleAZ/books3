@@ -3,6 +3,7 @@ import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useCurrency } from '../../context/CurrencyContext';
 import { ENDPOINTS } from '../../config/api';
+import { useToast } from '../../context/ToastContext';
 
 import { getStatusClass, formatStatusLabel, STATUS_OPTIONS } from '../../utils/statusUtils';
 import './OrderDetails.css';
@@ -12,6 +13,7 @@ export default function OrderDetails() {
     const navigate = useNavigate();
     const { fetchWithAuth } = useAuth();
     const { currency } = useCurrency();
+    const { showToast } = useToast();
 
     const [order, setOrder] = useState(null);
     const [loading, setLoading] = useState(true);
@@ -25,6 +27,9 @@ export default function OrderDetails() {
     const [paymentSubmitting, setPaymentSubmitting] = useState(false);
     const [paymentError, setPaymentError] = useState('');
     const [showHistory, setShowHistory] = useState(false);
+    const [showDeliveryConfirm, setShowDeliveryConfirm] = useState(false);
+    const [showCancelConfirm, setShowCancelConfirm] = useState(false);
+    const [pendingDeliveryUpdate, setPendingDeliveryUpdate] = useState(null);
 
     const fetchOrderDetails = useCallback(async () => {
         setLoading(true);
@@ -68,8 +73,11 @@ export default function OrderDetails() {
     };
 
     const handleCancelOrder = async () => {
-        if (!window.confirm('Are you sure you want to cancel this order?')) return;
+        setShowCancelConfirm(true);
+    };
 
+    const confirmCancelOrder = async () => {
+        setShowCancelConfirm(false);
         try {
             const response = await fetchWithAuth(`${ENDPOINTS.ORDERS}${id}/cancel/`, {
                 method: 'POST'
@@ -78,15 +86,56 @@ export default function OrderDetails() {
                 fetchOrderDetails();
             } else {
                 const data = await response.json();
-                alert(data.error || 'Failed to cancel order');
+                showToast(data.error || 'Failed to cancel order', 'error');
             }
         } catch (err) {
             console.error('Error cancelling order:', err);
         }
     };
 
+    const handleApproveCancellation = async () => {
+        try {
+            const response = await fetchWithAuth(`${ENDPOINTS.ORDERS}${id}/approve_cancellation/`, {
+                method: 'POST'
+            });
+            if (response.ok) {
+                fetchOrderDetails();
+            } else {
+                const data = await response.json();
+                showToast(data.error || 'Failed to approve cancellation', 'error');
+            }
+        } catch (err) {
+            console.error('Error approving cancellation:', err);
+        }
+    };
+
+    const handleRejectCancellation = async () => {
+        try {
+            const response = await fetchWithAuth(`${ENDPOINTS.ORDERS}${id}/reject_cancellation/`, {
+                method: 'POST'
+            });
+            if (response.ok) {
+                fetchOrderDetails();
+            } else {
+                const data = await response.json();
+                showToast(data.error || 'Failed to reject cancellation', 'error');
+            }
+        } catch (err) {
+            console.error('Error rejecting cancellation:', err);
+        }
+    };
+
     const handleUpdateStatus = async (e) => {
         e.preventDefault();
+
+        // Intercept delivery=delivered for confirmation
+        if (statusUpdate.field === 'delivery_status' && statusUpdate.value === 'delivered') {
+            setPendingDeliveryUpdate({ ...statusUpdate });
+            setShowStatusModal(false);
+            setShowDeliveryConfirm(true);
+            return;
+        }
+
         try {
             const response = await fetchWithAuth(`${ENDPOINTS.ORDERS}${id}/update_status/`, {
                 method: 'POST',
@@ -97,14 +146,39 @@ export default function OrderDetails() {
                 fetchOrderDetails();
             } else {
                 const data = await response.json();
-                alert(data.error || 'Failed to update status');
+                showToast(data.error || 'Failed to update status', 'error');
             }
         } catch (err) {
             console.error('Error updating status:', err);
         }
     };
 
+    const confirmDelivery = async () => {
+        setShowDeliveryConfirm(false);
+        if (!pendingDeliveryUpdate) return;
+        try {
+            const response = await fetchWithAuth(`${ENDPOINTS.ORDERS}${id}/update_status/`, {
+                method: 'POST',
+                body: JSON.stringify({ ...pendingDeliveryUpdate, confirm: true })
+            });
+            if (response.ok) {
+                fetchOrderDetails();
+            } else {
+                const data = await response.json();
+                showToast(data.error || 'Failed to update delivery status', 'error');
+            }
+        } catch (err) {
+            console.error('Error confirming delivery:', err);
+        }
+        setPendingDeliveryUpdate(null);
+    };
+
     const openStatusModal = (field, currentValue) => {
+        // Block manual payment_status changes
+        if (field === 'payment_status') {
+            showToast('Payment status is auto-computed and cannot be changed manually.', 'info');
+            return;
+        }
         setStatusUpdate({ field, value: currentValue, note: '' });
         setShowStatusModal(true);
     };
@@ -216,10 +290,21 @@ export default function OrderDetails() {
                                             onClick={() => {
                                                 if (order.receipt_uuid) {
                                                     const url = `${window.location.origin}/r/${order.receipt_uuid}`;
-                                                    navigator.clipboard.writeText(url);
-                                                    alert('Receipt link copied!');
+                                                    navigator.clipboard.writeText(url).then(() => {
+                                                        showToast('Receipt link copied!', 'success');
+                                                    }).catch(() => {
+                                                        const ta = document.createElement('textarea');
+                                                        ta.value = url;
+                                                        ta.style.position = 'fixed';
+                                                        ta.style.opacity = '0';
+                                                        document.body.appendChild(ta);
+                                                        ta.select();
+                                                        document.execCommand('copy');
+                                                        document.body.removeChild(ta);
+                                                        showToast('Receipt link copied!', 'success');
+                                                    });
                                                 } else {
-                                                    alert('No receipt available.');
+                                                    showToast('No receipt available.', 'warning');
                                                 }
                                                 setShowShareMenu(false);
                                             }}
@@ -296,6 +381,20 @@ export default function OrderDetails() {
                 </div>
             </div>
 
+            {/* Cancellation Pending Banner */}
+            {order.cancellation_status === 'pending' && (
+                <div className="card" style={{ background: 'var(--color-warning-bg, #fff3cd)', border: '1px solid var(--color-warning, #ffc107)', padding: '1rem 1.5rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '1rem' }}>
+                    <div>
+                        <strong>⚠️ Cancellation Requested</strong>
+                        <p style={{ margin: '0.25rem 0 0', fontSize: '0.875rem' }}>This order has a pending cancellation request. Approve to finalize or reject to resume the order.</p>
+                    </div>
+                    <div style={{ display: 'flex', gap: '0.5rem', flexShrink: 0 }}>
+                        <button className="btn btn-primary btn-sm" onClick={handleApproveCancellation}>✓ Approve</button>
+                        <button className="btn btn-ghost btn-sm" onClick={handleRejectCancellation}>✗ Reject</button>
+                    </div>
+                </div>
+            )}
+
             {/* Status Cards Grid */}
             <div className="status-cards-grid">
                 <div
@@ -317,7 +416,6 @@ export default function OrderDetails() {
                     label="Payment Status"
                     value={formatStatusLabel(order.payment_status)}
                     className={getStatusClass(order.payment_status)}
-                    onUpdate={() => openStatusModal('payment_status', order.payment_status)}
                 />
                 <StatusCard
                     label="Delivery Status"
@@ -650,6 +748,53 @@ export default function OrderDetails() {
                                 </button>
                             </div>
                         </form>
+                    </div>
+                </div>
+            )}
+
+            {/* Delivery Confirmation Modal */}
+            {showDeliveryConfirm && (
+                <div className="modal-overlay" onClick={() => { setShowDeliveryConfirm(false); setPendingDeliveryUpdate(null); }}>
+                    <div className="modal-content animate-slide-in-up" onClick={e => e.stopPropagation()}>
+                        <h2>⚠️ Confirm Delivery</h2>
+                        <p style={{ margin: '1rem 0', lineHeight: 1.6 }}>
+                            <strong>Mark this order as delivered?</strong><br />
+                            This action <strong>cannot be undone</strong>. Once delivered:
+                        </p>
+                        <ul style={{ margin: '0 0 1rem 1.5rem', lineHeight: 1.8 }}>
+                            <li>The order will be permanently locked</li>
+                            <li>Items cannot be edited or cancelled</li>
+                            <li>Only Returns & Refunds can be used for corrections</li>
+                        </ul>
+                        <div className="modal-actions">
+                            <button type="button" className="btn btn-ghost" onClick={() => { setShowDeliveryConfirm(false); setPendingDeliveryUpdate(null); }}>
+                                Go Back
+                            </button>
+                            <button type="button" className="btn btn-primary" onClick={confirmDelivery}>
+                                Yes, Mark as Delivered
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Cancel Order Confirmation Modal */}
+            {showCancelConfirm && (
+                <div className="modal-overlay" onClick={() => setShowCancelConfirm(false)}>
+                    <div className="modal-content animate-slide-in-up" onClick={e => e.stopPropagation()}>
+                        <h2>Cancel Order</h2>
+                        <p style={{ margin: '1rem 0', lineHeight: 1.6 }}>
+                            Are you sure you want to request cancellation of this order?<br />
+                            The order will be marked as <strong>"Cancellation Pending"</strong> and will need to be approved.
+                        </p>
+                        <div className="modal-actions">
+                            <button type="button" className="btn btn-ghost" onClick={() => setShowCancelConfirm(false)}>
+                                Go Back
+                            </button>
+                            <button type="button" className="btn" style={{ background: 'var(--color-danger, #dc3545)', color: 'white' }} onClick={confirmCancelOrder}>
+                                Yes, Request Cancellation
+                            </button>
+                        </div>
                     </div>
                 </div>
             )}

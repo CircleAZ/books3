@@ -2,3 +2,9 @@
 .leaflet-container {
     border: 1px solid #ddd;
 }
+
+/* Satellite labels: invert dark text to white + black outline */
+.satellite-labels-overlay,
+.satellite-labels-overlay img {
+    filter: invert(1) drop-shadow(0 0 1px rgba(0, 0, 0, 0.8)) drop-shadow(0 0 1px rgba(0, 0, 0, 0.8)) !important;
+}

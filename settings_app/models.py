@@ -56,6 +56,81 @@ class Subdivision(UUIDPrimaryKeyModel):
         return f"{self.division} - {self.name}"
 
 
+# ============ Template Catalogs (reusable name pools) ============
+
+class ClassTemplate(UUIDPrimaryKeyModel):
+    """Reusable class name catalog. Not FK-linked to any school."""
+    name = models.CharField(max_length=100, unique=True)
+
+    class Meta:
+        ordering = ['name']
+
+    def clean(self):
+        self.name = self.name.strip()
+        if not self.name:
+            from django.core.exceptions import ValidationError
+            raise ValidationError({'name': 'Name cannot be empty.'})
+
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return self.name
+
+
+class DivisionTemplate(UUIDPrimaryKeyModel):
+    """Reusable division name catalog."""
+    name = models.CharField(max_length=100, unique=True)
+    applicable_classes = models.ManyToManyField(
+        ClassTemplate, blank=True, related_name='available_divisions',
+        help_text='If empty, this division is available for ALL classes.'
+    )
+
+    class Meta:
+        ordering = ['name']
+
+    def clean(self):
+        self.name = self.name.strip()
+        if not self.name:
+            from django.core.exceptions import ValidationError
+            raise ValidationError({'name': 'Name cannot be empty.'})
+
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return self.name
+
+
+class SubdivisionTemplate(UUIDPrimaryKeyModel):
+    """Reusable subdivision name catalog."""
+    name = models.CharField(max_length=100, unique=True)
+    applicable_divisions = models.ManyToManyField(
+        DivisionTemplate, blank=True, related_name='available_subdivisions',
+        help_text='If empty, this subdivision is available for ALL divisions.'
+    )
+
+    class Meta:
+        ordering = ['name']
+
+    def clean(self):
+        self.name = self.name.strip()
+        if not self.name:
+            from django.core.exceptions import ValidationError
+            raise ValidationError({'name': 'Name cannot be empty.'})
+
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return self.name
+
+
+# ============ Customer Grouping ============
+
 class CustomerGroup(UUIDPrimaryKeyModel):
     """Customer grouping for segmentation."""
     name = models.CharField(max_length=100, unique=True)
@@ -289,3 +364,60 @@ class IntegrationSettings(UUIDPrimaryKeyModel):
     
     def __str__(self):
         return self.get_service_type_display()
+
+
+class RoleAuditLog(models.Model):
+    """
+    Immutable audit trail for all RBAC privilege changes.
+    Records persist even after user deletion (SET_NULL).
+    Not deletable through the UI — read-only for Admin.
+    """
+    ACTION_CHOICES = [
+        ('GRANT', 'Permission Granted'),
+        ('REVOKE', 'Permission Revoked'),
+        ('OVERRIDE', 'Manager Override'),
+        ('ROLE_ASSIGN', 'Role Assigned'),
+        ('ROLE_REMOVE', 'Role Removed'),
+    ]
+
+    action = models.CharField(max_length=20, choices=ACTION_CHOICES)
+    target_user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name='audit_targets',
+        help_text='The user whose permissions were changed'
+    )
+    permission_code = models.CharField(
+        max_length=100,
+        blank=True,
+        help_text='The permission codename affected (e.g., finance.approve_expenses)'
+    )
+    role_name = models.CharField(
+        max_length=100,
+        blank=True,
+        help_text='The role name involved in this action'
+    )
+    executed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name='executed_audits',
+        help_text='The admin/manager who performed this action'
+    )
+    timestamp = models.DateTimeField(auto_now_add=True, db_index=True)
+    ip_address = models.GenericIPAddressField(null=True, blank=True)
+    user_agent = models.TextField(blank=True)
+    metadata = models.JSONField(
+        default=dict,
+        blank=True,
+        help_text='Additional context (e.g., override payload, reason)'
+    )
+
+    class Meta:
+        ordering = ['-timestamp']
+        verbose_name = 'Role Audit Log'
+        verbose_name_plural = 'Role Audit Logs'
+
+    def __str__(self):
+        return f"[{self.timestamp}] {self.action}: {self.executed_by} → {self.target_user} ({self.permission_code or self.role_name})"

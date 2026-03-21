@@ -47,29 +47,44 @@ export default function AddCustomer({ onSuccess, onCancel, isEmbedded = false })
     const [schools, setSchools] = useState([]);
     const [classes, setClasses] = useState([]);
     const [divisions, setDivisions] = useState([]);
+    const [subdivisions, setSubdivisions] = useState([]);
     const [customerGroups, setCustomerGroups] = useState([]);
     const [locationTags, setLocationTags] = useState([]);
     const [newTagName, setNewTagName] = useState('');
     const [showNewTagInput, setShowNewTagInput] = useState(false);
     const [creatingTag, setCreatingTag] = useState(false);
     const [phoneError, setPhoneError] = useState('');
+    const [phoneWarning, setPhoneWarning] = useState('');
+    const [successMsg, setSuccessMsg] = useState('');
+    const [addressId, setAddressId] = useState(null);
+
+    // Customer Links state
+    const [linkTypes, setLinkTypes] = useState([]);
+    const [pendingLinks, setPendingLinks] = useState([]);
+    const [linkSearch, setLinkSearch] = useState('');
+    const [linkSearchResults, setLinkSearchResults] = useState([]);
+    const [selectedLinkCustomer, setSelectedLinkCustomer] = useState(null);
+    const [selectedLinkType, setSelectedLinkType] = useState('');
+    const linkSearchTimerRef = useRef(null);
 
     // Collapsible sections
     const [sections, setSections] = useState({
         details: true,
         education: true,
         groupNotes: true,
-        address: true
+        address: true,
+        links: false
     });
 
     // Fetch initial dropdown data, then customer details if in edit mode
     useEffect(() => {
         const fetchOptions = async () => {
             try {
-                const [schoolsRes, groupsRes, tagsRes] = await Promise.all([
+                const [schoolsRes, groupsRes, tagsRes, linkTypesRes] = await Promise.all([
                     fetchWithAuth(ENDPOINTS.SCHOOLS),
                     fetchWithAuth(ENDPOINTS.CUSTOMERS_GROUPS),
-                    fetchWithAuth(ENDPOINTS.CUSTOMERS_LOCATION_TAGS)
+                    fetchWithAuth(ENDPOINTS.CUSTOMERS_LOCATION_TAGS),
+                    fetchWithAuth(ENDPOINTS.CUSTOMERS_LINK_TYPES || '/api/customers/link-types/')
                 ]);
 
                 if (schoolsRes.ok) {
@@ -83,6 +98,10 @@ export default function AddCustomer({ onSuccess, onCancel, isEmbedded = false })
                 if (tagsRes.ok) {
                     const data = await tagsRes.json();
                     setLocationTags(data.results || data || []);
+                }
+                if (linkTypesRes.ok) {
+                    const data = await linkTypesRes.json();
+                    setLinkTypes(data.results || data || []);
                 }
             } catch (err) {
                 console.error('Error fetching options:', err);
@@ -119,8 +138,21 @@ export default function AddCustomer({ onSuccess, onCancel, isEmbedded = false })
                             longitude: primaryAddr.longitude ? parseFloat(primaryAddr.longitude) : null,
                             location_tags: primaryAddr.location_tags?.map(t => t.id) || []
                         };
+                        setAddressId(primaryAddr.id || null);
                         setFormData(customerData);
                         setInitialFormData(customerData);
+
+                        // Load existing links for edit mode
+                        if (data.links && data.links.length > 0) {
+                            setPendingLinks(data.links.map(link => ({
+                                customer_id: link.customer_id,
+                                customer_name: link.customer_name,
+                                link_type: '', // existing links already saved — we track them read-only
+                                link_type_name: link.relationship,
+                                existing: true,
+                                link_id: link.link_id
+                            })));
+                        }
                     } else {
                         setError('Failed to fetch customer details');
                     }
@@ -173,6 +205,41 @@ export default function AddCustomer({ onSuccess, onCancel, isEmbedded = false })
         fetchDivisions();
     }, [formData.class_obj, fetchWithAuth]);
 
+    // Cascading Dropdowns: Division -> Subdivision
+    useEffect(() => {
+        if (!formData.division) {
+            setSubdivisions([]);
+            return;
+        }
+        const fetchSubs = async () => {
+            try {
+                const res = await fetchWithAuth(`${ENDPOINTS.CUSTOMERS_SUBDIVISIONS}?division=${formData.division}`);
+                if (res.ok) {
+                    const data = await res.json();
+                    setSubdivisions(data.results || data || []);
+                }
+            } catch (err) { console.error(err); }
+        };
+        fetchSubs();
+    }, [formData.division, fetchWithAuth]);
+
+    // Phone duplicate check on blur
+    const checkPhoneDuplicate = async (phone) => {
+        if (phone.length !== 10) { setPhoneWarning(''); return; }
+        try {
+            const res = await fetchWithAuth(`${ENDPOINTS.CUSTOMERS}?search=${phone}`);
+            if (res.ok) {
+                const data = await res.json();
+                const matches = (data.results || []).filter(c => c.phone === phone && (!id || String(c.id) !== String(id)));
+                if (matches.length > 0) {
+                    setPhoneWarning(`⚠ Phone already used by: ${matches[0].full_name} (#${matches[0].display_id})`);
+                } else {
+                    setPhoneWarning('');
+                }
+            }
+        } catch { }
+    };
+
     const handleInputChange = (e) => {
         const { name, value } = e.target;
         if (name === 'phone') {
@@ -183,8 +250,10 @@ export default function AddCustomer({ onSuccess, onCancel, isEmbedded = false })
                 setError('');
             } else if (numericValue.length > 0 && numericValue.length < 10) {
                 setPhoneError(`${numericValue.length}/10 digits`);
+                setPhoneWarning('');
             } else {
                 setPhoneError('');
+                setPhoneWarning('');
             }
             return;
         }
@@ -198,6 +267,8 @@ export default function AddCustomer({ onSuccess, onCancel, isEmbedded = false })
             setFormData(prev => ({ ...prev, [name]: value, class_obj: '', division: '', subdivision: '' }));
         } else if (name === 'class_obj') {
             setFormData(prev => ({ ...prev, [name]: value, division: '', subdivision: '' }));
+        } else if (name === 'division') {
+            setFormData(prev => ({ ...prev, [name]: value, subdivision: '' }));
         } else {
             setFormData(prev => ({ ...prev, [name]: value }));
         }
@@ -215,13 +286,55 @@ export default function AddCustomer({ onSuccess, onCancel, isEmbedded = false })
     const handleLocationSelect = (latlng) => {
         setFormData(prev => ({
             ...prev,
-            latitude: latlng.lat,
-            longitude: latlng.lng
+            latitude: parseFloat(latlng.lat.toFixed(6)),
+            longitude: parseFloat(latlng.lng.toFixed(6))
         }));
     };
 
     const toggleSection = (section) => {
         setSections(prev => ({ ...prev, [section]: !prev[section] }));
+    };
+
+    // --- Customer Link Search ---
+    const handleLinkSearch = (query) => {
+        setLinkSearch(query);
+        if (linkSearchTimerRef.current) clearTimeout(linkSearchTimerRef.current);
+        if (!query || query.length < 2) {
+            setLinkSearchResults([]);
+            return;
+        }
+        linkSearchTimerRef.current = setTimeout(async () => {
+            try {
+                const res = await fetchWithAuth(`${ENDPOINTS.CUSTOMERS}?search=${encodeURIComponent(query)}`);
+                if (res.ok) {
+                    const data = await res.json();
+                    // Filter out already-linked customers and current customer (in edit mode)
+                    const linkedIds = pendingLinks.map(l => l.customer_id);
+                    const filtered = (data.results || []).filter(c => c.id !== id && !linkedIds.includes(c.id));
+                    setLinkSearchResults(filtered);
+                }
+            } catch (e) { console.error('Link search error', e); }
+        }, 400);
+    };
+
+    const handleAddPendingLink = () => {
+        if (!selectedLinkCustomer || !selectedLinkType) return;
+        const linkType = linkTypes.find(lt => lt.id === selectedLinkType);
+        setPendingLinks(prev => [...prev, {
+            customer_id: selectedLinkCustomer.id,
+            customer_name: selectedLinkCustomer.full_name || `${selectedLinkCustomer.first_name} ${selectedLinkCustomer.last_name}`.trim(),
+            link_type: selectedLinkType,
+            link_type_name: linkType?.name || '',
+            existing: false
+        }]);
+        setSelectedLinkCustomer(null);
+        setSelectedLinkType('');
+        setLinkSearch('');
+        setLinkSearchResults([]);
+    };
+
+    const handleRemovePendingLink = (index) => {
+        setPendingLinks(prev => prev.filter((_, i) => i !== index));
     };
 
     const handleCreateTag = async () => {
@@ -292,13 +405,13 @@ export default function AddCustomer({ onSuccess, onCancel, isEmbedded = false })
             division: formData.division || null,
             subdivision: formData.subdivision || null,
             customer_group: formData.customer_group || null,
-            notes: formData.notes || null,
+            notes: formData.notes || '',
             addresses: []
         };
 
         // Add address if relevant fields are present
         if (formData.village || formData.address_line || formData.pincode || formData.latitude !== null || formData.location_tags.length > 0) {
-            payload.addresses.push({
+            const addrPayload = {
                 village: formData.village,
                 faliya: formData.faliya,
                 address_line: formData.address_line,
@@ -307,7 +420,9 @@ export default function AddCustomer({ onSuccess, onCancel, isEmbedded = false })
                 latitude: formData.latitude,
                 longitude: formData.longitude,
                 location_tag_ids: formData.location_tags
-            });
+            };
+            if (addressId) addrPayload.id = addressId;
+            payload.addresses.push(addrPayload);
         }
 
         try {
@@ -322,18 +437,49 @@ export default function AddCustomer({ onSuccess, onCancel, isEmbedded = false })
 
             if (res.ok) {
                 const data = await res.json();
+
+                // Create pending links after customer is saved
+                const newLinks = pendingLinks.filter(l => !l.existing);
+                if (newLinks.length > 0) {
+                    const linkEndpoint = ENDPOINTS.CUSTOMER_LINKS || '/api/customers/links/';
+                    await Promise.all(newLinks.map(link =>
+                        fetchWithAuth(linkEndpoint, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                customer_a: data.id,
+                                customer_b: link.customer_id,
+                                link_type: link.link_type
+                            })
+                        }).catch(err => console.error('Failed to create link:', err))
+                    ));
+                }
+
                 if (onSuccess) {
                     onSuccess(data);
                 } else {
-                    navigate(`/customers/${data.id}`);
+                    setSuccessMsg(`Customer ${isEditMode ? 'updated' : 'created'} successfully!`);
+                    setTimeout(() => navigate(`/customers/${data.id}`), 2000);
                 }
             } else {
                 let errMsg = `Server error (${res.status})`;
                 try {
                     const errData = await res.json();
-                    errMsg = Object.entries(errData)
-                        .map(([k, v]) => `${k}: ${Array.isArray(v) ? v.join(', ') : v}`)
-                        .join(', ') || errMsg;
+                    const flatten = (obj, prefix = '') => {
+                        return Object.entries(obj).flatMap(([k, v]) => {
+                            const key = prefix ? `${prefix}.${k}` : k;
+                            if (Array.isArray(v)) {
+                                return v.map(item =>
+                                    typeof item === 'object' ? flatten(item, key) : `${key}: ${item}`
+                                ).flat();
+                            }
+                            if (typeof v === 'object' && v !== null) {
+                                return flatten(v, key);
+                            }
+                            return [`${key}: ${v}`];
+                        });
+                    };
+                    errMsg = flatten(errData).join(', ') || errMsg;
                 } catch { }
                 setError(errMsg);
                 formTopRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -379,7 +525,9 @@ export default function AddCustomer({ onSuccess, onCancel, isEmbedded = false })
                         </button>
                     </div>
                 </div>
+                {!isEmbedded && <div className="sticky-header-spacer" />}
 
+                {successMsg && <div className="success-message">{successMsg}</div>}
                 {error && <div className="error-message">{error}</div>}
 
                 {/* Details Section */}
@@ -405,8 +553,9 @@ export default function AddCustomer({ onSuccess, onCancel, isEmbedded = false })
                                 </div>
                                 <div className="form-group">
                                     <label>Phone <span className="required-star">*</span></label>
-                                    <input type="tel" name="phone" value={formData.phone} onChange={handleInputChange} maxLength="10" required style={phoneError ? { borderColor: 'var(--color-danger)' } : {}} />
+                                    <input type="tel" name="phone" value={formData.phone} onChange={handleInputChange} onBlur={() => checkPhoneDuplicate(formData.phone)} maxLength="10" required style={(phoneError || phoneWarning) ? { borderColor: phoneError ? 'var(--color-danger)' : 'var(--color-warning, #f0ad4e)' } : {}} />
                                     {phoneError && <small style={{ color: 'var(--color-danger)', fontSize: '0.75rem' }}>{phoneError}</small>}
+                                    {phoneWarning && <small style={{ color: 'var(--color-warning, #f0ad4e)', fontSize: '0.75rem' }}>{phoneWarning}</small>}
                                 </div>
                                 <div className="form-group">
                                     <label>Email</label>
@@ -445,6 +594,13 @@ export default function AddCustomer({ onSuccess, onCancel, isEmbedded = false })
                                     <select name="division" value={formData.division} onChange={handleInputChange} disabled={!formData.class_obj}>
                                         <option value="">Select Division</option>
                                         {divisions.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
+                                    </select>
+                                </div>
+                                <div className="form-group">
+                                    <label>Subdivision</label>
+                                    <select name="subdivision" value={formData.subdivision} onChange={handleInputChange} disabled={!formData.division}>
+                                        <option value="">Select Subdivision</option>
+                                        {subdivisions.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
                                     </select>
                                 </div>
                             </div>
@@ -566,6 +722,100 @@ export default function AddCustomer({ onSuccess, onCancel, isEmbedded = false })
                         </div>
                     )}
                 </div>
+
+                {/* Customer Links Section */}
+                {!isEmbedded && (
+                    <div className="collapsible-section">
+                        <div className="section-header" onClick={() => toggleSection('links')} role="button" tabIndex={0} aria-expanded={sections.links} onKeyDown={e => e.key === 'Enter' && toggleSection('links')}>
+                            <h2>
+                                Customer Links
+                                {pendingLinks.length > 0 && <span className="link-count-badge">{pendingLinks.length}</span>}
+                            </h2>
+                            <span className={`chevron ${sections.links ? 'open' : ''}`}>▼</span>
+                        </div>
+                        {sections.links && (
+                            <div className="section-content open">
+                                {/* Add Link Form */}
+                                <div className="link-add-row">
+                                    <div className="form-group" style={{ flex: 1, position: 'relative' }}>
+                                        <label>Search Customer</label>
+                                        <input
+                                            type="text"
+                                            placeholder="Type name or phone..."
+                                            value={selectedLinkCustomer ? (selectedLinkCustomer.full_name || selectedLinkCustomer.first_name) : linkSearch}
+                                            onChange={e => {
+                                                setSelectedLinkCustomer(null);
+                                                handleLinkSearch(e.target.value);
+                                            }}
+                                        />
+                                        {linkSearchResults.length > 0 && (
+                                            <div className="search-results-dropdown" style={{ position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 100 }}>
+                                                {linkSearchResults.map(c => (
+                                                    <div
+                                                        key={c.id}
+                                                        className="search-result-item"
+                                                        onClick={() => {
+                                                            setSelectedLinkCustomer(c);
+                                                            setLinkSearch(c.full_name || `${c.first_name} ${c.last_name}`.trim());
+                                                            setLinkSearchResults([]);
+                                                        }}
+                                                    >
+                                                        {c.full_name || `${c.first_name} ${c.last_name}`.trim()} ({c.phone})
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )}
+                                    </div>
+                                    <div className="form-group" style={{ minWidth: '140px' }}>
+                                        <label>Relationship</label>
+                                        <select value={selectedLinkType} onChange={e => setSelectedLinkType(e.target.value)}>
+                                            <option value="">Select Type</option>
+                                            {linkTypes.map(lt => (
+                                                <option key={lt.id} value={lt.id}>{lt.name}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                    <button
+                                        type="button"
+                                        className="btn btn-primary btn-sm"
+                                        onClick={handleAddPendingLink}
+                                        disabled={!selectedLinkCustomer || !selectedLinkType}
+                                        style={{ alignSelf: 'flex-end', marginBottom: '0.25rem' }}
+                                    >
+                                        + Add
+                                    </button>
+                                </div>
+
+                                {/* Pending Links List */}
+                                {pendingLinks.length > 0 ? (
+                                    <div className="pending-links-list">
+                                        {pendingLinks.map((link, idx) => (
+                                            <div key={idx} className="pending-link-item">
+                                                <div className="pending-link-info">
+                                                    <span className="pending-link-name">{link.customer_name}</span>
+                                                    <span className="pending-link-type">{link.link_type_name}</span>
+                                                    {link.existing && <span className="pending-link-saved">Saved</span>}
+                                                </div>
+                                                {!link.existing && (
+                                                    <button
+                                                        type="button"
+                                                        className="btn-icon danger"
+                                                        onClick={() => handleRemovePendingLink(idx)}
+                                                        title="Remove"
+                                                    >
+                                                        ×
+                                                    </button>
+                                                )}
+                                            </div>
+                                        ))}
+                                    </div>
+                                ) : (
+                                    <p className="text-muted" style={{ fontSize: '0.85rem', marginTop: '0.5rem' }}>No links added yet. Links connect related customers (e.g. Parent → Child).</p>
+                                )}
+                            </div>
+                        )}
+                    </div>
+                )}
             </form>
         </div>
     );

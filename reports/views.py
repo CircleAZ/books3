@@ -605,8 +605,9 @@ class ActivityLogViewSet(viewsets.ReadOnlyModelViewSet):
         return queryset
 
 class FinanceReportViewSet(ReportBaseViewSet):
-    from finance.permissions import FinancePermission
-    permission_classes = [permissions.IsAuthenticated, FinancePermission]
+    from core.permissions import HasRequiredPermission
+    permission_classes = [permissions.IsAuthenticated, HasRequiredPermission]
+    required_permission = 'finance.view_reports'
     
     @action(detail=False, methods=['get'])
     def pnl(self, request):
@@ -730,9 +731,8 @@ class FinanceReportViewSet(ReportBaseViewSet):
             from orders.models import Payment
             cash_from_sales = Payment.objects.filter(
                 created_at__date__range=[start_date, end_date],
-                status='captured'
             ).aggregate(total=Sum('amount'))['total'] or Decimal('0.00')
-        except ImportError:
+        except Exception:
              cash_from_sales = Order.objects.filter(
                 created_at__date__range=[start_date, end_date],
                 order_status__in=['confirmed', 'completed']
@@ -865,6 +865,88 @@ class FinanceReportViewSet(ReportBaseViewSet):
         })
         
     @action(detail=False, methods=['get'])
+    def expense_report(self, request):
+        """Detailed Expense Report with category and status breakdowns."""
+        from finance.models import Expense, ExpenseCategory
+        
+        result = self._validate_dates(request)
+        if isinstance(result, Response):
+            return result
+        start_date, end_date = result
+        
+        expenses_qs = Expense.objects.filter(
+            date__range=[start_date, end_date],
+            is_deleted=False
+        )
+        
+        # Summary
+        summary = expenses_qs.aggregate(
+            total_amount=Sum('total_amount'),
+            total_paid=Sum('paid_amount'),
+            total_tax=Sum('tax_amount'),
+            count=Count('id')
+        )
+        total_amount = summary['total_amount'] or Decimal('0.00')
+        total_paid = summary['total_paid'] or Decimal('0.00')
+        
+        # By Category
+        by_category = list(
+            expenses_qs.values('category__name')
+            .annotate(
+                total=Sum('total_amount'),
+                count=Count('id')
+            )
+            .order_by('-total')
+        )
+        
+        # By Payment Status
+        by_payment = list(
+            expenses_qs.values('payment_status')
+            .annotate(
+                total=Sum('total_amount'),
+                count=Count('id')
+            )
+            .order_by('payment_status')
+        )
+        
+        # By Approval Status
+        by_approval = list(
+            expenses_qs.values('approval_status')
+            .annotate(
+                total=Sum('total_amount'),
+                count=Count('id')
+            )
+            .order_by('approval_status')
+        )
+        
+        # Monthly trend (within the date range)
+        from django.db.models.functions import TruncMonth
+        monthly = list(
+            expenses_qs.annotate(month=TruncMonth('date'))
+            .values('month')
+            .annotate(
+                total=Sum('total_amount'),
+                count=Count('id')
+            )
+            .order_by('month')
+        )
+        
+        return Response({
+            'start_date': start_date,
+            'end_date': end_date,
+            'summary': {
+                'total_amount': total_amount,
+                'total_paid': total_paid,
+                'total_outstanding': total_amount - total_paid,
+                'total_tax': summary['total_tax'] or Decimal('0.00'),
+                'count': summary['count'] or 0
+            },
+            'by_category': by_category,
+            'by_payment_status': by_payment,
+            'by_approval_status': by_approval,
+            'monthly_trend': monthly
+        })
+        
     def tax_report(self, request):
         """Simple Sales Tax Report."""
         from finance.models import Expense

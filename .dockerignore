@@ -1,0 +1,40 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+venv/
+.venv/
+env/
+
+# Node
+frontend/node_modules/
+
+# Git
+.git/
+.gitignore
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Docker
+docker-compose.yml
+Dockerfile
+
+# Dev/Test artifacts
+*.log
+*.bak
+concurrency_output*.txt
+verify_out.txt
+last_error.html
+convert_log.py
+verify_reports.py
+
+# Plan docs (not needed in image)
+Plan/

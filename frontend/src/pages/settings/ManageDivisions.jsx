@@ -1,31 +1,34 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { ENDPOINTS } from '../../config/api';
+import { useToast } from '../../context/ToastContext';
 
 export default function ManageDivisions() {
     const { fetchWithAuth } = useAuth();
-    const [divisions, setDivisions] = useState([]);
-    const [classes, setClasses] = useState([]);
+    const { showToast } = useToast();
+    const [templates, setTemplates] = useState([]);
+    const [classTemplates, setClassTemplates] = useState([]);
     const [loading, setLoading] = useState(true);
     const [isEditing, setIsEditing] = useState(false);
+    const [saving, setSaving] = useState(false);
     const [currentItem, setCurrentItem] = useState(null);
-    const [formData, setFormData] = useState({ name: '', class_obj: '' });
+    const [formData, setFormData] = useState({ name: '', applicable_classes: [] });
+    const [search, setSearch] = useState('');
 
-    const fetchData = useCallback(async () => {
+    const fetchTemplates = useCallback(async () => {
         setLoading(true);
         try {
-            const [divisionsRes, classesRes] = await Promise.all([
-                fetchWithAuth(ENDPOINTS.CUSTOMERS_DIVISIONS),
-                fetchWithAuth(ENDPOINTS.CUSTOMERS_CLASSES)
+            const [divRes, classRes] = await Promise.all([
+                fetchWithAuth(ENDPOINTS.DIVISION_TEMPLATES),
+                fetchWithAuth(ENDPOINTS.CLASS_TEMPLATES)
             ]);
-
-            if (divisionsRes.ok) {
-                const data = await divisionsRes.json();
-                setDivisions(data.results || data || []);
+            if (divRes.ok) {
+                const data = await divRes.json();
+                setTemplates(data.results || data || []);
             }
-            if (classesRes.ok) {
-                const data = await classesRes.json();
-                setClasses(data.results || data || []);
+            if (classRes.ok) {
+                const data = await classRes.json();
+                setClassTemplates(data.results || data || []);
             }
         } catch (err) {
             console.error(err);
@@ -35,68 +38,104 @@ export default function ManageDivisions() {
     }, [fetchWithAuth]);
 
     useEffect(() => {
-        fetchData();
-    }, [fetchData]);
+        fetchTemplates();
+    }, [fetchTemplates]);
 
     const handleSubmit = async (e) => {
         e.preventDefault();
+        if (saving) return;
+        const trimmed = {
+            name: formData.name.trim(),
+            applicable_classes: formData.applicable_classes
+        };
+        if (!trimmed.name) { showToast('Division name is required', 'error'); return; }
+        setSaving(true);
         try {
-            const url = isEditing 
-                ? `${ENDPOINTS.CUSTOMERS_DIVISIONS}${currentItem.id}/` 
-                : ENDPOINTS.CUSTOMERS_DIVISIONS;
-            
-            const method = isEditing ? 'PUT' : 'POST';
-            
+            const url = currentItem
+                ? `${ENDPOINTS.DIVISION_TEMPLATES}${currentItem.id}/`
+                : ENDPOINTS.DIVISION_TEMPLATES;
+            const method = currentItem ? 'PUT' : 'POST';
             const res = await fetchWithAuth(url, {
                 method,
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(formData)
+                body: JSON.stringify(trimmed)
             });
-
             if (res.ok) {
+                showToast(currentItem ? 'Division updated' : 'Division created', 'success');
                 setIsEditing(false);
                 setCurrentItem(null);
-                setFormData({ name: '', class_obj: '' });
-                fetchData();
+                setFormData({ name: '', applicable_classes: [] });
+                fetchTemplates();
+            } else {
+                const errData = await res.json().catch(() => null);
+                showToast(errData?.name?.[0] || errData?.detail || 'Failed to save', 'error');
             }
         } catch (err) {
-            console.error(err);
+            showToast('Network error', 'error');
+        } finally {
+            setSaving(false);
         }
     };
 
-    const handleEdit = (div) => {
+    const handleEdit = (item) => {
         setIsEditing(true);
-        setCurrentItem(div);
-        setFormData({ 
-            name: div.name, 
-            class_obj: div.class_obj
+        setCurrentItem(item);
+        setFormData({
+            name: item.name,
+            applicable_classes: item.applicable_classes || []
         });
     };
 
     const handleDelete = async (id) => {
-        if (!window.confirm('Are you sure?')) return;
+        if (!window.confirm('Delete this division template? Schools using this name will not be affected.')) return;
         try {
-            await fetchWithAuth(`${ENDPOINTS.CUSTOMERS_DIVISIONS}${id}/`, { method: 'DELETE' });
-            fetchData();
+            const res = await fetchWithAuth(`${ENDPOINTS.DIVISION_TEMPLATES}${id}/`, { method: 'DELETE' });
+            if (res.ok || res.status === 204) {
+                showToast('Division template deleted', 'success');
+                fetchTemplates();
+            } else {
+                showToast('Failed to delete', 'error');
+            }
         } catch (err) {
-            console.error(err);
+            showToast('Error deleting', 'error');
         }
     };
 
-    if (loading && !isEditing && divisions.length === 0) {
-        return <div className="p-4 text-center">Loading...</div>;
+    const toggleClassSelection = (classId) => {
+        setFormData(prev => {
+            const current = prev.applicable_classes || [];
+            const updated = current.includes(classId)
+                ? current.filter(id => id !== classId)
+                : [...current, classId];
+            return { ...prev, applicable_classes: updated };
+        });
+    };
+
+    const sortedClasses = [...classTemplates].sort((a, b) =>
+        a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' })
+    );
+
+    const filtered = templates
+        .filter(t => t.name?.toLowerCase().includes(search.toLowerCase()))
+        .sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' }));
+
+    if (loading && !isEditing && templates.length === 0) {
+        return <div className="manager-empty">Loading...</div>;
     }
 
     return (
         <div>
             <div className="manager-header">
-                <h2>Manage Divisions</h2>
-                <button 
+                <div>
+                    <h2>Division Catalog</h2>
+                    <div className="manager-subtitle">Reusable division names — e.g. Math Standard, Science Stream</div>
+                </div>
+                <button
                     className="btn btn-primary"
                     onClick={() => {
                         setIsEditing(true);
                         setCurrentItem(null);
-                        setFormData({ name: '', class_obj: '' });
+                        setFormData({ name: '', applicable_classes: [] });
                     }}
                 >
                     + Add Division
@@ -104,78 +143,98 @@ export default function ManageDivisions() {
             </div>
 
             {isEditing && (
-                <div className="card mb-4" style={{ marginBottom: '1.5rem' }}>
-                    <h3 style={{ marginBottom: '1rem' }}>{currentItem ? 'Edit Division' : 'New Division'}</h3>
+                <div className="card manager-form-card">
+                    <h3>{currentItem ? 'Edit Division' : 'New Division'}</h3>
                     <form onSubmit={handleSubmit}>
-                        <div className="form-group mb-2" style={{ marginBottom: '1rem' }}>
-                            <label style={{ display: 'block', marginBottom: '0.5rem' }}>Class</label>
-                            <select
-                                value={formData.class_obj}
-                                onChange={e => setFormData({...formData, class_obj: e.target.value})}
+                        <div className="manager-form-group">
+                            <label>Division Name</label>
+                            <input
+                                type="text"
+                                value={formData.name}
+                                onChange={e => setFormData({ ...formData, name: e.target.value })}
+                                placeholder="e.g. Arts, Commerce, Science"
                                 required
-                                style={{ width: '100%', padding: '0.5rem' }}
-                            >
-                                <option value="">Select Class</option>
-                                {classes.map(c => (
-                                    <option key={c.id} value={c.id}>{c.name} {c.school_name ? `(${c.school_name})` : ''}</option>
-                                ))}
-                            </select>
-                        </div>
-                        <div className="form-group mb-2" style={{ marginBottom: '1rem' }}>
-                            <label style={{ display: 'block', marginBottom: '0.5rem' }}>Division Name</label>
-                            <input 
-                                type="text" 
-                                value={formData.name} 
-                                onChange={e => setFormData({...formData, name: e.target.value})}
-                                required 
                             />
                         </div>
+                        <div className="manager-form-group">
+                            <label>Applicable to Classes</label>
+                            <small style={{ display: 'block', marginBottom: '0.5rem', color: 'var(--text-secondary)' }}>
+                                Leave empty to show this division under ALL classes
+                            </small>
+                            <div className="chip-picker">
+                                {sortedClasses.map(cls => {
+                                    const isSelected = formData.applicable_classes.includes(cls.id);
+                                    return (
+                                        <button
+                                            key={cls.id}
+                                            type="button"
+                                            className={`chip ${isSelected ? 'chip--active' : ''}`}
+                                            onClick={() => toggleClassSelection(cls.id)}
+                                        >
+                                            {isSelected && '✓ '}{cls.name}
+                                        </button>
+                                    );
+                                })}
+                                {sortedClasses.length === 0 && (
+                                    <span style={{ color: 'var(--text-secondary)', fontSize: '0.8rem' }}>
+                                        No class templates yet. Add classes first.
+                                    </span>
+                                )}
+                            </div>
+                        </div>
                         <div className="flex gap-sm">
-                            <button type="submit" className="btn btn-primary">Save</button>
-                            <button 
-                                type="button" 
-                                className="btn btn-ghost" 
-                                onClick={() => setIsEditing(false)}
-                            >
-                                Cancel
-                            </button>
+                            <button type="submit" className="btn btn-primary" disabled={saving}>{saving ? 'Saving...' : 'Save'}</button>
+                            <button type="button" className="btn btn-ghost" onClick={() => setIsEditing(false)}>Cancel</button>
                         </div>
                     </form>
+                </div>
+            )}
+
+            {templates.length > 3 && (
+                <div className="manager-search">
+                    <input
+                        type="text"
+                        placeholder="Filter divisions..."
+                        value={search}
+                        onChange={e => setSearch(e.target.value)}
+                    />
                 </div>
             )}
 
             <table className="manager-table">
                 <thead>
                     <tr>
-                        <th>Division</th>
-                        <th>Class</th>
+                        <th>Division Name</th>
+                        <th>Applicable Classes</th>
                         <th>Actions</th>
                     </tr>
                 </thead>
                 <tbody>
-                    {divisions.map(div => (
-                        <tr key={div.id}>
-                            <td>{div.name}</td>
-                            <td>{div.class_name || classes.find(c => c.id === div.class_obj)?.name || '-'}</td>
+                    {filtered.map(item => (
+                        <tr key={item.id}>
+                            <td>{item.name}</td>
+                            <td>
+                                {item.applicable_class_names?.length > 0 ? (
+                                    <span style={{ display: 'flex', gap: '0.25rem', flexWrap: 'wrap' }}>
+                                        {item.applicable_class_names
+                                            .sort((a, b) => a.localeCompare(b, undefined, { numeric: true }))
+                                            .map(n => <span key={n} className="manager-badge">{n}</span>)}
+                                    </span>
+                                ) : (
+                                    <span style={{ color: 'var(--text-secondary)', fontSize: '0.8rem' }}>All classes</span>
+                                )}
+                            </td>
                             <td className="actions-cell">
-                                <button 
-                                    className="btn btn-ghost"
-                                    onClick={() => handleEdit(div)}
-                                >
-                                    Edit
-                                </button>
-                                <button 
-                                    className="btn btn-ghost text-danger"
-                                    onClick={() => handleDelete(div.id)}
-                                >
-                                    Delete
-                                </button>
+                                <button className="btn btn-ghost" onClick={() => handleEdit(item)}>Edit</button>
+                                <button className="btn btn-ghost text-danger" onClick={() => handleDelete(item.id)}>Delete</button>
                             </td>
                         </tr>
                     ))}
-                    {divisions.length === 0 && (
+                    {filtered.length === 0 && (
                         <tr>
-                            <td colSpan="3" className="text-center p-4">No divisions found.</td>
+                            <td colSpan="3" className="manager-empty">
+                                {search ? 'No divisions match your filter.' : 'No division templates yet. Add your first division name above.'}
+                            </td>
                         </tr>
                     )}
                 </tbody>

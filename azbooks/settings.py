@@ -186,10 +186,10 @@ REST_FRAMEWORK = {
     ],
 }
 
-# Simple JWT configuration
+# Simple JWT configuration (Tribunal Consensus: 5-min access tokens)
 SIMPLE_JWT = {
-    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=60),
-    'REFRESH_TOKEN_LIFETIME': timedelta(days=7),
+    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=5),
+    'REFRESH_TOKEN_LIFETIME': timedelta(days=1),
     'ROTATE_REFRESH_TOKENS': True,
     'BLACKLIST_AFTER_ROTATION': True,
     'UPDATE_LAST_LOGIN': True,
@@ -198,7 +198,16 @@ SIMPLE_JWT = {
     'AUTH_HEADER_NAME': 'HTTP_AUTHORIZATION',
     'USER_ID_FIELD': 'id',
     'USER_ID_CLAIM': 'user_id',
+    'TOKEN_OBTAIN_SERIALIZER': 'account.serializers.CustomTokenObtainPairSerializer',
 }
+
+# RBAC: Protected role-permission pairs that can NEVER be revoked.
+# Prevents catastrophic self-bricking (e.g., Admin removing manage_roles from Admin).
+# ICE-06: frozenset for O(1) membership checks
+PROTECTED_PERMISSIONS = frozenset([
+    ('Admin', 'settings.manage_roles'),
+    ('Admin', 'settings.manage_users'),
+])
 
 
 # Logging configuration

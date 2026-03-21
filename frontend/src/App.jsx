@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-route
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { CurrencyProvider } from './context/CurrencyContext';
 import { CartProvider } from './context/CartContext';
+import { ToastProvider } from './context/ToastContext';
 import MainLayout from './components/layout/MainLayout';
 import Dashboard from './pages/Dashboard';
 import ProductList from './pages/inventory/ProductList';
@@ -44,7 +45,6 @@ import ActivityLog from './pages/reports/ActivityLog';
 import Login from './pages/Login';
 import Profile from './pages/Profile';
 import FinanceIndex from './pages/finance/FinanceIndex';
-import FinancialDashboard from './pages/finance/FinancialDashboard';
 import ExpenseList from './pages/finance/ExpenseList';
 import AddExpense from './pages/finance/AddExpense';
 import ExpenseDetails from './pages/finance/ExpenseDetails';
@@ -59,6 +59,16 @@ import ProfitLossReport from './pages/finance/ProfitLossReport';
 import CashFlowReport from './pages/finance/CashFlowReport';
 import BalanceSheet from './pages/finance/BalanceSheet';
 import TaxReport from './pages/finance/TaxReport';
+import ExpenseReport from './pages/finance/ExpenseReport';
+import RecurringExpenses from './pages/finance/RecurringExpenses';
+import CategoryBudgets from './pages/finance/CategoryBudgets';
+import IncomeCategories from './pages/finance/IncomeCategories';
+import LenderList from './pages/finance/LenderList';
+import LenderDetails from './pages/finance/LenderDetails';
+import LoanDetails from './pages/finance/LoanDetails';
+import TripList from './pages/finance/TripList';
+import CreateTrip from './pages/finance/CreateTrip';
+import TripDetails from './pages/finance/TripDetails';
 import MessagingIndex from './pages/messaging/MessagingIndex';
 import GatewayManagement from './pages/messaging/GatewayManagement';
 import MessageQueue from './pages/messaging/MessageQueue';
@@ -222,9 +232,7 @@ function AppRoutes() {
         </ProtectedRoute>
       } />
       <Route path="/finance/dashboard" element={
-        <ProtectedRoute>
-          <MainLayout><FinancialDashboard /></MainLayout>
-        </ProtectedRoute>
+        <Navigate to="/finance" replace />
       } />
       <Route path="/finance/expenses" element={
         <ProtectedRoute>
@@ -278,7 +286,7 @@ function AppRoutes() {
       } />
       <Route path="/finance/reports/expenses" element={
         <ProtectedRoute>
-          <MainLayout><PlaceholderPage title="Expense Report" phase="Phase 13" /></MainLayout>
+          <MainLayout><ExpenseReport /></MainLayout>
         </ProtectedRoute>
       } />
       <Route path="/finance/reports/sales-tax" element={
@@ -299,6 +307,52 @@ function AppRoutes() {
       <Route path="/finance/banking/record" element={
         <ProtectedRoute>
           <MainLayout><RecordTransaction /></MainLayout>
+        </ProtectedRoute>
+      } />
+      <Route path="/finance/recurring" element={
+        <ProtectedRoute>
+          <MainLayout><RecurringExpenses /></MainLayout>
+        </ProtectedRoute>
+      } />
+      <Route path="/finance/budgets" element={
+        <ProtectedRoute>
+          <MainLayout><CategoryBudgets /></MainLayout>
+        </ProtectedRoute>
+      } />
+      <Route path="/finance/income-categories" element={
+        <ProtectedRoute>
+          <MainLayout><IncomeCategories /></MainLayout>
+        </ProtectedRoute>
+      } />
+      <Route path="/finance/lenders" element={
+        <ProtectedRoute>
+          <MainLayout><LenderList /></MainLayout>
+        </ProtectedRoute>
+      } />
+      <Route path="/finance/lenders/:id" element={
+        <ProtectedRoute>
+          <MainLayout><LenderDetails /></MainLayout>
+        </ProtectedRoute>
+      } />
+      <Route path="/finance/loans/:id" element={
+        <ProtectedRoute>
+          <MainLayout><LoanDetails /></MainLayout>
+        </ProtectedRoute>
+      } />
+
+      <Route path="/finance/trips" element={
+        <ProtectedRoute>
+          <MainLayout><TripList /></MainLayout>
+        </ProtectedRoute>
+      } />
+      <Route path="/finance/trips/new" element={
+        <ProtectedRoute>
+          <MainLayout><CreateTrip /></MainLayout>
+        </ProtectedRoute>
+      } />
+      <Route path="/finance/trips/:id" element={
+        <ProtectedRoute>
+          <MainLayout><TripDetails /></MainLayout>
         </ProtectedRoute>
       } />
 
@@ -468,7 +522,9 @@ export default function App() {
       <AuthProvider>
         <CurrencyProvider>
           <CartProvider>
-            <AppRoutes />
+            <ToastProvider>
+              <AppRoutes />
+            </ToastProvider>
           </CartProvider>
         </CurrencyProvider>
       </AuthProvider>

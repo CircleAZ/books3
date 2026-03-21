@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useCurrency } from '../../context/CurrencyContext';
 import { ENDPOINTS } from '../../config/api';
-import { getStatusClass, STATUS_OPTIONS } from '../../utils/statusUtils';
+import { getStatusClass, formatStatusLabel, STATUS_OPTIONS } from '../../utils/statusUtils';
 import '../OrderList.css';
 
 export default function OrderList() {
@@ -99,6 +99,28 @@ export default function OrderList() {
         setPage(1);
     };
 
+    const clearAllFilters = () => {
+        setSearch('');
+        setOrderStatus('');
+        setPaymentStatus('');
+        setDeliveryStatus('');
+        setReturnStatus('');
+        setRefundStatus('');
+        setCancellationStatus('');
+        setDateAfter('');
+        setDateBefore('');
+        setPage(1);
+    };
+
+    const todayStr = new Date().toISOString().split('T')[0];
+    const isToday = dateAfter === todayStr && dateBefore === todayStr;
+
+    const setTodayFilter = () => {
+        setDateAfter(todayStr);
+        setDateBefore(todayStr);
+        setPage(1);
+    };
+
     const formatDate = (dateString) => {
         if (!dateString) return '-';
         return new Date(dateString).toLocaleDateString(undefined, {
@@ -146,6 +168,20 @@ export default function OrderList() {
                             <span className="filter-badge">{activeFilterCount}</span>
                         )}
                     </button>
+                </div>
+
+                <div className="quick-filters">
+                    <button
+                        className={`btn btn-sm ${isToday ? 'btn-primary' : 'btn-ghost'}`}
+                        onClick={isToday ? clearAllFilters : setTodayFilter}
+                    >
+                        {isToday ? '✕ Today' : "Today's Orders"}
+                    </button>
+                    {activeFilterCount > 0 && !isToday && (
+                        <button className="btn btn-sm btn-ghost" onClick={clearAllFilters}>
+                            Clear All Filters
+                        </button>
+                    )}
                 </div>
 
                 {showFilters && (
@@ -273,12 +309,12 @@ export default function OrderList() {
                                             <td className="font-bold">{currency}{Number(order.total).toFixed(2)}</td>
                                             <td>
                                                 <span className={`status-pill ${getStatusClass(order.payment_status)}`}>
-                                                    {order.payment_status}
+                                                    {formatStatusLabel(order.payment_status)}
                                                 </span>
                                             </td>
                                             <td>
                                                 <span className={`status-pill ${getStatusClass(order.derived_status || order.order_status)}`}>
-                                                    {order.derived_status || order.order_status}
+                                                    {formatStatusLabel(order.derived_status || order.order_status)}
                                                 </span>
                                             </td>
                                             <td className="text-center">{order.item_count ?? '-'}</td>
@@ -287,7 +323,17 @@ export default function OrderList() {
                                 ) : (
                                     <tr>
                                         <td colSpan="7" className="empty-state">
-                                            No orders found matching your criteria.
+                                            <p>No orders found matching your criteria.</p>
+                                            <div className="empty-state-actions">
+                                                {activeFilterCount > 0 && (
+                                                    <button className="btn btn-ghost btn-sm" onClick={clearAllFilters}>
+                                                        Clear Filters
+                                                    </button>
+                                                )}
+                                                <button className="btn btn-primary btn-sm" onClick={() => navigate('/orders/new')}>
+                                                    + Create New Order
+                                                </button>
+                                            </div>
                                         </td>
                                     </tr>
                                 )}

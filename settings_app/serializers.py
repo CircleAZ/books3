@@ -1,4 +1,6 @@
 from rest_framework import serializers
+from django.conf import settings as django_settings
+from django.db import transaction
 from django.contrib.auth import get_user_model
 from .models import (
     StoreSettings, Role, Permission, RolePermission, UserRole,
@@ -49,13 +51,33 @@ class RoleUpdateSerializer(serializers.ModelSerializer):
         return instance
         
     def _set_permissions(self, role, codenames):
-        role.role_permissions.all().delete()
-        for codename in codenames:
-            try:
-                perm = Permission.objects.get(codename=codename)
-                RolePermission.objects.create(role=role, permission=perm)
-            except Permission.DoesNotExist:
-                pass
+        """Set permissions for a role, respecting PROTECTED_PERMISSIONS."""
+        protected = getattr(django_settings, 'PROTECTED_PERMISSIONS', [])
+        
+        # Identify which permissions would be REMOVED
+        current_codenames = set(
+            role.role_permissions.values_list('permission__codename', flat=True)
+        )
+        new_codenames = set(codenames)
+        removed_codenames = current_codenames - new_codenames
+        
+        # Block removal of protected permissions
+        for perm_code in removed_codenames:
+            if (role.name, perm_code) in protected:
+                raise serializers.ValidationError(
+                    f"Cannot revoke protected permission '{perm_code}' from role '{role.name}'. "
+                    f"This permission is required for system integrity."
+                )
+        
+        # Safe to proceed — atomic delete + recreate (ICE-02: prevents partial state)
+        with transaction.atomic():
+            role.role_permissions.all().delete()
+            for codename in codenames:
+                try:
+                    perm = Permission.objects.get(codename=codename)
+                    RolePermission.objects.create(role=role, permission=perm)
+                except Permission.DoesNotExist:
+                    pass
 
 class TaxSettingsSerializer(serializers.ModelSerializer):
     class Meta:
@@ -119,6 +141,34 @@ class UserSerializer(serializers.ModelSerializer):
             user.save()
             
         if role_ids:
+            # CA-04 GUARD: Escalation prevention on create (same as update)
+            request = self.context.get('request')
+            if request and not (request.user.is_superuser):
+                requester_roles = Role.objects.filter(role_users__user=request.user)
+                requester_perms = set(
+                    RolePermission.objects.filter(
+                        role__in=requester_roles
+                    ).values_list('permission__codename', flat=True)
+                )
+                for role_id in role_ids:
+                    try:
+                        target_role = Role.objects.get(id=role_id)
+                        target_perms = set(
+                            target_role.role_permissions.values_list(
+                                'permission__codename', flat=True
+                            )
+                        )
+                        escalated = target_perms - requester_perms
+                        if escalated:
+                            # Rollback: delete the just-created user
+                            user.delete()
+                            raise serializers.ValidationError(
+                                {'role_ids': f"Cannot assign role '{target_role.name}' — it contains "
+                                 f"permissions you don't have: {', '.join(escalated)}"}
+                            )
+                    except Role.DoesNotExist:
+                        pass
+            
             for role_id in role_ids:
                 try:
                     role = Role.objects.get(id=role_id)
@@ -138,6 +188,41 @@ class UserSerializer(serializers.ModelSerializer):
             instance.save()
         
         if role_ids is not None:
+            # GUARD: Self-edit prevention — users cannot modify their own role
+            request = self.context.get('request')
+            if request and request.user.id == instance.id:
+                raise serializers.ValidationError(
+                    {'role_ids': 'You cannot modify your own role assignment.'}
+                )
+            
+            # GUARD: Escalation prevention — cannot assign roles with perms you don't have
+            if request and not request.user.is_superuser:
+                # Get the requesting user's permission set
+                requester_roles = Role.objects.filter(role_users__user=request.user)
+                requester_perms = set(
+                    RolePermission.objects.filter(
+                        role__in=requester_roles
+                    ).values_list('permission__codename', flat=True)
+                )
+                
+                # Get permissions in the target roles being assigned
+                for role_id in role_ids:
+                    try:
+                        target_role = Role.objects.get(id=role_id)
+                        target_perms = set(
+                            target_role.role_permissions.values_list(
+                                'permission__codename', flat=True
+                            )
+                        )
+                        escalated = target_perms - requester_perms
+                        if escalated:
+                            raise serializers.ValidationError(
+                                {'role_ids': f"Cannot assign role '{target_role.name}' — it contains "
+                                 f"permissions you don't have: {', '.join(escalated)}"}
+                            )
+                    except Role.DoesNotExist:
+                        pass
+            
             instance.user_roles.all().delete()
             for role_id in role_ids:
                 try:

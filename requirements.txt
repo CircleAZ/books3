@@ -18,6 +18,7 @@ Pillow>=12.0.0
 # Security & CORS
 django-cors-headers>=4.9.0
 django-ratelimit>=4.1.0
+django-filter>=25.1
 
 # Testing (Tester From Hell)
 playwright>=1.58.0

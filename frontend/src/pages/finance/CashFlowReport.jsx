@@ -59,9 +59,7 @@ const CashFlowReport = () => {
     }
 
     const data = reportData || {};
-    const totalInflow = parseFloat(data.revenue || 0) + parseFloat(data.other_income || 0);
-    const totalOutflow = parseFloat(data.cogs || 0) + parseFloat(data.expenses || 0);
-    const netCashFlow = totalInflow - totalOutflow;
+    const netCashFlow = data.net_change;
 
     return (
         <div className="cash-flow-report">
@@ -89,49 +87,73 @@ const CashFlowReport = () => {
 
             <div className="report-container">
                 <div className="report-section">
-                    <h2 className="section-title">Cash Inflows</h2>
+                    <h2 className="section-title">Operating Activities</h2>
                     <div className="report-row">
                         <span>Customer Payments (Sales)</span>
-                        <span className="amount positive">{formatCurrency(data.revenue)}</span>
+                        <span className="amount positive">{formatCurrency(data.operating?.inflow?.sales)}</span>
                     </div>
                     <div className="report-row">
                         <span>Other Income</span>
-                        <span className="amount positive">{formatCurrency(data.other_income)}</span>
+                        <span className="amount positive">{formatCurrency(data.operating?.inflow?.other)}</span>
                     </div>
-                    {/* Placeholder for other inflows if data grows */}
+                    <div className="report-row">
+                        <span>Expenses Paid</span>
+                        <span className="amount negative">({formatCurrency(data.operating?.outflow?.expenses)})</span>
+                    </div>
+                    <div className="report-row">
+                        <span>Salaries Paid</span>
+                        <span className="amount negative">({formatCurrency(data.operating?.outflow?.salaries)})</span>
+                    </div>
                     <div className="report-row total">
-                        <span>Total Cash Inflow</span>
-                        <span className="amount positive">{formatCurrency(totalInflow)}</span>
+                        <span>Net Cash from Operating</span>
+                        <span className={`amount ${parseFloat(data.operating?.net || 0) >= 0 ? 'positive' : 'negative'}`}>
+                            {formatCurrency(data.operating?.net)}
+                        </span>
                     </div>
                 </div>
 
                 <div className="report-section">
-                    <h2 className="section-title">Cash Outflows</h2>
+                    <h2 className="section-title">Investing Activities</h2>
                     <div className="report-row">
-                        <span>Inventory Purchases (COGS)</span>
-                        <span className="amount negative">({formatCurrency(data.cogs)})</span>
+                        <span>Net Cash from Investing</span>
+                        <span className={`amount ${parseFloat(data.investing?.net || 0) >= 0 ? 'positive' : 'negative'}`}>
+                            {formatCurrency(data.investing?.net)}
+                        </span>
+                    </div>
+                </div>
+
+                <div className="report-section">
+                    <h2 className="section-title">Financing Activities</h2>
+                    <div className="report-row">
+                        <span>Loans Received</span>
+                        <span className="amount positive">{formatCurrency(data.financing?.loans_received)}</span>
                     </div>
                     <div className="report-row">
-                        <span>Operating Expenses Paid</span>
-                        <span className="amount negative">({formatCurrency(data.expenses)})</span>
+                        <span>Loan Repayments</span>
+                        <span className="amount negative">({formatCurrency(data.financing?.repayments)})</span>
                     </div>
-                    {/* Placeholder for other outflows */}
                     <div className="report-row total">
-                        <span>Total Cash Outflow</span>
-                        <span className="amount negative">({formatCurrency(totalOutflow)})</span>
+                        <span>Net Cash from Financing</span>
+                        <span className={`amount ${parseFloat(data.financing?.net || 0) >= 0 ? 'positive' : 'negative'}`}>
+                            {formatCurrency(data.financing?.net)}
+                        </span>
                     </div>
                 </div>
 
                 <div className="report-section final">
                     <div className="report-row summary">
                         <span>Net Cash Flow</span>
-                        <span className={`amount ${netCashFlow >= 0 ? 'positive' : 'negative'}`}>
+                        <span className={`amount ${parseFloat(netCashFlow || 0) >= 0 ? 'positive' : 'negative'}`}>
                             {formatCurrency(netCashFlow)}
                         </span>
                     </div>
                     <div className="report-row balance">
+                        <span>Opening Cash Balance</span>
+                        <span className="amount">{formatCurrency(data.opening_balance)}</span>
+                    </div>
+                    <div className="report-row balance">
                         <span>Closing Cash Balance</span>
-                        <span className="amount">{formatCurrency(data.cash_balance)}</span>
+                        <span className="amount">{formatCurrency(data.closing_balance)}</span>
                     </div>
                 </div>
             </div>

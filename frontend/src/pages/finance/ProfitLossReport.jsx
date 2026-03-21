@@ -90,15 +90,15 @@ const ProfitLossReport = () => {
                     <h2 className="section-title">Revenue</h2>
                     <div className="report-row">
                         <span>Sales Revenue</span>
-                        <span className="amount">{formatCurrency(data.revenue)}</span>
+                        <span className="amount">{formatCurrency(data.revenue?.sales)}</span>
                     </div>
                     <div className="report-row">
                         <span>Other Income</span>
-                        <span className="amount">{formatCurrency(data.other_income)}</span>
+                        <span className="amount">{formatCurrency(data.revenue?.other_income)}</span>
                     </div>
                     <div className="report-row total">
                         <span>Total Revenue</span>
-                        <span className="amount">{formatCurrency(parseFloat(data.revenue || 0) + parseFloat(data.other_income || 0))}</span>
+                        <span className="amount">{formatCurrency(data.revenue?.total)}</span>
                     </div>
                 </div>
 
@@ -132,15 +132,25 @@ const ProfitLossReport = () => {
                             </div>
                         ))
                     ) : (
-                        <div className="report-row">
-                            <span>General Expenses</span>
-                            <span className="amount">{formatCurrency(data.expenses)}</span>
-                        </div>
+                        <>
+                            <div className="report-row">
+                                <span>Operational Expenses</span>
+                                <span className="amount">{formatCurrency(data.expenses?.operational)}</span>
+                            </div>
+                            <div className="report-row">
+                                <span>Salaries</span>
+                                <span className="amount">{formatCurrency(data.expenses?.salaries)}</span>
+                            </div>
+                            <div className="report-row">
+                                <span>Loan Interest</span>
+                                <span className="amount">{formatCurrency(data.expenses?.loan_interest)}</span>
+                            </div>
+                        </>
                     )}
 
                     <div className="report-row total">
                         <span>Total Operating Expenses</span>
-                        <span className="amount negative">({formatCurrency(data.expenses)})</span>
+                        <span className="amount negative">({formatCurrency(data.expenses?.total)})</span>
                     </div>
                 </div>
 
