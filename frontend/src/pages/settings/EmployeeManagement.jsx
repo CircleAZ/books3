@@ -6,6 +6,7 @@ import './EmployeeManagement.css'; // Assume existing styles or create new
 const EmployeeManagement = () => {
     const { fetchWithAuth } = useAuth();
     const [users, setUsers] = useState([]);
+    const [availableRoles, setAvailableRoles] = useState([]);
     const [loading, setLoading] = useState(false);
     const [showModal, setShowModal] = useState(false);
     const [currentUser, setCurrentUser] = useState(null);
@@ -15,11 +16,12 @@ const EmployeeManagement = () => {
         first_name: '',
         last_name: '',
         password: '',
-        role: 'Staff' // Default role
+        role_ids: []
     });
 
     useEffect(() => {
         fetchUsers();
+        fetchRoles();
     }, []);
 
     const fetchUsers = async () => {
@@ -34,6 +36,18 @@ const EmployeeManagement = () => {
             console.error('Error fetching users:', error);
         } finally {
             setLoading(false);
+        }
+    };
+
+    const fetchRoles = async () => {
+        try {
+            const response = await fetchWithAuth(`${ENDPOINTS.SETTINGS_ROLES}`);
+            if (response.ok) {
+                const data = await response.json();
+                setAvailableRoles(data.results || data);
+            }
+        } catch (error) {
+            console.error('Error fetching roles:', error);
         }
     };
 
@@ -52,7 +66,8 @@ const EmployeeManagement = () => {
 
     const handleAddClick = () => {
         setCurrentUser(null);
-        setFormData({ username: '', email: '', first_name: '', last_name: '', password: '', role: 'Staff' });
+        const defaultRole = availableRoles.find(r => r.is_default);
+        setFormData({ username: '', email: '', first_name: '', last_name: '', password: '', role_ids: defaultRole ? [defaultRole.id] : [] });
         setShowModal(true);
     };
 
@@ -63,8 +78,8 @@ const EmployeeManagement = () => {
             email: user.email,
             first_name: user.first_name,
             last_name: user.last_name,
-            password: '', // Don't show password
-            role: user.role || 'Staff'
+            password: '',
+            role_ids: user.roles ? user.roles.map(r => r.id) : []
         });
         setShowModal(true);
     };
@@ -126,7 +141,7 @@ const EmployeeManagement = () => {
                             <td>{user.username}</td>
                             <td>{user.email}</td>
                             <td>{user.first_name} {user.last_name}</td>
-                            <td>{user.role_name || user.role || 'N/A'}</td>
+                            <td>{user.roles && user.roles.length > 0 ? user.roles.map(r => r.name).join(', ') : 'No Role'}</td>
                             <td>
                                 <span className={`status-badge ${user.is_active ? 'active' : 'inactive'}`}>
                                     {user.is_active ? 'Active' : 'Inactive'}
@@ -170,11 +185,15 @@ const EmployeeManagement = () => {
                             </div>
                             <div className="form-group">
                                 <label>Role</label>
-                                <select name="role" value={formData.role} onChange={handleInputChange}>
-                                    <option value="Admin">Admin</option>
-                                    <option value="Manager">Manager</option>
-                                    <option value="Staff">Staff</option>
-                                    <option value="Accountant">Accountant</option>
+                                <select
+                                    name="role_ids"
+                                    value={formData.role_ids[0] || ''}
+                                    onChange={(e) => setFormData({ ...formData, role_ids: e.target.value ? [e.target.value] : [] })}
+                                >
+                                    <option value="">— Select Role —</option>
+                                    {availableRoles.map(role => (
+                                        <option key={role.id} value={role.id}>{role.name}</option>
+                                    ))}
                                 </select>
                             </div>
                             <div className="form-group">

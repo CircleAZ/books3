@@ -14,5 +14,8 @@ else:
     print('   ✓ Superuser \"admin\" already exists')
 "
 
+echo "==> Seeding default data..."
+python manage.py seed_all
+
 echo "==> Starting server..."
 exec "$@"
