@@ -7,6 +7,7 @@ import RecentOrdersWidget from '../components/dashboard/RecentOrdersWidget';
 import LowStockWidget from '../components/dashboard/LowStockWidget';
 import SalesTrendChart from '../components/dashboard/SalesTrendChart';
 import TopProductsChart from '../components/dashboard/TopProductsChart';
+import CoverageWidget from '../components/dashboard/CoverageWidget';
 import './Dashboard.css';
 
 export default function Dashboard() {
@@ -129,6 +130,8 @@ export default function Dashboard() {
                         </div>
                     </div>
                 )}
+
+                <CoverageWidget />
             </div>
 
             <section className="quick-actions-section">

@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Customer, Address, CustomerLink, Wallet, WalletTransaction
+from .models import Customer, Address, CustomerLink, Wallet, WalletTransaction, TargetVillage
 
 
 class AddressInline(admin.TabularInline):
@@ -50,3 +50,11 @@ class WalletTransactionAdmin(admin.ModelAdmin):
     list_display = ('wallet', 'transaction_type', 'amount', 'reason', 'created_at')
     list_filter = ('transaction_type',)
     readonly_fields = ('wallet', 'amount', 'transaction_type', 'reason', 'created_by', 'created_at')
+
+
+@admin.register(TargetVillage)
+class TargetVillageAdmin(admin.ModelAdmin):
+    list_display = ('name', 'target_season', 'latitude', 'longitude', 'created_by', 'created_at')
+    list_filter = ('target_season',)
+    search_fields = ('name',)
+

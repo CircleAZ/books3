@@ -59,6 +59,9 @@ export const menuSections = [
         icon: 'users',
         children: [
             { label: 'Customer List', title: 'Customers', path: '/customers' },
+            { label: 'Customer Map', title: 'Customer Map', path: '/customers/map' },
+            { label: 'Coverage List', title: 'Coverage List', path: '/customers/coverage' },
+            { label: 'Season Report', title: 'Season Report', path: '/customers/report' },
             { label: 'Add New Customer', title: 'Add Customer', path: '/customers/add' },
             { label: 'Customer Settings', title: 'Customer Settings', path: '/customers/settings' },
             { label: 'Customer Reports', title: 'Customer Reports', path: '/reports/customers' },

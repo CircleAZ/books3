@@ -26,6 +26,8 @@ DEFAULT_PERMISSIONS = {
         ('customers.manage_addresses', 'Manage Customer Addresses'),
         ('customers.manage_wallets', 'Manage Customer Wallets'),
         ('customers.manage_schools', 'Manage Schools & Structure'),
+        ('customers.view_map', 'View Customer Map'),
+        ('customers.manage_targets', 'Manage Target Villages'),
         ('customers.export', 'Export Customer Data'),
     ],
     'orders': [
@@ -92,7 +94,7 @@ DEFAULT_ROLES = {
             'customers.view_customers', 'customers.manage_customers',
             'customers.view_addresses', 'customers.manage_addresses',
             'customers.manage_wallets', 'customers.manage_schools',
-            'customers.export',
+            'customers.view_map', 'customers.manage_targets', 'customers.export',
             # Orders - full
             'orders.view_orders', 'orders.create_orders', 'orders.edit_orders',
             'orders.cancel_orders', 'orders.manage_returns',
@@ -114,7 +116,7 @@ DEFAULT_ROLES = {
         'permissions': [
             'inventory.view_products',
             'customers.view_customers', 'customers.manage_customers',
-            'customers.view_addresses',
+            'customers.view_addresses', 'customers.view_map',
             'orders.view_orders', 'orders.create_orders',
             'orders.manage_payments',
             'finance.view_dashboard',

@@ -1,0 +1,239 @@
+/* ============ Season Report Page ============ */
+.report-page {
+    padding: 24px;
+    max-width: 1000px;
+    margin: 0 auto;
+}
+
+.report-loading,
+.report-error {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 300px;
+    gap: 16px;
+    color: var(--text-secondary, #94a3b8);
+}
+
+.report-error .error-icon { font-size: 48px; }
+
+/* Header */
+.report-header { margin-bottom: 24px; }
+
+.report-title-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.report-title-row h2 {
+    margin: 0;
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--text-primary, #f1f5f9);
+}
+
+.report-season-label {
+    font-size: 13px;
+    color: var(--text-tertiary, #64748b);
+    margin-bottom: 20px;
+}
+
+/* Summary Cards */
+.report-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 14px;
+    margin-bottom: 10px;
+}
+
+.report-card {
+    background: var(--surface-card, #1e293b);
+    border: 1px solid var(--border-color, #334155);
+    border-radius: 12px;
+    padding: 18px 20px;
+    text-align: center;
+}
+
+.card-stat {
+    font-size: 28px;
+    font-weight: 800;
+    color: var(--text-primary, #f1f5f9);
+    line-height: 1.1;
+}
+
+.card-label {
+    font-size: 12px;
+    color: var(--text-tertiary, #64748b);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-top: 4px;
+}
+
+.card-delta {
+    font-size: 12px;
+    font-weight: 600;
+    margin-top: 6px;
+    color: var(--text-tertiary, #64748b);
+}
+
+.delta-positive { color: #22c55e; }
+.delta-negative { color: #ef4444; }
+
+/* Sections */
+.report-section {
+    margin-bottom: 28px;
+}
+
+.report-section h3 {
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--text-primary, #f1f5f9);
+    margin: 0 0 12px;
+}
+
+/* Table */
+.report-table-wrap {
+    overflow-x: auto;
+    border-radius: 12px;
+    border: 1px solid var(--border-color, #334155);
+}
+
+.report-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.report-table thead th {
+    text-align: left;
+    padding: 12px 16px;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--text-tertiary, #64748b);
+    background: var(--surface-card, #1e293b);
+    border-bottom: 1px solid var(--border-color, #334155);
+    white-space: nowrap;
+}
+
+.report-table tbody tr:hover {
+    background: var(--surface-hover, #334155);
+}
+
+.report-table tbody td {
+    padding: 10px 16px;
+    font-size: 13px;
+    color: var(--text-secondary, #cbd5e1);
+    border-bottom: 1px solid var(--border-color, #1e293b);
+}
+
+.report-table .td-name {
+    font-weight: 500;
+    color: var(--text-primary, #f1f5f9);
+}
+
+/* Coverage bar */
+.pct-bar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.pct-fill {
+    height: 6px;
+    border-radius: 3px;
+    min-width: 4px;
+    max-width: 100px;
+    flex: 1;
+}
+
+.pct-bar span {
+    font-size: 12px;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+/* PDF Export */
+.pdf-section {
+    background: var(--surface-card, #1e293b);
+    border: 1px solid var(--border-color, #334155);
+    border-radius: 12px;
+    padding: 18px 20px;
+}
+
+.pdf-controls {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+.pdf-controls select {
+    padding: 8px 12px;
+    background: var(--surface-base, #0f172a);
+    border: 1px solid var(--border-color, #334155);
+    border-radius: 8px;
+    color: var(--text-primary, #f1f5f9);
+    font-size: 13px;
+    cursor: pointer;
+    outline: none;
+}
+
+.btn-pdf {
+    padding: 8px 20px;
+    background: var(--primary, #818cf8);
+    border: none;
+    border-radius: 8px;
+    color: #fff;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.15s;
+}
+
+.btn-pdf:hover { background: var(--primary-hover, #6366f1); }
+.btn-pdf:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* Previous season */
+.prev-summary {
+    font-size: 14px;
+    color: var(--text-secondary, #94a3b8);
+    background: var(--surface-card, #1e293b);
+    border: 1px solid var(--border-color, #334155);
+    border-radius: 10px;
+    padding: 12px 16px;
+}
+
+.no-data {
+    color: var(--text-tertiary, #64748b);
+    font-style: italic;
+}
+
+/* Shared */
+.btn-map-link {
+    padding: 8px 16px;
+    background: var(--surface-hover, #334155);
+    border: 1px solid var(--border-color, #475569);
+    border-radius: 8px;
+    color: var(--text-primary, #f1f5f9);
+    text-decoration: none;
+    font-size: 13px;
+    transition: background 0.15s;
+}
+
+.btn-map-link:hover {
+    background: var(--primary, #818cf8);
+    border-color: var(--primary, #818cf8);
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .report-page { padding: 16px; }
+    .report-title-row h2 { font-size: 18px; }
+    .report-cards { grid-template-columns: repeat(2, 1fr); gap: 10px; }
+    .card-stat { font-size: 22px; }
+    .pdf-controls { flex-direction: column; }
+    .pdf-controls select, .btn-pdf { width: 100%; }
+}

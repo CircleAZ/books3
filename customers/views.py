@@ -9,7 +9,7 @@ from django.db.models import Sum, Q, Count
 from django.db import transaction
 
 from core.permissions import HasRequiredPermission
-from .models import Customer, Address, CustomerLink, Wallet, WalletTransaction
+from .models import Customer, Address, CustomerLink, Wallet, WalletTransaction, TargetVillage
 from .serializers import (
     CustomerListSerializer, CustomerDetailSerializer, CustomerCreateUpdateSerializer,
     AddressSerializer, CustomerLinkSerializer, WalletSerializer, WalletTransactionSerializer,
@@ -121,7 +121,687 @@ class CustomerViewSet(viewsets.ModelViewSet):
         customer = self.get_object()
         # TODO: Implement when Orders module is ready
         return Response({'orders': [], 'total_spent': 0})
-    
+
+    @action(detail=False, methods=['get'], url_path='map_data')
+    def map_data(self, request):
+        """
+        Returns customer geo data with order stats for the Customer Map View.
+        Season = Dec 1 → Nov 30. Filters out NULL/0,0 coordinates.
+        Uses primary address only. RBAC-gated.
+        """
+        from django.db.models import Max, F, Value, CharField, DecimalField
+        from django.db.models.functions import Coalesce
+        from django.utils.html import strip_tags
+        from django.utils import timezone
+        from orders.models import Order
+        from settings_app.models import Permission, RolePermission, Role, CustomerGroup
+        import datetime
+
+        # RBAC check: customers.view_map
+        if not request.user.is_superuser:
+            user_roles = Role.objects.filter(role_users__user=request.user)
+            has_perm = RolePermission.objects.filter(
+                role__in=user_roles,
+                permission__codename='customers.view_map'
+            ).exists()
+            if not has_perm:
+                return Response(
+                    {'detail': 'You do not have permission to view the customer map.'},
+                    status=status.HTTP_403_FORBIDDEN
+                )
+
+        # Season logic: Dec 1 → Nov 30
+        today = timezone.now().date()
+        season_year_param = request.query_params.get('season')
+
+        if season_year_param:
+            try:
+                sy = int(season_year_param)
+                season_start = datetime.date(sy, 12, 1)
+                season_end = datetime.date(sy + 1, 11, 30)
+            except (ValueError, TypeError):
+                season_start = None
+                season_end = None
+        else:
+            season_start = None
+            season_end = None
+
+        if not season_start:
+            if today.month >= 12:
+                season_start = datetime.date(today.year, 12, 1)
+                season_end = datetime.date(today.year + 1, 11, 30)
+            else:
+                season_start = datetime.date(today.year - 1, 12, 1)
+                season_end = datetime.date(today.year, 11, 30)
+
+        # Previous season
+        prev_season_start = datetime.date(season_start.year - 1, 12, 1)
+        prev_season_end = datetime.date(season_start.year, 11, 30)
+
+        # ── Phase 2 filter params ──
+        filter_village = request.query_params.get('village', '').strip()
+        filter_status = request.query_params.get('status', '').strip()  # comma-separated
+        filter_group = request.query_params.get('group', '').strip()
+        status_set = set(filter_status.split(',')) if filter_status else set()
+
+        # Confirmed/completed orders only
+        valid_statuses = ['confirmed', 'completed']
+
+        # Query: customers with valid primary address coordinates
+        customers = Customer.objects.filter(
+            addresses__is_primary=True,
+            addresses__latitude__isnull=False,
+            addresses__longitude__isnull=False,
+        ).exclude(
+            addresses__latitude=0, addresses__longitude=0
+        )
+
+        # ORM-level group filter
+        if filter_group:
+            customers = customers.filter(customer_group__name__iexact=filter_group)
+
+        customers = customers.select_related(
+            'customer_group'
+        ).prefetch_related(
+            'addresses', 'addresses__location_tags'
+        ).annotate(
+            last_order_date=Max(
+                'orders__created_at',
+                filter=Q(orders__order_status__in=valid_statuses)
+            ),
+            total_order_count=Count(
+                'orders',
+                filter=Q(orders__order_status__in=valid_statuses)
+            ),
+            total_amount_spent=Coalesce(
+                Sum('orders__total', filter=Q(orders__order_status__in=valid_statuses)),
+                Value(0, output_field=DecimalField()),
+                output_field=DecimalField()
+            ),
+            season_order_count=Count(
+                'orders',
+                filter=Q(
+                    orders__created_at__date__gte=season_start,
+                    orders__created_at__date__lte=season_end,
+                    orders__order_status__in=valid_statuses
+                )
+            ),
+            prev_season_order_count=Count(
+                'orders',
+                filter=Q(
+                    orders__created_at__date__gte=prev_season_start,
+                    orders__created_at__date__lte=prev_season_end,
+                    orders__order_status__in=valid_statuses
+                )
+            ),
+        ).distinct()
+
+        # Build response
+        customer_list = []
+        stats = {'total_mapped': 0, 'active': 0, 'followup': 0, 'lapsed': 0, 'prospect': 0}
+        villages = {}
+
+        for c in customers:
+            # Get primary address
+            primary_addr = None
+            for addr in c.addresses.all():
+                if addr.is_primary and addr.latitude and addr.longitude:
+                    if float(addr.latitude) != 0.0 or float(addr.longitude) != 0.0:
+                        primary_addr = addr
+                        break
+
+            if not primary_addr:
+                continue
+
+            # Phase 2: village filter (post-query, case-insensitive)
+            addr_village_key = (primary_addr.village or '').strip().lower()
+            if filter_village and addr_village_key != filter_village.lower():
+                continue
+
+            # Marker status
+            if c.season_order_count > 0:
+                marker_status = 'active'
+                stats['active'] += 1
+            elif c.prev_season_order_count > 0:
+                marker_status = 'followup'
+                stats['followup'] += 1
+            elif c.total_order_count > 0:
+                marker_status = 'lapsed'
+                stats['lapsed'] += 1
+            else:
+                marker_status = 'prospect'
+                stats['prospect'] += 1
+
+            # Phase 2: status filter
+            if status_set and marker_status not in status_set:
+                continue
+
+
+            stats['total_mapped'] += 1
+
+            # Village tracking (case-insensitive)
+            village_key = (primary_addr.village or '').strip().lower()
+            if village_key:
+                if village_key not in villages:
+                    villages[village_key] = {
+                        'name': primary_addr.village.strip(),
+                        'total': 0, 'active': 0
+                    }
+                villages[village_key]['total'] += 1
+                if marker_status == 'active':
+                    villages[village_key]['active'] += 1
+
+            # Last order ID
+            last_order = Order.objects.filter(
+                customer=c, order_status__in=valid_statuses
+            ).order_by('-created_at').values_list('display_id', flat=True).first()
+
+            # Location tags
+            loc_tags = [
+                strip_tags(lt.name) for lt in primary_addr.location_tags.all()
+            ]
+
+            customer_list.append({
+                'id': str(c.id),
+                'display_id': c.display_id,
+                'full_name': strip_tags(c.full_name),
+                'phone': c.phone,
+                'village': strip_tags(primary_addr.village or ''),
+                'faliya': strip_tags(primary_addr.faliya or ''),
+                'landmark': strip_tags(primary_addr.landmark or ''),
+                'latitude': str(primary_addr.latitude),
+                'longitude': str(primary_addr.longitude),
+                'customer_group': strip_tags(c.customer_group.name) if c.customer_group else None,
+                'location_tags': loc_tags,
+                'total_orders': c.total_order_count,
+                'total_spent': str(c.total_amount_spent or 0),
+                'last_order_date': c.last_order_date.strftime('%Y-%m-%d') if c.last_order_date else None,
+                'last_order_id': last_order,
+                'season_orders': c.season_order_count,
+                'marker_status': marker_status,
+            })
+
+        # Build village summary
+        village_list = []
+        for vk, vdata in sorted(villages.items()):
+            pct = round((vdata['active'] / vdata['total'] * 100)) if vdata['total'] > 0 else 0
+            village_list.append({
+                'name': vdata['name'],
+                'total_customers': vdata['total'],
+                'ordered_this_season': vdata['active'],
+                'coverage_pct': pct,
+            })
+
+        # ── Phase 2: filter_options for frontend dropdowns ──
+        all_village_names = sorted(set(
+            Address.objects.filter(
+                is_primary=True, customer__isnull=False,
+                latitude__isnull=False, longitude__isnull=False
+            ).exclude(
+                latitude=0, longitude=0
+            ).exclude(
+                village__isnull=True
+            ).exclude(
+                village=''
+            ).values_list('village', flat=True)
+        ), key=str.lower)
+
+        all_groups = list(
+            CustomerGroup.objects.all()
+            .order_by('name')
+            .values_list('name', flat=True)
+        )
+
+        # Available seasons: current + 2 previous
+        current_sy = season_start.year
+        available_seasons = [
+            {'value': str(current_sy - i),
+             'label': f"Dec {current_sy - i} – Nov {current_sy - i + 1}"}
+            for i in range(3)
+        ]
+
+        # Coverage stats for enhanced stats bar
+        total_mapped = stats['total_mapped']
+        covered = stats['active']
+        coverage_pct = round((covered / total_mapped * 100)) if total_mapped > 0 else 0
+
+        # ── Phase 3: Target villages ──
+        target_qs = TargetVillage.objects.all()
+        target_village_list = [
+            {
+                'id': str(tv.id),
+                'name': tv.name,
+                'latitude': str(tv.latitude),
+                'longitude': str(tv.longitude),
+                'target_season': tv.target_season,
+                'season_label': f"Dec {tv.target_season} \u2013 Nov {int(tv.target_season) + 1}",
+                'notes': tv.notes,
+                'created_by_name': tv.created_by.get_full_name() if tv.created_by else '',
+            }
+            for tv in target_qs
+        ]
+
+        return Response({
+            'season': {
+                'start': season_start.isoformat(),
+                'end': season_end.isoformat(),
+                'label': f"Dec {season_start.year} \u2013 Nov {season_end.year}",
+            },
+            'stats': {
+                **stats,
+                'coverage_pct': coverage_pct,
+                'total_villages': len(village_list),
+                'total_targets': len(target_village_list),
+            },
+            'villages': village_list,
+            'customers': customer_list,
+            'target_villages': target_village_list,
+            'filter_options': {
+                'villages': all_village_names,
+                'customer_groups': all_groups,
+                'seasons': available_seasons,
+            },
+        })
+
+    # ═══════════════════════════════════════════════════
+    # Phase 3: Season Summary Report
+    # ═══════════════════════════════════════════════════
+
+    @action(detail=False, methods=['get'], url_path='season_report')
+    def season_report(self, request):
+        """Year-over-year season comparison report."""
+        from django.db.models import Max, F, Value, CharField, DecimalField
+        from django.db.models.functions import Coalesce
+        from django.utils.html import strip_tags
+        from django.utils import timezone
+        from orders.models import Order
+        from settings_app.models import Permission, RolePermission, Role
+        import datetime
+
+        # RBAC: same as map
+        if not request.user.is_superuser:
+            user_roles = Role.objects.filter(role_users__user=request.user)
+            has_perm = RolePermission.objects.filter(
+                role__in=user_roles,
+                permission__codename='customers.view_map'
+            ).exists()
+            if not has_perm:
+                return Response({'detail': 'Permission denied.'}, status=status.HTTP_403_FORBIDDEN)
+
+        today = timezone.now().date()
+        season_year_param = request.query_params.get('season')
+
+        def get_season_bounds(year):
+            return datetime.date(year, 12, 1), datetime.date(year + 1, 11, 30)
+
+        if season_year_param:
+            try:
+                sy = int(season_year_param)
+            except (ValueError, TypeError):
+                sy = today.year - 1 if today.month < 12 else today.year
+        else:
+            sy = today.year - 1 if today.month < 12 else today.year
+
+        current_start, current_end = get_season_bounds(sy)
+        prev_start, prev_end = get_season_bounds(sy - 1)
+
+        valid_statuses = ['confirmed', 'completed']
+
+        def compute_season_data(s_start, s_end):
+            """Compute coverage stats for a given season."""
+            customers = Customer.objects.filter(
+                addresses__is_primary=True,
+                addresses__latitude__isnull=False,
+                addresses__longitude__isnull=False,
+            ).exclude(
+                addresses__latitude=0, addresses__longitude=0
+            ).prefetch_related('addresses').annotate(
+                season_orders=Count(
+                    'orders',
+                    filter=Q(
+                        orders__created_at__date__gte=s_start,
+                        orders__created_at__date__lte=s_end,
+                        orders__order_status__in=valid_statuses
+                    )
+                ),
+                season_revenue=Coalesce(
+                    Sum('orders__total', filter=Q(
+                        orders__created_at__date__gte=s_start,
+                        orders__created_at__date__lte=s_end,
+                        orders__order_status__in=valid_statuses
+                    )),
+                    Value(0, output_field=DecimalField()),
+                    output_field=DecimalField()
+                ),
+            ).distinct()
+
+            total = 0
+            covered = 0
+            total_revenue = 0
+            villages = {}
+
+            for c in customers:
+                primary_addr = None
+                for addr in c.addresses.all():
+                    if addr.is_primary and addr.latitude and addr.longitude:
+                        if float(addr.latitude) != 0.0 or float(addr.longitude) != 0.0:
+                            primary_addr = addr
+                            break
+                if not primary_addr:
+                    continue
+
+                total += 1
+                is_covered = c.season_orders > 0
+                if is_covered:
+                    covered += 1
+                total_revenue += float(c.season_revenue or 0)
+
+                vk = (primary_addr.village or '').strip().lower()
+                if vk:
+                    if vk not in villages:
+                        villages[vk] = {'name': primary_addr.village.strip(), 'total': 0, 'covered': 0, 'revenue': 0}
+                    villages[vk]['total'] += 1
+                    if is_covered:
+                        villages[vk]['covered'] += 1
+                    villages[vk]['revenue'] += float(c.season_revenue or 0)
+
+            village_list = []
+            for vk, vd in sorted(villages.items()):
+                pct = round((vd['covered'] / vd['total'] * 100)) if vd['total'] > 0 else 0
+                village_list.append({
+                    'name': vd['name'],
+                    'total': vd['total'],
+                    'covered': vd['covered'],
+                    'pct': pct,
+                    'revenue': f"{vd['revenue']:.2f}",
+                })
+
+            return {
+                'season_label': f"Dec {s_start.year} \u2013 Nov {s_end.year}",
+                'total_villages': len(village_list),
+                'total_customers': total,
+                'covered': covered,
+                'coverage_pct': round((covered / total * 100), 1) if total > 0 else 0,
+                'total_revenue': f"{total_revenue:.2f}",
+                'villages': village_list,
+            }
+
+        current_data = compute_season_data(current_start, current_end)
+        prev_data = compute_season_data(prev_start, prev_end)
+
+        # YoY deltas
+        def delta_str(curr, prev, is_pct=False):
+            diff = curr - prev
+            sign = '+' if diff >= 0 else ''
+            if is_pct:
+                return f"{sign}{diff:.1f}%"
+            return f"{sign}{diff}"
+
+        yoy = {
+            'villages_delta': delta_str(current_data['total_villages'], prev_data['total_villages']),
+            'customers_delta': delta_str(current_data['total_customers'], prev_data['total_customers']),
+            'coverage_delta': delta_str(current_data['coverage_pct'], prev_data['coverage_pct'], True),
+            'revenue_delta': delta_str(
+                float(current_data['total_revenue']),
+                float(prev_data['total_revenue']) if float(prev_data['total_revenue']) > 0 else 1,
+            ),
+        }
+
+        return Response({
+            'current': current_data,
+            'previous': prev_data,
+            'yoy': yoy,
+        })
+
+    # ═══════════════════════════════════════════════════
+    # Phase 3: Coverage PDF Export
+    # ═══════════════════════════════════════════════════
+
+    @action(detail=False, methods=['get'], url_path='coverage_pdf')
+    def coverage_pdf(self, request):
+        """Generate printable door-to-door checklist PDF."""
+        from django.utils.html import strip_tags
+        from django.utils import timezone
+        from django.template.loader import render_to_string
+        from django.http import HttpResponse
+        from orders.models import Order
+        from settings_app.models import Permission, RolePermission, Role
+        import datetime
+        import io
+
+        # RBAC
+        if not request.user.is_superuser:
+            user_roles = Role.objects.filter(role_users__user=request.user)
+            has_perm = RolePermission.objects.filter(
+                role__in=user_roles,
+                permission__codename='customers.view_map'
+            ).exists()
+            if not has_perm:
+                return Response({'detail': 'Permission denied.'}, status=status.HTTP_403_FORBIDDEN)
+
+        village_filter = request.query_params.get('village', '').strip()
+        season_param = request.query_params.get('season', '').strip()
+
+        today = timezone.now().date()
+        if season_param:
+            try:
+                sy = int(season_param)
+            except (ValueError, TypeError):
+                sy = today.year - 1 if today.month < 12 else today.year
+        else:
+            sy = today.year - 1 if today.month < 12 else today.year
+
+        season_start = datetime.date(sy, 12, 1)
+        season_end = datetime.date(sy + 1, 11, 30)
+        season_label = f"Dec {sy} \u2013 Nov {sy + 1}"
+
+        valid_statuses = ['confirmed', 'completed']
+
+        customers = Customer.objects.filter(
+            addresses__is_primary=True,
+            addresses__latitude__isnull=False,
+            addresses__longitude__isnull=False,
+        ).exclude(
+            addresses__latitude=0, addresses__longitude=0
+        ).prefetch_related('addresses').annotate(
+            season_orders=Count(
+                'orders',
+                filter=Q(
+                    orders__created_at__date__gte=season_start,
+                    orders__created_at__date__lte=season_end,
+                    orders__order_status__in=valid_statuses
+                )
+            ),
+        ).distinct()
+
+        rows = []
+        for c in customers:
+            primary_addr = None
+            for addr in c.addresses.all():
+                if addr.is_primary and addr.latitude and addr.longitude:
+                    if float(addr.latitude) != 0.0 or float(addr.longitude) != 0.0:
+                        primary_addr = addr
+                        break
+            if not primary_addr:
+                continue
+
+            v = (primary_addr.village or '').strip()
+            if village_filter and v.lower() != village_filter.lower():
+                continue
+
+            if c.season_orders > 0:
+                status_label = '✓ Covered'
+            else:
+                status_label = '★ Not yet'
+
+            rows.append({
+                'village': strip_tags(v),
+                'faliya': strip_tags(primary_addr.faliya or ''),
+                'name': strip_tags(c.full_name),
+                'phone': c.phone or '',
+                'status': status_label,
+            })
+
+        rows.sort(key=lambda r: (r['village'].lower(), r['faliya'].lower(), r['name'].lower()))
+
+        # Build HTML for PDF
+        html = f"""
+        <!DOCTYPE html>
+        <html>
+        <head>
+        <style>
+            body {{ font-family: Arial, sans-serif; font-size: 11px; margin: 20px; }}
+            h1 {{ font-size: 16px; margin-bottom: 4px; }}
+            h2 {{ font-size: 12px; color: #666; margin-top: 0; margin-bottom: 16px; }}
+            table {{ width: 100%; border-collapse: collapse; }}
+            th {{ background: #333; color: #fff; padding: 6px 8px; text-align: left; font-size: 10px; text-transform: uppercase; }}
+            td {{ padding: 5px 8px; border-bottom: 1px solid #ddd; font-size: 11px; }}
+            tr:nth-child(even) {{ background: #f9f9f9; }}
+            .footer {{ margin-top: 20px; font-size: 9px; color: #999; text-align: center; }}
+        </style>
+        </head>
+        <body>
+            <h1>AZ Books \u2014 Door-to-Door Checklist</h1>
+            <h2>{village_filter or 'All Villages'} | {season_label} | {len(rows)} customers</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Village</th>
+                        <th>Faliya</th>
+                        <th>Customer</th>
+                        <th>Phone</th>
+                        <th>Status</th>
+                        <th>Notes</th>
+                    </tr>
+                </thead>
+                <tbody>
+        """
+        for i, row in enumerate(rows, 1):
+            html += f"""
+                    <tr>
+                        <td>{i}</td>
+                        <td>{row['village']}</td>
+                        <td>{row['faliya']}</td>
+                        <td>{row['name']}</td>
+                        <td>{row['phone']}</td>
+                        <td>{row['status']}</td>
+                        <td></td>
+                    </tr>
+            """
+        html += """
+                </tbody>
+            </table>
+            <div class="footer">Generated by AZ Books &bull; Confidential</div>
+        </body>
+        </html>
+        """
+
+        # Generate PDF
+        try:
+            from xhtml2pdf import pisa
+            result = io.BytesIO()
+            pisa_status = pisa.CreatePDF(io.StringIO(html), dest=result)
+            if pisa_status.err:
+                return Response({'detail': 'PDF generation failed.'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+            response = HttpResponse(result.getvalue(), content_type='application/pdf')
+            filename = f"checklist_{village_filter or 'all'}_{sy}.pdf"
+            response['Content-Disposition'] = f'attachment; filename="{filename}"'
+            return response
+        except ImportError:
+            return Response({'detail': 'PDF library not installed.'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    # ═══════════════════════════════════════════════════
+    # Phase 3: Target Village CRUD
+    # ═══════════════════════════════════════════════════
+
+    @action(detail=False, methods=['get', 'post'], url_path='target-villages')
+    def target_villages(self, request):
+        """List or create target villages."""
+        from django.utils.html import strip_tags
+        from settings_app.models import Permission, RolePermission, Role
+
+        if request.method == 'GET':
+            targets = TargetVillage.objects.all()
+            data = [
+                {
+                    'id': str(t.id),
+                    'name': t.name,
+                    'latitude': str(t.latitude),
+                    'longitude': str(t.longitude),
+                    'target_season': t.target_season,
+                    'season_label': f"Dec {t.target_season} \u2013 Nov {int(t.target_season) + 1}",
+                    'notes': t.notes,
+                    'created_by_name': t.created_by.get_full_name() if t.created_by else '',
+                    'created_at': t.created_at.isoformat() if t.created_at else None,
+                }
+                for t in targets
+            ]
+            return Response(data)
+
+        # POST — create
+        if not request.user.is_superuser:
+            user_roles = Role.objects.filter(role_users__user=request.user)
+            has_perm = RolePermission.objects.filter(
+                role__in=user_roles,
+                permission__codename='customers.manage_targets'
+            ).exists()
+            if not has_perm:
+                return Response({'detail': 'Permission denied.'}, status=status.HTTP_403_FORBIDDEN)
+
+        name = strip_tags(request.data.get('name', '')).strip()
+        lat = request.data.get('latitude')
+        lng = request.data.get('longitude')
+        target_season = request.data.get('target_season', '').strip()
+        notes = strip_tags(request.data.get('notes', '')).strip()
+
+        if not name or not lat or not lng or not target_season:
+            return Response({'detail': 'name, latitude, longitude, target_season are required.'},
+                            status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            tv = TargetVillage.objects.create(
+                name=name,
+                latitude=lat,
+                longitude=lng,
+                target_season=target_season,
+                notes=notes,
+                created_by=request.user,
+            )
+            return Response({
+                'id': str(tv.id),
+                'name': tv.name,
+                'latitude': str(tv.latitude),
+                'longitude': str(tv.longitude),
+                'target_season': tv.target_season,
+                'season_label': f"Dec {tv.target_season} \u2013 Nov {int(tv.target_season) + 1}",
+                'notes': tv.notes,
+            }, status=status.HTTP_201_CREATED)
+        except Exception as e:
+            return Response({'detail': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+    @action(detail=False, methods=['delete'], url_path='target-villages/(?P<target_id>[^/.]+)')
+    def target_village_delete(self, request, target_id=None):
+        """Delete a target village pin."""
+        from settings_app.models import Permission, RolePermission, Role
+
+        if not request.user.is_superuser:
+            user_roles = Role.objects.filter(role_users__user=request.user)
+            has_perm = RolePermission.objects.filter(
+                role__in=user_roles,
+                permission__codename='customers.manage_targets'
+            ).exists()
+            if not has_perm:
+                return Response({'detail': 'Permission denied.'}, status=status.HTTP_403_FORBIDDEN)
+
+        try:
+            tv = TargetVillage.objects.get(id=target_id)
+            tv.delete()
+            return Response(status=status.HTTP_204_NO_CONTENT)
+        except TargetVillage.DoesNotExist:
+            return Response({'detail': 'Not found.'}, status=status.HTTP_404_NOT_FOUND)
+
     @action(detail=True, methods=['get'])
     def wallet(self, request, pk=None):
         """Get customer's wallet details."""

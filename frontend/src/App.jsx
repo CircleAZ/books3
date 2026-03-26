@@ -16,6 +16,9 @@ import DeletedProducts from './pages/inventory/DeletedProducts';
 import CustomerList from './pages/customers/CustomerList';
 import AddCustomer from './pages/customers/AddCustomer';
 import CustomerDetails from './pages/customers/CustomerDetails';
+import CustomerMap from './pages/customers/CustomerMap';
+import CoverageList from './pages/customers/CoverageList';
+import SeasonReport from './pages/customers/SeasonReport';
 import CustomerSettings from './pages/settings/CustomerSettings';
 import SettingsIndex from './pages/settings/SettingsIndex';
 import StoreSettings from './pages/settings/StoreSettings';
@@ -171,6 +174,21 @@ function AppRoutes() {
       <Route path="/customers/settings" element={
         <ProtectedRoute>
           <MainLayout><CustomerSettings /></MainLayout>
+        </ProtectedRoute>
+      } />
+      <Route path="/customers/map" element={
+        <ProtectedRoute>
+          <MainLayout><CustomerMap /></MainLayout>
+        </ProtectedRoute>
+      } />
+      <Route path="/customers/coverage" element={
+        <ProtectedRoute>
+          <MainLayout><CoverageList /></MainLayout>
+        </ProtectedRoute>
+      } />
+      <Route path="/customers/report" element={
+        <ProtectedRoute>
+          <MainLayout><SeasonReport /></MainLayout>
         </ProtectedRoute>
       } />
       <Route path="/customers/:id" element={

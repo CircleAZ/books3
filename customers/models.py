@@ -229,3 +229,25 @@ class WalletTransaction(UUIDPrimaryKeyModel):
     
     def __str__(self):
         return f"{self.transaction_type}: ₹{self.amount} - {self.reason}"
+
+
+class TargetVillage(UUIDPrimaryKeyModel):
+    """Manager-placed pin marking a village targeted for expansion."""
+    name = models.CharField(max_length=200)
+    latitude = models.DecimalField(max_digits=10, decimal_places=7)
+    longitude = models.DecimalField(max_digits=10, decimal_places=7)
+    target_season = models.CharField(max_length=20)  # e.g., "2026" → Dec 2026–Nov 2027
+    notes = models.TextField(blank=True)
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL,
+        null=True, blank=True, related_name='target_villages'
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        unique_together = ['name', 'target_season']
+
+    def __str__(self):
+        return f"{self.name} (Target: Dec {self.target_season})"
+

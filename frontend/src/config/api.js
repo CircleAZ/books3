@@ -38,6 +38,10 @@ export const ENDPOINTS = {
     CUSTOMERS_LOCATION_TAGS: `${API_BASE}/customers/location-tags/`,
     CUSTOMERS_LINK_TYPES: `${API_BASE}/customers/link-types/`,
     CUSTOMERS_SUBDIVISIONS: `${API_BASE}/customers/subdivisions/`,
+    CUSTOMERS_MAP: `${API_BASE}/customers/customers/map_data/`,
+    TARGET_VILLAGES: `${API_BASE}/customers/customers/target-villages/`,
+    SEASON_REPORT: `${API_BASE}/customers/customers/season_report/`,
+    COVERAGE_PDF: `${API_BASE}/customers/customers/coverage_pdf/`,
 
     // Template Catalogs (reusable name pools)
     CLASS_TEMPLATES: `${API_BASE}/customers/class-templates/`,
