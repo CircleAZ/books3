@@ -16,7 +16,7 @@ from .models import (
     Order, OrderItem, Payment, OrderStatusHistory, OrderNote,
     ReturnReason, Return, ReturnItem, Refund, CreditNote
 )
-from messaging.tasks import send_templated_message
+from messaging.dispatch import dispatch_receipt, dispatch_payment_update
 from .serializers import (
     OrderListSerializer, OrderDetailSerializer, OrderCreateSerializer,
     OrderItemSerializer, PaymentSerializer, OrderStatusHistorySerializer, OrderNoteSerializer,
@@ -204,7 +204,6 @@ class OrderViewSet(viewsets.ModelViewSet):
             )
         
         from inventory.services import StockService
-        from .receipt_models import Receipt
         
         # Deduct stock for each item
         with transaction.atomic():
@@ -220,26 +219,12 @@ class OrderViewSet(viewsets.ModelViewSet):
                     notes=f"Order #{order.display_id}",
                     user=request.user
                 )
-            
-            # Create Receipt
-            Receipt.objects.get_or_create(order=order)
         
-        # Trigger confirmation message
+        # Dispatch receipt notification via customer preference
         try:
-            phone = order.guest_phone if order.is_guest else (order.customer.phone if order.customer else None)
-            if phone:
-                send_templated_message(
-                    phone=phone,
-                    template_type='order_confirmation',
-                    variables={
-                        'customer_name': order.guest_name if order.is_guest else order.customer.first_name,
-                        'order_id': str(order.display_id),
-                        'amount': str(order.total)
-                    }
-                )
+            dispatch_receipt(order)
         except Exception as e:
-            # Don't fail transaction if messaging fails
-            logger.error("Failed to queue message for order #%s: %s", order.display_id, e)
+            logger.error("Failed to dispatch receipt for order #%s: %s", order.display_id, e)
         
         return Response({'status': 'Order completed'})
     

@@ -1,406 +1,490 @@
+/* ── Public Receipt Page ── */
+/* Mobile-first, print-ready, premium design */
+
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Noto+Sans+Gujarati:wght@400;600&family=Noto+Sans+Devanagari:wght@400;600&display=swap');
+
 .public-receipt-page {
     min-height: 100vh;
-    background: linear-gradient(135deg, #0f0f23 0%, #1a1a3e 50%, #0f0f23 100%);
     display: flex;
-    justify-content: center;
-    align-items: flex-start;
-    padding: 2rem 1rem;
+    flex-direction: column;
+    align-items: center;
+    padding: 16px;
+    background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0f172a 100%);
+    font-family: 'Outfit', 'Noto Sans Gujarati', 'Noto Sans Devanagari', sans-serif;
 }
 
+/* ── Language Toggle ── */
+.lang-toggle {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 12px;
+    z-index: 10;
+}
+
+.lang-btn {
+    padding: 6px 14px;
+    border: 1.5px solid rgba(255, 255, 255, 0.15);
+    background: rgba(255, 255, 255, 0.05);
+    color: rgba(255, 255, 255, 0.6);
+    border-radius: 20px;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    font-family: inherit;
+}
+
+.lang-btn:hover {
+    background: rgba(255, 255, 255, 0.1);
+    color: rgba(255, 255, 255, 0.9);
+}
+
+.lang-btn.active {
+    background: linear-gradient(135deg, #6366f1, #8b5cf6);
+    border-color: #818cf8;
+    color: #fff;
+    box-shadow: 0 2px 8px rgba(99, 102, 241, 0.4);
+}
+
+/* ── Receipt Container ── */
 .receipt-container {
     width: 100%;
-    max-width: 500px;
-    background: rgba(30, 35, 60, 0.95);
-    border-radius: 20px;
-    border: 1px solid rgba(108, 92, 231, 0.3);
-    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
-    padding: 2rem;
+    max-width: 420px;
+    background: rgba(255, 255, 255, 0.03);
     backdrop-filter: blur(20px);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 20px;
+    padding: 28px 22px;
+    box-shadow:
+        0 4px 24px rgba(0, 0, 0, 0.3),
+        inset 0 1px 0 rgba(255, 255, 255, 0.05);
 }
 
-/* Loading & Error States */
-.loading-container,
-.error-container {
-    text-align: center;
-    padding: 4rem 2rem;
-    color: #a0a0c0;
-}
-
-.loading-spinner {
-    width: 50px;
-    height: 50px;
-    border: 4px solid rgba(108, 92, 231, 0.2);
-    border-top-color: #6c5ce7;
-    border-radius: 50%;
-    animation: spin 1s linear infinite;
-    margin: 0 auto 1rem;
-}
-
-@keyframes spin {
-    to {
-        transform: rotate(360deg);
-    }
-}
-
-.error-icon {
-    font-size: 3rem;
-    margin-bottom: 1rem;
-}
-
-/* Store Header */
+/* ── Store Header ── */
 .store-header {
     text-align: center;
-    margin-bottom: 1.5rem;
-    padding-bottom: 1.5rem;
-    border-bottom: 1px dashed rgba(108, 92, 231, 0.3);
-}
-
-.store-logo {
-    width: 80px;
-    height: 80px;
-    object-fit: contain;
-    margin-bottom: 1rem;
-    border-radius: 12px;
+    padding-bottom: 16px;
+    border-bottom: 1px dashed rgba(255, 255, 255, 0.1);
+    margin-bottom: 16px;
 }
 
 .store-name {
-    color: #ffffff;
-    font-size: 1.5rem;
+    font-size: 22px;
     font-weight: 700;
-    margin: 0 0 0.5rem;
+    background: linear-gradient(135deg, #e0e7ff, #c7d2fe, #a5b4fc);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    margin: 0 0 4px 0;
+    letter-spacing: -0.3px;
 }
 
-.store-address,
 .store-phone {
-    color: #a0a0c0;
-    font-size: 0.9rem;
-    margin: 0.25rem 0;
+    font-size: 13px;
+    color: rgba(255, 255, 255, 0.4);
+    margin: 0;
 }
 
-.receipt-header-text {
-    text-align: center;
-    color: #6c5ce7;
-    font-size: 0.95rem;
-    padding: 1rem;
-    background: rgba(108, 92, 231, 0.1);
-    border-radius: 10px;
-    margin-bottom: 1.5rem;
-}
-
-/* Order Info */
+/* ── Order Info ── */
 .order-info {
     display: flex;
     justify-content: space-between;
-    margin-bottom: 1rem;
-    padding: 1rem;
-    background: rgba(255, 255, 255, 0.05);
-    border-radius: 10px;
-}
-
-.order-number,
-.order-date {
-    display: flex;
-    flex-direction: column;
+    align-items: center;
+    padding: 12px 14px;
+    background: rgba(99, 102, 241, 0.06);
+    border: 1px solid rgba(99, 102, 241, 0.12);
+    border-radius: 12px;
+    margin-bottom: 14px;
 }
 
 .order-info .label {
-    color: #a0a0c0;
-    font-size: 0.75rem;
+    font-size: 11px;
+    color: rgba(255, 255, 255, 0.4);
     text-transform: uppercase;
     letter-spacing: 0.5px;
+    display: block;
 }
 
 .order-info .value {
-    color: #ffffff;
-    font-size: 1rem;
+    font-size: 15px;
     font-weight: 600;
+    color: #e0e7ff;
 }
 
-/* Customer Info */
+/* ── Customer Info ── */
 .customer-info {
     display: flex;
     justify-content: space-between;
-    padding: 0.75rem 1rem;
-    background: rgba(108, 92, 231, 0.1);
-    border-radius: 10px;
-    margin-bottom: 1.5rem;
+    align-items: center;
+    padding: 10px 0;
+    margin-bottom: 14px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
 }
 
-.customer-name,
+.customer-name {
+    font-size: 14px;
+    font-weight: 500;
+    color: rgba(255, 255, 255, 0.8);
+}
+
 .customer-phone {
-    color: #d0d0e0;
-    font-size: 0.9rem;
+    font-size: 13px;
+    color: rgba(255, 255, 255, 0.4);
+    font-family: 'Outfit', monospace;
 }
 
-/* Items Table */
+/* ── Items Table ── */
 .items-section {
-    margin-bottom: 1.5rem;
+    margin-bottom: 14px;
 }
 
 .items-table {
     width: 100%;
     border-collapse: collapse;
+    font-size: 13px;
 }
 
-.items-table th {
-    background: rgba(108, 92, 231, 0.2);
-    color: #ffffff;
-    font-size: 0.75rem;
-    font-weight: 600;
-    text-transform: uppercase;
-    padding: 0.75rem 0.5rem;
+.items-table thead th {
     text-align: left;
+    padding: 8px 6px;
+    color: rgba(255, 255, 255, 0.4);
+    font-weight: 500;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
 }
 
-.items-table th:last-child,
-.items-table td:last-child {
+.items-table thead th:last-child,
+.items-table thead th:nth-child(3) {
     text-align: right;
 }
 
-.items-table th:nth-child(2),
-.items-table td:nth-child(2),
-.items-table th:nth-child(3),
-.items-table td:nth-child(3) {
-    text-align: center;
-}
-
-.items-table tr:nth-child(even) {
-    background: rgba(255, 255, 255, 0.02);
-}
-
-.items-table td {
-    padding: 0.75rem 0.5rem;
-    color: #d0d0e0;
-    font-size: 0.9rem;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+.items-table tbody td {
+    padding: 10px 6px;
+    color: rgba(255, 255, 255, 0.85);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.04);
 }
 
 .item-name {
-    color: #ffffff;
+    font-weight: 500;
+    max-width: 160px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
-/* Totals */
+.item-qty {
+    text-align: center;
+    color: rgba(255, 255, 255, 0.5);
+}
+
+.item-price,
+.item-total {
+    text-align: right;
+    font-family: 'Outfit', monospace;
+}
+
+/* ── Totals Section ── */
 .totals-section {
-    border-top: 1px dashed rgba(108, 92, 231, 0.3);
-    padding-top: 1rem;
-    margin-bottom: 1rem;
+    padding: 14px 0;
+    border-top: 1px dashed rgba(255, 255, 255, 0.1);
+    border-bottom: 1px dashed rgba(255, 255, 255, 0.1);
+    margin-bottom: 14px;
 }
 
 .total-row {
     display: flex;
     justify-content: space-between;
-    padding: 0.5rem 0;
-    color: #d0d0e0;
-    font-size: 0.95rem;
+    padding: 5px 0;
+    font-size: 13px;
+    color: rgba(255, 255, 255, 0.6);
 }
 
 .total-row.discount span:last-child {
-    color: #00b894;
+    color: #34d399;
 }
 
 .total-row.grand-total {
-    font-size: 1.2rem;
+    font-size: 16px;
     font-weight: 700;
-    color: #ffffff;
-    border-top: 1px solid rgba(108, 92, 231, 0.3);
-    border-bottom: 1px solid rgba(108, 92, 231, 0.3);
-    padding: 0.75rem 0;
-    margin: 0.5rem 0;
+    color: #e0e7ff;
+    padding: 10px 0;
+    margin: 4px 0;
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
 }
 
-.total-row.balance span:last-child {
-    color: #ff7675;
+.total-row.balance-due {
+    font-weight: 600;
+    font-size: 14px;
+    color: #fbbf24;
+    padding: 8px 0 4px;
 }
 
-/* Payment Status */
+.total-row.balance-due span:last-child {
+    color: #f59e0b;
+}
+
+/* ── Payment Status Badge ── */
 .payment-status-container {
     text-align: center;
-    margin-bottom: 1.5rem;
+    margin-bottom: 16px;
 }
 
 .payment-badge {
     display: inline-block;
-    padding: 0.5rem 1.5rem;
+    padding: 5px 16px;
     border-radius: 20px;
-    font-size: 0.85rem;
+    font-size: 12px;
     font-weight: 600;
     text-transform: uppercase;
-    letter-spacing: 1px;
+    letter-spacing: 0.8px;
 }
 
 .payment-badge.paid {
-    background: rgba(0, 184, 148, 0.2);
-    color: #00b894;
-}
-
-.payment-badge.partial {
-    background: rgba(253, 203, 110, 0.2);
-    color: #fdcb6e;
+    background: rgba(52, 211, 153, 0.12);
+    color: #34d399;
+    border: 1px solid rgba(52, 211, 153, 0.2);
 }
 
 .payment-badge.pending {
-    background: rgba(255, 118, 117, 0.2);
-    color: #ff7675;
+    background: rgba(251, 191, 36, 0.12);
+    color: #fbbf24;
+    border: 1px solid rgba(251, 191, 36, 0.2);
 }
 
-/* Download Button */
+.payment-badge.partial {
+    background: rgba(96, 165, 250, 0.12);
+    color: #60a5fa;
+    border: 1px solid rgba(96, 165, 250, 0.2);
+}
+
+.payment-badge.overpaid {
+    background: rgba(244, 114, 182, 0.12);
+    color: #f472b6;
+    border: 1px solid rgba(244, 114, 182, 0.2);
+}
+
+/* ── Payment History ── */
+.payment-history {
+    margin-bottom: 16px;
+}
+
+.payment-history h3 {
+    font-size: 13px;
+    font-weight: 600;
+    color: rgba(255, 255, 255, 0.5);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin: 0 0 10px 0;
+}
+
+.payments-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+}
+
+.payments-table thead th {
+    text-align: left;
+    padding: 6px 6px;
+    color: rgba(255, 255, 255, 0.35);
+    font-weight: 500;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.payments-table thead th:last-child {
+    text-align: right;
+}
+
+.payments-table tbody td {
+    padding: 8px 6px;
+    color: rgba(255, 255, 255, 0.7);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+}
+
+.payments-table tbody td:last-child {
+    text-align: right;
+    font-family: 'Outfit', monospace;
+    color: #34d399;
+    font-weight: 500;
+}
+
+.payment-history.empty {
+    text-align: center;
+    padding: 8px 0;
+}
+
+.no-payments {
+    font-size: 13px;
+    color: rgba(255, 255, 255, 0.3);
+    font-style: italic;
+    margin: 0;
+}
+
+/* ── Action Buttons ── */
+.receipt-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin: 16px 0;
+}
+
+.pay-now-btn {
+    width: 100%;
+    padding: 14px 20px;
+    border: none;
+    border-radius: 14px;
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+    font-family: inherit;
+    transition: all 0.25s ease;
+    background: linear-gradient(135deg, #059669, #10b981, #34d399);
+    color: #fff;
+    box-shadow:
+        0 4px 14px rgba(16, 185, 129, 0.35),
+        inset 0 1px 0 rgba(255, 255, 255, 0.15);
+}
+
+.pay-now-btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 6px 20px rgba(16, 185, 129, 0.45);
+}
+
+.pay-now-btn:active {
+    transform: translateY(0);
+}
+
 .download-btn {
     width: 100%;
-    padding: 1rem;
-    background: linear-gradient(135deg, #6c5ce7, #a29bfe);
-    color: white;
-    border: none;
-    border-radius: 12px;
-    font-size: 1rem;
-    font-weight: 600;
+    padding: 12px 20px;
+    border: 1.5px solid rgba(255, 255, 255, 0.12);
+    border-radius: 14px;
+    font-size: 14px;
+    font-weight: 500;
     cursor: pointer;
-    transition: all 0.3s ease;
-    margin-bottom: 1rem;
+    font-family: inherit;
+    transition: all 0.2s ease;
+    background: rgba(255, 255, 255, 0.04);
+    color: rgba(255, 255, 255, 0.7);
 }
 
-.download-btn:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 8px 25px rgba(108, 92, 231, 0.4);
+.download-btn:hover:not(:disabled) {
+    background: rgba(255, 255, 255, 0.08);
+    border-color: rgba(255, 255, 255, 0.2);
+    color: #fff;
 }
 
-/* Footer */
-.receipt-footer {
-    text-align: center;
-    color: #a0a0c0;
-    font-size: 0.85rem;
-    padding: 1rem;
-    border-top: 1px dashed rgba(108, 92, 231, 0.3);
-    margin-top: 1rem;
-}
-
-.powered-by {
-    text-align: center;
-    color: #6c5ce7;
-    font-size: 0.75rem;
-    margin-top: 1rem;
-    opacity: 0.7;
-}
-
-/* Modal */
-.modal-overlay {
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: rgba(0, 0, 0, 0.8);
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    z-index: 1000;
-    padding: 1rem;
-}
-
-.modal-content {
-    background: rgba(30, 35, 60, 0.98);
-    border-radius: 20px;
-    border: 1px solid rgba(108, 92, 231, 0.3);
-    padding: 2rem;
-    max-width: 400px;
-    width: 100%;
-    text-align: center;
-}
-
-.modal-content h3 {
-    color: #ffffff;
-    margin: 0 0 0.5rem;
-}
-
-.modal-content p {
-    color: #a0a0c0;
-    margin-bottom: 1.5rem;
-}
-
-.phone-input {
-    width: 100%;
-    padding: 1rem;
-    font-size: 1.5rem;
-    text-align: center;
-    letter-spacing: 0.5rem;
-    background: rgba(255, 255, 255, 0.05);
-    border: 2px solid rgba(108, 92, 231, 0.3);
-    border-radius: 12px;
-    color: #ffffff;
-    outline: none;
-    transition: border-color 0.3s;
-}
-
-.phone-input:focus {
-    border-color: #6c5ce7;
-}
-
-.verify-error {
-    color: #ff7675;
-    font-size: 0.9rem;
-    margin: 1rem 0;
-}
-
-.modal-buttons {
-    display: flex;
-    gap: 1rem;
-    margin-top: 1.5rem;
-}
-
-.cancel-btn,
-.verify-btn {
-    flex: 1;
-    padding: 0.875rem;
-    border-radius: 10px;
-    font-size: 1rem;
-    font-weight: 600;
-    cursor: pointer;
-    transition: all 0.3s ease;
-}
-
-.cancel-btn {
-    background: rgba(255, 255, 255, 0.1);
-    color: #a0a0c0;
-    border: 1px solid rgba(255, 255, 255, 0.1);
-}
-
-.cancel-btn:hover {
-    background: rgba(255, 255, 255, 0.15);
-}
-
-.verify-btn {
-    background: linear-gradient(135deg, #6c5ce7, #a29bfe);
-    color: white;
-    border: none;
-}
-
-.verify-btn:hover:not(:disabled) {
-    transform: translateY(-2px);
-    box-shadow: 0 5px 20px rgba(108, 92, 231, 0.4);
-}
-
-.verify-btn:disabled {
+.download-btn:disabled {
     opacity: 0.5;
     cursor: not-allowed;
 }
 
-/* Mobile Responsive */
+/* ── Footer ── */
+.powered-by {
+    text-align: center;
+    font-size: 11px;
+    color: rgba(255, 255, 255, 0.2);
+    margin-top: 16px;
+    letter-spacing: 0.5px;
+}
+
+/* ── Loading & Error States ── */
+.loading-container {
+    text-align: center;
+    padding: 60px 20px;
+}
+
+.loading-spinner {
+    width: 40px;
+    height: 40px;
+    border: 3px solid rgba(99, 102, 241, 0.2);
+    border-top-color: #6366f1;
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+    margin: 0 auto 16px;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+.loading-container p {
+    color: rgba(255, 255, 255, 0.5);
+    font-size: 14px;
+}
+
+.error-container {
+    text-align: center;
+    padding: 60px 20px;
+}
+
+.error-icon {
+    font-size: 48px;
+    margin-bottom: 12px;
+}
+
+.error-container h2 {
+    color: rgba(255, 255, 255, 0.8);
+    font-size: 20px;
+    margin: 0 0 8px 0;
+}
+
+.error-container p {
+    color: rgba(255, 255, 255, 0.4);
+    font-size: 14px;
+}
+
+/* ── Print & PDF Styles ── */
+@media print {
+    .public-receipt-page {
+        background: #fff;
+        padding: 0;
+    }
+    .receipt-container {
+        background: #fff;
+        border: none;
+        box-shadow: none;
+        backdrop-filter: none;
+        color: #000;
+    }
+    .store-name {
+        -webkit-text-fill-color: #1e293b;
+        color: #1e293b;
+    }
+    .lang-toggle,
+    .receipt-actions {
+        display: none !important;
+    }
+    .items-table tbody td,
+    .payments-table tbody td,
+    .total-row,
+    .customer-name,
+    .customer-phone,
+    .order-info .value,
+    .order-info .label {
+        color: #1e293b !important;
+    }
+}
+
+/* ── Responsive ── */
 @media (max-width: 480px) {
     .public-receipt-page {
-        padding: 1rem 0.5rem;
+        padding: 10px 8px;
     }
-
     .receipt-container {
-        padding: 1.5rem;
+        padding: 22px 16px;
         border-radius: 16px;
     }
-
     .store-name {
-        font-size: 1.25rem;
+        font-size: 20px;
     }
-
-    .items-table th,
-    .items-table td {
-        padding: 0.5rem 0.25rem;
-        font-size: 0.8rem;
+    .item-name {
+        max-width: 120px;
     }
 }

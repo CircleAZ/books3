@@ -128,11 +128,8 @@ class OrderDetailSerializer(serializers.ModelSerializer):
         return obj.customer.full_name if obj.customer else 'Unknown'
     
     def get_receipt_uuid(self, obj):
-        """Get the receipt's public UUID if it exists."""
-        try:
-            return str(obj.receipt.public_uuid)
-        except Exception:
-            return None
+        """Get the order's receipt_uuid."""
+        return str(obj.receipt_uuid) if obj.receipt_uuid else None
 
 
 class OrderItemCreateSerializer(serializers.Serializer):
@@ -216,9 +213,12 @@ class OrderCreateSerializer(serializers.ModelSerializer):
                     user=user
                 )
 
-            # B-05 fix: Create receipt for POS completed orders
-            from orders.receipt_models import Receipt
-            Receipt.objects.get_or_create(order=order)
+        # Snapshot receipt to R2 for edge-served receipts
+        try:
+            from messaging.r2 import update_receipt_snapshot
+            update_receipt_snapshot(order)
+        except Exception:
+            pass  # Non-critical — SWR falls back to Render
 
         return order
     

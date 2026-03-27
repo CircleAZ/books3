@@ -5,7 +5,7 @@ from .views import (
     OrderViewSet, PaymentViewSet, OrderNoteViewSet,
     ReturnReasonViewSet, ReturnViewSet, RefundViewSet
 )
-from .receipt_views import PublicReceiptView, ReceiptPDFView
+from .receipt_views import PublicReceiptView, ReceiptBalanceView
 
 router = DefaultRouter()
 router.register(r'orders', OrderViewSet)
@@ -18,7 +18,6 @@ router.register(r'refunds', RefundViewSet)
 urlpatterns = [
     path('', include(router.urls)),
     # Public receipt endpoints (no auth required)
-    path('receipts/<uuid:public_uuid>/', PublicReceiptView.as_view(), name='public-receipt'),
-    path('receipts/<uuid:public_uuid>/pdf/', ReceiptPDFView.as_view(), name='receipt-pdf'),
+    path('receipts/<uuid:receipt_uuid>/', PublicReceiptView.as_view(), name='public-receipt'),
+    path('receipts/<uuid:receipt_uuid>/balance/', ReceiptBalanceView.as_view(), name='receipt-balance'),
 ]
-

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useCurrency } from '../../context/CurrencyContext';
 import { ENDPOINTS } from '../../config/api';
@@ -8,6 +8,7 @@ import './OrderReceipt.css';
 
 export default function OrderReceipt() {
     const { id } = useParams();
+    const navigate = useNavigate();
     const { fetchWithAuth } = useAuth();
     const { currency } = useCurrency();
     const { showToast } = useToast();
@@ -18,7 +19,6 @@ export default function OrderReceipt() {
     useEffect(() => {
         const fetchData = async () => {
             try {
-                // Fetch order and store settings in parallel
                 const [orderRes, storeRes] = await Promise.all([
                     fetchWithAuth(`${ENDPOINTS.ORDERS}${id}/`),
                     fetchWithAuth(ENDPOINTS.SETTINGS_STORE)
@@ -32,7 +32,6 @@ export default function OrderReceipt() {
 
                 if (storeRes.ok) {
                     const storeData = await storeRes.json();
-                    // Handle both array response (results) and object response
                     setStoreSettings(Array.isArray(storeData) ? storeData[0] : (storeData.results ? storeData.results[0] : storeData));
                 }
             } catch (error) {
@@ -44,14 +43,39 @@ export default function OrderReceipt() {
         fetchData();
     }, [id, fetchWithAuth]);
 
-    const handlePrint = () => {
-        window.print();
+    const handlePrint = () => window.print();
+
+    const handleShareReceipt = () => {
+        if (!order?.receipt_uuid) {
+            showToast('Receipt link not available', 'error');
+            return;
+        }
+        const receiptUrl = `${window.location.origin}/r/${order.receipt_uuid}`;
+        
+        if (navigator.share) {
+            navigator.share({
+                title: `Receipt #${order.display_id}`,
+                text: `AZ Books Receipt #${order.display_id} — ₹${Number(order.total).toFixed(2)}`,
+                url: receiptUrl,
+            }).catch(() => {});
+        } else {
+            navigator.clipboard.writeText(receiptUrl).then(() => {
+                showToast('Receipt link copied!', 'success');
+            }).catch(() => {
+                showToast('Could not copy link', 'error');
+            });
+        }
+    };
+
+    const handleOpenPublicReceipt = () => {
+        if (order?.receipt_uuid) {
+            window.open(`/r/${order.receipt_uuid}`, '_blank');
+        }
     };
 
     if (loading) return <div className="p-5 text-center">Loading receipt...</div>;
     if (!order) return <div className="p-5 text-center text-danger">Order not found</div>;
 
-    // Use store settings if available, fallback to defaults
     const storeName = storeSettings?.store_name || storeSettings?.name || 'AZ Books';
     const storeAddress = storeSettings?.address || '';
     const storePhone = storeSettings?.phone || '';
@@ -59,14 +83,16 @@ export default function OrderReceipt() {
     return (
         <div className="receipt-container">
             <div className="receipt-actions no-print">
-                <button className="btn btn-primary" onClick={handlePrint}>Print Receipt</button>
+                <button className="btn btn-primary" onClick={handlePrint}>🖨️ Print</button>
+                <button className="btn btn-secondary" onClick={handleShareReceipt}>📤 Share Link</button>
+                <button className="btn btn-secondary" onClick={handleOpenPublicReceipt}>🧾 Customer View</button>
                 <button className="btn btn-ghost" onClick={() => {
                     if (window.history.length > 1) {
                         window.history.back();
                     } else {
-                        window.location.href = `/orders/${id}`;
+                        navigate(`/orders/${id}`);
                     }
-                }}>Close</button>
+                }}>← Close</button>
             </div>
 
             <div className="receipt-content">
@@ -76,7 +102,7 @@ export default function OrderReceipt() {
                     {storePhone && <p>Phone: {storePhone}</p>}
                     <div className="receipt-meta">
                         <p><strong>Order #{order.display_id}</strong></p>
-                        <p>Date: {new Date(order.created_at).toLocaleString()}</p>
+                        <p>Date: {new Date(order.created_at).toLocaleString('en-IN')}</p>
                     </div>
                 </header>
 
@@ -135,15 +161,41 @@ export default function OrderReceipt() {
                         <span>Paid:</span>
                         <span>{currency}{Number(order.amount_paid).toFixed(2)}</span>
                     </div>
-                    <div className="total-row">
-                        <span>Balance:</span>
-                        <span>{currency}{Number(order.balance_due).toFixed(2)}</span>
-                    </div>
+                    {Number(order.balance_due) > 0 && (
+                        <div className="total-row balance-due">
+                            <span>Balance Due:</span>
+                            <span>{currency}{Number(order.balance_due).toFixed(2)}</span>
+                        </div>
+                    )}
                 </div>
+
+                {/* Payment History */}
+                {order.payments && order.payments.length > 0 && (
+                    <div className="payment-history-section">
+                        <h3>Payment History</h3>
+                        <table className="receipt-table payment-table">
+                            <thead>
+                                <tr>
+                                    <th>Date</th>
+                                    <th>Method</th>
+                                    <th className="text-right">Amount</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {order.payments.map((p, i) => (
+                                    <tr key={i}>
+                                        <td>{new Date(p.created_at).toLocaleDateString('en-IN')}</td>
+                                        <td>{p.method_display || p.method}</td>
+                                        <td className="text-right">{currency}{Number(p.amount).toFixed(2)}</td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                )}
 
                 <footer className="receipt-footer">
                     <p>Thank you for shopping with us!</p>
-                    <p>Please keep this receipt for returns/exchanges.</p>
                 </footer>
             </div>
         </div>

@@ -252,3 +252,14 @@ CORS_ALLOW_CREDENTIALS = True
 # Allow all origins in development only
 if DEBUG:
     CORS_ALLOW_ALL_ORIGINS = True
+
+# ── WhatsApp Cloud API (Tribunal Commandment #7) ──
+WHATSAPP_PHONE_NUMBER_ID = os.getenv('WHATSAPP_PHONE_NUMBER_ID', '')
+WHATSAPP_ACCESS_TOKEN = os.getenv('WHATSAPP_ACCESS_TOKEN', '')
+RECEIPT_BASE_URL = os.getenv('RECEIPT_BASE_URL', 'http://localhost:5173')
+
+# ── Cloudflare R2 (Tribunal Commandment #5 — replaced B2) ──
+R2_ENDPOINT_URL = os.getenv('R2_ENDPOINT_URL', '')  # https://{account_id}.r2.cloudflarestorage.com
+R2_ACCESS_KEY_ID = os.getenv('R2_ACCESS_KEY_ID', '')
+R2_SECRET_ACCESS_KEY = os.getenv('R2_SECRET_ACCESS_KEY', '')
+R2_RECEIPTS_BUCKET = os.getenv('R2_RECEIPTS_BUCKET', 'azbooks-receipts')

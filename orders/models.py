@@ -1,9 +1,11 @@
 """
 Order Management models for POS functionality.
 """
+import uuid as uuid_lib
 from django.db import models
 from django.conf import settings
 from django.core.exceptions import ValidationError
+from django.utils import timezone
 from decimal import Decimal
 from core.models import SoftDeleteModel, UUIDPrimaryKeyModel, DisplayIDMixin
 
@@ -134,6 +136,21 @@ class Order(DisplayIDMixin, SoftDeleteModel):
     
     # Metadata
     notes = models.TextField(blank=True)
+    
+    # Receipt & delivery (Tribunal Commandments #1, #7, #8)
+    receipt_uuid = models.UUIDField(
+        default=uuid_lib.uuid4, unique=True, editable=False,
+        help_text="Public UUID for receipt access URL (/r/{uuid})"
+    )
+    delivered_at = models.DateTimeField(
+        null=True, blank=True,
+        help_text="When the order was physically delivered (auto-set)"
+    )
+    last_reminder_sent = models.DateTimeField(
+        null=True, blank=True,
+        help_text="Last overdue reminder sent (max 1/week)"
+    )
+    
     created_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.SET_NULL,
@@ -335,6 +352,9 @@ class Order(DisplayIDMixin, SoftDeleteModel):
 
     def save(self, *args, **kwargs):
         """Auto-refresh overall_status on every save."""
+        # Auto-set delivered_at when delivery transitions to 'delivered'
+        if self.delivery_status == 'delivered' and not self.delivered_at:
+            self.delivered_at = timezone.now()
         # Auto-transition: delivery=delivered → order=completed
         if self.delivery_status == 'delivered' and self.order_status in ('draft', 'confirmed'):
             self.order_status = 'completed'
@@ -423,6 +443,22 @@ class Payment(UUIDPrimaryKeyModel):
         super().save(*args, **kwargs)
         # Update order payment status after saving
         self.order.update_payment_status()
+        
+        # Dispatch payment notification + update R2 snapshot
+        # Wrapped in try/except: payment must never fail due to messaging/R2
+        try:
+            from messaging.dispatch import dispatch_payment_update
+            dispatch_payment_update(self.order, payment=self)
+        except Exception:
+            import logging
+            logging.getLogger(__name__).exception("Payment dispatch failed for order #%s", self.order.display_id)
+        
+        try:
+            from messaging.r2 import update_receipt_snapshot
+            update_receipt_snapshot(self.order)
+        except Exception:
+            import logging
+            logging.getLogger(__name__).exception("R2 snapshot failed for order #%s", self.order.display_id)
 
 
 class OrderStatusHistory(UUIDPrimaryKeyModel):

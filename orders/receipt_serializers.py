@@ -1,59 +1,89 @@
-"""Receipt serializers."""
+"""Living receipt serializers — reads from Order directly (not through Receipt model).
+
+Per tribunal mandate: Receipt is a "living document" showing items + payment history + balance.
+The separate Receipt model was merged into Order.receipt_uuid.
+"""
 from rest_framework import serializers
-from .receipt_models import Receipt, ReceiptVerification
+from .models import Order, Payment
 
 
-class PublicReceiptSerializer(serializers.ModelSerializer):
-    """Public receipt data with masked customer info."""
-    customer_name = serializers.SerializerMethodField()
-    customer_phone = serializers.SerializerMethodField()
-    order_display_id = serializers.CharField(source='order.display_id', read_only=True)
-    order_date = serializers.DateTimeField(source='order.created_at', read_only=True)
-    items = serializers.SerializerMethodField()
-    subtotal = serializers.DecimalField(source='order.subtotal', max_digits=12, decimal_places=2, read_only=True)
-    discount = serializers.DecimalField(source='order.discount_amount', max_digits=12, decimal_places=2, read_only=True)
-    tax = serializers.SerializerMethodField()
-    total = serializers.DecimalField(source='order.total', max_digits=12, decimal_places=2, read_only=True)
-    paid = serializers.DecimalField(source='order.amount_paid', max_digits=12, decimal_places=2, read_only=True)
-    balance = serializers.DecimalField(source='order.balance_due', max_digits=12, decimal_places=2, read_only=True)
-    payment_status = serializers.CharField(source='order.payment_status', read_only=True)
+class ReceiptPaymentSerializer(serializers.ModelSerializer):
+    """Payment record for the living receipt."""
+    method_display = serializers.CharField(source='get_method_display', read_only=True)
+    date = serializers.DateTimeField(source='created_at', format='%d/%m/%Y', read_only=True)
 
     class Meta:
-        model = Receipt
+        model = Payment
+        fields = ['date', 'method_display', 'amount']
+
+
+class LivingReceiptSerializer(serializers.ModelSerializer):
+    """
+    Public living receipt: items + payment history + balance.
+    
+    Served at /api/orders/receipts/{receipt_uuid}/
+    No authentication required — receipt_uuid acts as capability token.
+    """
+    customer_name = serializers.SerializerMethodField()
+    customer_phone = serializers.SerializerMethodField()
+    items = serializers.SerializerMethodField()
+    payments = ReceiptPaymentSerializer(many=True, read_only=True)
+    paid = serializers.DecimalField(
+        source='amount_paid', max_digits=12, decimal_places=2, read_only=True)
+    balance = serializers.DecimalField(
+        source='balance_due', max_digits=12, decimal_places=2, read_only=True)
+
+    class Meta:
+        model = Order
         fields = [
-            'public_uuid', 'order_display_id', 'order_date',
+            'receipt_uuid', 'display_id', 'created_at',
             'customer_name', 'customer_phone',
-            'items', 'subtotal', 'discount', 'tax', 'total',
-            'paid', 'balance', 'payment_status', 'created_at'
+            'items', 'subtotal', 'discount_amount', 'total',
+            'payments', 'paid', 'balance', 'payment_status',
         ]
-    
+
     def get_customer_name(self, obj):
-        return obj.get_masked_customer_name()
-    
+        """Mask customer name for privacy on public receipt."""
+        if obj.is_guest:
+            name = obj.guest_name or "Guest"
+        elif obj.customer:
+            name = obj.customer.full_name
+        else:
+            return "Guest"
+        if len(name) <= 3:
+            return name[0] + "***"
+        return name[:3] + "***"
+
     def get_customer_phone(self, obj):
-        return obj.get_masked_phone()
-    
-    def get_tax(self, obj):
-        return 0.0
-    
+        """Mask phone number for privacy on public receipt."""
+        phone = obj.customer.phone if obj.customer else obj.guest_phone
+        if not phone or len(phone) < 6:
+            return phone or "N/A"
+        return phone[:2] + "****" + phone[-2:]
+
     def get_items(self, obj):
-        """Get order items with minimal info."""
-        items = []
-        for item in obj.order.items.all():
-            items.append({
+        """Get order items with minimal info for receipt display."""
+        return [
+            {
                 'name': item.product.name if item.product else 'Unknown',
                 'quantity': item.quantity,
                 'price': str(item.unit_price),
-                'total': str(item.line_total)
-            })
-        return items
+                'total': str(item.line_total),
+            }
+            for item in obj.items.select_related('product').all()
+        ]
 
 
-class ReceiptVerificationSerializer(serializers.Serializer):
-    """Verify phone for PDF download."""
-    phone_last4 = serializers.CharField(max_length=4, min_length=4)
+class BalanceSerializer(serializers.ModelSerializer):
+    """
+    Tiny serializer — just current balance for UPI Pay Now button.
     
-    def validate_phone_last4(self, value):
-        if not value.isdigit():
-            raise serializers.ValidationError("Must be 4 digits")
-        return value
+    This endpoint is NEVER cached (must be live for UPI amount accuracy).
+    Served at /api/orders/receipts/{receipt_uuid}/balance/
+    """
+    balance = serializers.DecimalField(
+        source='balance_due', max_digits=12, decimal_places=2, read_only=True)
+
+    class Meta:
+        model = Order
+        fields = ['balance', 'payment_status']

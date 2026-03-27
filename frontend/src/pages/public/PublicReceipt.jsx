@@ -1,16 +1,104 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams } from 'react-router-dom';
 import './PublicReceipt.css';
+
+/* ── i18n strings ── */
+const STRINGS = {
+    gu: {
+        receipt: 'રસીદ',
+        date: 'તારીખ',
+        customer: 'ગ્રાહક',
+        item: 'આઇટમ',
+        qty: 'જથ્થો',
+        price: 'ભાવ',
+        total: 'કુલ',
+        subtotal: 'પેટા કુલ',
+        discount: 'ડિસ્કાઉન્ટ',
+        grandTotal: 'કુલ રકમ',
+        paid: 'ચૂકવેલ',
+        balance: 'બાકી રકમ',
+        paymentHistory: 'ચુકવણી ઇતિહાસ',
+        payDate: 'તારીખ',
+        method: 'પદ્ધતિ',
+        amount: 'રકમ',
+        payNow: 'હમણાં ચૂકવો',
+        downloadPdf: 'PDF ડાઉનલોડ કરો',
+        loading: 'રસીદ લોડ થઈ રહી છે...',
+        notFound: 'રસીદ મળી નથી',
+        noPayments: 'હજુ સુધી કોઈ ચુકવણી નથી',
+        poweredBy: 'AZ Books દ્વારા સંચાલિત',
+        Cash: 'રોકડ',
+        UPI: 'UPI',
+    },
+    hi: {
+        receipt: 'रसीद',
+        date: 'तारीख',
+        customer: 'ग्राहक',
+        item: 'आइटम',
+        qty: 'मात्रा',
+        price: 'कीमत',
+        total: 'कुल',
+        subtotal: 'उप कुल',
+        discount: 'छूट',
+        grandTotal: 'कुल राशि',
+        paid: 'भुगतान',
+        balance: 'बकाया राशि',
+        paymentHistory: 'भुगतान इतिहास',
+        payDate: 'तारीख',
+        method: 'तरीका',
+        amount: 'राशि',
+        payNow: 'अभी भुगतान करें',
+        downloadPdf: 'PDF डाउनलोड करें',
+        loading: 'रसीद लोड हो रही है...',
+        notFound: 'रसीद नहीं मिली',
+        noPayments: 'अभी तक कोई भुगतान नहीं',
+        poweredBy: 'AZ Books द्वारा संचालित',
+        Cash: 'नकद',
+        UPI: 'UPI',
+    },
+    en: {
+        receipt: 'Receipt',
+        date: 'Date',
+        customer: 'Customer',
+        item: 'Item',
+        qty: 'Qty',
+        price: 'Price',
+        total: 'Total',
+        subtotal: 'Subtotal',
+        discount: 'Discount',
+        grandTotal: 'Grand Total',
+        paid: 'Paid',
+        balance: 'Balance Due',
+        paymentHistory: 'Payment History',
+        payDate: 'Date',
+        method: 'Method',
+        amount: 'Amount',
+        payNow: 'Pay Now',
+        downloadPdf: 'Download PDF',
+        loading: 'Loading receipt...',
+        notFound: 'Receipt Not Found',
+        noPayments: 'No payments yet',
+        poweredBy: 'Powered by AZ Books',
+        Cash: 'Cash',
+        UPI: 'UPI',
+    },
+};
+
+const LANG_LABELS = { gu: 'ગુજ', hi: 'हिं', en: 'EN' };
+
+const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000/api';
 
 const PublicReceipt = () => {
     const { uuid } = useParams();
     const [receipt, setReceipt] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
-    const [showModal, setShowModal] = useState(false);
-    const [phone4, setPhone4] = useState('');
-    const [verifyError, setVerifyError] = useState('');
-    const [downloading, setDownloading] = useState(false);
+    const [lang, setLang] = useState('gu');
+    const [pdfLoading, setPdfLoading] = useState(false);
+    const [liveBalance, setLiveBalance] = useState(null);
+    const receiptRef = useRef(null);
+
+    const t = STRINGS[lang];
 
     useEffect(() => {
         fetchReceipt();
@@ -18,7 +106,7 @@ const PublicReceipt = () => {
 
     const fetchReceipt = async () => {
         try {
-            const response = await fetch(`/api/orders/receipts/${uuid}/`);
+            const response = await fetch(`${API_BASE}/orders/receipts/${uuid}/`);
             if (!response.ok) throw new Error('Receipt not found');
             const data = await response.json();
             setReceipt(data);
@@ -29,41 +117,60 @@ const PublicReceipt = () => {
         }
     };
 
-    const handleDownload = async () => {
-        if (phone4.length !== 4) {
-            setVerifyError('Please enter exactly 4 digits');
-            return;
-        }
-
-        setDownloading(true);
-        setVerifyError('');
-
+    /* Fetch live balance before Pay Now (never cached) */
+    const fetchLiveBalance = async () => {
         try {
-            const response = await fetch(`/api/orders/receipts/${uuid}/pdf/`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ phone_last4: phone4 })
-            });
+            const res = await fetch(`${API_BASE}/orders/receipts/${uuid}/balance/`);
+            if (!res.ok) return null;
+            const data = await res.json();
+            setLiveBalance(data.balance);
+            return data.balance;
+        } catch {
+            return null;
+        }
+    };
 
-            if (response.status === 403) {
-                setVerifyError('Phone verification failed. Please check the last 4 digits.');
-                return;
-            }
+    /* UPI deep link: upi://pay?pa=VPA&pn=Name&am=Amount&cu=INR */
+    const handlePayNow = async () => {
+        const balance = await fetchLiveBalance();
+        if (!balance || parseFloat(balance) <= 0) return;
+        
+        const storeName = receipt.store?.name || 'AZ Books';
+        // TODO: Set actual UPI VPA in StoreSettings
+        const vpa = receipt.store?.upi_vpa || 'azbooks@upi';
+        const upiUrl = `upi://pay?pa=${encodeURIComponent(vpa)}&pn=${encodeURIComponent(storeName)}&am=${balance}&cu=INR&tn=Receipt%23${receipt.display_id}`;
+        window.location.href = upiUrl;
+    };
 
-            if (!response.ok) throw new Error('Download failed');
+    /* Client-side PDF via html2pdf.js */
+    const handleDownloadPdf = async () => {
+        if (!receiptRef.current) return;
+        setPdfLoading(true);
+        try {
+            const html2pdf = (await import('html2pdf.js')).default;
+            const element = receiptRef.current;
+            
+            // Hide buttons before printing
+            const buttons = element.querySelectorAll('.receipt-actions, .lang-toggle');
+            buttons.forEach(b => b.style.display = 'none');
 
-            const blob = await response.blob();
-            const url = window.URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `receipt_${receipt.order_display_id}.pdf`;
-            a.click();
-            window.URL.revokeObjectURL(url);
-            setShowModal(false);
+            await html2pdf()
+                .set({
+                    margin: [10, 8, 10, 8],
+                    filename: `Receipt_${receipt.display_id}.pdf`,
+                    image: { type: 'jpeg', quality: 0.98 },
+                    html2canvas: { scale: 2, useCORS: true },
+                    jsPDF: { unit: 'mm', format: 'a5', orientation: 'portrait' },
+                })
+                .from(element)
+                .save();
+
+            // Restore buttons
+            buttons.forEach(b => b.style.display = '');
         } catch (err) {
-            setVerifyError(err.message);
+            console.error('PDF generation failed:', err);
         } finally {
-            setDownloading(false);
+            setPdfLoading(false);
         }
     };
 
@@ -72,7 +179,7 @@ const PublicReceipt = () => {
             <div className="public-receipt-page">
                 <div className="loading-container">
                     <div className="loading-spinner"></div>
-                    <p>Loading receipt...</p>
+                    <p>{STRINGS[lang].loading}</p>
                 </div>
             </div>
         );
@@ -83,7 +190,7 @@ const PublicReceipt = () => {
             <div className="public-receipt-page">
                 <div className="error-container">
                     <div className="error-icon">❌</div>
-                    <h2>Receipt Not Found</h2>
+                    <h2>{STRINGS[lang].notFound}</h2>
                     <p>{error}</p>
                 </div>
             </div>
@@ -91,40 +198,44 @@ const PublicReceipt = () => {
     }
 
     const currency = receipt.store?.currency_symbol || '₹';
+    const balance = parseFloat(liveBalance ?? receipt.balance ?? 0);
+    const hasBalance = balance > 0;
 
     return (
         <div className="public-receipt-page">
-            <div className="receipt-container">
+            {/* Language Toggle */}
+            <div className="lang-toggle">
+                {Object.entries(LANG_LABELS).map(([code, label]) => (
+                    <button
+                        key={code}
+                        className={`lang-btn ${lang === code ? 'active' : ''}`}
+                        onClick={() => setLang(code)}
+                    >
+                        {label}
+                    </button>
+                ))}
+            </div>
+
+            <div className="receipt-container" ref={receiptRef}>
                 {/* Store Header */}
                 <div className="store-header">
-                    {receipt.store?.logo && (
-                        <img src={receipt.store.logo} alt="Store Logo" className="store-logo" />
-                    )}
                     <h1 className="store-name">{receipt.store?.name || 'AZ Books'}</h1>
-                    {receipt.store?.address && <p className="store-address">{receipt.store.address}</p>}
                     {receipt.store?.phone && <p className="store-phone">📞 {receipt.store.phone}</p>}
                 </div>
-
-                {receipt.receipt_header && (
-                    <div className="receipt-header-text">{receipt.receipt_header}</div>
-                )}
 
                 {/* Order Info */}
                 <div className="order-info">
                     <div className="order-number">
-                        <span className="label">Receipt #</span>
-                        <span className="value">{receipt.order_display_id}</span>
+                        <span className="label">{t.receipt} #</span>
+                        <span className="value">{receipt.display_id}</span>
                     </div>
                     <div className="order-date">
-                        <span className="label">Date</span>
+                        <span className="label">{t.date}</span>
                         <span className="value">
-                            {new Date(receipt.order_date).toLocaleDateString('en-IN', {
-                                day: '2-digit',
-                                month: 'short',
-                                year: 'numeric',
-                                hour: '2-digit',
-                                minute: '2-digit'
-                            })}
+                            {new Date(receipt.created_at).toLocaleDateString(
+                                lang === 'gu' ? 'gu-IN' : lang === 'hi' ? 'hi-IN' : 'en-IN',
+                                { day: '2-digit', month: 'short', year: 'numeric' }
+                            )}
                         </span>
                     </div>
                 </div>
@@ -140,15 +251,15 @@ const PublicReceipt = () => {
                     <table className="items-table">
                         <thead>
                             <tr>
-                                <th>Item</th>
-                                <th>Qty</th>
-                                <th>Price</th>
-                                <th>Total</th>
+                                <th>{t.item}</th>
+                                <th>{t.qty}</th>
+                                <th>{t.price}</th>
+                                <th>{t.total}</th>
                             </tr>
                         </thead>
                         <tbody>
-                            {receipt.items?.map((item, index) => (
-                                <tr key={index}>
+                            {receipt.items?.map((item, i) => (
+                                <tr key={i}>
                                     <td className="item-name">{item.name}</td>
                                     <td className="item-qty">{item.quantity}</td>
                                     <td className="item-price">{currency}{parseFloat(item.price).toFixed(2)}</td>
@@ -162,91 +273,85 @@ const PublicReceipt = () => {
                 {/* Totals */}
                 <div className="totals-section">
                     <div className="total-row">
-                        <span>Subtotal</span>
+                        <span>{t.subtotal}</span>
                         <span>{currency}{parseFloat(receipt.subtotal || 0).toFixed(2)}</span>
                     </div>
-                    {parseFloat(receipt.discount) > 0 && (
+                    {parseFloat(receipt.discount_amount) > 0 && (
                         <div className="total-row discount">
-                            <span>Discount</span>
-                            <span>-{currency}{parseFloat(receipt.discount).toFixed(2)}</span>
-                        </div>
-                    )}
-                    {parseFloat(receipt.tax) > 0 && (
-                        <div className="total-row">
-                            <span>Tax</span>
-                            <span>{currency}{parseFloat(receipt.tax).toFixed(2)}</span>
+                            <span>{t.discount}</span>
+                            <span>-{currency}{parseFloat(receipt.discount_amount).toFixed(2)}</span>
                         </div>
                     )}
                     <div className="total-row grand-total">
-                        <span>Total</span>
+                        <span>{t.grandTotal}</span>
                         <span>{currency}{parseFloat(receipt.total || 0).toFixed(2)}</span>
                     </div>
                     <div className="total-row">
-                        <span>Paid</span>
+                        <span>{t.paid}</span>
                         <span>{currency}{parseFloat(receipt.paid || 0).toFixed(2)}</span>
                     </div>
-                    {parseFloat(receipt.balance) > 0 && (
-                        <div className="total-row balance">
-                            <span>Balance Due</span>
-                            <span>{currency}{parseFloat(receipt.balance).toFixed(2)}</span>
+                    {hasBalance && (
+                        <div className="total-row balance-due">
+                            <span>{t.balance}</span>
+                            <span>{currency}{balance.toFixed(2)}</span>
                         </div>
                     )}
                 </div>
 
-                {/* Payment Status */}
+                {/* Payment Status Badge */}
                 <div className="payment-status-container">
                     <span className={`payment-badge ${receipt.payment_status?.toLowerCase()}`}>
-                        {receipt.payment_status || 'Pending'}
+                        {receipt.payment_status?.toUpperCase() || 'PENDING'}
                     </span>
                 </div>
 
-                {/* Download Button */}
-                <button className="download-btn" onClick={() => setShowModal(true)}>
-                    📄 Download PDF Receipt
-                </button>
-
-                {/* Footer */}
-                {receipt.receipt_footer && (
-                    <div className="receipt-footer">{receipt.receipt_footer}</div>
+                {/* Payment History */}
+                {receipt.payments && receipt.payments.length > 0 ? (
+                    <div className="payment-history">
+                        <h3>{t.paymentHistory}</h3>
+                        <table className="payments-table">
+                            <thead>
+                                <tr>
+                                    <th>{t.payDate}</th>
+                                    <th>{t.method}</th>
+                                    <th>{t.amount}</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {receipt.payments.map((p, i) => (
+                                    <tr key={i}>
+                                        <td>{p.date}</td>
+                                        <td>{t[p.method_display] || p.method_display}</td>
+                                        <td>{currency}{parseFloat(p.amount).toFixed(2)}</td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                ) : (
+                    <div className="payment-history empty">
+                        <p className="no-payments">{t.noPayments}</p>
+                    </div>
                 )}
 
-                <div className="powered-by">Powered by AZ Books</div>
-            </div>
-
-            {/* Verification Modal */}
-            {showModal && (
-                <div className="modal-overlay" onClick={() => setShowModal(false)}>
-                    <div className="modal-content" onClick={e => e.stopPropagation()}>
-                        <h3>📱 Phone Verification</h3>
-                        <p>Enter the last 4 digits of your phone number to download the PDF.</p>
-
-                        <input
-                            type="text"
-                            value={phone4}
-                            onChange={e => setPhone4(e.target.value.replace(/\D/g, '').slice(0, 4))}
-                            placeholder="Last 4 digits"
-                            maxLength={4}
-                            className="phone-input"
-                            autoFocus
-                        />
-
-                        {verifyError && <p className="verify-error">{verifyError}</p>}
-
-                        <div className="modal-buttons">
-                            <button className="cancel-btn" onClick={() => setShowModal(false)}>
-                                Cancel
-                            </button>
-                            <button
-                                className="verify-btn"
-                                onClick={handleDownload}
-                                disabled={downloading || phone4.length !== 4}
-                            >
-                                {downloading ? 'Downloading...' : 'Download PDF'}
-                            </button>
-                        </div>
-                    </div>
+                {/* Action Buttons */}
+                <div className="receipt-actions">
+                    {hasBalance && (
+                        <button className="pay-now-btn" onClick={handlePayNow}>
+                            💳 {t.payNow} — {currency}{balance.toFixed(2)}
+                        </button>
+                    )}
+                    <button 
+                        className="download-btn" 
+                        onClick={handleDownloadPdf}
+                        disabled={pdfLoading}
+                    >
+                        {pdfLoading ? '⏳...' : `📄 ${t.downloadPdf}`}
+                    </button>
                 </div>
-            )}
+
+                <div className="powered-by">{t.poweredBy}</div>
+            </div>
         </div>
     );
 };

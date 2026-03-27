@@ -46,6 +46,30 @@ class Customer(DisplayIDMixin, SoftDeleteModel):
     # Notes
     notes = models.TextField(blank=True)
     
+    # Messaging preferences (Tribunal Commandments #4, #5, #6)
+    CONTACT_PREF_CHOICES = [
+        ('whatsapp', 'WhatsApp'),
+        ('sms', 'SMS'),
+        ('none', 'None'),
+    ]
+    LANGUAGE_CHOICES = [
+        ('gu', 'Gujarati'),
+        ('hi', 'Hindi'),
+        ('en', 'English'),
+    ]
+    contact_preference = models.CharField(
+        max_length=10, choices=CONTACT_PREF_CHOICES, default='whatsapp',
+        help_text="Preferred messaging channel for receipts and updates"
+    )
+    preferred_language = models.CharField(
+        max_length=5, choices=LANGUAGE_CHOICES, default='gu',
+        help_text="Preferred language for receipts and messages"
+    )
+    show_balance_in_messages = models.BooleanField(
+        default=True,
+        help_text="If False, balance amounts are hidden in WhatsApp/SMS messages (debt-stigma privacy)"
+    )
+    
     # Audit
     created_by = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.SET_NULL,
