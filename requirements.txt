@@ -30,6 +30,9 @@ boto3>=1.38.0
 # Production WSGI Server
 gunicorn>=23.0.0
 
+# Production Static Files
+whitenoise>=6.9.0
+
 # Development Tools (optional)
 # django-debug-toolbar>=4.0.0
 # black>=24.0.0
