@@ -115,6 +115,11 @@ if DB_ENGINE:
             'PORT': os.getenv('DB_PORT', '5432'),
         }
     }
+    # Neon PostgreSQL requires SSL
+    if os.getenv('DB_SSLMODE'):
+        DATABASES['default']['OPTIONS'] = {
+            'sslmode': os.getenv('DB_SSLMODE', 'require'),
+        }
 else:
     # Default to SQLite for development
     DATABASES = {
