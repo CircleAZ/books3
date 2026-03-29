@@ -1,0 +1,143 @@
+name: Daily Database Backup
+
+on:
+  schedule:
+    # 4:00 AM IST = 22:30 UTC (previous day)
+    - cron: '30 22 * * *'
+  workflow_dispatch: # Allow manual trigger for testing
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Install PostgreSQL client
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq postgresql-client
+
+      - name: Generate backup filename
+        id: filename
+        run: |
+          TIMESTAMP=$(date +%Y%m%d_%H%M%S)
+          echo "timestamp=$TIMESTAMP" >> $GITHUB_OUTPUT
+          echo "dump_file=azbooks_${TIMESTAMP}.dump" >> $GITHUB_OUTPUT
+          echo "encrypted_file=azbooks_${TIMESTAMP}.dump.gpg" >> $GITHUB_OUTPUT
+
+      - name: Dump database
+        env:
+          PGHOST: ${{ secrets.NEON_DB_HOST }}
+          PGDATABASE: ${{ secrets.NEON_DB_NAME }}
+          PGUSER: ${{ secrets.NEON_DB_USER }}
+          PGPASSWORD: ${{ secrets.NEON_DB_PASSWORD }}
+          PGSSLMODE: require
+        run: |
+          echo "Starting pg_dump..."
+          pg_dump \
+            --format=custom \
+            --compress=9 \
+            --no-owner \
+            --no-privileges \
+            -f "${{ steps.filename.outputs.dump_file }}"
+          
+          DUMP_SIZE=$(stat -c%s "${{ steps.filename.outputs.dump_file }}")
+          echo "Dump complete: ${{ steps.filename.outputs.dump_file }} (${DUMP_SIZE} bytes)"
+          
+          if [ "$DUMP_SIZE" -lt 1000 ]; then
+            echo "::error::Dump file is suspiciously small (${DUMP_SIZE} bytes). Aborting."
+            exit 1
+          fi
+
+      - name: Verify dump integrity
+        run: |
+          echo "Verifying dump with pg_restore --list..."
+          pg_restore --list "${{ steps.filename.outputs.dump_file }}" > /dev/null
+          echo "✅ Dump verification passed"
+
+      - name: Encrypt backup
+        env:
+          BACKUP_ENCRYPT_KEY: ${{ secrets.BACKUP_ENCRYPT_KEY }}
+        run: |
+          echo "Encrypting with GPG AES-256..."
+          gpg --batch --yes --symmetric \
+            --cipher-algo AES256 \
+            --passphrase "$BACKUP_ENCRYPT_KEY" \
+            -o "${{ steps.filename.outputs.encrypted_file }}" \
+            "${{ steps.filename.outputs.dump_file }}"
+          
+          ENC_SIZE=$(stat -c%s "${{ steps.filename.outputs.encrypted_file }}")
+          echo "✅ Encrypted: ${{ steps.filename.outputs.encrypted_file }} (${ENC_SIZE} bytes)"
+          
+          # Remove unencrypted dump
+          rm -f "${{ steps.filename.outputs.dump_file }}"
+
+      - name: Upload to Cloudflare R2
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_BACKUP_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_BACKUP_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: auto
+        run: |
+          echo "Uploading to R2..."
+          aws s3 cp \
+            "${{ steps.filename.outputs.encrypted_file }}" \
+            "s3://azbooks-backups/daily/${{ steps.filename.outputs.encrypted_file }}" \
+            --endpoint-url "${{ secrets.R2_BACKUP_ENDPOINT }}"
+          echo "✅ Upload complete"
+
+      - name: Verify upload
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_BACKUP_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_BACKUP_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: auto
+        run: |
+          echo "Verifying upload..."
+          aws s3 ls \
+            "s3://azbooks-backups/daily/${{ steps.filename.outputs.encrypted_file }}" \
+            --endpoint-url "${{ secrets.R2_BACKUP_ENDPOINT }}"
+          echo "✅ Upload verified on R2"
+
+      - name: Cleanup old backups (30-day retention)
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_BACKUP_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_BACKUP_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: auto
+        run: |
+          echo "Checking for backups older than 30 days..."
+          CUTOFF_DATE=$(date -d '30 days ago' +%Y%m%d)
+          
+          aws s3 ls "s3://azbooks-backups/daily/" \
+            --endpoint-url "${{ secrets.R2_BACKUP_ENDPOINT }}" \
+            | while read -r line; do
+              FILE=$(echo "$line" | awk '{print $4}')
+              # Extract date from filename: azbooks_YYYYMMDD_HHMMSS.dump.gpg
+              FILE_DATE=$(echo "$FILE" | grep -oP '\d{8}' | head -1)
+              if [ -n "$FILE_DATE" ] && [ "$FILE_DATE" -lt "$CUTOFF_DATE" ]; then
+                echo "Deleting old backup: $FILE (date: $FILE_DATE)"
+                aws s3 rm "s3://azbooks-backups/daily/$FILE" \
+                  --endpoint-url "${{ secrets.R2_BACKUP_ENDPOINT }}"
+              fi
+            done
+          echo "✅ Cleanup complete"
+
+      - name: Summary
+        run: |
+          echo "## 🗄️ Backup Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Item | Value |" >> $GITHUB_STEP_SUMMARY
+          echo "|:--|:--|" >> $GITHUB_STEP_SUMMARY
+          echo "| **File** | \`${{ steps.filename.outputs.encrypted_file }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Timestamp** | ${{ steps.filename.outputs.timestamp }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Destination** | R2: \`azbooks-backups/daily/\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Encryption** | AES-256 (GPG) |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Status** | ✅ Success |" >> $GITHUB_STEP_SUMMARY
+
+      # --- Failure notification ---
+      - name: Notify on failure
+        if: failure()
+        run: |
+          echo "::error::❌ BACKUP FAILED! Check the logs above for details."
+          echo "## ❌ Backup FAILED" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "The daily database backup failed. Investigate immediately." >> $GITHUB_STEP_SUMMARY
+          echo "**Time**: $(date -u +%Y-%m-%dT%H:%M:%SZ)" >> $GITHUB_STEP_SUMMARY
