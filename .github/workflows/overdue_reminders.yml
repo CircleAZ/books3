@@ -35,3 +35,6 @@ jobs:
       
       - name: Run overdue reminders
         run: python manage.py send_overdue_reminders
+
+      - name: Flush expired JWT tokens
+        run: python manage.py flushexpiredtokens

@@ -31,10 +31,25 @@ SECRET_KEY = os.getenv('SECRET_KEY', 'django-insecure-vgu9aslgy*u+)5gt=^8=r8%lj3
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.getenv('DEBUG', 'True').lower() == 'true'
 
+# Startup guard: crash if insecure SECRET_KEY is used in production
+if not DEBUG and 'insecure' in SECRET_KEY:
+    from django.core.exceptions import ImproperlyConfigured
+    raise ImproperlyConfigured("Production requires a real SECRET_KEY. Set SECRET_KEY env var.")
+
 ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS', 'localhost,127.0.0.1').split(',')
 
 # CSRF trusted origins (required for Django 4.0+ when DEBUG=False)
 CSRF_TRUSTED_ORIGINS = os.getenv('CSRF_TRUSTED_ORIGINS', 'http://localhost:8000,http://127.0.0.1:8000').split(',')
+
+# Production security hardening
+if not DEBUG:
+    SECURE_HSTS_SECONDS = 31536000           # 1 year — browsers always use HTTPS
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = True     # Apply to api.circleaz.in too
+    SECURE_CONTENT_TYPE_NOSNIFF = True        # Prevent MIME sniffing
+    SESSION_COOKIE_SECURE = True              # Cookie only over HTTPS
+    CSRF_COOKIE_SECURE = True                 # CSRF cookie only over HTTPS
+    # NOTE: SECURE_SSL_REDIRECT = False — Cloudflare handles HTTPS redirect.
+    # Setting True causes infinite redirect loops behind CF proxy.
 
 
 # Application definition
@@ -115,6 +130,8 @@ if DB_ENGINE:
             'PORT': os.getenv('DB_PORT', '5432'),
         }
     }
+    DATABASES['default']['CONN_MAX_AGE'] = 600            # Keep connections alive 10 min
+    DATABASES['default']['CONN_HEALTH_CHECKS'] = True      # Auto-reconnect stale connections
     # Neon PostgreSQL requires SSL
     if os.getenv('DB_SSLMODE'):
         DATABASES['default']['OPTIONS'] = {
@@ -196,8 +213,9 @@ REST_FRAMEWORK = {
     'PAGE_SIZE': 20,
     'DEFAULT_RENDERER_CLASSES': [
         'rest_framework.renderers.JSONRenderer',
+    ] + ([
         'rest_framework.renderers.BrowsableAPIRenderer',
-    ],
+    ] if DEBUG else []),
 }
 
 # Simple JWT configuration (Tribunal Consensus: 5-min access tokens)
