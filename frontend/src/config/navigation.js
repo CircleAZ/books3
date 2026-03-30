@@ -215,8 +215,12 @@ export function getBreadcrumbs(pathname) {
         const isSectionMatch = pathname === section.path || pathname.startsWith(section.path + '/');
 
         if (isChildMatch || isSectionMatch) {
-            // Add section as parent crumb
-            crumbs.push({ label: section.title || section.label, path: section.path });
+            // Add section as parent crumb (with children for dropdown nav)
+            crumbs.push({
+                label: section.title || section.label,
+                path: section.path,
+                children: section.children || null,
+            });
 
             // FIX #1: Sort children by path length DESC before find()
             // This ensures '/inventory/categories' matches before '/inventory'

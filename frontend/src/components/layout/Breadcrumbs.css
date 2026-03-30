@@ -17,6 +17,7 @@
     display: flex;
     align-items: center;
     gap: 2px;
+    position: relative;
 }
 
 .breadcrumb-link {
@@ -59,4 +60,135 @@
 .breadcrumb-link:focus-visible {
     outline: 2px solid var(--color-primary);
     outline-offset: 2px;
+}
+
+/* ============ Dropdown Trigger & Menu ============ */
+
+/* Combined link + expand button wrapper */
+.breadcrumb-with-dropdown {
+    display: flex;
+    align-items: center;
+    gap: 0;
+    position: relative;
+}
+
+/* Expand chevron button (next to non-last crumbs) */
+.breadcrumb-expand-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 18px;
+    height: 18px;
+    padding: 0;
+    border: none;
+    background: none;
+    cursor: pointer;
+    color: var(--color-text-muted);
+    border-radius: var(--radius-sm);
+    transition: color var(--transition-fast), background var(--transition-fast);
+    flex-shrink: 0;
+}
+
+.breadcrumb-expand-btn:hover {
+    color: var(--color-primary);
+    background: rgba(56, 139, 253, 0.1);
+}
+
+/* Dropdown button inside last-crumb (current page) */
+.breadcrumb-dropdown-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: var(--font-size-xs);
+    font-weight: 500;
+    color: var(--color-text-secondary);
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 2px 6px;
+    border-radius: var(--radius-sm);
+    transition: color var(--transition-fast), background var(--transition-fast);
+    white-space: nowrap;
+    font-family: inherit;
+}
+
+.breadcrumb-dropdown-btn:hover {
+    color: var(--color-primary);
+    background: rgba(56, 139, 253, 0.08);
+}
+
+.breadcrumb-trigger {
+    position: relative;
+}
+
+/* Chevron rotation */
+.breadcrumb-chevron {
+    transition: transform 0.2s ease;
+    opacity: 0.5;
+    flex-shrink: 0;
+}
+
+.breadcrumb-chevron.open {
+    transform: rotate(180deg);
+    opacity: 0.9;
+}
+
+/* Dropdown menu */
+.breadcrumb-dropdown {
+    position: absolute;
+    top: calc(100% + 4px);
+    left: 0;
+    z-index: 1000;
+    min-width: 200px;
+    max-width: 280px;
+    background: var(--color-card);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.14), 0 2px 8px rgba(0, 0, 0, 0.08);
+    padding: 4px;
+    animation: bcDropdownIn 0.15s ease;
+}
+
+.breadcrumb-dropdown-item {
+    display: block;
+    padding: 7px 12px;
+    font-size: var(--font-size-sm, 0.8125rem);
+    color: var(--color-text);
+    text-decoration: none;
+    border-radius: var(--radius-sm);
+    transition: background var(--transition-fast), color var(--transition-fast);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.breadcrumb-dropdown-item:hover {
+    background: rgba(56, 139, 253, 0.08);
+    color: var(--color-primary);
+}
+
+.breadcrumb-dropdown-item.active {
+    background: rgba(56, 139, 253, 0.12);
+    color: var(--color-primary);
+    font-weight: 600;
+}
+
+@keyframes bcDropdownIn {
+    from {
+        opacity: 0;
+        transform: translateY(-6px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Responsive — ensure dropdown doesn't overflow on mobile */
+@media (max-width: 600px) {
+    .breadcrumb-dropdown {
+        min-width: 170px;
+        max-width: 220px;
+        right: auto;
+    }
 }
