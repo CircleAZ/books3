@@ -21,7 +21,6 @@ export const menuSections = [
         children: [
             { label: 'Create New Order', title: 'New Order', path: '/orders/new' },
             { label: 'View Orders', title: 'Orders', path: '/orders' },
-            { label: 'Sales Reports', title: 'Sales Reports', path: '/reports/sales' },
         ],
     },
     {
@@ -48,7 +47,6 @@ export const menuSections = [
             { label: 'Manage Vendors', title: 'Vendors', path: '/inventory/vendors' },
             { label: 'Stock Adjustments', title: 'Stock Adjustments', path: '/inventory/stock' },
             { label: 'Deleted Products', title: 'Deleted Products', path: '/inventory/deleted' },
-            { label: 'Inventory Reports', title: 'Inventory Reports', path: '/reports/inventory' },
         ],
     },
     {
@@ -64,7 +62,6 @@ export const menuSections = [
             { label: 'Season Report', title: 'Season Report', path: '/customers/report' },
             { label: 'Add New Customer', title: 'Add Customer', path: '/customers/add' },
             { label: 'Customer Settings', title: 'Customer Settings', path: '/customers/settings' },
-            { label: 'Customer Reports', title: 'Customer Reports', path: '/reports/customers' },
         ],
     },
     {
@@ -78,7 +75,23 @@ export const menuSections = [
             { label: 'Expense List', title: 'Expenses', path: '/finance/expenses' },
             { label: 'Add Expense', title: 'Add Expense', path: '/finance/expenses/add' },
             { label: 'Expense Categories', title: 'Expense Categories', path: '/finance/categories' },
-            { label: 'Profit & Loss', title: 'Profit & Loss', path: '/reports/profit-loss' },
+            { label: 'Employee Expenses', title: 'Employee Expenses', path: '/finance/employee-expenses' },
+            { label: 'Employee Salaries', title: 'Salaries', path: '/finance/salaries' },
+            { label: 'Financial Reports', title: 'Financial Reports', path: '/finance/reports' },
+            { label: 'Profit & Loss', title: 'Profit & Loss', path: '/finance/reports/profit-loss' },
+            { label: 'Balance Sheet', title: 'Balance Sheet', path: '/finance/reports/balance-sheet' },
+            { label: 'Cash Flow', title: 'Cash Flow', path: '/finance/reports/cash-flow' },
+            { label: 'Expense Report', title: 'Expense Report', path: '/finance/reports/expenses' },
+            { label: 'Tax Report', title: 'Tax Report', path: '/finance/reports/sales-tax' },
+            { label: 'Bank Accounts', title: 'Banking', path: '/finance/banking' },
+            { label: 'Bank Transactions', title: 'Transactions', path: '/finance/banking/transactions' },
+            { label: 'Record Transaction', title: 'Record Transaction', path: '/finance/banking/record' },
+            { label: 'Recurring Expenses', title: 'Recurring Expenses', path: '/finance/recurring' },
+            { label: 'Category Budgets', title: 'Budgets', path: '/finance/budgets' },
+            { label: 'Income Categories', title: 'Income Categories', path: '/finance/income-categories' },
+            { label: 'Lenders', title: 'Lenders', path: '/finance/lenders' },
+            { label: 'Trips', title: 'Trips', path: '/finance/trips' },
+            { label: 'New Trip', title: 'New Trip', path: '/finance/trips/new' },
         ],
     },
     {
@@ -104,7 +117,6 @@ export const menuSections = [
             { label: 'Sales Reports', title: 'Sales Reports', path: '/reports/sales' },
             { label: 'Inventory Reports', title: 'Inventory Reports', path: '/reports/inventory' },
             { label: 'Customer Reports', title: 'Customer Reports', path: '/reports/customers' },
-            { label: 'Profit & Loss', title: 'Profit & Loss', path: '/reports/profit-loss' },
             { label: 'Activity Log', title: 'Activity Log', path: '/reports/activity' },
             { label: 'Export Data', title: 'Export Data', path: '/reports/export' },
         ],
@@ -125,6 +137,7 @@ export const menuSections = [
             { label: 'Receipt Customization', title: 'Receipt Customization', path: '/settings/receipt' },
             { label: 'Notification Preferences', title: 'Notification Preferences', path: '/settings/notifications' },
             { label: 'Integrations', title: 'Integrations', path: '/settings/integrations' },
+            { label: 'Customer Settings', title: 'Customer Settings', path: '/settings/customers' },
             { label: 'Data Management', title: 'Data Management', path: '/settings/data' },
             { label: 'System Information', title: 'System Information', path: '/settings/system' },
         ],
@@ -156,12 +169,19 @@ export const routeTitles = buildRouteTitles();
 
 
 // ============ Derived: Dynamic Route Patterns ============
+// ORDER MATTERS: more specific patterns (with /edit, /receipt) must come FIRST
 export const dynamicPatterns = [
+    { pattern: /^\/customers\/\d+\/edit/, title: 'Edit Customer' },
     { pattern: /^\/customers\/\d+/, title: 'Customer Details' },
+    { pattern: /^\/orders\/\d+\/edit/, title: 'Edit Order' },
+    { pattern: /^\/orders\/\d+\/receipt/, title: 'Order Receipt' },
     { pattern: /^\/orders\/\d+/, title: 'Order Details' },
-    { pattern: /^\/inventory\/\d+\/edit/, title: 'Edit Product' },
-    { pattern: /^\/inventory\/\d+/, title: 'Product Details' },
+    { pattern: /^\/inventory\/edit\/\d+/, title: 'Edit Product' },
+    { pattern: /^\/inventory\/product\/\d+/, title: 'Product Details' },
     { pattern: /^\/finance\/expenses\/\d+/, title: 'Expense Details' },
+    { pattern: /^\/finance\/lenders\/\d+/, title: 'Lender Details' },
+    { pattern: /^\/finance\/loans\/\d+/, title: 'Loan Details' },
+    { pattern: /^\/finance\/trips\/\d+/, title: 'Trip Details' },
     { pattern: /^\/returns\/\d+/, title: 'Return Details' },
 ];
 
@@ -194,9 +214,13 @@ export function getBreadcrumbs(pathname) {
             // Add section as parent crumb
             crumbs.push({ label: section.title || section.label, path: section.path });
 
-            // Find matching child
+            // FIX #1: Sort children by path length DESC before find()
+            // This ensures '/inventory/categories' matches before '/inventory'
             if (section.children) {
-                const matchedChild = section.children.find(
+                const sortedChildren = [...section.children].sort(
+                    (a, b) => b.path.length - a.path.length
+                );
+                const matchedChild = sortedChildren.find(
                     c => pathname === c.path || pathname.startsWith(c.path + '/')
                 );
                 if (matchedChild && matchedChild.path !== section.path) {
