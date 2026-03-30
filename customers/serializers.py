@@ -168,7 +168,8 @@ class CustomerListSerializer(serializers.ModelSerializer):
     """Lightweight serializer for list views."""
     full_name = serializers.CharField(read_only=True)
     school_name = serializers.CharField(source='school.name', read_only=True, default=None)
-    class_name = serializers.CharField(source='class_obj.name', read_only=True, default=None)
+    school_id = serializers.UUIDField(source='school.id', read_only=True, default=None)
+    effective_class_name = serializers.SerializerMethodField()
     group_name = serializers.CharField(source='customer_group.name', read_only=True, default=None)
     primary_address = serializers.SerializerMethodField()
     wallet_balance = serializers.DecimalField(max_digits=10, decimal_places=2, read_only=True)
@@ -177,9 +178,16 @@ class CustomerListSerializer(serializers.ModelSerializer):
         model = Customer
         fields = [
             'id', 'display_id', 'full_name', 'first_name', 'last_name',
-            'phone', 'email', 'school_name', 'class_name', 'group_name',
-            'primary_address', 'wallet_balance', 'created_at'
+            'phone', 'email', 'school_name', 'school_id',
+            'effective_class_name', 'class_name',
+            'group_name', 'primary_address', 'wallet_balance', 'created_at'
         ]
+    
+    def get_effective_class_name(self, obj):
+        """Return class name from class_obj (school-based) or class_name (independent)."""
+        if obj.class_obj:
+            return obj.class_obj.name
+        return obj.class_name or None
     
     def get_primary_address(self, obj):
         addresses = getattr(obj, '_prefetched_objects_cache', {}).get('addresses', None)
@@ -213,7 +221,7 @@ class CustomerDetailSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'display_id', 'full_name', 'first_name', 'middle_name', 'last_name',
             'phone', 'email', 'school', 'class_obj', 'division', 'subdivision',
-            'customer_group', 'notes', 'addresses', 'links', 
+            'class_name', 'customer_group', 'notes', 'addresses', 'links', 
             'wallet_balance', 'created_at', 'updated_at'
         ]
     
@@ -239,7 +247,7 @@ class CustomerCreateUpdateSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'display_id', 'first_name', 'middle_name', 'last_name',
             'phone', 'email', 'school', 'class_obj', 'division', 'subdivision',
-            'customer_group', 'notes', 'addresses'
+            'class_name', 'customer_group', 'notes', 'addresses'
         ]
         read_only_fields = ['id', 'display_id']
     

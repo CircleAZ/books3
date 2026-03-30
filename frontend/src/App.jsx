@@ -13,6 +13,7 @@ import Categories from './pages/inventory/Categories';
 import Vendors from './pages/inventory/Vendors';
 import StockControl from './pages/inventory/StockControl';
 import DeletedProducts from './pages/inventory/DeletedProducts';
+import ProductSets from './pages/inventory/ProductSets';
 import CustomerList from './pages/customers/CustomerList';
 import AddCustomer from './pages/customers/AddCustomer';
 import CustomerDetails from './pages/customers/CustomerDetails';
@@ -437,6 +438,11 @@ function AppRoutes() {
       <Route path="/inventory/deleted" element={
         <ProtectedRoute>
           <MainLayout><DeletedProducts /></MainLayout>
+        </ProtectedRoute>
+      } />
+      <Route path="/inventory/product-sets" element={
+        <ProtectedRoute>
+          <MainLayout><ProductSets /></MainLayout>
         </ProtectedRoute>
       } />
 

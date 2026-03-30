@@ -46,6 +46,7 @@ export const menuSections = [
             { label: 'Manage Categories', title: 'Categories', path: '/inventory/categories' },
             { label: 'Manage Vendors', title: 'Vendors', path: '/inventory/vendors' },
             { label: 'Stock Adjustments', title: 'Stock Adjustments', path: '/inventory/stock' },
+            { label: 'Product Sets', title: 'Product Sets', path: '/inventory/product-sets' },
             { label: 'Deleted Products', title: 'Deleted Products', path: '/inventory/deleted' },
         ],
     },
@@ -62,6 +63,7 @@ export const menuSections = [
             { label: 'Season Report', title: 'Season Report', path: '/customers/report' },
             { label: 'Add New Customer', title: 'Add Customer', path: '/customers/add' },
             { label: 'Customer Settings', title: 'Customer Settings', path: '/customers/settings' },
+            { label: 'Product Sets', title: 'Product Sets', path: '/inventory/product-sets' },
         ],
     },
     {
@@ -183,6 +185,8 @@ export const dynamicPatterns = [
     { pattern: /^\/finance\/loans\/\d+/, title: 'Loan Details' },
     { pattern: /^\/finance\/trips\/\d+/, title: 'Trip Details' },
     { pattern: /^\/returns\/\d+/, title: 'Return Details' },
+    { pattern: /^\/inventory\/product-sets\/[\w-]+\/edit/, title: 'Edit Product Set' },
+    { pattern: /^\/inventory\/product-sets\/[\w-]+/, title: 'Product Set Details' },
 ];
 
 export function getPageTitle(pathname) {

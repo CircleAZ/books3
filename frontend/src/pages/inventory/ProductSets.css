@@ -1,0 +1,519 @@
+/* ============ Product Sets Page ============ */
+.product-sets-page {
+    padding: 0.5rem 0;
+}
+
+/* Header */
+.ps-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+    flex-wrap: wrap;
+}
+
+.ps-header-left {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    flex: 1;
+}
+
+.ps-filters {
+    display: flex;
+    gap: 0.75rem;
+}
+
+.ps-filters select {
+    padding: 0.5rem 0.75rem;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius);
+    background: var(--color-bg);
+    color: var(--color-text);
+    font-size: 0.875rem;
+    min-width: 140px;
+}
+
+/* Loading & Empty */
+.ps-loading {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.75rem;
+    padding: 4rem 0;
+    color: var(--color-text-secondary);
+}
+
+.ps-empty {
+    text-align: center;
+    padding: 4rem 2rem;
+}
+
+.ps-empty-icon {
+    font-size: 3rem;
+    margin-bottom: 1rem;
+}
+
+.ps-empty h3 {
+    color: var(--color-text);
+    margin-bottom: 0.5rem;
+}
+
+.ps-empty p {
+    color: var(--color-text-secondary);
+    margin-bottom: 1.5rem;
+}
+
+/* Card Grid */
+.ps-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+    gap: 1.25rem;
+}
+
+.ps-card {
+    background: var(--color-card);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg, 12px);
+    padding: 1.25rem;
+    transition: box-shadow 0.2s, transform 0.15s;
+}
+
+.ps-card:hover {
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.12);
+    transform: translateY(-2px);
+}
+
+.ps-card-inactive {
+    opacity: 0.6;
+}
+
+.ps-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 0.75rem;
+}
+
+.ps-card-title h3 {
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--color-text);
+    margin: 0;
+    line-height: 1.3;
+}
+
+.ps-badge {
+    display: inline-block;
+    font-size: 0.65rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    padding: 0.15rem 0.5rem;
+    border-radius: 999px;
+    font-weight: 600;
+    margin-top: 0.25rem;
+}
+
+.ps-badge-inactive {
+    background: var(--color-danger-bg, rgba(239, 68, 68, 0.1));
+    color: var(--color-danger);
+}
+
+.ps-card-actions {
+    display: flex;
+    gap: 0.25rem;
+    flex-shrink: 0;
+}
+
+.ps-card-actions .btn-sm {
+    padding: 0.25rem 0.4rem;
+    font-size: 0.9rem;
+    min-width: unset;
+}
+
+.ps-btn-delete:hover {
+    color: var(--color-danger) !important;
+}
+
+/* Scope Tags */
+.ps-card-scope {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    margin-bottom: 0.75rem;
+}
+
+.ps-scope-tag {
+    display: inline-block;
+    padding: 0.2rem 0.6rem;
+    border-radius: 999px;
+    font-size: 0.75rem;
+    font-weight: 500;
+    background: var(--color-bg-secondary, rgba(99, 102, 241, 0.08));
+    color: var(--color-text-secondary);
+}
+
+.ps-scope-class {
+    background: rgba(99, 102, 241, 0.12);
+    color: var(--color-primary, #6366f1);
+    font-weight: 600;
+}
+
+.ps-scope-school {
+    background: rgba(16, 185, 129, 0.1);
+    color: var(--color-success, #10b981);
+}
+
+.ps-scope-default {
+    background: rgba(245, 158, 11, 0.1);
+    color: var(--color-warning, #f59e0b);
+}
+
+/* Stats */
+.ps-card-stats {
+    display: flex;
+    gap: 1.5rem;
+    margin-bottom: 0.75rem;
+    padding: 0.5rem 0;
+    border-top: 1px solid var(--color-border);
+    border-bottom: 1px solid var(--color-border);
+}
+
+.ps-stat {
+    display: flex;
+    align-items: baseline;
+    gap: 0.35rem;
+}
+
+.ps-stat-value {
+    font-weight: 700;
+    font-size: 1rem;
+    color: var(--color-text);
+}
+
+.ps-stat-label {
+    font-size: 0.75rem;
+    color: var(--color-text-secondary);
+}
+
+/* Item preview */
+.ps-card-items {
+    margin-top: 0.5rem;
+}
+
+.ps-item-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 0.25rem 0;
+    font-size: 0.8rem;
+    color: var(--color-text-secondary);
+}
+
+.ps-item-name {
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    margin-right: 0.5rem;
+}
+
+.ps-item-qty {
+    font-weight: 600;
+    color: var(--color-text);
+}
+
+.ps-item-more {
+    font-size: 0.75rem;
+    color: var(--color-primary, #6366f1);
+    padding-top: 0.25rem;
+    font-weight: 500;
+}
+
+/* ============ Modal ============ */
+.ps-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 1000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1rem;
+    animation: fadeIn 0.15s ease;
+}
+
+.ps-modal {
+    background: var(--color-card);
+    border-radius: var(--radius-lg, 12px);
+    width: 100%;
+    max-width: 720px;
+    max-height: 90vh;
+    overflow-y: auto;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+}
+
+.ps-modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1.25rem 1.5rem;
+    border-bottom: 1px solid var(--color-border);
+    position: sticky;
+    top: 0;
+    background: var(--color-card);
+    z-index: 10;
+}
+
+.ps-modal-header h2 {
+    margin: 0;
+    font-size: 1.15rem;
+}
+
+.ps-modal-body {
+    padding: 1.5rem;
+}
+
+.ps-modal-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.75rem;
+    padding: 1rem 1.5rem;
+    border-top: 1px solid var(--color-border);
+    position: sticky;
+    bottom: 0;
+    background: var(--color-card);
+}
+
+/* Form sections */
+.ps-form-section {
+    margin-bottom: 1.5rem;
+}
+
+.ps-form-section h3 {
+    font-size: 0.9rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--color-text-secondary);
+    margin-bottom: 0.75rem;
+}
+
+.ps-scope-hint {
+    font-size: 0.8rem;
+    color: var(--color-text-secondary);
+    margin-bottom: 0.75rem;
+    font-style: italic;
+}
+
+.ps-optional {
+    color: var(--color-text-secondary);
+    font-weight: 400;
+    font-size: 0.75rem;
+}
+
+.ps-form-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.75rem;
+}
+
+.ps-form-grid .full-width {
+    grid-column: 1 / -1;
+}
+
+/* Product search */
+.ps-product-search {
+    margin-bottom: 0.75rem;
+}
+
+.ps-product-search input {
+    width: 100%;
+}
+
+.ps-search-spinner {
+    position: absolute;
+    right: 0.75rem;
+    top: 50%;
+    transform: translateY(-50%);
+    animation: spin 0.8s linear infinite;
+}
+
+.ps-search-dropdown {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    z-index: 50;
+    background: var(--color-card);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius);
+    max-height: 200px;
+    overflow-y: auto;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+}
+
+.ps-search-item {
+    display: flex;
+    justify-content: space-between;
+    padding: 0.6rem 0.75rem;
+    cursor: pointer;
+    font-size: 0.875rem;
+    transition: background 0.1s;
+}
+
+.ps-search-item:hover {
+    background: var(--color-bg-hover, rgba(99, 102, 241, 0.06));
+}
+
+.ps-search-price {
+    color: var(--color-text-secondary);
+    flex-shrink: 0;
+}
+
+/* Items table */
+.ps-items-table {
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius);
+    overflow: hidden;
+}
+
+.ps-items-header {
+    display: grid;
+    grid-template-columns: 2fr 1fr 60px 1fr 36px;
+    gap: 0.5rem;
+    padding: 0.5rem 0.75rem;
+    background: var(--color-bg-secondary, rgba(0, 0, 0, 0.03));
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--color-text-secondary);
+    font-weight: 600;
+}
+
+.ps-items-row {
+    display: grid;
+    grid-template-columns: 2fr 1fr 60px 1fr 36px;
+    gap: 0.5rem;
+    padding: 0.5rem 0.75rem;
+    align-items: center;
+    border-top: 1px solid var(--color-border);
+    font-size: 0.85rem;
+}
+
+.ps-items-name {
+    font-weight: 500;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.ps-qty-input {
+    width: 56px !important;
+    text-align: center;
+    padding: 0.25rem !important;
+    font-size: 0.85rem !important;
+}
+
+.ps-items-total {
+    font-weight: 600;
+}
+
+.ps-items-footer {
+    display: flex;
+    justify-content: space-between;
+    padding: 0.6rem 0.75rem;
+    border-top: 1px solid var(--color-border);
+    background: var(--color-bg-secondary, rgba(0, 0, 0, 0.03));
+    font-size: 0.85rem;
+    font-weight: 600;
+}
+
+.ps-items-grand-total {
+    color: var(--color-primary, #6366f1);
+    font-size: 1rem;
+}
+
+.ps-no-items {
+    text-align: center;
+    padding: 2rem;
+    color: var(--color-text-secondary);
+    font-size: 0.875rem;
+    border: 2px dashed var(--color-border);
+    border-radius: var(--radius);
+}
+
+/* ============ POS Set Banner ============ */
+.pos-set-banner {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 0.75rem 1rem;
+    margin: 0.75rem 0;
+    border-radius: var(--radius);
+    background: linear-gradient(135deg, rgba(99, 102, 241, 0.08), rgba(139, 92, 246, 0.08));
+    border: 1px solid rgba(99, 102, 241, 0.2);
+    animation: slideDown 0.3s ease;
+}
+
+.pos-set-banner-icon {
+    font-size: 1.5rem;
+    flex-shrink: 0;
+}
+
+.pos-set-banner-info {
+    flex: 1;
+}
+
+.pos-set-banner-info strong {
+    display: block;
+    font-size: 0.875rem;
+    color: var(--color-text);
+}
+
+.pos-set-banner-info small {
+    color: var(--color-text-secondary);
+    font-size: 0.75rem;
+}
+
+.pos-set-banner .btn {
+    flex-shrink: 0;
+}
+
+/* Animations */
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+@keyframes slideDown {
+    from { opacity: 0; transform: translateY(-10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes spin {
+    from { transform: translateY(-50%) rotate(0deg); }
+    to { transform: translateY(-50%) rotate(360deg); }
+}
+
+/* Responsive */
+@media (max-width: 600px) {
+    .ps-grid {
+        grid-template-columns: 1fr;
+    }
+    .ps-form-grid {
+        grid-template-columns: 1fr;
+    }
+    .ps-header {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    .ps-filters {
+        flex-direction: column;
+    }
+    .ps-items-header,
+    .ps-items-row {
+        grid-template-columns: 2fr 1fr 50px 1fr 30px;
+        font-size: 0.75rem;
+    }
+}

@@ -36,6 +36,12 @@ class Customer(DisplayIDMixin, SoftDeleteModel):
         'settings_app.Subdivision', on_delete=models.SET_NULL,
         null=True, blank=True, related_name='customers'
     )
+    # School-independent class assignment (from ClassTemplate name)
+    # Used when customer has a class but no specific school
+    class_name = models.CharField(
+        max_length=100, blank=True,
+        help_text='Class name without school (e.g. "7"). Set when independent toggle is ON.'
+    )
     
     # Grouping
     customer_group = models.ForeignKey(

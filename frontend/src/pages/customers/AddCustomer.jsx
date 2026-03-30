@@ -32,6 +32,7 @@ export default function AddCustomer({ onSuccess, onCancel, isEmbedded = false })
         subdivision: '',
         customer_group: '',
         notes: '',
+        class_name: '',
         // Address
         village: '',
         faliya: '',
@@ -57,6 +58,8 @@ export default function AddCustomer({ onSuccess, onCancel, isEmbedded = false })
     const [phoneWarning, setPhoneWarning] = useState('');
     const [successMsg, setSuccessMsg] = useState('');
     const [addressId, setAddressId] = useState(null);
+    const [independentClass, setIndependentClass] = useState(false);
+    const [classTemplatesForForm, setClassTemplatesForForm] = useState([]);
 
     // Customer Links state
     const [linkTypes, setLinkTypes] = useState([]);
@@ -80,11 +83,12 @@ export default function AddCustomer({ onSuccess, onCancel, isEmbedded = false })
     useEffect(() => {
         const fetchOptions = async () => {
             try {
-                const [schoolsRes, groupsRes, tagsRes, linkTypesRes] = await Promise.all([
+                const [schoolsRes, groupsRes, tagsRes, linkTypesRes, ctRes] = await Promise.all([
                     fetchWithAuth(ENDPOINTS.SCHOOLS),
                     fetchWithAuth(ENDPOINTS.CUSTOMERS_GROUPS),
                     fetchWithAuth(ENDPOINTS.CUSTOMERS_LOCATION_TAGS),
-                    fetchWithAuth(ENDPOINTS.CUSTOMERS_LINK_TYPES || '/api/customers/link-types/')
+                    fetchWithAuth(ENDPOINTS.CUSTOMERS_LINK_TYPES || '/api/customers/link-types/'),
+                    fetchWithAuth(ENDPOINTS.CLASS_TEMPLATES),
                 ]);
 
                 if (schoolsRes.ok) {
@@ -102,6 +106,10 @@ export default function AddCustomer({ onSuccess, onCancel, isEmbedded = false })
                 if (linkTypesRes.ok) {
                     const data = await linkTypesRes.json();
                     setLinkTypes(data.results || data || []);
+                }
+                if (ctRes.ok) {
+                    const data = await ctRes.json();
+                    setClassTemplatesForForm(data.results || data || []);
                 }
             } catch (err) {
                 console.error('Error fetching options:', err);
@@ -406,6 +414,7 @@ export default function AddCustomer({ onSuccess, onCancel, isEmbedded = false })
             subdivision: formData.subdivision || null,
             customer_group: formData.customer_group || null,
             notes: formData.notes || '',
+            class_name: independentClass ? formData.class_name : '',
             addresses: []
         };
 
@@ -574,36 +583,71 @@ export default function AddCustomer({ onSuccess, onCancel, isEmbedded = false })
                     </div>
                     {sections.education && (
                         <div className="section-content open">
-                            <div className="form-grid">
-                                <div className="form-group">
-                                    <label>School</label>
-                                    <select name="school" value={formData.school} onChange={handleInputChange}>
-                                        <option value="">Select School</option>
-                                        {schools.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-                                    </select>
+                            {/* Independent toggle */}
+                            <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.75rem', cursor: 'pointer', fontSize: '0.875rem' }}>
+                                <input
+                                    type="checkbox"
+                                    checked={independentClass}
+                                    onChange={e => {
+                                        setIndependentClass(e.target.checked);
+                                        if (e.target.checked) {
+                                            setFormData(prev => ({ ...prev, school: '', class_obj: '', division: '', subdivision: '' }));
+                                        } else {
+                                            setFormData(prev => ({ ...prev, class_name: '' }));
+                                        }
+                                    }}
+                                />
+                                No specific school (select class independently)
+                            </label>
+
+                            {independentClass ? (
+                                <div className="form-grid">
+                                    <div className="form-group">
+                                        <label>Class</label>
+                                        <select
+                                            name="class_name"
+                                            value={formData.class_name}
+                                            onChange={handleInputChange}
+                                        >
+                                            <option value="">Select Class</option>
+                                            {classTemplatesForForm.map(ct => (
+                                                <option key={ct.id} value={ct.name}>{ct.name}</option>
+                                            ))}
+                                        </select>
+                                    </div>
                                 </div>
-                                <div className="form-group">
-                                    <label>Class</label>
-                                    <select name="class_obj" value={formData.class_obj} onChange={handleInputChange} disabled={!formData.school}>
-                                        <option value="">Select Class</option>
-                                        {classes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                                    </select>
+                            ) : (
+                                <div className="form-grid">
+                                    <div className="form-group">
+                                        <label>School</label>
+                                        <select name="school" value={formData.school} onChange={handleInputChange}>
+                                            <option value="">Select School</option>
+                                            {schools.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                                        </select>
+                                    </div>
+                                    <div className="form-group">
+                                        <label>Class</label>
+                                        <select name="class_obj" value={formData.class_obj} onChange={handleInputChange} disabled={!formData.school}>
+                                            <option value="">Select Class</option>
+                                            {classes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                                        </select>
+                                    </div>
+                                    <div className="form-group">
+                                        <label>Division</label>
+                                        <select name="division" value={formData.division} onChange={handleInputChange} disabled={!formData.class_obj}>
+                                            <option value="">Select Division</option>
+                                            {divisions.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
+                                        </select>
+                                    </div>
+                                    <div className="form-group">
+                                        <label>Subdivision</label>
+                                        <select name="subdivision" value={formData.subdivision} onChange={handleInputChange} disabled={!formData.division}>
+                                            <option value="">Select Subdivision</option>
+                                            {subdivisions.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                                        </select>
+                                    </div>
                                 </div>
-                                <div className="form-group">
-                                    <label>Division</label>
-                                    <select name="division" value={formData.division} onChange={handleInputChange} disabled={!formData.class_obj}>
-                                        <option value="">Select Division</option>
-                                        {divisions.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
-                                    </select>
-                                </div>
-                                <div className="form-group">
-                                    <label>Subdivision</label>
-                                    <select name="subdivision" value={formData.subdivision} onChange={handleInputChange} disabled={!formData.division}>
-                                        <option value="">Select Subdivision</option>
-                                        {subdivisions.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-                                    </select>
-                                </div>
-                            </div>
+                            )}
                         </div>
                     )}
                 </div>

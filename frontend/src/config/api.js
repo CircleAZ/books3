@@ -28,6 +28,8 @@ export const ENDPOINTS = {
     INVENTORY_VENDORS: `${API_BASE}/inventory/vendors/`,
     INVENTORY_STOCK_HISTORY: `${API_BASE}/inventory/stock-history/`,
     INVENTORY_STOCK_ADJUSTMENTS: `${API_BASE}/inventory/stock-adjustments/`,
+    PRODUCT_SETS: `${API_BASE}/inventory/product-sets/`,
+    PRODUCT_SETS_RESOLVE: `${API_BASE}/inventory/product-sets/resolve/`,
 
     // Customers
     CUSTOMERS: `${API_BASE}/customers/customers/`,
