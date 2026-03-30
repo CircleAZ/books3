@@ -1,8 +1,0 @@
-<STORE_MANAGER_REVIEW>
-[WORKFLOW_SCENARIO: First week of June, peak admission season. A cashier is billing 400 parents a day.] -> [CURRENT_PAIN_POINT: The matrix strictly denies `cashier` the `inventory.create_products` and `settings.tax_config` permissions. But sometimes a publisher drops off standard notebooks with no barcode in the middle of a rush. Cashiers need to quickly ring it up using an "Open Item" or "Custom Amount" product.] -> [PROPOSED_SOLUTION_RATING: 2] -> [MISSING_CAPABILITY: The rigid RBAC model ignores the reality of retail overrides. There is no concept of a "Manager Override PIN" for a single transaction.]
-
-[WORKFLOW_SCENARIO: Onboarding a new customer from a brand-new school.] -> [CURRENT_PAIN_POINT: The cashier has `customers.create_customers`, but to add a new school, they need `customers.manage_tags` (Wait, the Matrix denies Cashiers tag management). The cashier asks the parent to wait, runs to track me (Rajesh) down, I log in, add the School to the database, log out, and then she creates the customer.] -> [PROPOSED_SOLUTION_RATING: 1] -> [MISSING_CAPABILITY: Granular permissions look clean on paper but destroy retail speed. Cashiers must be able to create taxonomy data (Schools/Divisions) *inline* during customer creation without needing global taxonomy management permissions.]
-
-[SEASON_READINESS_VERDICT]
-FAILED. The permissions matrix is heavily designed for a corporate office, not a high-velocity retail counter. We need either a "Manager Override PIN" feature built into the UI, or specific "Inline Creation" exceptions for cashiers.
-</STORE_MANAGER_REVIEW>

@@ -135,3 +135,10 @@ media/*
 
 # Static files (collected)
 staticfiles/
+
+# Google Drive sync temp folders
+.tmp.drivedownload/
+.tmp.driveupload/
+
+# Local planning notes
+Plan/
