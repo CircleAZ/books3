@@ -3,8 +3,9 @@ import { API_BASE } from '../config/api';
 
 const AuthContext = createContext(null);
 
-// Token expiry offset — refresh 5 minutes before actual expiry
-const REFRESH_BUFFER_MS = 5 * 60 * 1000;
+// Token expiry offset — refresh 60 seconds before actual expiry
+// NOTE: Must be LESS than ACCESS_TOKEN_LIFETIME (15 min) or the timer never fires
+const REFRESH_BUFFER_MS = 60 * 1000;
 
 /**
  * Decode RBAC claims (role, roles, permissions) from a JWT access token.
@@ -34,6 +35,8 @@ export function AuthProvider({ children }) {
 
     // LENS-17 fix: Prevent concurrent refresh attempts
     const refreshPromiseRef = useRef(null);
+    // Dedup: prevent multiple session-expiring warnings per cycle
+    const sessionWarningFiredRef = useRef(false);
     // Proactive refresh timer (ARCH-3)
     const refreshTimerRef = useRef(null);
 
@@ -76,13 +79,16 @@ export function AuthProvider({ children }) {
 
             if (timeUntilRefresh > 0) {
                 refreshTimerRef.current = setTimeout(async () => {
+                    sessionWarningFiredRef.current = false;
                     const refreshed = await refreshToken();
                     if (!refreshed) {
-                        // UX-1: Warn user before force-logout
-                        // Dispatch a custom event that the ToastContext or any listener can pick up
-                        window.dispatchEvent(new CustomEvent('session-expiring', {
-                            detail: { message: 'Your session is expiring. Please save your work.' }
-                        }));
+                        // UX-1: Warn user before force-logout (deduped)
+                        if (!sessionWarningFiredRef.current) {
+                            sessionWarningFiredRef.current = true;
+                            window.dispatchEvent(new CustomEvent('session-expiring', {
+                                detail: { message: 'Your session is expiring. Please save your work.' }
+                            }));
+                        }
 
                         // Give user 60 seconds to finish before force-logout
                         expiryWarningRef.current = setTimeout(() => {
@@ -90,6 +96,9 @@ export function AuthProvider({ children }) {
                         }, 60000);
                     }
                 }, timeUntilRefresh);
+            } else {
+                // Token is already near expiry (e.g. page reload) — refresh immediately
+                refreshToken();
             }
         } catch (e) {
             // Can't decode token — skip proactive refresh

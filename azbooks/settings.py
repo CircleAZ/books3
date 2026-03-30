@@ -219,9 +219,9 @@ REST_FRAMEWORK = {
     ] if DEBUG else []),
 }
 
-# Simple JWT configuration (Tribunal Consensus: 5-min access tokens)
+# Simple JWT configuration (Tribunal Fix: 15-min access, 60s proactive refresh buffer)
 SIMPLE_JWT = {
-    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=5),
+    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=15),
     'REFRESH_TOKEN_LIFETIME': timedelta(days=1),
     'ROTATE_REFRESH_TOKENS': True,
     'BLACKLIST_AFTER_ROTATION': True,
