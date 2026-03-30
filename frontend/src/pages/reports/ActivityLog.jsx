@@ -72,7 +72,6 @@ export default function ActivityLog() {
         <div className="activity-log-page animate-fade-in">
             <header className="activity-header">
                 <div className="header-titles">
-                    <h1>Activity Log</h1>
                     <p>Track all actions and events across the system.</p>
                 </div>
                 <button className="btn btn-ghost" onClick={handleRefresh}>

@@ -138,9 +138,6 @@ const CustomerDetails = () => {
         return (
             <div className="error-container">
                 <p className="error-message">Error: {error}</p>
-                <button className="btn btn-primary" onClick={() => navigate('/customers')}>
-                    Back to Customers
-                </button>
             </div>
         );
     }
@@ -156,9 +153,6 @@ const CustomerDetails = () => {
                     <span className="customer-id">ID: {customer.display_id || customer.id}</span>
                 </div>
                 <div className="customer-details-actions">
-                    <button className="btn btn-ghost" onClick={() => navigate('/customers')}>
-                        Back
-                    </button>
                     <button className="btn btn-primary" onClick={() => navigate(`/customers/${id}/edit`)}>
                         Edit Customer
                     </button>

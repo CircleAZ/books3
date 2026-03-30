@@ -80,7 +80,6 @@ const BalanceSheet = () => {
         <div className="profit-loss-report"> {/* Reusing class for layout */}
             <header className="report-header">
                 <div className="header-title">
-                    <h1>Balance Sheet</h1>
                     <p className="subtitle">As of: {new Date().toLocaleDateString()}</p>
                 </div>
                 <div className="header-actions">

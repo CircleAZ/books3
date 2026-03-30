@@ -29,8 +29,6 @@ const MessagingIndex = () => {
 
     return (
         <div className="messaging-dashboard">
-            <h1>Messaging System</h1>
-
             <div className="messaging-cards">
                 <Link to="/messaging/gateways" className="card">
                     <h3>Gateways</h3>

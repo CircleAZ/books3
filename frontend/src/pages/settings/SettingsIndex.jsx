@@ -1,5 +1,5 @@
 import React from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import './SettingsIndex.css';
 
 const settingsItems = [
@@ -61,13 +61,8 @@ const settingsItems = [
 ];
 
 const SettingsIndex = () => {
-    const navigate = useNavigate();
     return (
         <div className="settings-index">
-            <button className="settings-back-btn" onClick={() => navigate('/')}>
-                ‹
-            </button>
-            <h1>Settings</h1>
             <div className="settings-list">
                 {settingsItems.map(item => (
                     <Link key={item.to} to={item.to} className="settings-row">

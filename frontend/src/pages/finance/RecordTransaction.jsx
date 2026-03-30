@@ -83,7 +83,6 @@ export default function RecordTransaction() {
     return (
         <div className="record-tx-container fade-in">
             <div className="record-tx-header">
-                <h1>Record Bank Transaction</h1>
                 <p>Manually record deposits, withdrawals, or transfers</p>
             </div>
 

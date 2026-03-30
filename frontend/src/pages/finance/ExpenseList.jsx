@@ -89,7 +89,6 @@ export default function ExpenseList() {
         <div className="expense-container fade-in">
             <div className="expense-header">
                 <div>
-                    <h1 className="expense-title">Expenses</h1>
                     <p className="expense-subtitle">Manage and track your company expenses</p>
                 </div>
                 <div className="expense-actions">

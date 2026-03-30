@@ -156,7 +156,6 @@ export default function ExpenseCategories() {
         <div className="expense-categories-container fade-in">
             <header className="page-header">
                 <div>
-                    <h1>Expense Categories</h1>
                     <p>Manage how you classify your business expenditures</p>
                 </div>
                 <button className="btn btn-primary" onClick={() => handleOpenEditModal()}>

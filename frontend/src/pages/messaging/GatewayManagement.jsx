@@ -41,7 +41,6 @@ const GatewayManagement = () => {
     return (
         <div className="gateway-management">
             <header>
-                <h1>Gateway Management</h1>
                 <button className="btn btn-primary">+ Add Gateway</button>
             </header>
             <table className="data-table">

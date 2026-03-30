@@ -120,10 +120,9 @@ const EmployeeManagement = () => {
 
     return (
         <div className="employee-management-container">
-            <header className="page-header">
-                <h1>Employee Management</h1>
+            <div style={{display:'flex',justifyContent:'flex-end',marginBottom:'var(--space-md)'}}>
                 <button className="btn btn-primary" onClick={handleAddClick}>+ Add Employee</button>
-            </header>
+            </div>
             <table className="data-table">
                 <thead>
                     <tr>

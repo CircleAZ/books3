@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+
 import { useAuth } from '../../context/AuthContext';
 import { ENDPOINTS } from '../../config/api';
 import './FinancialSettings.css';
@@ -7,7 +7,7 @@ import '../settings/SettingsIndex.css';
 
 const PaymentSettings = () => {
     const { fetchWithAuth } = useAuth();
-    const navigate = useNavigate();
+
     const [methods, setMethods] = useState([]);
     const [upiAccounts, setUpiAccounts] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -180,10 +180,7 @@ const PaymentSettings = () => {
 
     return (
         <div className="financial-settings-container">
-            <div className="settings-page-header">
-                <button className="settings-back-btn" onClick={() => navigate('/settings')}>‹</button>
-                <h1>Payment Methods</h1>
-            </div>
+
 
             {message && (
                 <div className={`profile-message ${message.type}`}>

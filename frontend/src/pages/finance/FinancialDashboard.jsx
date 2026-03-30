@@ -81,7 +81,6 @@ export default function FinancialDashboard() {
     return (
         <div className="financial-dashboard">
             <header className="dashboard-header">
-                <h1>Financial Dashboard</h1>
                 <div className="period-selector">
                     <button
                         className={period === 'today' ? 'active' : ''}

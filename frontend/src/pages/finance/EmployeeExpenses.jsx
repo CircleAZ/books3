@@ -147,7 +147,6 @@ export default function EmployeeExpenses() {
         <div className="employee-expenses-container fade-in">
             <div className="page-header">
                 <div>
-                    <h1 className="page-title">Employee Expenses</h1>
                     <p className="page-subtitle">Track and manage employee expense claims</p>
                 </div>
                 <div className="page-actions">

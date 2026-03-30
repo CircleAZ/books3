@@ -135,7 +135,7 @@ export default function OrderList() {
     return (
         <div className="order-list-container animate-fade-in">
             <div className="order-list-header">
-                <h1 className="order-list-title">Order Management</h1>
+
                 <div className="order-list-actions">
                     <button className="btn btn-primary" onClick={() => navigate('/orders/new')}>
                         + New Order

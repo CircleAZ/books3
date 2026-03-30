@@ -84,7 +84,6 @@ export default function EmployeeSalaries() {
         <div className="employee-salaries-container fade-in">
             <div className="page-header">
                 <div>
-                    <h1 className="page-title">Employee Salaries</h1>
                     <p className="page-subtitle">Manage payroll and salary information</p>
                 </div>
             </div>

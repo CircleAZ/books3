@@ -24,9 +24,7 @@ const DataManagement = () => {
 
     return (
         <div className="data-management-grid">
-            <header className="page-header" style={{ gridColumn: '1 / -1' }}>
-                <h1>Data Management</h1>
-            </header>
+
 
             <div className="settings-section">
                 <h2>System Maintenance</h2>

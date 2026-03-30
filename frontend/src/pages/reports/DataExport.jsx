@@ -62,7 +62,6 @@ export default function DataExport() {
     return (
         <div className="data-export-page animate-fade-in">
             <header className="export-header">
-                <h1>Data Export</h1>
                 <p>Download your store data for backups or external analysis.</p>
             </header>
 

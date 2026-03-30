@@ -173,7 +173,6 @@ export default function InitiateReturn() {
     return (
         <div className="returns-container fade-in">
             <header className="returns-header">
-                <h1>Initiate Return</h1>
                 <p>Process customer returns and manage inventory restock</p>
             </header>
 

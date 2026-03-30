@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+
 import { useAuth } from '../../context/AuthContext';
 import { ENDPOINTS } from '../../config/api';
 import './SettingsIndex.css';
 
 const NotificationSettings = () => {
     const { fetchWithAuth } = useAuth();
-    const navigate = useNavigate();
+
     const [preferences, setPreferences] = useState([]);
     const [loading, setLoading] = useState(true);
 
@@ -49,10 +49,7 @@ const NotificationSettings = () => {
 
     return (
         <div className="settings-page">
-            <div className="settings-page-header">
-                <button className="settings-back-btn" onClick={() => navigate('/settings')}>‹</button>
-                <h1>Notification Preferences</h1>
-            </div>
+
 
             <div className="settings-card">
                 <table className="settings-table">

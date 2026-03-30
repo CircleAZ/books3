@@ -95,7 +95,6 @@ export default function CategoryBudgets() {
         <div className="expense-categories-container fade-in">
             <header className="page-header">
                 <div>
-                    <h1>Category Budgets</h1>
                     <p>Set spending limits per expense category</p>
                 </div>
                 <button className="btn btn-primary" onClick={() => openModal()}>

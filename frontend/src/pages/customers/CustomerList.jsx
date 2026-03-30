@@ -43,7 +43,6 @@ const CustomerList = () => {
     return (
         <div className="customer-list-container fade-in">
             <div className="page-header">
-                <h1>Customers</h1>
                 <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
                     <button
                         className="btn btn-secondary btn-icon"

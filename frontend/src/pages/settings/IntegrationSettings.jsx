@@ -1,9 +1,7 @@
 import React from 'react';
-import { useNavigate } from 'react-router-dom';
 import './SettingsIndex.css';
 
 const IntegrationSettings = () => {
-    const navigate = useNavigate();
     const integrations = [
         { id: 1, name: 'Email (SMTP)', status: 'Connected', icon: '📧' },
         { id: 2, name: 'SMS Gateway', status: 'Not Configured', icon: '📱' },
@@ -13,10 +11,7 @@ const IntegrationSettings = () => {
 
     return (
         <div className="settings-page">
-            <div className="settings-page-header">
-                <button className="settings-back-btn" onClick={() => navigate('/settings')}>‹</button>
-                <h1>Integrations</h1>
-            </div>
+
 
             <div className="integrations-grid">
                 {integrations.map(integration => (

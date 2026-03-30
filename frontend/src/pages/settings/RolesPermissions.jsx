@@ -64,7 +64,7 @@ const RolesPermissions = () => {
 
     return (
         <div className="roles-permissions-container">
-            <h1>Roles & Permissions</h1>
+
             <div className="roles-grid">
                 {roles.map(role => (
                     <div key={role.id} className="role-card">

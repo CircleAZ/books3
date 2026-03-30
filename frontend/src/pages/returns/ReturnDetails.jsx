@@ -112,7 +112,6 @@ export default function ReturnDetails() {
         <div className="return-details-error card">
             <h2>Error</h2>
             <p>{error || 'Return not found'}</p>
-            <button className="btn btn-primary" onClick={() => navigate('/returns')}>Back to Returns</button>
         </div>
     );
 
@@ -137,7 +136,6 @@ export default function ReturnDetails() {
             {/* Header */}
             <div className="return-header">
                 <div className="header-info">
-                    <button className="btn btn-ghost" onClick={() => navigate('/returns')}>← Back</button>
                     <h1>Return #{returnData.display_id}</h1>
                     <span className={`status-pill ${getStatusClass(returnData.status)}`}>
                         {returnData.status.replace('_', ' ')}

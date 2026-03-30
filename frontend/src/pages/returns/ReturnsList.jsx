@@ -109,7 +109,6 @@ export default function ReturnsList() {
     return (
         <div className="returns-list-container animate-fade-in">
             <div className="returns-list-header">
-                <h1 className="returns-list-title">Returns & Refunds</h1>
                 <div className="returns-list-actions">
                     <button className="btn btn-primary" onClick={() => navigate('/returns/new')}>
                         + New Return

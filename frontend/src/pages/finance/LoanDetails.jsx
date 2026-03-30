@@ -113,7 +113,7 @@ export default function LoanDetails() {
         <div className="loan-details-container fade-in">
             <div className="loan-details-header">
                 <div className="header-left">
-                    <button className="back-btn" onClick={() => navigate(`/finance/lenders/${loan.lender}`)}>← Back to Lender</button>
+
                     <div>
                         <div className="lender-badge">{loan.lender_name}</div>
                         <h1 className="loan-title">Loan: {loan.loan_number}</h1>

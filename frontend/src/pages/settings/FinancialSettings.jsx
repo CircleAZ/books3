@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+
 import { useAuth } from '../../context/AuthContext';
 import { ENDPOINTS } from '../../config/api';
 import './FinancialSettings.css';
@@ -7,7 +7,7 @@ import '../settings/SettingsIndex.css';
 
 const FinancialSettings = () => {
     const { fetchWithAuth } = useAuth();
-    const navigate = useNavigate();
+
     const [taxes, setTaxes] = useState([]);
     const [loading, setLoading] = useState(true);
     const [showTaxModal, setShowTaxModal] = useState(false);
@@ -81,10 +81,7 @@ const FinancialSettings = () => {
 
     return (
         <div className="financial-settings-container">
-            <div className="settings-page-header">
-                <button className="settings-back-btn" onClick={() => navigate('/settings')}>‹</button>
-                <h1>Financial Settings</h1>
-            </div>
+
 
             <div className="settings-grid">
                 <section className="settings-card">

@@ -143,7 +143,6 @@ export default function BankAccounts() {
         <div className="bank-accounts-container fade-in">
             <div className="bank-accounts-header">
                 <div>
-                    <h1 className="bank-accounts-title">Bank Accounts</h1>
                     <p className="bank-accounts-subtitle">Manage your company bank accounts and balances</p>
                 </div>
                 <div className="bank-accounts-actions">

@@ -37,9 +37,6 @@ export default function EditProduct() {
 
     return (
         <div className="edit-product-page fade-in">
-            <div className="page-header">
-                <h2>Edit Product: {product.name}</h2>
-            </div>
             <ProductForm initialData={product} isEdit={true} />
         </div>
     );

@@ -70,7 +70,6 @@ export default function SalesReports() {
     return (
         <div className="sales-reports-page">
             <header className="reports-header">
-                <h1>📈 Sales Reports</h1>
                 <div className="header-actions">
                     <div className="date-filter">
                         <button

@@ -182,9 +182,6 @@ export default function ExpenseDetails() {
                 <div className="error-icon">⚠️</div>
                 <h2>Oops!</h2>
                 <p>{error || 'Expense not found'}</p>
-                <button className="btn btn-primary" onClick={() => navigate('/finance/expenses')}>
-                    Back to Expenses
-                </button>
             </div>
         );
     }
@@ -196,9 +193,8 @@ export default function ExpenseDetails() {
             {/* Header Section */}
             <div className="details-header">
                 <div className="header-left">
-                    <Link to="/finance/expenses" className="back-link">
-                        ← Back to Expenses
-                    </Link>
+
+
                     <div className="header-title-row">
                         <h1>{expense.payee_name}</h1>
                         <span className={`status-badge ${getStatusClass(expense.payment_status)}`}>

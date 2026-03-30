@@ -71,7 +71,7 @@ export default function Vendors() {
     return (
         <div className="inventory-container fade-in">
             <div className="inventory-header">
-                <h1 className="inventory-title">Manage Vendors</h1>
+
                 <div className="inventory-actions">
                     <button className="btn btn-primary" onClick={() => handleOpenModal()}>
                         + Add Vendor

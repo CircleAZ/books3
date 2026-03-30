@@ -101,7 +101,6 @@ export default function BankTransactions() {
         <div className="transactions-container fade-in">
             <div className="transactions-header">
                 <div>
-                    <h1 className="transactions-title">Bank Transactions</h1>
                     <p className="transactions-subtitle">Track all movements in your bank accounts</p>
                 </div>
                 <div className="transactions-actions">

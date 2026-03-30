@@ -20,10 +20,9 @@ const SystemInfo = () => {
 
     return (
         <div className="system-info-container">
-            <header className="page-header">
-                <h1>System Information</h1>
+            <div style={{display:'flex',justifyContent:'flex-end',marginBottom:'var(--space-md)'}}>
                 <button className="btn btn-primary" onClick={checkUpdates}>Check for Updates</button>
-            </header>
+            </div>
 
             <div className="info-grid">
                 <div className="info-card">

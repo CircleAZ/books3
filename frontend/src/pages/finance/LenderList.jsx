@@ -87,7 +87,6 @@ export default function LenderList() {
         <div className="lender-container fade-in">
             <div className="lender-header">
                 <div>
-                    <h1 className="lender-title">Lenders</h1>
                     <p className="lender-subtitle">Manage financial lenders and institutions</p>
                 </div>
                 <div className="lender-actions">

@@ -121,7 +121,6 @@ export default function RecurringExpenses() {
         <div className="expense-categories-container fade-in">
             <header className="page-header">
                 <div>
-                    <h1>Recurring Expenses</h1>
                     <p>Manage auto-generated periodic expenses</p>
                 </div>
                 <button className="btn btn-primary" onClick={() => openModal()}>

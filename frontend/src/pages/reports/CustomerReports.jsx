@@ -51,7 +51,6 @@ export default function CustomerReports() {
     return (
         <div className="customer-reports-page">
             <header className="reports-header">
-                <h1>👥 Customer Reports</h1>
                 <button className="export-btn">📥 Export</button>
             </header>
 

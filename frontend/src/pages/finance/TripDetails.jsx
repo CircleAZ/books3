@@ -118,8 +118,6 @@ export default function TripDetails() {
             {/* Header */}
             <header className="page-header">
                 <div>
-                    <button className="btn btn-ghost" onClick={() => navigate('/finance/trips')}
-                        style={{ marginBottom: 8, fontSize: 13 }}>← All Trips</button>
                     <h1 style={{ margin: 0 }}>{trip.name}</h1>
                     <p style={{ margin: '4px 0 0', color: '#94a3b8' }}>
                         {trip.date} {trip.purpose ? `— ${trip.purpose}` : ''}

@@ -80,7 +80,6 @@ export default function IncomeCategories() {
         <div className="expense-categories-container fade-in">
             <header className="page-header">
                 <div>
-                    <h1>Income Categories</h1>
                     <p>Classify your non-sales revenue sources</p>
                 </div>
                 <button className="btn btn-primary" onClick={() => openModal()}>

@@ -8,38 +8,38 @@
     margin-bottom: var(--space-xl);
 }
 
-.settings-layout {
-    display: grid;
-    grid-template-columns: 250px 1fr;
-    gap: var(--space-xl);
-    align-items: start;
-}
-
-.settings-sidebar {
+/* Horizontal tab bar (replaces sidebar nav) */
+.settings-tab-bar {
+    display: flex;
+    gap: var(--space-xs);
+    padding: var(--space-xs);
     background: var(--color-bg-secondary);
     border: 1px solid var(--color-border-light);
     border-radius: var(--radius-lg);
-    padding: var(--space-md);
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-xs);
+    margin-bottom: var(--space-lg);
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
 }
 
-.settings-nav-item {
-    padding: var(--space-md);
-    text-align: left;
+.settings-tab {
+    padding: var(--space-sm) var(--space-md);
     border-radius: var(--radius-md);
     color: var(--color-text-secondary);
     font-weight: 500;
+    font-size: var(--font-size-sm);
+    white-space: nowrap;
     transition: all var(--transition-fast);
+    border: none;
+    background: transparent;
+    cursor: pointer;
 }
 
-.settings-nav-item:hover {
+.settings-tab:hover {
     background: var(--color-bg-hover);
     color: var(--color-text-primary);
 }
 
-.settings-nav-item.active {
+.settings-tab.active {
     background: var(--color-primary);
     color: white;
 }
@@ -248,18 +248,14 @@
 }
 
 @media (max-width: 768px) {
-    .settings-layout {
-        grid-template-columns: 1fr;
+    .settings-tab-bar {
+        gap: 2px;
+        padding: 2px;
     }
 
-    .settings-sidebar {
-        flex-direction: row;
-        overflow-x: auto;
-        padding-bottom: var(--space-sm);
-    }
-
-    .settings-nav-item {
-        white-space: nowrap;
+    .settings-tab {
+        padding: var(--space-xs) var(--space-sm);
+        font-size: var(--font-size-xs);
     }
 
     .manager-header {

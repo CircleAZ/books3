@@ -4,9 +4,6 @@ import './AddProduct.css'; // Keep if there are specific page styles, or remove 
 export default function AddProduct() {
     return (
         <div className="add-product-page fade-in">
-            <div className="page-header">
-                <h2>Add New Product</h2>
-            </div>
             <ProductForm />
         </div>
     );

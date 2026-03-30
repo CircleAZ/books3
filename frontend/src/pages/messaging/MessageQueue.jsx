@@ -46,7 +46,6 @@ const MessageQueue = () => {
     return (
         <div className="message-queue">
             <header>
-                <h1>Message Queue</h1>
                 <div className="filters">
                     <select value={filter} onChange={(e) => setFilter(e.target.value)}>
                         <option value="all">All Status</option>

@@ -84,7 +84,6 @@ const FinanceIndex = () => {
             {/* Header with period selector */}
             <div className="finance-header">
                 <div>
-                    <h1>Finance & Accounting</h1>
                     <p>Dashboard, KPIs, and financial management</p>
                 </div>
                 <div className="period-selector">

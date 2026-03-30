@@ -121,10 +121,6 @@ export default function ProductDetails() {
         <div className="product-details-page fade-in">
             <div className="details-header">
                 <div>
-                    {/* LENS-07: Back button */}
-                    <button className="btn btn-ghost back-btn" onClick={() => navigate('/inventory')}>
-                        ← Back to Inventory
-                    </button>
                     <h1>{product.name}</h1>
                     <span className="product-id">ID: {product.display_id}</span>
                 </div>

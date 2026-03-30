@@ -142,10 +142,8 @@ export default function CreateTrip() {
         <div className="expense-categories-container fade-in" style={{ maxWidth: 900 }}>
             <header className="page-header">
                 <div>
-                    <h1>New Trip / Expense Group</h1>
                     <p>Enter all expenses for this trip in one form</p>
                 </div>
-                <button className="btn btn-ghost" onClick={() => navigate('/finance/trips')}>← Back</button>
             </header>
 
             <form onSubmit={handleSubmit}>

@@ -38,7 +38,6 @@ const FinancialReports = () => {
         <div className="financial-reports-page">
             <header className="reports-header">
                 <div>
-                    <h1>Financial Reports</h1>
                     <p>Comprehensive insights into your business's financial health</p>
                 </div>
             </header>

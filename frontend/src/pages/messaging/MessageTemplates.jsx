@@ -32,7 +32,6 @@ const MessageTemplates = () => {
     return (
         <div className="message-templates">
             <header>
-                <h1>Message Templates</h1>
                 <button className="btn btn-primary">+ Add Template</button>
             </header>
             <div className="templates-grid">

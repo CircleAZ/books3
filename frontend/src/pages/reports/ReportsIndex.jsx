@@ -52,7 +52,6 @@ export default function ReportsIndex() {
     return (
         <div className="reports-index-page animate-fade-in">
             <header className="reports-header">
-                <h1>Reporting & Analytics</h1>
                 <p>Gain insights and monitor your business performance.</p>
             </header>
 

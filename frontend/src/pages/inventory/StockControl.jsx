@@ -179,7 +179,7 @@ export default function StockControl() {
     return (
         <div className="inventory-container fade-in">
             <div className="inventory-header">
-                <h1 className="inventory-title">Stock Control</h1>
+
                 <div className="inventory-actions">
                     <button className="btn btn-primary" onClick={() => handleOpenModal()}>
                         + New Adjustment

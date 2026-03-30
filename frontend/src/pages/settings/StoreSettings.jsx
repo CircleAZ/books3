@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+
 import { useAuth } from '../../context/AuthContext';
 import { ENDPOINTS } from '../../config/api';
 import '../settings/SettingsIndex.css';
@@ -7,7 +7,7 @@ import './StoreSettings.css'; // Assume similar styles to other forms
 
 const StoreSettings = () => {
     const { fetchWithAuth } = useAuth();
-    const navigate = useNavigate();
+
     const [loading, setLoading] = useState(true);
     const [formData, setFormData] = useState({
         name: '',
@@ -68,10 +68,7 @@ const StoreSettings = () => {
 
     return (
         <div className="settings-container">
-            <div className="settings-page-header">
-                <button className="settings-back-btn" onClick={() => navigate('/settings')}>‹</button>
-                <h1>Store Settings</h1>
-            </div>
+
             <form onSubmit={handleSubmit} className="settings-form">
                 <div className="form-group">
                     <label>Store Name</label>

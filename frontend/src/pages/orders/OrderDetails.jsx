@@ -232,7 +232,6 @@ export default function OrderDetails() {
         <div className="order-details-error card">
             <h2>Error</h2>
             <p>{error || 'Order not found'}</p>
-            <button className="btn btn-primary" onClick={() => navigate('/orders')}>Back to Orders</button>
         </div>
     );
 
@@ -245,7 +244,6 @@ export default function OrderDetails() {
             {/* Header Section */}
             <div className="order-details-header">
                 <div className="header-main">
-                    <button className="btn btn-ghost back-arrow" onClick={() => navigate('/orders')}>←</button>
                     <h1>Order #{order.display_id}</h1>
                     <span className={`status-pill ${getStatusClass(order.derived_status)}`}>
                         {order.derived_status}

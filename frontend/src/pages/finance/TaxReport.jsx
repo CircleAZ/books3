@@ -91,7 +91,6 @@ const TaxReport = () => {
         <div className="profit-loss-report">
             <header className="report-header">
                 <div className="header-title">
-                    <h1>Tax Report (GST)</h1>
                     <p className="subtitle">For the period: {period.charAt(0).toUpperCase() + period.slice(1)}</p>
                 </div>
                 <div className="header-actions">

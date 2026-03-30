@@ -246,8 +246,6 @@ export default function EditOrder() {
             {/* Reusing POS Layout Structure */}
             <div className="pos-left-panel">
                 <div className="mb-3">
-                    <button className="btn btn-ghost" onClick={() => navigate(`/orders/${id}`)}>← Back to Details</button>
-                    <h2>Edit Order #{originalOrder?.display_id}</h2>
                 </div>
 
                 {/* Customer Section */}

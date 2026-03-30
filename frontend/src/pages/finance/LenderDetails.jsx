@@ -101,7 +101,6 @@ export default function LenderDetails() {
         <div className="lender-details-container fade-in">
             <div className="lender-details-header">
                 <div className="header-left">
-                    <button className="back-btn" onClick={() => navigate('/finance/lenders')}>← Back</button>
                     <div>
                         <h1 className="lender-title">{lender.name}</h1>
                         <div className="lender-meta">

@@ -68,7 +68,6 @@ export default function InventoryReports() {
     return (
         <div className="inventory-reports-page">
             <header className="reports-header">
-                <h1>📦 Inventory Reports</h1>
                 <button className="export-btn" onClick={() => exportCSV('all')}>
                     📥 Export All
                 </button>

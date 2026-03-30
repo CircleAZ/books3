@@ -53,7 +53,6 @@ export default function TripList() {
         <div className="expense-categories-container fade-in">
             <header className="page-header">
                 <div>
-                    <h1>Trip / Expense Groups</h1>
                     <p>Group multiple expenses under a single trip</p>
                 </div>
                 <button className="btn btn-primary" onClick={() => navigate('/finance/trips/new')}>

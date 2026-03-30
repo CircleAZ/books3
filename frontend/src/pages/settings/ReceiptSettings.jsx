@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+
 import { useAuth } from '../../context/AuthContext';
 import { useCurrency } from '../../context/CurrencyContext';
 import { ENDPOINTS } from '../../config/api';
@@ -9,7 +9,7 @@ import '../settings/SettingsIndex.css';
 const ReceiptSettings = () => {
     const { fetchWithAuth } = useAuth();
     const { currency } = useCurrency();
-    const navigate = useNavigate();
+
     const [config, setConfig] = useState({
         header_text: '',
         footer_text: '',
@@ -74,10 +74,7 @@ const ReceiptSettings = () => {
 
     return (
         <div className="settings-page animate-fade-in">
-            <div className="settings-page-header">
-                <button className="settings-back-btn" onClick={() => navigate('/settings')}>‹</button>
-                <h1>Receipt Settings</h1>
-            </div>
+
 
             <div className="receipt-settings-layout">
                 <div className="settings-panel card">

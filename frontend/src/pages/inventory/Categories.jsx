@@ -76,7 +76,7 @@ export default function Categories() {
     return (
         <div className="inventory-container fade-in">
             <div className="inventory-header">
-                <h1 className="inventory-title">Manage Categories</h1>
+
                 <div className="inventory-actions">
                     <button className="btn btn-primary" onClick={() => handleOpenModal()}>
                         + Add Category
