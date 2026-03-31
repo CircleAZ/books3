@@ -55,6 +55,11 @@
     box-shadow: 0 2px 8px rgba(99, 102, 241, 0.3);
 }
 
+.period-selector button:focus-visible {
+    outline: 2px solid #6366f1;
+    outline-offset: 2px;
+}
+
 /* ── KPI Cards Grid ── */
 .kpi-grid {
     display: grid;
@@ -83,14 +88,9 @@
     border-radius: 14px 14px 0 0;
 }
 
-.kpi-card.revenue::before { background: linear-gradient(90deg, #10b981, #34d399); }
-.kpi-card.cogs::before { background: linear-gradient(90deg, #f59e0b, #fbbf24); }
-.kpi-card.gross-profit::before { background: linear-gradient(90deg, #06b6d4, #22d3ee); }
-.kpi-card.expenses::before { background: linear-gradient(90deg, #ef4444, #f87171); }
-.kpi-card.net-profit::before { background: linear-gradient(90deg, #8b5cf6, #a78bfa); }
-.kpi-card.cash-balance::before { background: linear-gradient(90deg, #3b82f6, #60a5fa); }
-.kpi-card.receivable::before { background: linear-gradient(90deg, #14b8a6, #2dd4bf); }
-.kpi-card.payable::before { background: linear-gradient(90deg, #f97316, #fb923c); }
+.kpi-card.kpi-positive::before { background: linear-gradient(90deg, #10b981, #34d399); }
+.kpi-card.kpi-negative::before { background: linear-gradient(90deg, #ef4444, #f87171); }
+.kpi-card.kpi-neutral::before { background: linear-gradient(90deg, #64748b, #94a3b8); }
 
 .kpi-card:hover {
     transform: translateY(-2px);
@@ -102,7 +102,7 @@
 .kpi-card h3 {
     font-size: 0.72rem;
     font-weight: 600;
-    color: #94a3b8;
+    color: #cbd5e1;
     text-transform: uppercase;
     letter-spacing: 0.05em;
     margin: 0 0 8px 0;
@@ -118,12 +118,13 @@
 
 .kpi-card .value.positive { color: #34d399; }
 .kpi-card .value.negative { color: #f87171; }
+.kpi-card .value.neutral { color: #94a3b8; }
 
 /* ── Charts Section ── */
 .finance-charts-grid {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: 20px;
+    gap: 28px;
     margin-bottom: 36px;
 }
 
@@ -131,10 +132,8 @@
     background: linear-gradient(145deg, rgba(30, 41, 59, 0.6), rgba(15, 23, 42, 0.8));
     border: 1px solid rgba(148, 163, 184, 0.1);
     border-radius: 14px;
-    padding: 20px;
-    overflow: hidden;
+    padding: 20px 20px 12px 20px;
     position: relative;
-    isolation: isolate;
 }
 
 .chart-container.large {
@@ -209,6 +208,18 @@
 .finance-loading { text-align: center; padding: 60px 20px; color: #94a3b8; }
 
 .finance-error { text-align: center; padding: 40px 20px; color: #f87171; }
+
+.charts-empty-state {
+    text-align: center;
+    padding: 40px 20px;
+    color: #64748b;
+    font-size: 0.9rem;
+    background: linear-gradient(145deg, rgba(30, 41, 59, 0.4), rgba(15, 23, 42, 0.6));
+    border: 1px dashed rgba(148, 163, 184, 0.15);
+    border-radius: 14px;
+    margin-bottom: 32px;
+}
+.charts-empty-state p { margin: 0; }
 .finance-error button {
     margin-top: 12px;
     padding: 8px 20px;

@@ -224,7 +224,11 @@ export function AuthProvider({ children }) {
         }
     };
 
-    const fetchWithAuth = async (url, options = {}) => {
+    // Ref to always read the latest token without re-creating fetchWithAuth
+    const tokenRef = useRef(token);
+    useEffect(() => { tokenRef.current = token; }, [token]);
+
+    const fetchWithAuth = useCallback(async (url, options = {}) => {
         const headers = {
             ...options.headers,
         };
@@ -234,8 +238,8 @@ export function AuthProvider({ children }) {
             headers['Content-Type'] = headers['Content-Type'] || 'application/json';
         }
 
-        if (token) {
-            headers['Authorization'] = `Bearer ${token}`;
+        if (tokenRef.current) {
+            headers['Authorization'] = `Bearer ${tokenRef.current}`;
         }
 
         const response = await fetch(url, { ...options, headers });
@@ -264,7 +268,7 @@ export function AuthProvider({ children }) {
         }
 
         return response;
-    };
+    }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
     const refreshToken = async () => {
         // LENS-17: If a refresh is already in-flight, reuse it
