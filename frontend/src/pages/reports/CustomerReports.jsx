@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useCurrency } from '../../context/CurrencyContext';
 import { ENDPOINTS } from '../../config/api';
-import CustomerLocationMap from './CustomerLocationMap';
+
 import './CustomerReports.css';
 
 export default function CustomerReports() {
@@ -164,8 +164,6 @@ export default function CustomerReports() {
                 </div>
             </div>
 
-            {/* Customer Location Map */}
-            <CustomerLocationMap />
         </div>
     );
 }

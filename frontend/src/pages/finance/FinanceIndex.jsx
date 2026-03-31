@@ -9,7 +9,6 @@ import {
     LineChart, Line, PieChart, Pie, Cell, Legend
 } from 'recharts';
 import './FinanceIndex.css';
-import './FinancialDashboard.css';
 
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8', '#82ca9d'];
 
@@ -71,7 +70,7 @@ const FinanceIndex = () => {
         { title: 'Employee Expenses', icon: '🧾', path: '/finance/employee-expenses', color: '#2563eb' },
         { title: 'Employee Salaries', icon: '💸', path: '/finance/salaries', color: '#0d9488' },
         { title: 'Banking', icon: '🏦', path: '/finance/banking', color: '#7c3aed' },
-        { title: 'Reports', icon: '📈', path: '/finance/reports', color: '#0891b2' },
+        { title: 'Profit & Loss', icon: '📈', path: '/finance/reports/profit-loss', color: '#0891b2' },
         { title: 'Lenders & Loans', icon: '🤝', path: '/finance/lenders', color: '#ea580c' },
         { title: 'Recurring', icon: '🔄', path: '/finance/recurring', color: '#8b5cf6' },
         { title: 'Budgets', icon: '📊', path: '/finance/budgets', color: '#06b6d4' },

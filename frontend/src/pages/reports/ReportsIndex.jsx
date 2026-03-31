@@ -37,13 +37,6 @@ const reportSections = [
         icon: '📥',
         path: '/reports/export',
         color: 'green'
-    },
-    {
-        title: 'Profit & Loss',
-        description: 'Analyze revenue vs expenses and overall profitability.',
-        icon: '💰',
-        path: '/reports/profit-loss',
-        color: 'gold'
     }
 ];
 

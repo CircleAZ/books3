@@ -100,14 +100,12 @@ function ProtectedRoute({ children }) {
   return children;
 }
 
-// Generic placeholder for pages not yet implemented
-function PlaceholderPage({ title, phase }) {
+// 404 page
+function NotFoundPage() {
   return (
-    <div className="page-placeholder">
-      <h2>{title}</h2>
-      <div className="placeholder-card">
-        <p>Coming in {phase}</p>
-      </div>
+    <div style={{ padding: '3rem 2rem', textAlign: 'center' }}>
+      <h2 style={{ fontSize: '1.5rem', marginBottom: '0.5rem' }}>Page Not Found</h2>
+      <p style={{ color: 'var(--color-text-muted)' }}>The page you're looking for doesn't exist or has been moved.</p>
     </div>
   );
 }
@@ -442,12 +440,7 @@ function AppRoutes() {
         </ProtectedRoute>
       } />
 
-      {/* Other protected routes with placeholders */}
-      <Route path="/inventory/*" element={
-        <ProtectedRoute>
-          <MainLayout><PlaceholderPage title="Inventory" phase="Phase 5" /></MainLayout>
-        </ProtectedRoute>
-      } />
+
 
       {/* Settings Routes */}
       <Route path="/settings" element={
@@ -480,22 +473,14 @@ function AppRoutes() {
           <MainLayout><DataManagement /></MainLayout>
         </ProtectedRoute>
       } />
-      <Route path="/settings/info" element={
-        <ProtectedRoute>
-          <MainLayout><SystemInfo /></MainLayout>
-        </ProtectedRoute>
-      } />
+
 
       <Route path="/settings/customers" element={
         <ProtectedRoute>
           <MainLayout><CustomerSettings /></MainLayout>
         </ProtectedRoute>
       } />
-      <Route path="/settings/financial" element={
-        <ProtectedRoute>
-          <MainLayout><FinancialSettings /></MainLayout>
-        </ProtectedRoute>
-      } />
+
       <Route path="/settings/receipt" element={
         <ProtectedRoute>
           <MainLayout><ReceiptSettings /></MainLayout>
@@ -522,15 +507,11 @@ function AppRoutes() {
           <MainLayout><SystemInfo /></MainLayout>
         </ProtectedRoute>
       } />
-      <Route path="/settings/*" element={
-        <ProtectedRoute>
-          <MainLayout><PlaceholderPage title="Settings" phase="Phase 14" /></MainLayout>
-        </ProtectedRoute>
-      } />
+
 
       {/* 404 */}
       <Route path="*" element={
-        <MainLayout><PlaceholderPage title="Page Not Found" phase="a future update" /></MainLayout>
+        <MainLayout><NotFoundPage /></MainLayout>
       } />
     </Routes>
   );
