@@ -79,7 +79,6 @@ export const menuSections = [
             { label: 'Expense Categories', title: 'Expense Categories', path: '/finance/categories' },
             { label: 'Employee Expenses', title: 'Employee Expenses', path: '/finance/employee-expenses' },
             { label: 'Employee Salaries', title: 'Salaries', path: '/finance/salaries' },
-            { label: 'Financial Reports', title: 'Financial Reports', path: '/finance/reports' },
             { label: 'Profit & Loss', title: 'Profit & Loss', path: '/finance/reports/profit-loss' },
             { label: 'Balance Sheet', title: 'Balance Sheet', path: '/finance/reports/balance-sheet' },
             { label: 'Cash Flow', title: 'Cash Flow', path: '/finance/reports/cash-flow' },

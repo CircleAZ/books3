@@ -58,7 +58,7 @@ import EmployeeSalaries from './pages/finance/EmployeeSalaries';
 import BankAccounts from './pages/finance/BankAccounts';
 import BankTransactions from './pages/finance/BankTransactions';
 import RecordTransaction from './pages/finance/RecordTransaction';
-import FinancialReports from './pages/finance/FinancialReports';
+
 import ProfitLossReport from './pages/finance/ProfitLossReport';
 import CashFlowReport from './pages/finance/CashFlowReport';
 import BalanceSheet from './pages/finance/BalanceSheet';
@@ -283,11 +283,7 @@ function AppRoutes() {
           <MainLayout><EmployeeSalaries /></MainLayout>
         </ProtectedRoute>
       } />
-      <Route path="/finance/reports" element={
-        <ProtectedRoute>
-          <MainLayout><FinancialReports /></MainLayout>
-        </ProtectedRoute>
-      } />
+
       <Route path="/finance/reports/profit-loss" element={
         <ProtectedRoute>
           <MainLayout><ProfitLossReport /></MainLayout>
