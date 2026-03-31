@@ -113,9 +113,10 @@ export const menuSections = [
         id: 'reports',
         label: 'Reporting & Analytics',
         title: 'Reports',
-        path: '/reports/sales',
+        path: '/reports',
         icon: 'bar-chart',
         children: [
+            { label: 'Reports Hub', title: 'Reports', path: '/reports' },
             { label: 'Sales Reports', title: 'Sales Reports', path: '/reports/sales' },
             { label: 'Inventory Reports', title: 'Inventory Reports', path: '/reports/inventory' },
             { label: 'Customer Reports', title: 'Customer Reports', path: '/reports/customers' },
