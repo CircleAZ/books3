@@ -6,7 +6,7 @@ Usage: python manage.py seed_all
 from decimal import Decimal
 from django.core.management.base import BaseCommand
 from django.core.management import call_command
-from django.db import transaction
+from django.db import transaction, IntegrityError
 from django.contrib.auth import get_user_model
 
 User = get_user_model()
@@ -141,10 +141,15 @@ class Command(BaseCommand):
             {'name': 'Exam Supplies',       'description': 'Geometry boxes, calculators, graph paper, supplements'},
         ]
         for c in categories:
-            obj, created = Category.objects.get_or_create(
-                name=c['name'],
-                defaults={**c, 'tax_rate': default_tax}
-            )
+            try:
+                with transaction.atomic():
+                    obj, created = Category.objects.get_or_create(
+                        name=c['name'],
+                        defaults={**c, 'tax_rate': default_tax}
+                    )
+            except IntegrityError:
+                obj = Category.objects.get(name=c['name'])
+                created = False
             self._log(obj.name, created)
 
     def _seed_vendors(self):
