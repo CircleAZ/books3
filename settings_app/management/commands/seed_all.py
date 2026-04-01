@@ -6,7 +6,7 @@ Usage: python manage.py seed_all
 from decimal import Decimal
 from django.core.management.base import BaseCommand
 from django.core.management import call_command
-from django.db import transaction, IntegrityError
+from django.db import transaction
 from django.contrib.auth import get_user_model
 
 User = get_user_model()
@@ -141,15 +141,11 @@ class Command(BaseCommand):
             {'name': 'Exam Supplies',       'description': 'Geometry boxes, calculators, graph paper, supplements'},
         ]
         for c in categories:
-            try:
-                with transaction.atomic():
-                    obj, created = Category.objects.get_or_create(
-                        name=c['name'],
-                        defaults={**c, 'tax_rate': default_tax}
-                    )
-            except IntegrityError:
-                obj = Category.objects.get(name=c['name'])
-                created = False
+            obj, created = Category.all_objects.get_or_create(
+                name=c['name'],
+                defaults={**c, 'tax_rate': default_tax}
+            )
+            self._restore_if_deleted(obj)
             self._log(obj.name, created)
 
     def _seed_vendors(self):
@@ -192,7 +188,8 @@ class Command(BaseCommand):
             },
         ]
         for v in vendors:
-            obj, created = Vendor.objects.get_or_create(name=v['name'], defaults=v)
+            obj, created = Vendor.all_objects.get_or_create(name=v['name'], defaults=v)
+            self._restore_if_deleted(obj)
             self._log(obj.name, created)
 
     def _seed_tags(self):
@@ -260,7 +257,8 @@ class Command(BaseCommand):
             {'name': 'Expired / Old Edition', 'description': 'Received an outdated or expired edition'},
         ]
         for r in reasons:
-            obj, created = ReturnReason.objects.get_or_create(name=r['name'], defaults=r)
+            obj, created = ReturnReason.all_objects.get_or_create(name=r['name'], defaults=r)
+            self._restore_if_deleted(obj)
             self._log(obj.name, created)
 
     def _seed_receipt_settings(self):
@@ -386,6 +384,14 @@ class Command(BaseCommand):
     # ══════════════════════════════════════════════════
     # Helpers
     # ══════════════════════════════════════════════════
+
+    def _restore_if_deleted(self, obj):
+        """Restore a soft-deleted seed record so it becomes visible again."""
+        if getattr(obj, 'is_deleted', False):
+            obj.is_deleted = False
+            obj.deleted_at = None
+            obj.save(update_fields=['is_deleted', 'deleted_at', 'updated_at'])
+            self.stdout.write(f'  ♻️  Restored (was soft-deleted): {obj}')
 
     def _log(self, name, created):
         icon = '✅' if created else '⏭️ '
