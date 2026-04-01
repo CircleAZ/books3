@@ -5,6 +5,7 @@ import { useToast } from '../../context/ToastContext';
 import { ENDPOINTS } from '../../config/api';
 import { formatINR, parseApiError } from '../../utils/financeUtils';
 import './ExpenseCategories.css'; // Shared card-grid styles
+import LoadingSpinner from '../../components/common/LoadingSpinner';
 
 const FREQUENCY_OPTIONS = [
     { value: 'daily', label: 'Daily' },
@@ -114,7 +115,7 @@ export default function RecurringExpenses() {
     const fmt = formatINR;
 
     if (loading && items.length === 0) {
-        return <div className="expense-categories-loading"><div className="spinner"></div><p>Loading...</p></div>;
+        return <LoadingSpinner />;
     }
 
     return (

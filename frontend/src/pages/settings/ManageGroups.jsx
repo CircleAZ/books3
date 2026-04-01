@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { ENDPOINTS } from '../../config/api';
 import { useToast } from '../../context/ToastContext';
+import LoadingSpinner from '../../components/common/LoadingSpinner';
 
 export default function ManageGroups() {
     const { fetchWithAuth } = useAuth();
@@ -102,7 +103,7 @@ export default function ManageGroups() {
     );
 
     if (loading && !isEditing && groups.length === 0) {
-        return <div className="manager-empty">Loading...</div>;
+        return <LoadingSpinner />;
     }
 
     return (

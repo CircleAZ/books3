@@ -6,6 +6,7 @@ import { ENDPOINTS } from '../../config/api';
 import AddCustomer from '../customers/AddCustomer';
 import { useToast } from '../../context/ToastContext';
 import '../NewOrder.css'; // Reusing POS styles
+import LoadingSpinner from '../../components/common/LoadingSpinner';
 
 export default function EditOrder() {
     const { id } = useParams();
@@ -239,7 +240,7 @@ export default function EditOrder() {
         } finally { setIsCreatingProduct(false); }
     };
 
-    if (loading) return <div className="p-5 text-center">Loading...</div>;
+    if (loading) return <LoadingSpinner />;
 
     return (
         <div className="pos-container">

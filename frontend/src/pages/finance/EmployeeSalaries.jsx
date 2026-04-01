@@ -4,6 +4,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useCurrency } from '../../context/CurrencyContext';
 import { ENDPOINTS } from '../../config/api';
 import './EmployeeSalaries.css';
+import LoadingSpinner from '../../components/common/LoadingSpinner';
 
 export default function EmployeeSalaries() {
     const { fetchWithAuth } = useAuth();
@@ -90,7 +91,7 @@ export default function EmployeeSalaries() {
 
             <div className="salaries-table-container glass-card">
                 {loading ? (
-                    <div className="loading-spinner">Loading...</div>
+                    <LoadingSpinner />
                 ) : (
                     <table className="salaries-table">
                         <thead>

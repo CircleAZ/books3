@@ -4,6 +4,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useCurrency } from '../../context/CurrencyContext';
 import { ENDPOINTS } from '../../config/api';
 import './CustomerList.css';
+import LoadingSpinner from '../../components/common/LoadingSpinner';
 
 const CustomerList = () => {
     const { currency } = useCurrency();
@@ -69,7 +70,7 @@ const CustomerList = () => {
             </div>
 
             {loading ? (
-                <div className="loading-spinner">Loading...</div>
+                <LoadingSpinner />
             ) : (
                 <div className="table-responsive">
                     <table className="data-table">

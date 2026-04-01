@@ -3,6 +3,7 @@ import { useAuth } from '../../context/AuthContext';
 import { ENDPOINTS } from '../../config/api';
 import { useToast } from '../../context/ToastContext';
 import SchoolStructureTree from '../../components/common/SchoolStructureTree';
+import LoadingSpinner from '../../components/common/LoadingSpinner';
 
 export default function ManageSchools() {
     const { fetchWithAuth } = useAuth();
@@ -284,7 +285,7 @@ export default function ManageSchools() {
     );
 
     if (loading && !wizardStep && schools.length === 0) {
-        return <div className="manager-empty">Loading...</div>;
+        return <LoadingSpinner />;
     }
 
     // Wizard view

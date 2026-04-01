@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { ENDPOINTS } from '../../config/api';
 import { useToast } from '../../context/ToastContext';
+import LoadingSpinner from '../../components/common/LoadingSpinner';
 
 export default function ManageLinkTypes() {
     const { fetchWithAuth } = useAuth();
@@ -101,7 +102,7 @@ export default function ManageLinkTypes() {
     );
 
     if (loading && !isEditing && types.length === 0) {
-        return <div className="manager-empty">Loading...</div>;
+        return <LoadingSpinner />;
     }
 
     return (

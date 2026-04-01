@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { ENDPOINTS } from '../../config/api';
 import { useToast } from '../../context/ToastContext';
+import LoadingSpinner from '../../components/common/LoadingSpinner';
 
 export default function ManageDivisions() {
     const { fetchWithAuth } = useAuth();
@@ -120,7 +121,7 @@ export default function ManageDivisions() {
         .sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' }));
 
     if (loading && !isEditing && templates.length === 0) {
-        return <div className="manager-empty">Loading...</div>;
+        return <LoadingSpinner />;
     }
 
     return (

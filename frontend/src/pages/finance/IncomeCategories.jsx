@@ -4,6 +4,7 @@ import { useToast } from '../../context/ToastContext';
 import { ENDPOINTS } from '../../config/api';
 import { parseApiError } from '../../utils/financeUtils';
 import './ExpenseCategories.css';
+import LoadingSpinner from '../../components/common/LoadingSpinner';
 
 export default function IncomeCategories() {
     const { fetchWithAuth } = useAuth();
@@ -73,7 +74,7 @@ export default function IncomeCategories() {
     };
 
     if (loading && categories.length === 0) {
-        return <div className="expense-categories-loading"><div className="spinner"></div><p>Loading...</p></div>;
+        return <LoadingSpinner />;
     }
 
     return (
