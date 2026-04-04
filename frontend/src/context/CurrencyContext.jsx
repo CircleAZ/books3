@@ -18,24 +18,24 @@ export const CurrencyProvider = ({ children }) => {
     const [loading, setLoading] = useState(true);
     const { fetchWithAuth } = useAuth();
 
-    useEffect(() => {
-        const fetchCurrency = async () => {
-            try {
-                const response = await fetchWithAuth(ENDPOINTS.SETTINGS_STORE);
-                if (response.ok) {
-                    const data = await response.json();
-                    // Handle both single object and array responses
-                    const storeData = Array.isArray(data) ? data[0] : data;
-                    setCurrency(storeData?.currency_symbol || '$');
-                }
-            } catch (error) {
-                console.error('Error fetching currency settings:', error);
-                // Keep default '$' on error
-            } finally {
-                setLoading(false);
+    const fetchCurrency = async () => {
+        try {
+            const response = await fetchWithAuth(ENDPOINTS.SETTINGS_STORE);
+            if (response.ok) {
+                const data = await response.json();
+                // Handle both single object and array responses
+                const storeData = Array.isArray(data) ? data[0] : data;
+                setCurrency(storeData?.currency_symbol || '$');
             }
-        };
+        } catch (error) {
+            console.error('Error fetching currency settings:', error);
+            // Keep default '$' on error
+        } finally {
+            setLoading(false);
+        }
+    };
 
+    useEffect(() => {
         if (fetchWithAuth) {
             fetchCurrency();
         }
@@ -43,6 +43,8 @@ export const CurrencyProvider = ({ children }) => {
 
     const value = {
         currency,
+        setCurrency,
+        refreshCurrency: fetchCurrency,
         loading,
         // Format currency with symbol
         formatCurrency: (amount) => {

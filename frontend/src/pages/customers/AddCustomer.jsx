@@ -715,7 +715,7 @@ export default function AddCustomer({ onSuccess, onCancel, isEmbedded = false })
                                     <label>Pincode</label>
                                     <input type="text" name="pincode" value={formData.pincode} onChange={handleInputChange} />
                                 </div>
-                                <div className="form-group">
+                                <div className="form-group full-width">
                                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                                         <label style={{ margin: 0 }}>Location Tags</label>
                                         {!showNewTagInput && (

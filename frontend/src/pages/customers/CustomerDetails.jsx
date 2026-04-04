@@ -14,6 +14,7 @@ const CustomerDetails = () => {
 
     const [customer, setCustomer] = useState(null);
     const [wallet, setWallet] = useState(null);
+    const [orders, setOrders] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
 
@@ -27,10 +28,11 @@ const CustomerDetails = () => {
     const fetchData = React.useCallback(async () => {
         setLoading(true);
         try {
-            // Fetch customer details and wallet data in parallel
-            const [customerRes, walletRes] = await Promise.all([
+            // Fetch customer details, wallet, and orders in parallel
+            const [customerRes, walletRes, ordersRes] = await Promise.all([
                 fetchWithAuth(`${ENDPOINTS.CUSTOMERS}${id}/`),
-                fetchWithAuth(`${ENDPOINTS.CUSTOMERS}${id}/wallet/`)
+                fetchWithAuth(`${ENDPOINTS.CUSTOMERS}${id}/wallet/`),
+                fetchWithAuth(`${ENDPOINTS.ORDERS}?customer=${id}`)
             ]);
 
             if (!customerRes.ok) {
@@ -46,6 +48,14 @@ const CustomerDetails = () => {
             } else {
                 console.warn("Could not fetch wallet details");
                 setWallet(null);
+            }
+
+            if (ordersRes.ok) {
+                const ordersData = await ordersRes.json();
+                setOrders(ordersData.results || ordersData || []);
+            } else {
+                console.warn("Could not fetch orders");
+                setOrders([]);
             }
         } catch (err) {
             console.error("Error fetching data:", err);
@@ -294,6 +304,71 @@ const CustomerDetails = () => {
                             ))
                         ) : (
                             <p className="text-muted text-center">No related customers.</p>
+                        )}
+                    </div>
+                </div>
+
+                {/* Orders Section */}
+                <div className="customer-section" style={{ gridColumn: '1 / -1' }}>
+                    <div className="customer-section-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <h3>Order History ({orders.length})</h3>
+                        <button className="btn btn-sm btn-outline" onClick={() => navigate(`/orders?customer=${id}`)}>View All</button>
+                    </div>
+                    <div className="customer-section-content">
+                        {orders.length > 0 ? (
+                            <div style={{ overflowX: 'auto' }}>
+                                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.9rem' }}>
+                                    <thead>
+                                        <tr style={{ borderBottom: '2px solid var(--color-border)', textAlign: 'left' }}>
+                                            <th style={{ padding: '0.6rem 0.75rem', whiteSpace: 'nowrap' }}>Order #</th>
+                                            <th style={{ padding: '0.6rem 0.75rem', whiteSpace: 'nowrap' }}>Date</th>
+                                            <th style={{ padding: '0.6rem 0.75rem', whiteSpace: 'nowrap' }}>Total</th>
+                                            <th style={{ padding: '0.6rem 0.75rem', whiteSpace: 'nowrap' }}>Payment</th>
+                                            <th style={{ padding: '0.6rem 0.75rem', whiteSpace: 'nowrap' }}>Status</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {orders.slice(0, 10).map(order => (
+                                            <tr
+                                                key={order.id}
+                                                onClick={() => navigate(`/orders/${order.id}`)}
+                                                style={{ borderBottom: '1px solid var(--color-border-light)', cursor: 'pointer', transition: 'background 0.15s' }}
+                                                onMouseEnter={e => e.currentTarget.style.background = 'var(--color-bg-hover)'}
+                                                onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                                            >
+                                                <td style={{ padding: '0.6rem 0.75rem', fontWeight: 600, color: 'var(--color-primary)' }}>
+                                                    #{order.display_id}
+                                                </td>
+                                                <td style={{ padding: '0.6rem 0.75rem', whiteSpace: 'nowrap', color: 'var(--color-text-secondary)' }}>
+                                                    {new Date(order.created_at).toLocaleDateString()}
+                                                </td>
+                                                <td style={{ padding: '0.6rem 0.75rem', fontWeight: 600 }}>
+                                                    {currency}{Number(order.total || 0).toFixed(2)}
+                                                </td>
+                                                <td style={{ padding: '0.6rem 0.75rem' }}>
+                                                    <span className={`badge ${order.payment_status === 'paid' ? 'badge-success' : order.payment_status === 'partial' ? 'badge-warning' : 'badge-danger'}`}
+                                                        style={{ fontSize: '0.75rem', padding: '2px 8px', borderRadius: '999px', textTransform: 'capitalize' }}>
+                                                        {order.payment_status}
+                                                    </span>
+                                                </td>
+                                                <td style={{ padding: '0.6rem 0.75rem' }}>
+                                                    <span className={`badge ${order.order_status === 'completed' ? 'badge-success' : order.order_status === 'cancelled' ? 'badge-danger' : 'badge-info'}`}
+                                                        style={{ fontSize: '0.75rem', padding: '2px 8px', borderRadius: '999px', textTransform: 'capitalize' }}>
+                                                        {order.derived_status || order.order_status}
+                                                    </span>
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                                {orders.length > 10 && (
+                                    <p style={{ textAlign: 'center', marginTop: '0.75rem', color: 'var(--color-text-muted)', fontSize: '0.85rem' }}>
+                                        Showing 10 of {orders.length} orders. <a href="#" onClick={(e) => { e.preventDefault(); navigate(`/orders?customer=${id}`); }} style={{ color: 'var(--color-primary)' }}>View all →</a>
+                                    </p>
+                                )}
+                            </div>
+                        ) : (
+                            <p className="text-muted text-center">No orders found for this customer.</p>
                         )}
                     </div>
                 </div>

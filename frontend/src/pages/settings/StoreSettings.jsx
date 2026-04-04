@@ -1,13 +1,14 @@
 import React, { useState, useEffect } from 'react';
 
 import { useAuth } from '../../context/AuthContext';
+import { useCurrency } from '../../context/CurrencyContext';
 import { ENDPOINTS } from '../../config/api';
 import '../settings/SettingsIndex.css';
 import './StoreSettings.css'; // Assume similar styles to other forms
 
 const StoreSettings = () => {
     const { fetchWithAuth } = useAuth();
-
+    const { setCurrency } = useCurrency();
     const [loading, setLoading] = useState(true);
     const [formData, setFormData] = useState({
         name: '',
@@ -55,6 +56,7 @@ const StoreSettings = () => {
                 body: JSON.stringify(formData)
             });
             if (response.ok) {
+                setCurrency(formData.currency_symbol);
                 alert('Store settings updated successfully');
             } else {
                 alert('Failed to update settings');
