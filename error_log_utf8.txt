@@ -1,0 +1,115 @@
+﻿python : Traceback (most 
+recent call last):
+At line:1 char:1
++ python manage.py 
+makemigrations > 
+error_log.txt 2>&1
++ ~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo         
+     : NotSpecified: (Tra  
+  ceback (most recent ca   
+ ll last)::String) [],     
+RemoteException
+    + FullyQualifiedErrorI 
+   d : NativeCommandError
+ 
+  File 
+"Z:\books2\manage.py", 
+line 22, in <module>
+    main()
+    ~~~~^^
+  File 
+"Z:\books2\manage.py", 
+line 18, in main
+    execute_from_command_li
+ne(sys.argv)
+    ~~~~~~~~~~~~~~~~~~~~~~~
+~~^^^^^^^^^^
+  File "C:\Users\mukun\AppD
+ata\Roaming\Python\Python31
+4\site-packages\django\core
+\management\__init__.py", 
+line 443, in 
+execute_from_command_line
+    utility.execute()
+    ~~~~~~~~~~~~~~~^^
+  File "C:\Users\mukun\AppD
+ata\Roaming\Python\Python31
+4\site-packages\django\core
+\management\__init__.py", 
+line 417, in execute
+    django.setup()
+    ~~~~~~~~~~~~^^
+  File "C:\Users\mukun\AppD
+ata\Roaming\Python\Python31
+4\site-packages\django\__in
+it__.py", line 24, in setup
+    apps.populate(settings.
+INSTALLED_APPS)
+    ~~~~~~~~~~~~~^^^^^^^^^^
+^^^^^^^^^^^^^^^
+  File "C:\Users\mukun\AppD
+ata\Roaming\Python\Python31
+4\site-packages\django\apps
+\registry.py", line 116, 
+in populate
+    
+app_config.import_models()
+    
+~~~~~~~~~~~~~~~~~~~~~~~~^^
+  File "C:\Users\mukun\AppD
+ata\Roaming\Python\Python31
+4\site-packages\django\apps
+\config.py", line 269, in 
+import_models
+    self.models_module = im
+port_module(models_module_n
+ame)
+                         ~~
+~~~~~~~~~~~^^^^^^^^^^^^^^^^
+^^^^
+  File "C:\Python314\Lib\im
+portlib\__init__.py", line 
+88, in import_module
+    return _bootstrap._gcd_
+import(name[level:], 
+package, level)
+           ~~~~~~~~~~~~~~~~
+~~~~~~^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^
+  File "<frozen 
+importlib._bootstrap>", 
+line 1398, in _gcd_import
+  File "<frozen 
+importlib._bootstrap>", 
+line 1371, in 
+_find_and_load
+  File "<frozen 
+importlib._bootstrap>", 
+line 1342, in 
+_find_and_load_unlocked
+  File "<frozen 
+importlib._bootstrap>", 
+line 938, in _load_unlocked
+  File "<frozen importlib._
+bootstrap_external>", line 
+759, in exec_module
+  File "<frozen 
+importlib._bootstrap>", 
+line 491, in 
+_call_with_frames_removed
+  File "Z:\books2\finance\m
+odels.py", line 9, in 
+<module>
+    from 
+simple_history.models 
+import HistoricalRecords, 
+transaction
+ImportError: cannot import 
+name 'transaction' from 
+'simple_history.models' (C:
+\Users\mukun\AppData\Roamin
+g\Python\Python314\site-pac
+kages\simple_history\models
+.py)

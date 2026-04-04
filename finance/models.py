@@ -6,6 +6,7 @@ employee finance, and lenders.
 
 from decimal import Decimal
 from django.db import models, transaction
+from simple_history.models import HistoricalRecords
 from django.conf import settings
 from django.core.validators import MinValueValidator
 from core.models import TimestampedModel, SoftDeleteModel
@@ -29,6 +30,8 @@ class ExpenseCategory(TimestampedModel):
 
 
 class Expense(SoftDeleteModel):
+    history = HistoricalRecords()
+
     """
     Company expenses with payment tracking.
     Payee can be a Vendor, Employee, or Lender.
@@ -370,6 +373,8 @@ class BankTransaction(SoftDeleteModel):
 # ======== Employee Finance Models ========
 
 class EmployeeExpense(SoftDeleteModel):
+    history = HistoricalRecords()
+
     """
     Employee-submitted expenses for reimbursement.
     """
@@ -768,6 +773,8 @@ class CategoryBudget(TimestampedModel):
 # ======== Trip / Expense Group ========
 
 class ExpenseTrip(SoftDeleteModel):
+    history = HistoricalRecords()
+
     """
     Groups multiple expenses under a single trip or event.
     Each line item can be paid by the company or by an employee (reimbursement).

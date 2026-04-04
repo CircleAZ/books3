@@ -3,6 +3,7 @@ import uuid
 import re
 import random
 from django.db import models
+from simple_history.models import HistoricalRecords
 from django.utils import timezone
 
 

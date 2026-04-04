@@ -3,6 +3,7 @@ Order Management models for POS functionality.
 """
 import uuid as uuid_lib
 from django.db import models
+from simple_history.models import HistoricalRecords
 from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.utils import timezone
@@ -11,6 +12,8 @@ from core.models import SoftDeleteModel, UUIDPrimaryKeyModel, DisplayIDMixin
 
 
 class Order(DisplayIDMixin, SoftDeleteModel):
+    history = HistoricalRecords()
+
     """
     Order entity representing a customer purchase.
     Supports both registered customers and guest checkout.
@@ -522,6 +525,8 @@ class ReturnReason(SoftDeleteModel):
 
 
 class Return(DisplayIDMixin, SoftDeleteModel):
+    history = HistoricalRecords()
+
     """
     Return request for an order. Tracks the return process from initiation to completion.
     """
@@ -611,6 +616,8 @@ class ReturnItem(UUIDPrimaryKeyModel):
 
 
 class Refund(UUIDPrimaryKeyModel):
+    history = HistoricalRecords()
+
     """
     Refund payment record. Can be linked to a Return or directly to an Order.
     """
