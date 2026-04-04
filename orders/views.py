@@ -520,6 +520,7 @@ class ReturnReasonViewSet(viewsets.ModelViewSet):
     queryset = ReturnReason.objects.all()
     serializer_class = ReturnReasonSerializer
     permission_classes = [IsAuthenticated]
+    pagination_class = None
     filter_backends = [filters.SearchFilter]
     search_fields = ['name']
 
