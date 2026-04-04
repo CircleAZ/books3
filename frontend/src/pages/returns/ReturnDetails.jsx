@@ -248,7 +248,7 @@ export default function ReturnDetails() {
                     <div className="card glass refund-card">
                         <h3>Refund History</h3>
                         {returnData.refunds && returnData.refunds.length > 0 ? (
-                            <div className="refunds-list">
+                            <div className="table-container">
                                 <table className="details-table">
                                     <thead>
                                         <tr>

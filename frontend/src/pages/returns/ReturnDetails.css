@@ -127,6 +127,9 @@
 }
 
 .refund-summary {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-sm);
     margin-top: var(--space-xl);
     padding: var(--page-padding);
     background: rgba(255, 255, 255, 0.03);
@@ -236,5 +239,10 @@
     
     .form-row {
         grid-template-columns: 1fr;
+    }
+    
+    .refund-summary {
+        max-width: 100%;
+        margin-left: 0;
     }
 }
