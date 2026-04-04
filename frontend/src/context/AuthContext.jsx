@@ -213,6 +213,11 @@ export function AuthProvider({ children }) {
             // Clear proactive refresh timer
             if (refreshTimerRef.current) clearTimeout(refreshTimerRef.current);
 
+            // VORTEX-02: Clear SW API cache on logout to prevent cross-user data leakage
+            if ('caches' in window) {
+                caches.delete('api-cache').catch(() => {});
+            }
+
             // Clear local storage
             localStorage.removeItem('access_token');
             localStorage.removeItem('refresh_token');
@@ -242,7 +247,7 @@ export function AuthProvider({ children }) {
             headers['Authorization'] = `Bearer ${tokenRef.current}`;
         }
 
-        const response = await fetch(url, { ...options, headers });
+        const response = await fetch(url, { ...options, headers, cache: 'no-store' });
 
         // Handle token expiration (401)
         if (response.status === 401) {
@@ -251,7 +256,7 @@ export function AuthProvider({ children }) {
             if (refreshed) {
                 // Retry request with new token
                 headers['Authorization'] = `Bearer ${localStorage.getItem('access_token')}`;
-                return fetch(url, { ...options, headers });
+                return fetch(url, { ...options, headers, cache: 'no-store' });
             } else {
                 logout();
             }

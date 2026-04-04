@@ -82,6 +82,19 @@
   --z-drawer: 200;
   --z-modal: 300;
   --z-toast: 400;
+
+  /* Responsive layout components (Mobile First) */
+  --page-padding: var(--space-sm);
+  --page-gap: var(--space-md);
+  --content-padding: var(--space-xs);
+}
+
+@media (min-width: 768px) {
+  :root {
+    --page-padding: var(--space-lg);
+    --page-gap: var(--space-lg);
+    --content-padding: var(--space-md);
+  }
 }
 
 /* Global Reset */
@@ -221,7 +234,7 @@ button {
   background: var(--color-bg-secondary);
   border: 1px solid var(--color-border-light);
   border-radius: var(--radius-lg);
-  padding: var(--space-lg);
+  padding: var(--page-padding);
   transition: all var(--transition-normal);
 }
 

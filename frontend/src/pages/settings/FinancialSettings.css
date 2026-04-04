@@ -1,5 +1,5 @@
 .settings-page {
-    padding: var(--space-lg);
+    padding: var(--page-padding);
     max-width: 1200px;
     margin: 0 auto;
 }
@@ -61,7 +61,7 @@
 .payment-methods-list {
     display: flex;
     flex-direction: column;
-    gap: var(--space-md);
+    gap: var(--page-gap);
     margin-bottom: var(--space-xl);
 }
 
@@ -69,7 +69,7 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: var(--space-md);
+    padding: var(--content-padding);
     background: var(--color-bg-tertiary);
     border-radius: var(--radius-md);
 }

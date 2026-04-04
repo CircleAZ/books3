@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useCurrency } from '../../context/CurrencyContext';
 import { ENDPOINTS } from '../../config/api';
@@ -10,6 +10,7 @@ export default function OrderList() {
     const { fetchWithAuth } = useAuth();
     const { currency } = useCurrency();
     const navigate = useNavigate();
+    const location = useLocation();
 
     const [orders, setOrders] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -72,8 +73,14 @@ export default function OrderList() {
         }
     }, [fetchWithAuth, page, search, orderStatus, paymentStatus, deliveryStatus, returnStatus, refundStatus, cancellationStatus, dateAfter, dateBefore, ordering]);
 
-    // Debounce search
+    // Immediate fetch on navigation or filter changes
     useEffect(() => {
+        fetchOrders();
+    }, [location.key]);
+
+    // Debounced fetch for search input
+    useEffect(() => {
+        if (!search) return;
         const timer = setTimeout(() => {
             fetchOrders();
         }, 500);

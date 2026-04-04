@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useCurrency } from '../../context/CurrencyContext';
 import { ENDPOINTS } from '../../config/api';
@@ -14,6 +14,7 @@ const CustomerList = () => {
     const [page, setPage] = useState(1);
     const [totalPages, setTotalPages] = useState(1);
     const navigate = useNavigate();
+    const location = useLocation();
     const { fetchWithAuth } = useAuth();
 
     const fetchCustomers = async () => {
@@ -34,7 +35,7 @@ const CustomerList = () => {
 
     useEffect(() => {
         fetchCustomers();
-    }, [page, search]);
+    }, [page, search, location.key]);
 
     const handleSearchChange = (e) => {
         setSearch(e.target.value);

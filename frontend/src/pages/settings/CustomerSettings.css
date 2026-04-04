@@ -1,5 +1,5 @@
 .settings-container {
-    padding: var(--space-lg);
+    padding: var(--page-padding);
     max-width: 1400px;
     margin: 0 auto;
 }
@@ -48,7 +48,7 @@
     background: var(--color-bg-secondary);
     border: 1px solid var(--color-border-light);
     border-radius: var(--radius-lg);
-    padding: var(--space-lg);
+    padding: var(--page-padding);
     min-height: 500px;
 }
 
@@ -85,7 +85,7 @@
 
 .manager-table th,
 .manager-table td {
-    padding: var(--space-md);
+    padding: var(--content-padding);
     text-align: left;
     border-bottom: 1px solid var(--color-border-light);
     word-break: break-word;

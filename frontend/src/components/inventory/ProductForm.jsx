@@ -420,16 +420,29 @@ export default function ProductForm({ initialData = null, isEdit = false }) {
                     </div>
                     <div className="form-group">
                         <label>Images</label>
-                        <div className="image-upload-container" onClick={() => document.getElementById('image-input').click()}>
-                            <p>Click to upload images</p>
-                            <input
-                                type="file"
-                                id="image-input"
-                                multiple
-                                accept="image/*"
-                                style={{ display: 'none' }}
-                                onChange={handleImageChange}
-                            />
+                        <div style={{ display: 'flex', gap: 'var(--space-md)' }}>
+                            <label className="image-upload-container" style={{ flex: 1, cursor: 'pointer', margin: 0, padding: 'var(--space-lg) var(--space-sm)' }}>
+                                <span style={{ fontSize: '2rem' }}>📁</span>
+                                <p style={{ marginTop: '8px' }}>Upload Images</p>
+                                <input
+                                    type="file"
+                                    multiple
+                                    accept="image/*"
+                                    style={{ display: 'none' }}
+                                    onChange={handleImageChange}
+                                />
+                            </label>
+                            <label className="image-upload-container" style={{ flex: 1, cursor: 'pointer', margin: 0, padding: 'var(--space-lg) var(--space-sm)' }}>
+                                <span style={{ fontSize: '2rem' }}>📷</span>
+                                <p style={{ marginTop: '8px' }}>Take Photo</p>
+                                <input
+                                    type="file"
+                                    accept="image/*"
+                                    capture="environment"
+                                    style={{ display: 'none' }}
+                                    onChange={handleImageChange}
+                                />
+                            </label>
                         </div>
 
                         {/* Existing Images (Edit Mode) */}

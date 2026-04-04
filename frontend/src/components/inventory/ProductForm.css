@@ -1,6 +1,6 @@
 /* Inheriting and extending from previous AddProduct.css ideas */
 .product-form-container {
-    padding: var(--space-md);
+    padding: var(--content-padding);
     max-width: 1200px;
     margin: 0 auto;
 }
@@ -34,7 +34,7 @@
 .form-row {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: var(--space-lg);
+    gap: var(--page-gap);
 }
 
 @media (max-width: 768px) {
@@ -178,7 +178,7 @@
 .preview-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
-    gap: var(--space-md);
+    gap: var(--page-gap);
 }
 
 .image-preview {
@@ -216,7 +216,7 @@
 .form-actions {
     display: flex;
     justify-content: flex-end;
-    gap: var(--space-md);
+    gap: var(--page-gap);
     margin-top: var(--space-xl);
 }
 

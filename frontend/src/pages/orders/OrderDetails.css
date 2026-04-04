@@ -1,8 +1,8 @@
 .order-details-container {
-    padding: var(--space-lg);
+    padding: var(--page-padding);
     display: flex;
     flex-direction: column;
-    gap: var(--space-lg);
+    gap: var(--page-gap);
     overflow-x: hidden;
     max-width: 100%;
 }
@@ -10,13 +10,13 @@
 .order-details-header {
     display: flex;
     flex-direction: column;
-    gap: var(--space-md);
+    gap: var(--page-gap);
 }
 
 .header-main {
     display: flex;
     align-items: center;
-    gap: var(--space-md);
+    gap: var(--page-gap);
     width: 100%;
 }
 
@@ -116,7 +116,7 @@
 .status-cards-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-    gap: var(--space-md);
+    gap: var(--page-gap);
 }
 
 .status-card {
@@ -124,7 +124,7 @@
     flex-direction: column;
     align-items: center;
     gap: var(--space-xs);
-    padding: var(--space-md);
+    padding: var(--content-padding);
     cursor: pointer;
     text-align: center;
     position: relative;
@@ -161,7 +161,7 @@
 .order-details-grid {
     display: grid;
     grid-template-columns: 2fr 1fr;
-    gap: var(--space-lg);
+    gap: var(--page-gap);
     min-width: 0;
 }
 
@@ -169,7 +169,7 @@
 .side-column {
     display: flex;
     flex-direction: column;
-    gap: var(--space-lg);
+    gap: var(--page-gap);
     min-width: 0;
 }
 
@@ -231,7 +231,7 @@
 
 .payment-summary {
     display: flex;
-    gap: var(--space-md);
+    gap: var(--page-gap);
     font-size: var(--font-size-sm);
     font-weight: 600;
 }
@@ -240,7 +240,7 @@
 .customer-details {
     display: flex;
     align-items: center;
-    gap: var(--space-md);
+    gap: var(--page-gap);
     margin-bottom: var(--space-md);
 }
 
@@ -310,7 +310,7 @@
 .timeline {
     display: flex;
     flex-direction: column;
-    gap: var(--space-md);
+    gap: var(--page-gap);
     padding-left: var(--space-md);
     position: relative;
 }
@@ -344,7 +344,7 @@
 
 .timeline-content {
     background: var(--color-bg-tertiary);
-    padding: var(--space-md);
+    padding: var(--content-padding);
     border-radius: var(--radius-md);
 }
 
@@ -478,7 +478,7 @@
 .modal-actions {
     display: flex;
     justify-content: flex-end;
-    gap: var(--space-md);
+    gap: var(--page-gap);
     margin-top: var(--space-xl);
 }
 
@@ -568,7 +568,7 @@
 .payment-modal-summary {
     display: flex;
     justify-content: space-between;
-    padding: var(--space-md);
+    padding: var(--content-padding);
     background: var(--color-bg-tertiary);
     border-radius: var(--radius-md);
     margin-bottom: var(--space-lg);
@@ -592,7 +592,7 @@
 
 .method-btn {
     flex: 1;
-    padding: var(--space-md);
+    padding: var(--content-padding);
     border: 2px solid var(--color-border-light);
     border-radius: var(--radius-md);
     background: var(--color-bg-tertiary);
@@ -623,7 +623,7 @@
 .card-header-with-action .payment-summary {
     display: flex;
     align-items: center;
-    gap: var(--space-md);
+    gap: var(--page-gap);
     flex-wrap: wrap;
 }
 

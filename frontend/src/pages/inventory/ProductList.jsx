@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useCurrency } from '../../context/CurrencyContext';
 import { ENDPOINTS, API_BASE } from '../../config/api';
@@ -11,6 +11,7 @@ export default function ProductList() {
     const { fetchWithAuth } = useAuth();
     const { currency } = useCurrency();
     const navigate = useNavigate();
+    const location = useLocation();
 
     const [products, setProducts] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -71,9 +72,15 @@ export default function ProductList() {
         }
     }, [fetchWithAuth]);
 
-    // Debounce search
+    // Immediate fetch on navigation or filter changes
     useEffect(() => {
-        if (search) setIsSearching(true); // LENS-03
+        fetchProducts();
+    }, [location.key]);
+
+    // Debounced fetch for search input
+    useEffect(() => {
+        if (!search) return;
+        setIsSearching(true);
         const timer = setTimeout(() => {
             fetchProducts().finally(() => setIsSearching(false));
         }, 500);

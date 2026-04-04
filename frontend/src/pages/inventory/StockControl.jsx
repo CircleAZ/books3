@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { ENDPOINTS } from '../../config/api';
 import './ProductList.css';
@@ -6,6 +7,7 @@ import './StockControl.css';
 
 export default function StockControl() {
     const { fetchWithAuth } = useAuth();
+    const location = useLocation();
     const [activeTab, setActiveTab] = useState('low-stock');
     const [lowStockItems, setLowStockItems] = useState([]);
     const [negativeStockItems, setNegativeStockItems] = useState([]);
@@ -89,7 +91,7 @@ export default function StockControl() {
         } else {
             fetchHistory();
         }
-    }, [activeTab, fetchLowStock, fetchNegativeStock, fetchHistory]);
+    }, [activeTab, fetchLowStock, fetchNegativeStock, fetchHistory, location.key]);
 
     // Fetch products once for the modal
     useEffect(() => {

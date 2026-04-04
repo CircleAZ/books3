@@ -18,8 +18,8 @@
 .filters-bar {
     display: flex;
     justify-content: space-between;
-    gap: var(--space-lg);
-    padding: var(--space-md);
+    gap: var(--page-gap);
+    padding: var(--content-padding);
     border-radius: var(--radius-md);
     margin-bottom: var(--space-lg);
     border: 1px solid var(--color-border-light);
@@ -66,7 +66,7 @@
 
 .activity-table th {
     text-align: left;
-    padding: var(--space-md);
+    padding: var(--content-padding);
     color: var(--color-text-muted);
     font-size: var(--font-size-sm);
     font-weight: 600;
@@ -74,7 +74,7 @@
 }
 
 .activity-table td {
-    padding: var(--space-md);
+    padding: var(--content-padding);
     border-bottom: 1px solid var(--color-border-light);
     font-size: var(--font-size-sm);
     vertical-align: middle;

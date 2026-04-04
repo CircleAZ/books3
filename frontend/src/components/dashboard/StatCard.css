@@ -2,10 +2,10 @@
     background-color: var(--card-bg);
     border: 1px solid var(--border-color);
     border-radius: var(--radius-lg);
-    padding: var(--space-lg);
+    padding: var(--page-padding);
     display: flex;
     align_items: center;
-    gap: var(--space-md);
+    gap: var(--page-gap);
     transition: transform 0.2s, box-shadow 0.2s;
 }
 

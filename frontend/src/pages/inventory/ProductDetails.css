@@ -1,5 +1,5 @@
 .product-details-page {
-    padding: var(--space-md);
+    padding: var(--content-padding);
     max-width: 1200px;
     margin: 0 auto;
 }
@@ -25,7 +25,7 @@
 
 .header-actions {
     display: flex;
-    gap: var(--space-md);
+    gap: var(--page-gap);
 }
 
 .details-grid {
@@ -84,11 +84,11 @@
 .details-sidebar {
     display: flex;
     flex-direction: column;
-    gap: var(--space-lg);
+    gap: var(--page-gap);
 }
 
 .stock-card {
-    padding: var(--space-lg);
+    padding: var(--page-padding);
     text-align: center;
     background-color: var(--card-bg);
 }
@@ -111,7 +111,7 @@
 }
 
 .images-card {
-    padding: var(--space-lg);
+    padding: var(--page-padding);
     background-color: var(--card-bg);
 }
 
@@ -133,7 +133,7 @@
     color: var(--text-tertiary);
     font-style: italic;
     text-align: center;
-    padding: var(--space-lg);
+    padding: var(--page-padding);
 }
 
 /* LENS-07: Back button */
@@ -184,7 +184,7 @@
     background: rgba(239, 68, 68, 0.05);
     border: 1px solid rgba(239, 68, 68, 0.15);
     border-radius: var(--radius-md);
-    padding: var(--space-md);
+    padding: var(--content-padding);
     margin-bottom: var(--space-md);
 }
 
@@ -204,7 +204,7 @@
 .modal-actions {
     display: flex;
     justify-content: flex-end;
-    gap: var(--space-md);
+    gap: var(--page-gap);
 }
 
 /* LENS-08: Error banner (mirrors ProductForm style) */

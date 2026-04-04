@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useCurrency } from '../../context/CurrencyContext';
 import { useToast } from '../../context/ToastContext';
@@ -9,6 +10,7 @@ export default function ProductSets() {
     const { fetchWithAuth } = useAuth();
     const { currency } = useCurrency();
     const { showToast } = useToast();
+    const location = useLocation();
 
     // List state
     const [sets, setSets] = useState([]);
@@ -79,7 +81,7 @@ export default function ProductSets() {
         fetchOptions();
     }, [fetchWithAuth]);
 
-    useEffect(() => { fetchSets(); }, [fetchSets]);
+    useEffect(() => { fetchSets(); }, [fetchSets, location.key]);
 
     // Product search with debounce
     const handleProductSearch = (query) => {

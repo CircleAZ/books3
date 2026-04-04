@@ -1181,12 +1181,16 @@ export default function NewOrder() {
                                 </div>
                                 <div className="form-group">
                                     <label>Reference Photo</label>
-                                    <input
-                                        type="file"
-                                        accept="image/*"
-                                        className="form-control"
-                                        onChange={e => setReferencePhoto(e.target.files[0] || null)}
-                                    />
+                                    <div style={{ display: 'flex', gap: '8px' }}>
+                                        <label className="btn btn-secondary btn-sm" style={{ flex: 1, textAlign: 'center', cursor: 'pointer', padding: '0.5rem' }}>
+                                            📁 Upload Image
+                                            <input type="file" accept="image/*" onChange={e => setReferencePhoto(e.target.files[0] || null)} hidden />
+                                        </label>
+                                        <label className="btn btn-secondary btn-sm" style={{ flex: 1, textAlign: 'center', cursor: 'pointer', padding: '0.5rem' }}>
+                                            📷 Take Photo
+                                            <input type="file" accept="image/*" capture="environment" onChange={e => setReferencePhoto(e.target.files[0] || null)} hidden />
+                                        </label>
+                                    </div>
                                     {referencePhoto && (
                                         <div className="mt-1 small text-muted">
                                             Selected: {referencePhoto.name}

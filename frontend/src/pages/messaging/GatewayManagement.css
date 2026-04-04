@@ -17,7 +17,7 @@
 
 .gateway-table th {
     text-align: left;
-    padding: var(--space-lg);
+    padding: var(--page-padding);
     background: rgba(255, 255, 255, 0.03);
     color: var(--color-text-muted);
     font-size: var(--font-size-sm);
@@ -26,7 +26,7 @@
 }
 
 .gateway-table td {
-    padding: var(--space-lg);
+    padding: var(--page-padding);
     border-top: 1px solid var(--color-border-light);
 }
 
@@ -136,6 +136,6 @@
 .modal-actions {
     display: flex;
     justify-content: flex-end;
-    gap: var(--space-md);
+    gap: var(--page-gap);
     margin-top: var(--space-2xl);
 }

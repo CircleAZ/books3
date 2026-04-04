@@ -13,7 +13,7 @@
 .app-branding {
     display: flex;
     align-items: center;
-    gap: var(--space-lg);
+    gap: var(--page-gap);
 }
 
 .app-logo {
@@ -45,7 +45,7 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: var(--space-lg);
+    padding: var(--page-padding);
     background: var(--color-bg-tertiary);
     border-radius: var(--radius-md);
 }
@@ -67,7 +67,7 @@
 .stats-list {
     display: flex;
     flex-direction: column;
-    gap: var(--space-md);
+    gap: var(--page-gap);
     margin-top: var(--space-lg);
 }
 

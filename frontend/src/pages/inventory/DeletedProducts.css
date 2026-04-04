@@ -1,9 +1,9 @@
 /* Deleted Products Page */
 .deleted-products-container {
-    padding: var(--space-lg);
+    padding: var(--page-padding);
     display: flex;
     flex-direction: column;
-    gap: var(--space-lg);
+    gap: var(--page-gap);
     height: 100%;
 }
 
@@ -12,7 +12,7 @@
     justify-content: space-between;
     align-items: center;
     flex-wrap: wrap;
-    gap: var(--space-md);
+    gap: var(--page-gap);
 }
 
 .deleted-products-header h2 {
@@ -34,7 +34,7 @@
     padding: var(--space-xxl) var(--space-lg);
     text-align: center;
     color: var(--color-text-muted);
-    gap: var(--space-md);
+    gap: var(--page-gap);
 }
 
 .deleted-empty-state .empty-icon {
@@ -114,7 +114,7 @@
     align-items: center;
     justify-content: center;
     z-index: 1000;
-    padding: var(--space-md);
+    padding: var(--content-padding);
 }
 
 .confirm-modal {
@@ -126,7 +126,7 @@
     width: 100%;
     display: flex;
     flex-direction: column;
-    gap: var(--space-lg);
+    gap: var(--page-gap);
 }
 
 .confirm-modal h3 {
@@ -194,7 +194,7 @@
 
 @media (max-width: 768px) {
     .deleted-products-container {
-        padding: var(--space-md);
+        padding: var(--content-padding);
     }
 
     .deleted-actions {

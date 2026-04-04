@@ -1,17 +1,19 @@
 import React, { useState, useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { ENDPOINTS } from '../../config/api';
 import './MessageQueue.css';
 
 const MessageQueue = () => {
     const { fetchWithAuth } = useAuth();
+    const location = useLocation();
     const [messages, setMessages] = useState([]);
     const [loading, setLoading] = useState(true);
     const [filter, setFilter] = useState('all');
 
     useEffect(() => {
         fetchMessages();
-    }, [filter]);
+    }, [filter, location.key]);
 
     const fetchMessages = async () => {
         setLoading(true);

@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { ENDPOINTS } from '../../config/api';
 import './DeletedProducts.css';
@@ -8,6 +8,7 @@ import '../inventory/ProductList.css';
 export default function DeletedProducts() {
     const { fetchWithAuth } = useAuth();
     const navigate = useNavigate();
+    const location = useLocation();
     const [deletedProducts, setDeletedProducts] = useState([]);
     const [loading, setLoading] = useState(true);
     const [confirmModal, setConfirmModal] = useState(null);
@@ -30,7 +31,7 @@ export default function DeletedProducts() {
 
     useEffect(() => {
         fetchDeleted();
-    }, [fetchDeleted]);
+    }, [fetchDeleted, location.key]);
 
     const showToast = (message, type = 'success') => {
         setToast({ message, type });

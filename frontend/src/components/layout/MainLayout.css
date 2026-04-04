@@ -33,8 +33,8 @@
     overflow-x: clip;
     padding-top: var(--header-height);
     padding-bottom: calc(var(--bottom-nav-height) + env(safe-area-inset-bottom, 0px));
-    padding-left: var(--space-md);
-    padding-right: var(--space-md);
+    padding-left: var(--page-padding);
+    padding-right: var(--page-padding);
     max-width: 1400px;
     width: 100%;
     transition: margin-left var(--transition-normal) ease;

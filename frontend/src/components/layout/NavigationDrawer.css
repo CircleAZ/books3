@@ -59,7 +59,7 @@
 .navigation-drawer.mini .drawer-header {
     flex-direction: column;
     padding: var(--space-md) var(--space-xs);
-    gap: var(--space-md);
+    gap: var(--page-gap);
     align-items: center;
 }
 
@@ -75,7 +75,7 @@
 .drawer-logo {
     display: flex;
     align-items: center;
-    gap: var(--space-md);
+    gap: var(--page-gap);
     text-decoration: none;
     color: var(--color-text-primary);
     border-radius: var(--radius-md);
@@ -107,7 +107,7 @@
 .drawer-nav {
     flex: 1;
     overflow-y: auto;
-    padding: var(--space-md);
+    padding: var(--content-padding);
     position: relative;
 }
 
@@ -143,7 +143,7 @@
 .menu-item {
     display: flex;
     align-items: center;
-    gap: var(--space-md);
+    gap: var(--page-gap);
     padding: var(--space-sm) var(--space-md);
     color: var(--color-text-secondary);
     text-decoration: none;
@@ -212,7 +212,7 @@
 .menu-group-header {
     display: flex;
     align-items: center;
-    gap: var(--space-md);
+    gap: var(--page-gap);
     width: 100%;
     padding: var(--space-sm) var(--space-md);
     color: var(--color-text-secondary);
@@ -293,7 +293,7 @@
 
 /* --- Footer --- */
 .drawer-footer {
-    padding: var(--space-md);
+    padding: var(--content-padding);
     border-top: 1px solid var(--color-border-light);
     text-align: center;
 }

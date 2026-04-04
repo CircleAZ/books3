@@ -4,7 +4,7 @@
     align-items: center;
     justify-content: center;
     background: linear-gradient(135deg, var(--color-bg-primary) 0%, var(--color-bg-secondary) 100%);
-    padding: var(--space-lg);
+    padding: var(--page-padding);
 }
 
 .login-container {
@@ -48,14 +48,14 @@
 .login-form {
     display: flex;
     flex-direction: column;
-    gap: var(--space-lg);
+    gap: var(--page-gap);
 }
 
 .login-error {
     display: flex;
     align-items: center;
     gap: var(--space-sm);
-    padding: var(--space-md);
+    padding: var(--content-padding);
     background: rgba(248, 81, 73, 0.1);
     border: 1px solid var(--color-danger);
     border-radius: var(--radius-md);
@@ -76,7 +76,7 @@
 }
 
 .form-group input {
-    padding: var(--space-md);
+    padding: var(--content-padding);
     background: var(--color-bg-tertiary);
     border: 1px solid var(--color-border);
     border-radius: var(--radius-md);
@@ -118,7 +118,7 @@
 
 .login-btn {
     width: 100%;
-    padding: var(--space-md);
+    padding: var(--content-padding);
     background: linear-gradient(135deg, var(--color-primary), hsl(212, 92%, 45%));
     border: none;
     border-radius: var(--radius-md);

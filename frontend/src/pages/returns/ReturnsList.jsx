@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useCurrency } from '../../context/CurrencyContext';
 import { ENDPOINTS } from '../../config/api';
@@ -9,6 +9,7 @@ export default function ReturnsList() {
     const { fetchWithAuth } = useAuth();
     const { currency } = useCurrency();
     const navigate = useNavigate();
+    const location = useLocation();
 
     const [returns, setReturns] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -58,8 +59,14 @@ export default function ReturnsList() {
         }
     }, [fetchWithAuth, page, search, status, dateAfter, dateBefore, ordering]);
 
-    // Debounce search
+    // Immediate fetch on navigation
     useEffect(() => {
+        fetchReturns();
+    }, [location.key]);
+
+    // Debounced fetch for search input
+    useEffect(() => {
+        if (!search) return;
         const timer = setTimeout(() => {
             fetchReturns();
         }, 500);

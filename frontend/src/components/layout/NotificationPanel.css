@@ -54,7 +54,7 @@
 .notification-item {
     display: flex;
     align-items: flex-start;
-    gap: var(--space-md);
+    gap: var(--page-gap);
     width: 100%;
     padding: var(--space-md) var(--space-lg);
     text-align: left;

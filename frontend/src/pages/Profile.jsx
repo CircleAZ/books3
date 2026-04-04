@@ -186,10 +186,16 @@ export default function Profile() {
                                 {profile?.initials || '?'}
                             </div>
                         )}
-                        <label className="avatar-upload-btn" title="Change picture">
-                            📷
-                            <input type="file" accept="image/*" onChange={handlePictureUpload} hidden />
-                        </label>
+                        <div className="avatar-upload-actions" style={{ display: 'flex', gap: '8px' }}>
+                            <label className="avatar-upload-btn" title="Upload picture">
+                                📁
+                                <input type="file" accept="image/*" onChange={handlePictureUpload} hidden />
+                            </label>
+                            <label className="avatar-upload-btn" title="Take photo">
+                                📷
+                                <input type="file" accept="image/*" capture="environment" onChange={handlePictureUpload} hidden />
+                            </label>
+                        </div>
                     </div>
                     <div className="profile-hero-info">
                         <h1>{profile?.full_name || profile?.username}</h1>

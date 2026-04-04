@@ -4,18 +4,18 @@
 
 .header-actions {
     display: flex;
-    gap: var(--space-md);
+    gap: var(--page-gap);
 }
 
 .stats-dashboard {
     display: grid;
     grid-template-columns: repeat(4, 1fr);
-    gap: var(--space-lg);
+    gap: var(--page-gap);
     margin-bottom: var(--space-xl);
 }
 
 .stats-dashboard .stat-card {
-    padding: var(--space-lg);
+    padding: var(--page-padding);
     border-radius: var(--radius-lg);
     display: flex;
     flex-direction: column;
@@ -42,8 +42,8 @@
 
 .filters-bar {
     display: flex;
-    gap: var(--space-md);
-    padding: var(--space-md);
+    gap: var(--page-gap);
+    padding: var(--content-padding);
     margin-bottom: var(--space-lg);
     align-items: center;
 }

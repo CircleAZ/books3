@@ -1,5 +1,5 @@
 .customer-details-container {
-  padding: var(--space-lg);
+  padding: var(--page-padding);
   max-width: 1200px;
   margin: 0 auto;
 }
@@ -26,13 +26,13 @@
 
 .customer-details-actions {
   display: flex;
-  gap: var(--space-md);
+  gap: var(--page-gap);
 }
 
 .customer-sections-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
-  gap: var(--space-lg);
+  gap: var(--page-gap);
 }
 
 .customer-section {
@@ -60,7 +60,7 @@
 }
 
 .customer-section-content {
-  padding: var(--space-lg);
+  padding: var(--page-padding);
   flex: 1;
 }
 
@@ -68,7 +68,7 @@
 .contact-item {
   display: flex;
   align-items: center;
-  gap: var(--space-md);
+  gap: var(--page-gap);
   margin-bottom: var(--space-md);
   padding-bottom: var(--space-md);
   border-bottom: 1px solid var(--color-border-light);
@@ -115,7 +115,7 @@
 /* Addresses Section */
 .address-card {
   background: var(--color-bg-tertiary);
-  padding: var(--space-md);
+  padding: var(--content-padding);
   border-radius: var(--radius-md);
   margin-bottom: var(--space-md);
   border: 1px solid var(--color-border);
@@ -152,7 +152,7 @@
 .wallet-balance {
   text-align: center;
   margin-bottom: var(--space-lg);
-  padding: var(--space-lg);
+  padding: var(--page-padding);
   background: linear-gradient(135deg, var(--color-bg-tertiary), var(--color-bg-elevated));
   border-radius: var(--radius-md);
   border: 1px solid var(--color-border);
@@ -196,9 +196,9 @@
 .customer-link {
   display: flex;
   align-items: center;
-  gap: var(--space-md);
+  gap: var(--page-gap);
   background: var(--color-bg-tertiary);
-  padding: var(--space-md);
+  padding: var(--content-padding);
   border-radius: var(--radius-md);
   margin-bottom: var(--space-sm);
   transition: background var(--transition-fast);
@@ -254,7 +254,7 @@
   .customer-details-header {
     flex-direction: column;
     align-items: flex-start;
-    gap: var(--space-md);
+    gap: var(--page-gap);
   }
   
   .customer-details-actions {
