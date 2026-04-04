@@ -52,7 +52,7 @@ export default function InitiateReturn() {
             setIsSearching(true);
             try {
                 // We only want delivered orders for returns
-                const response = await fetchWithAuth(`${ENDPOINTS.ORDERS}?search=${searchQuery}&order_status=delivered`);
+                const response = await fetchWithAuth(`${ENDPOINTS.ORDERS}?search=${searchQuery}&delivery_status=delivered`);
                 if (response.ok) {
                     const data = await response.json();
                     setSearchResults(data.results || []);
@@ -206,8 +206,8 @@ export default function InitiateReturn() {
                                             <div>#{order.id.split('-')[0].toUpperCase()}</div>
                                             <div className="small text-muted">{order.customer_name || 'Guest'} • {new Date(order.created_at).toLocaleDateString()}</div>
                                         </div>
-                                        <div className="order-result-status status-delivered">
-                                            {order.order_status}
+                                        <div className="order-result-status status-delivered" style={{ textTransform: 'capitalize' }}>
+                                            {order.derived_status || order.delivery_status}
                                         </div>
                                     </div>
                                 ))}
