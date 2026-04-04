@@ -9,7 +9,7 @@ class ActivityLogSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = ActivityLog
-        fields = ['id', 'user', 'user_name', 'action_type', 'description', 'created_at']
+        fields = ['id', 'user', 'user_name', 'action_type', 'description', 'details', 'entity_type', 'entity_id', 'ip_address', 'created_at']
         read_only_fields = ['created_at']
 
     def get_user_name(self, obj):

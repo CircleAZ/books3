@@ -13,6 +13,7 @@ export default function ActivityLog() {
     const [page, setPage] = useState(1);
     const [totalPages, setTotalPages] = useState(1);
     const [totalCount, setTotalCount] = useState(0);
+    const [selectedLog, setSelectedLog] = useState(null);
 
     const fetchActivities = useCallback(async () => {
         setLoading(true);
@@ -132,7 +133,7 @@ export default function ActivityLog() {
                         <tbody>
                             {activities.length > 0 ? (
                                 activities.map(activity => (
-                                    <tr key={activity.id}>
+                                    <tr key={activity.id} className="activity-row" onClick={() => setSelectedLog(activity)}>
                                         <td className="user-cell">
                                             <div className="user-avatar">
                                                 {activity.user_name ? activity.user_name.charAt(0).toUpperCase() : '?'}
@@ -187,6 +188,60 @@ export default function ActivityLog() {
                     </button>
                 </div>
             </div>
+
+            {selectedLog && (
+                <div className="modal-overlay" onClick={() => setSelectedLog(null)}>
+                    <div className="modal-content" onClick={e => e.stopPropagation()} style={{ margin: '16px', padding: '24px', width: '100%', maxWidth: '500px' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+                            <h2 style={{ margin: 0, fontSize: '1.4rem' }}>Activity Details</h2>
+                            <button className="btn-ghost" style={{ padding: '0px 8px', fontSize: '1.5rem', cursor: 'pointer' }} onClick={() => setSelectedLog(null)}>×</button>
+                        </div>
+                        <div className="log-detail-grid">
+                            <div className="log-detail-item">
+                                <span className="log-detail-label">Description</span>
+                                <span className="log-detail-value">{selectedLog.description}</span>
+                            </div>
+                            <div className="log-detail-item">
+                                <span className="log-detail-label">Action Performed</span>
+                                <span className="log-detail-value" style={{ textTransform: 'capitalize' }}>
+                                    {getActionIcon(selectedLog.action_type)} {selectedLog.action_type}
+                                </span>
+                            </div>
+                            <div className="log-detail-item">
+                                <span className="log-detail-label">Initiated By</span>
+                                <span className="log-detail-value">{selectedLog.user_name || 'System'}</span>
+                            </div>
+                            <div className="log-detail-item">
+                                <span className="log-detail-label">Timestamp</span>
+                                <span className="log-detail-value">{new Date(selectedLog.created_at).toLocaleString()}</span>
+                            </div>
+                            <div className="log-detail-item">
+                                <span className="log-detail-label">Related Entity</span>
+                                <span className="log-detail-value">
+                                    {selectedLog.entity_type ? `${selectedLog.entity_type} #${selectedLog.entity_id}` : 'None'}
+                                </span>
+                            </div>
+                            {selectedLog.ip_address && (
+                                <div className="log-detail-item">
+                                    <span className="log-detail-label">IP Address</span>
+                                    <span className="log-detail-value">{selectedLog.ip_address}</span>
+                                </div>
+                            )}
+                            {selectedLog.details && selectedLog.details.trim() !== '' && (
+                                <div className="log-detail-item" style={{ gridColumn: '1 / -1' }}>
+                                    <span className="log-detail-label" style={{ color: 'var(--color-primary)' }}>Specific Changes</span>
+                                    <span className="log-detail-value" style={{ borderLeft: '4px solid var(--color-primary)', backgroundColor: 'var(--color-bg-secondary)' }}>
+                                        {selectedLog.details}
+                                    </span>
+                                </div>
+                            )}
+                        </div>
+                        <div style={{ marginTop: '24px', textAlign: 'right' }}>
+                            <button className="btn btn-primary" onClick={() => setSelectedLog(null)}>Close Details</button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

@@ -61,7 +61,7 @@ export default function VendorModal({ isOpen, onClose, vendor, onSuccess }) {
 
     return (
         <div className="modal-overlay">
-            <div className="modal-content">
+            <div className="modal-content" style={{ margin: '16px', padding: '20px', width: '100%', maxWidth: '450px' }}>
                 <h2>{vendor ? 'Edit Vendor' : 'Add Vendor'}</h2>
                 {error && <div className="error-message">{error}</div>}
                 <form onSubmit={handleSubmit}>
@@ -74,11 +74,12 @@ export default function VendorModal({ isOpen, onClose, vendor, onSuccess }) {
                             onChange={e => setFormData({ ...formData, name: e.target.value })}
                         />
                     </div>
-                    <div className="form-row">
+                    <div className="form-row" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
                         <div className="form-group">
                             <label>Email</label>
                             <input
                                 type="email"
+                                style={{ width: '100%' }}
                                 value={formData.contact_email}
                                 onChange={e => setFormData({ ...formData, contact_email: e.target.value })}
                             />
@@ -87,8 +88,13 @@ export default function VendorModal({ isOpen, onClose, vendor, onSuccess }) {
                             <label>Phone</label>
                             <input
                                 type="text"
+                                inputMode="numeric"
+                                maxLength="10"
+                                pattern="\d{10}"
+                                title="Phone number must be exactly 10 digits"
+                                style={{ width: '100%' }}
                                 value={formData.contact_phone}
-                                onChange={e => setFormData({ ...formData, contact_phone: e.target.value })}
+                                onChange={e => setFormData({ ...formData, contact_phone: e.target.value.replace(/\D/g, '').slice(0, 10) })}
                             />
                         </div>
                     </div>

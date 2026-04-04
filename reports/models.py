@@ -32,6 +32,7 @@ class ActivityLog(models.Model):
     entity_type = models.CharField(max_length=50, blank=True)  # e.g., 'Order', 'Product'
     entity_id = models.CharField(max_length=100, blank=True)  # ID of affected entity
     description = models.TextField()
+    details = models.TextField(blank=True, null=True)
     ip_address = models.GenericIPAddressField(null=True, blank=True)
     user_agent = models.CharField(max_length=500, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -49,7 +50,7 @@ class ActivityLog(models.Model):
     
     @classmethod
     def log_action(cls, user, action_type, description, entity_type='', entity_id='', 
-                   ip_address=None, user_agent=''):
+                   ip_address=None, user_agent='', details=''):
         """Helper to create activity log entries."""
         return cls.objects.create(
             user=user,
@@ -57,6 +58,7 @@ class ActivityLog(models.Model):
             entity_type=entity_type,
             entity_id=str(entity_id) if entity_id else '',
             description=description,
+            details=details,
             ip_address=ip_address,
             user_agent=user_agent
         )

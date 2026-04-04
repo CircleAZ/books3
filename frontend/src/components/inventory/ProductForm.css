@@ -299,3 +299,28 @@
         transform: translateY(0);
     }
 }
+
+.input-with-action { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; width: 100%; }
+
+.input-with-action select {
+    flex: 1;
+    width: 100%;
+}
+
+.btn-icon-add { display: inline-flex; align-items: center; justify-content: center; width: 100%; height: 40px; background-color: var(--color-bg-tertiary); border: 1px dashed var(--color-primary); border-radius: var(--radius-md); color: var(--color-primary); font-size: 1.2rem; cursor: pointer; transition: all 0.2s; }
+
+.btn-icon-add:hover {
+    border-color: var(--color-primary);
+    background-color: rgba(56, 139, 253, 0.1);
+    color: var(--color-primary-light);
+}
+
+.form-group input {
+    width: 100%;
+}
+
+
+.form-row { display: flex !important; flex-wrap: wrap; gap: 16px; }
+.form-row > .form-group { flex: 1 1 calc(50% - 16px) !important; min-width: 120px; }
+.form-group { width: 100% !important; }
+.form-group input, .form-group select, .form-group textarea { width: 100% !important; }
