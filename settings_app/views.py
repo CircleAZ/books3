@@ -28,10 +28,17 @@ class IsAdminUser(permissions.BasePermission):
 class StoreSettingsViewSet(viewsets.GenericViewSet):
     """
     Manage Store Settings (Singleton).
+    Read access for any authenticated user (currency, store name, etc.).
+    Write access restricted to admin/staff users.
     """
     queryset = StoreSettings.objects.all()
     serializer_class = StoreSettingsSerializer
-    permission_classes = [IsAdminUser]
+
+    def get_permissions(self):
+        if self.action == 'list':
+            # Any authenticated user can read store settings (needed for currency symbol, store name, etc.)
+            return [permissions.IsAuthenticated()]
+        return [IsAdminUser()]
 
     def list(self, request):
         instance = StoreSettings.get_instance()
