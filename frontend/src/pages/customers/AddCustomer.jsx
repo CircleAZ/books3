@@ -109,7 +109,10 @@ export default function AddCustomer({ onSuccess, onCancel, isEmbedded = false })
                 }
                 if (ctRes.ok) {
                     const data = await ctRes.json();
-                    setClassTemplatesForForm(data.results || data || []);
+                    const sorted = (data.results || data || []).sort((a, b) => 
+                        a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' })
+                    );
+                    setClassTemplatesForForm(sorted);
                 }
             } catch (err) {
                 console.error('Error fetching options:', err);
@@ -188,7 +191,10 @@ export default function AddCustomer({ onSuccess, onCancel, isEmbedded = false })
                 const res = await fetchWithAuth(`${ENDPOINTS.CLASSES}?school=${formData.school}`);
                 if (res.ok) {
                     const data = await res.json();
-                    setClasses(data.results || data || []);
+                    const sorted = (data.results || data || []).sort((a, b) => 
+                        a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' })
+                    );
+                    setClasses(sorted);
                 }
             } catch (err) { console.error(err); }
         };
@@ -206,7 +212,10 @@ export default function AddCustomer({ onSuccess, onCancel, isEmbedded = false })
                 const res = await fetchWithAuth(`${ENDPOINTS.CUSTOMERS_DIVISIONS}?class_obj=${formData.class_obj}`);
                 if (res.ok) {
                     const data = await res.json();
-                    setDivisions(data.results || data || []);
+                    const sorted = (data.results || data || []).sort((a, b) => 
+                        a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' })
+                    );
+                    setDivisions(sorted);
                 }
             } catch (err) { console.error(err); }
         };
@@ -224,7 +233,10 @@ export default function AddCustomer({ onSuccess, onCancel, isEmbedded = false })
                 const res = await fetchWithAuth(`${ENDPOINTS.CUSTOMERS_SUBDIVISIONS}?division=${formData.division}`);
                 if (res.ok) {
                     const data = await res.json();
-                    setSubdivisions(data.results || data || []);
+                    const sorted = (data.results || data || []).sort((a, b) => 
+                        a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' })
+                    );
+                    setSubdivisions(sorted);
                 }
             } catch (err) { console.error(err); }
         };

@@ -68,7 +68,10 @@ export default function ProductSets() {
                 ]);
                 if (ctRes.ok) {
                     const data = await ctRes.json();
-                    setClassTemplates(data.results || data || []);
+                    const sorted = (data.results || data || []).sort((a, b) =>
+                        a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' })
+                    );
+                    setClassTemplates(sorted);
                 }
                 if (sRes.ok) {
                     const data = await sRes.json();
