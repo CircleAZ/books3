@@ -327,7 +327,7 @@ export default function NewOrder() {
     }, [selectedCustomer, fetchWithAuth, showToast]);
 
     // Cart Logic
-    const addToCart = (product, initialQuantity = 1) => {
+    const addToCart = (product) => {
         if (product.stock_quantity <= 0) {
             showToast(`⚠ ${product.name} is out of stock (${product.stock_quantity}). Adding anyway.`, 'warning');
         }
@@ -342,7 +342,7 @@ export default function NewOrder() {
             }
             return [...prev, {
                 ...product,
-                quantity: initialQuantity,
+                quantity: 1,
                 discountType: 'fixed',
                 discountValue: 0
             }];
@@ -354,7 +354,7 @@ export default function NewOrder() {
     const updateQuantity = (id, delta) => {
         setCartItems(prev => prev.map(item => {
             if (item.id === id) {
-                const newQty = Math.max(0, item.quantity + delta);
+                const newQty = Math.max(1, item.quantity + delta);
                 return { ...item, quantity: newQty };
             }
             return item;
@@ -382,7 +382,7 @@ export default function NewOrder() {
 
     const setQuantity = (id, qty) => {
         const val = parseInt(qty, 10);
-        if (isNaN(val) || val < 0) {
+        if (isNaN(val) || val <= 0) {
             removeFromCart(id);
         } else {
             setCartItems(prev => prev.map(item =>
@@ -474,7 +474,7 @@ export default function NewOrder() {
             formData.append('selling_price', newProduct.selling_price);
             formData.append('cost_price', newProduct.selling_price); // Use estimated price as cost
             formData.append('is_additional', 'true');
-            formData.append('stock_quantity', '1');
+            formData.append('stock_quantity', '0');
 
             if (newProduct.category) {
                 formData.append('category', newProduct.category);
@@ -490,7 +490,7 @@ export default function NewOrder() {
 
             if (response.ok) {
                 const product = await response.json();
-                addToCart(product, 0);
+                addToCart(product);
                 setShowQuickProduct(false);
                 setNewProduct({ name: '', selling_price: '', category: '', is_additional: true });
                 setReferencePhoto(null);
@@ -554,7 +554,7 @@ export default function NewOrder() {
                 order_status: status,
                 discount_type: orderDiscount.type,
                 discount_value: orderDiscount.value,
-                items: cartItems.filter(item => item.quantity > 0).map(item => ({
+                items: cartItems.map(item => ({
                     product: item.id,
                     quantity: item.quantity,
                     unit_price: item.selling_price,
@@ -844,7 +844,7 @@ export default function NewOrder() {
                                                 <button
                                                     className="qty-btn"
                                                     onClick={() => {
-                                                        if (cartItem.quantity <= 0) {
+                                                        if (cartItem.quantity <= 1) {
                                                             removeFromCart(p.id);
                                                         } else {
                                                             updateQuantity(p.id, -1);
@@ -861,7 +861,7 @@ export default function NewOrder() {
                                                         setQuantity(p.id, val);
                                                     }}
                                                     onBlur={e => {
-                                                        if (!e.target.value || parseInt(e.target.value, 10) < 0) {
+                                                        if (!e.target.value || parseInt(e.target.value, 10) <= 0) {
                                                             removeFromCart(p.id);
                                                         }
                                                     }}
