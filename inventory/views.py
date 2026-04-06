@@ -79,22 +79,20 @@ class ProductViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=['get'])
     def low_stock(self, request):
         """Return products where stock_quantity <= low_stock_threshold"""
-        products = self.queryset.filter(stock_quantity__lte=F('low_stock_threshold'))
-        page = self.paginate_queryset(products)
-        if page is not None:
-            serializer = ProductListSerializer(page, many=True)
-            return self.get_paginated_response(serializer.data)
+        queryset = self.filter_queryset(self.get_queryset())
+        products = queryset.filter(stock_quantity__lte=F('low_stock_threshold')).order_by('stock_quantity')
+        
+        # Bypass pagination so the frontend receives all alerts simultaneously
         serializer = ProductListSerializer(products, many=True)
         return Response(serializer.data)
 
     @action(detail=False, methods=['get'])
     def negative_stock(self, request):
         """Return products where stock_quantity < 0"""
-        products = self.queryset.filter(stock_quantity__lt=0)
-        page = self.paginate_queryset(products)
-        if page is not None:
-            serializer = ProductListSerializer(page, many=True)
-            return self.get_paginated_response(serializer.data)
+        queryset = self.filter_queryset(self.get_queryset())
+        products = queryset.filter(stock_quantity__lt=0).order_by('stock_quantity')
+        
+        # Bypass pagination so the frontend receives all alerts simultaneously
         serializer = ProductListSerializer(products, many=True)
         return Response(serializer.data)
 
