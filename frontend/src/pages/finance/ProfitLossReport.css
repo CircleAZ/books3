@@ -35,18 +35,25 @@
     outline: none;
 }
 
-.export-buttons {
+.report-footer-actions {
     display: flex;
-    gap: 0.5rem;
+    justify-content: center;
+    gap: 1.5rem;
+    margin-top: 2rem;
 }
 
 .btn-export {
-    padding: 0.5rem 1rem;
-    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    padding: 0.75rem 1.5rem;
+    border-radius: 8px;
     border: none;
     cursor: pointer;
     font-weight: 600;
-    transition: opacity 0.2s;
+    transition: opacity 0.2s, transform 0.1s;
+    font-size: 1rem;
 }
 
 .btn-export.pdf {
@@ -61,6 +68,7 @@
 
 .btn-export:hover {
     opacity: 0.9;
+    transform: translateY(-1px);
 }
 
 .report-container {
@@ -167,10 +175,24 @@
 @media (max-width: 768px) {
     .report-header {
         flex-direction: column;
+        align-items: stretch;
     }
     
     .header-actions {
         width: 100%;
-        justify-content: space-between;
+        margin-top: 1rem;
+    }
+
+    .period-selector select {
+        width: 100%;
+    }
+
+    .report-footer-actions {
+        flex-direction: column;
+        gap: 1rem;
+    }
+    
+    .btn-export {
+        width: 100%;
     }
 }
