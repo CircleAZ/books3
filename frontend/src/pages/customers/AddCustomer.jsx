@@ -180,6 +180,7 @@ export default function AddCustomer({ onSuccess, onCancel, isEmbedded = false })
         fetchOptions();
     }, [id, fetchWithAuth, isEmbedded]);
 
+
     // Cascading Dropdowns: School -> Class
     useEffect(() => {
         if (!formData.school) {
@@ -537,8 +538,13 @@ export default function AddCustomer({ onSuccess, onCancel, isEmbedded = false })
     return (
         <div className={`add-customer-container ${isEmbedded ? 'embedded' : 'fade-in'}`}>
             <form onSubmit={handleSubmit} className="add-customer-form">
-                <div ref={formTopRef} className={`add-customer-header ${!isEmbedded ? 'sticky-header' : ''}`}>
-                    <h1>{isEditMode ? 'Edit Customer' : 'Add New Customer'}</h1>
+                <div ref={formTopRef} className="add-customer-header">
+                    <h1>
+                        <span className="desktop-text">{isEditMode ? 'Edit Customer' : 'Add New Customer'}</span>
+                        <span className="mobile-text">
+                            {isEditMode ? <>Edit<br />Customer</> : <>Add New<br />Customer</>}
+                        </span>
+                    </h1>
                     <div className="header-actions">
                         <button type="button" className="btn btn-ghost" onClick={handleCancel}>Cancel</button>
                         <button type="submit" className="btn btn-primary" disabled={loading}>
@@ -546,6 +552,7 @@ export default function AddCustomer({ onSuccess, onCancel, isEmbedded = false })
                         </button>
                     </div>
                 </div>
+
                 {!isEmbedded && <div className="sticky-header-spacer" />}
 
                 {successMsg && <div className="success-message">{successMsg}</div>}

@@ -661,6 +661,7 @@
         flex: none;
         width: 100%;
         padding-right: 0;
+        overflow-y: visible; /* Reset desktop overflow-y:auto — page body handles scroll on mobile */
     }
 
     /* ---- Cart Drawer Overlay ---- */
