@@ -93,7 +93,7 @@ const CustomerDetails = () => {
                     const res = await fetchWithAuth(`${ENDPOINTS.CUSTOMERS}?search=${linkSearch}`);
                     if (res.ok) {
                         const data = await res.json();
-                        setCustomerSearchResults((data.results || []).filter(c => c.id !== id));
+                        setCustomerSearchResults((data.results || data || []).filter(c => c.id !== id));
                     }
                 } catch (e) { }
             } else {
