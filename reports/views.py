@@ -92,7 +92,7 @@ class SalesReportViewSet(ReportBaseViewSet):
         
         # Handle None values for empty results
         summary['total_sales'] = summary['total_sales'] or 0
-        summary['aov'] = summary['aov'] or 0
+        summary['average_order_value'] = summary.pop('aov', 0) or 0
         
         return Response(summary)
 
@@ -115,7 +115,14 @@ class SalesReportViewSet(ReportBaseViewSet):
             total_value=Sum('line_total')
         ).order_by('-total_quantity')[:10]
         
-        return Response(top_products)
+        data = [{
+            'id': p['product__id'],
+            'name': p['product__name'],
+            'quantity': p['total_quantity'],
+            'revenue': p['total_value']
+        } for p in top_products]
+        
+        return Response(data)
 
     @action(detail=False, methods=['get'])
     def by_customer(self, request):
@@ -136,7 +143,14 @@ class SalesReportViewSet(ReportBaseViewSet):
             order_count=Count('id')
         ).order_by('-total_sales')
         
-        return Response(customer_sales)
+        data = [{
+            'id': c['customer__id'],
+            'name': f"{c['customer__first_name']} {c['customer__last_name']}".strip(),
+            'total': c['total_sales'],
+            'order_count': c['order_count']
+        } for c in customer_sales]
+        
+        return Response(data)
 
     @action(detail=False, methods=['get'])
     def trends(self, request):
@@ -151,7 +165,7 @@ class SalesReportViewSet(ReportBaseViewSet):
         ).annotate(
             date=TruncDate('created_at')
         ).values('date').annotate(
-            sales=Sum('total'),
+            total=Sum('total'),
             orders=Count('id')
         ).order_by('date')
         
