@@ -117,7 +117,7 @@ export default function InitiateReturn() {
 
     const refundAmount = useMemo(() => {
         return Object.values(selectedItems).reduce((total, item) => {
-            return total + (item.quantity * item.unit_price);
+            return total + ((parseInt(item.quantity, 10) || 0) * item.unit_price);
         }, 0);
     }, [selectedItems]);
 
@@ -251,7 +251,7 @@ export default function InitiateReturn() {
                                 </div>
                                 <div className="info-item">
                                     <label>Total Paid</label>
-                                    <span>{currency}{Number(selectedOrder.total_amount).toFixed(2)}</span>
+                                    <span>{currency}{Number(selectedOrder.total || selectedOrder.total_amount || 0).toFixed(2)}</span>
                                 </div>
                             </div>
                         </div>
@@ -296,9 +296,18 @@ export default function InitiateReturn() {
                                                         className="form-control qty-input"
                                                         min="1"
                                                         max={item.quantity}
-                                                        value={selectedItems[item.id]?.quantity || 1}
+                                                        value={selectedItems[item.id]?.quantity ?? ''}
                                                         disabled={!selectedItems[item.id]}
-                                                        onChange={(e) => updateItemData(item.id, 'quantity', parseInt(e.target.value) || 0)}
+                                                        onChange={(e) => updateItemData(item.id, 'quantity', e.target.value)}
+                                                        onBlur={(e) => {
+                                                            let val = parseInt(e.target.value, 10);
+                                                            if (isNaN(val) || val < 1) val = 1;
+                                                            if (val > item.quantity) val = item.quantity;
+                                                            updateItemData(item.id, 'quantity', val);
+                                                        }}
+                                                        onKeyDown={(e) => {
+                                                            if (e.key === 'Enter') e.target.blur();
+                                                        }}
                                                     />
                                                 </td>
                                                 <td>
@@ -339,7 +348,7 @@ export default function InitiateReturn() {
                                                     </div>
                                                 </td>
                                                 <td className="text-primary font-bold">
-                                                    {currency}{selectedItems[item.id] ? (selectedItems[item.id].quantity * item.unit_price).toFixed(2) : '0.00'}
+                                                    {currency}{selectedItems[item.id] ? ((parseInt(selectedItems[item.id].quantity, 10) || 0) * item.unit_price).toFixed(2) : '0.00'}
                                                 </td>
                                             </tr>
                                         ))}
