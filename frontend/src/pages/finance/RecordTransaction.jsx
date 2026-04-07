@@ -127,7 +127,7 @@ export default function RecordTransaction() {
                                 >
                                     <option value="">Select Account</option>
                                     {accounts.map(acc => (
-                                        <option key={acc.id} value={acc.id}>{acc.name} ({currency}{Number(acc.balance).toLocaleString()})</option>
+                                        <option key={acc.id} value={acc.id}>{acc.name} ({currency}{Number(acc.balance || 0).toLocaleString()})</option>
                                     ))}
                                 </select>
                             </div>
@@ -143,7 +143,7 @@ export default function RecordTransaction() {
                                     >
                                         <option value="">Select Target Account</option>
                                         {accounts.filter(acc => String(acc.id) !== String(formData.account)).map(acc => (
-                                            <option key={acc.id} value={acc.id}>{acc.name} ({currency}{Number(acc.balance).toLocaleString()})</option>
+                                            <option key={acc.id} value={acc.id}>{acc.name} ({currency}{Number(acc.balance || 0).toLocaleString()})</option>
                                         ))}
                                     </select>
                                 </div>
@@ -151,19 +151,16 @@ export default function RecordTransaction() {
 
                             <div className="form-group">
                                 <label>Amount</label>
-                                <div className="amount-input-wrapper">
-                                    <span className="currency-prefix">{currency}</span>
-                                    <input
-                                        type="number"
-                                        name="amount"
-                                        value={formData.amount}
-                                        onChange={handleInputChange}
-                                        placeholder="0.00"
-                                        step="0.01"
-                                        min="0.01"
-                                        required
-                                    />
-                                </div>
+                                <input
+                                    type="number"
+                                    name="amount"
+                                    value={formData.amount}
+                                    onChange={handleInputChange}
+                                    placeholder="0.00"
+                                    step="0.01"
+                                    min="0.01"
+                                    required
+                                />
                             </div>
                         </div>
                     </div>
