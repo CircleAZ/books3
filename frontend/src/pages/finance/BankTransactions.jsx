@@ -99,12 +99,9 @@ export default function BankTransactions() {
 
     return (
         <div className="transactions-container fade-in">
-            <div className="transactions-header">
-                <div>
-                    <p className="transactions-subtitle">Track all movements in your bank accounts</p>
-                </div>
+            <div className="transactions-header" style={{ justifyContent: 'flex-end' }}>
                 <div className="transactions-actions">
-                    <button className="btn btn-secondary" onClick={() => navigate('/finance/banking')}>
+                    <button className="btn btn-manage-accounts" onClick={() => navigate('/finance/banking')}>
                         Manage Accounts
                     </button>
                     <button className="btn btn-primary" onClick={() => navigate('/finance/banking/record')}>
