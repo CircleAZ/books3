@@ -27,7 +27,7 @@
 
 .lender-table-container {
     padding: 0;
-    overflow: hidden;
+    overflow-x: auto;
     position: relative;
     min-height: 400px;
 }
