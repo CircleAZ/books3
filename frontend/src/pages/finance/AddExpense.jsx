@@ -117,11 +117,11 @@ export default function AddExpense() {
             </div>
 
             <form className="glass-card add-expense-form" onSubmit={handleSubmit}>
-                <div className="form-grid">
-                    <div className="form-section">
+                <div className="expense-grid">
+                    <div className="expense-section">
                         <h3>General Details</h3>
 
-                        <div className="form-group">
+                        <div className="expense-group">
                             <label>Date *</label>
                             <input
                                 type="date"
@@ -133,7 +133,7 @@ export default function AddExpense() {
                             {errors.date && <span className="error-text">{errors.date}</span>}
                         </div>
 
-                        <div className="form-group">
+                        <div className="expense-group">
                             <label>Category *</label>
                             <select
                                 name="category"
@@ -149,8 +149,8 @@ export default function AddExpense() {
                             {errors.category && <span className="error-text">{errors.category}</span>}
                         </div>
 
-                        <div className="form-row">
-                            <div className="form-group">
+                        <div className="expense-row">
+                            <div className="expense-group">
                                 <label>Payee Type</label>
                                 <select
                                     name="payee_type"
@@ -163,7 +163,7 @@ export default function AddExpense() {
                                     <option value="other">Other</option>
                                 </select>
                             </div>
-                            <div className="form-group">
+                            <div className="expense-group">
                                 <label>Payee Name *</label>
                                 <input
                                     type="text"
@@ -178,11 +178,11 @@ export default function AddExpense() {
                         </div>
                     </div>
 
-                    <div className="form-section">
+                    <div className="expense-section">
                         <h3>Financial Details</h3>
 
-                        <div className="form-row">
-                            <div className="form-group">
+                        <div className="expense-row">
+                            <div className="expense-group">
                                 <label>Amount ({currency}) *</label>
                                 <input
                                     type="number"
@@ -196,7 +196,7 @@ export default function AddExpense() {
                                 />
                                 {errors.amount && <span className="error-text">{errors.amount}</span>}
                             </div>
-                            <div className="form-group">
+                            <div className="expense-group">
                                 <label>Tax Amount ({currency})</label>
                                 <input
                                     type="number"
@@ -215,7 +215,7 @@ export default function AddExpense() {
                             <span className="amount">{currency}{totalAmount}</span>
                         </div>
 
-                        <div className="form-group">
+                        <div className="expense-group">
                             <label>Payment Status</label>
                             <div className="status-selector">
                                 <label className={`status-option ${formData.payment_status === 'paid' ? 'active' : ''}`}>
@@ -253,7 +253,7 @@ export default function AddExpense() {
                     </div>
                 </div>
 
-                <div className="form-section full-width">
+                <div className="expense-section full-width">
                     <label>Description / Notes</label>
                     <textarea
                         name="description"
