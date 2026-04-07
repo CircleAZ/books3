@@ -39,6 +39,7 @@ export const ENDPOINTS = {
     CUSTOMERS_DIVISIONS: `${API_BASE}/customers/divisions/`,
     CUSTOMERS_LOCATION_TAGS: `${API_BASE}/customers/location-tags/`,
     CUSTOMERS_LINK_TYPES: `${API_BASE}/customers/link-types/`,
+    CUSTOMERS_LINKS: `${API_BASE}/customers/links/`,
     CUSTOMERS_SUBDIVISIONS: `${API_BASE}/customers/subdivisions/`,
     CUSTOMERS_MAP: `${API_BASE}/customers/customers/map_data/`,
     TARGET_VILLAGES: `${API_BASE}/customers/customers/target-villages/`,

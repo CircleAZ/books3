@@ -75,7 +75,7 @@ const CustomerDetails = () => {
     useEffect(() => {
         const fetchLinkTypes = async () => {
             try {
-                const res = await fetchWithAuth(ENDPOINTS.SETTINGS_LINK_TYPES || '/api/settings/link-types/'); // Fallback if constant missing
+                const res = await fetchWithAuth(ENDPOINTS.CUSTOMERS_LINK_TYPES);
                 if (res.ok) {
                     const data = await res.json();
                     setLinkTypes(data.results || data);
@@ -106,7 +106,7 @@ const CustomerDetails = () => {
     const handleAddLink = async (e) => {
         e.preventDefault();
         try {
-            const res = await fetchWithAuth(ENDPOINTS.CUSTOMER_LINKS || '/api/customers/links/', { // Fallback
+            const res = await fetchWithAuth(ENDPOINTS.CUSTOMERS_LINKS, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -130,7 +130,7 @@ const CustomerDetails = () => {
         e.stopPropagation(); // Prevent navigation
         if (!window.confirm("Remove this link?")) return;
         try {
-            await fetchWithAuth(`${ENDPOINTS.CUSTOMER_LINKS || '/api/customers/links/'}${linkId}/`, { method: 'DELETE' });
+            await fetchWithAuth(`${ENDPOINTS.CUSTOMERS_LINKS}${linkId}/`, { method: 'DELETE' });
             fetchData(); // Refresh data
         } catch (e) { alert("Error removing link"); }
     };
