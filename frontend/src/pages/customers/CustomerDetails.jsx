@@ -425,7 +425,7 @@ const CustomerDetails = () => {
                     <div className="modal-content">
                         <h2>Add Customer Link</h2>
                         <form onSubmit={handleAddLink}>
-                            <div className="form-group">
+                            <div className="form-group" style={{ position: 'relative' }}>
                                 <label>Search Customer</label>
                                 <input
                                     type="text"
