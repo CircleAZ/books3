@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useCurrency } from '../../context/CurrencyContext';
 import { ENDPOINTS } from '../../config/api';
+import { Filter, ChevronUp, ChevronDown } from 'lucide-react';
 import './BankTransactions.css';
 
 export default function BankTransactions() {
@@ -15,6 +16,7 @@ export default function BankTransactions() {
     const [loading, setLoading] = useState(true);
     const [page, setPage] = useState(1);
     const [totalPages, setTotalPages] = useState(1);
+    const [showFilters, setShowFilters] = useState(window.innerWidth > 768);
 
     const [filters, setFilters] = useState({
         account: '',
@@ -110,9 +112,22 @@ export default function BankTransactions() {
                 </div>
             </div>
 
-            <div className="transactions-controls glass-card">
-                <div className="filter-group">
-                    <label>Account</label>
+            <div className="filter-collapsible-wrapper">
+                <button
+                    className="btn filter-toggle-btn glass-card"
+                    onClick={() => setShowFilters(!showFilters)}
+                >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                        <Filter size={18} />
+                        <span>Filter Transactions</span>
+                    </div>
+                    {showFilters ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
+                </button>
+
+                {showFilters && (
+                    <div className="transactions-controls glass-card">
+                        <div className="filter-group">
+                            <label>Account</label>
                     <select
                         className="filter-select"
                         name="account"
@@ -165,6 +180,8 @@ export default function BankTransactions() {
                         onChange={handleFilterChange}
                     />
                 </div>
+            </div>
+            )}
             </div>
 
             <div className="transactions-table-container glass-card">
