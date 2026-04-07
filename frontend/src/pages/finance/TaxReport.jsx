@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { ENDPOINTS } from '../../config/api';
+import { FileSpreadsheet } from 'lucide-react';
 import './ProfitLossReport.css'; // Reusing similar styles for now
 
 const TaxReport = () => {
@@ -101,9 +102,6 @@ const TaxReport = () => {
                             <option value="year">This Year</option>
                         </select>
                     </div>
-                    <div className="export-buttons">
-                        <button onClick={handleExport} className="btn-export csv">Export CSV</button>
-                    </div>
                 </div>
             </header>
 
@@ -138,6 +136,12 @@ const TaxReport = () => {
                         <span className="amount">{formatCurrency(data.net_tax_payable)}</span>
                     </div>
                 </div>
+            </div>
+
+            <div className="report-footer-actions">
+                <button onClick={handleExport} className="btn-export csv">
+                    <FileSpreadsheet size={18} /> Export CSV
+                </button>
             </div>
         </div>
     );

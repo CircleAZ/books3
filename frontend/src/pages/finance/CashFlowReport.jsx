@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { ENDPOINTS } from '../../config/api';
+import { FileText, FileSpreadsheet } from 'lucide-react';
 import './CashFlowReport.css';
 
 const CashFlowReport = () => {
@@ -76,10 +77,6 @@ const CashFlowReport = () => {
                             <option value="quarter">This Quarter</option>
                             <option value="year">This Year</option>
                         </select>
-                    </div>
-                    <div className="export-buttons">
-                        <button onClick={() => handleExport('pdf')} className="btn-export pdf">PDF</button>
-                        <button onClick={() => handleExport('csv')} className="btn-export csv">CSV</button>
                     </div>
                 </div>
             </header>
@@ -159,6 +156,15 @@ const CashFlowReport = () => {
 
             <div className="report-footer">
                 <p>* This report is generated based on recorded transactions and may not reflect unrecorded bank adjustments.</p>
+            </div>
+
+            <div className="report-footer-actions">
+                <button onClick={() => handleExport('pdf')} className="btn-export pdf">
+                    <FileText size={18} /> Export PDF
+                </button>
+                <button onClick={() => handleExport('csv')} className="btn-export csv">
+                    <FileSpreadsheet size={18} /> Export CSV
+                </button>
             </div>
         </div>
     );
