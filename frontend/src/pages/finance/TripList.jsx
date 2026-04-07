@@ -60,7 +60,7 @@ export default function TripList() {
                 </button>
             </header>
 
-            <div style={{ display: 'flex', gap: 12, marginBottom: 20 }}>
+            <div className="search-filter-row">
                 <input
                     type="text" placeholder="Search trips..."
                     value={search} onChange={e => setSearch(e.target.value)}
