@@ -150,7 +150,7 @@ export default function CreateTrip() {
                 {/* Trip Header */}
                 <div className="glass-card" style={{ padding: 24, marginBottom: 20 }}>
                     <h3 style={{ marginTop: 0, marginBottom: 16, color: '#818cf8' }}>Trip Details</h3>
-                    <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 16 }}>
+                    <div className="create-trip-2col">
                         <div className="form-group">
                             <label>Trip Name *</label>
                             <input type="text" required placeholder='e.g. "Ahmedabad — To place order"'
@@ -198,7 +198,7 @@ export default function CreateTrip() {
                                     </button>
                                 )}
                             </div>
-                            <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1.5fr', gap: 12 }}>
+                            <div className="create-trip-4col">
                                 <div className="form-group" style={{ margin: 0 }}>
                                     <label style={{ fontSize: 12 }}>Description *</label>
                                     <input type="text" placeholder="e.g. Parking, Ticket"
