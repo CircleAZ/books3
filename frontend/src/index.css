@@ -449,3 +449,19 @@ input::placeholder {
 .animate-slide-in-left {
   animation: slideInLeft var(--transition-normal) ease;
 }
+
+/* Recharts Global Overrides */
+/* Removes orange focus outlines from SVG charts during mobile tapping or keyboard focus */
+.recharts-wrapper,
+.recharts-surface,
+.recharts-wrapper:focus,
+.recharts-surface:focus,
+.recharts-wrapper:focus-visible,
+.recharts-surface:focus-visible,
+.chart-container[role="img"]:focus,
+.chart-container[role="img"]:focus-visible,
+.recharts-responsive-container:focus,
+.recharts-responsive-container:focus-visible {
+    outline: none !important;
+    -webkit-tap-highlight-color: transparent;
+}
