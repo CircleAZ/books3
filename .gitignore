@@ -142,3 +142,4 @@ staticfiles/
 
 # Local planning notes
 Plan/
+worker/node_modules/
