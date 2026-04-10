@@ -36,7 +36,7 @@ jobs:
           PGSSLMODE: require
         run: |
           echo "Starting pg_dump..."
-          pg_dump \
+          /usr/lib/postgresql/17/bin/pg_dump \
             --format=custom \
             --compress=9 \
             --no-owner \
@@ -54,7 +54,7 @@ jobs:
       - name: Verify dump integrity
         run: |
           echo "Verifying dump with pg_restore --list..."
-          pg_restore --list "${{ steps.filename.outputs.dump_file }}" > /dev/null
+          /usr/lib/postgresql/17/bin/pg_restore --list "${{ steps.filename.outputs.dump_file }}" > /dev/null
           echo "✅ Dump verification passed"
 
       - name: Encrypt backup
