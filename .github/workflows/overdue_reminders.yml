@@ -11,10 +11,9 @@ jobs:
     runs-on: ubuntu-latest
     
     env:
-      # Database — uses the direct (non-pooled) Neon connection string
-      # dj-database-url in settings.py reads this automatically
-      DATABASE_URL: ${{ secrets.DATABASE_URL }}
-      SECRET_KEY: ${{ secrets.SECRET_KEY }}
+      # Database — dynamically built from the backup action's granular secrets
+      DATABASE_URL: postgres://${{ secrets.DB_USER }}:${{ secrets.DB_PASSWORD }}@${{ secrets.DB_HOST }}/${{ secrets.DB_NAME }}?sslmode=require
+      SECRET_KEY: ${{ secrets.SECRET_KEY || 'django-insecure-dummy-key-for-github-actions' }}
       DEBUG: 'False'
       # WhatsApp Cloud API
       WHATSAPP_PHONE_NUMBER_ID: ${{ secrets.WHATSAPP_PHONE_NUMBER_ID }}
