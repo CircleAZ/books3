@@ -121,7 +121,9 @@ const CustomerDetails = () => {
                 setLinkSearch('');
                 fetchData(); // Refresh data
             } else {
-                alert("Failed to create link");
+                const errData = await res.json().catch(() => null);
+                const msg = errData?.non_field_errors?.[0] || errData?.detail || JSON.stringify(errData) || 'Failed to create link';
+                alert(msg);
             }
         } catch (e) { alert("Error creating link"); }
     };
@@ -436,15 +438,18 @@ const CustomerDetails = () => {
                                 {linkSearch && customerSearchResults.length > 0 && (
                                     <ul className="search-results-dropdown" style={{
                                         position: 'absolute',
-                                        backgroundColor: 'var(--bg-card)',
-                                        border: '1px solid var(--border-color)',
+                                        backgroundColor: 'var(--color-bg-elevated)',
+                                        border: '1px solid var(--color-border)',
                                         width: '100%',
                                         zIndex: 1000,
                                         listStyle: 'none',
                                         padding: 0,
                                         margin: 0,
                                         maxHeight: '150px',
-                                        overflowY: 'auto'
+                                        overflowY: 'auto',
+                                        borderRadius: 'var(--radius-md)',
+                                        boxShadow: 'var(--shadow-lg)',
+                                        marginTop: '4px'
                                     }}>
                                         {customerSearchResults.map(c => (
                                             <li key={c.id} onClick={() => {

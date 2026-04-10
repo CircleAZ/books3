@@ -1,0 +1,57 @@
+# Render Infrastructure-as-Code
+# Deploy the same app to multiple Render accounts for failover.
+# https://docs.render.com/infrastructure-as-code
+#
+# Usage: Connect each Render account to the CircleAZ/books2 GitHub repo.
+# Render auto-detects this file and uses it for configuration.
+
+services:
+  - type: web
+    name: AZBooks
+    runtime: docker
+    repo: https://github.com/CircleAZ/books2.git
+    branch: main
+    plan: free
+    healthCheckPath: /api/health/
+    envVars:
+      # ── Core Django ──
+      - key: SECRET_KEY
+        generateValue: true    # Each Render instance gets a unique key
+      - key: DEBUG
+        value: "False"
+      - key: ALLOWED_HOSTS
+        value: ".onrender.com,.circleaz.in,localhost"
+      - key: CSRF_TRUSTED_ORIGINS
+        value: "https://books.circleaz.in,https://circleaz.in,https://api.circleaz.in"
+      - key: CORS_ALLOWED_ORIGINS
+        value: "https://books.circleaz.in,https://circleaz.in"
+
+      # ── Database (Neon Singapore — pooled connection) ──
+      - key: DATABASE_URL
+        sync: false  # Set manually per account — same DB for all instances
+
+      # ── Cloudflare R2 ──
+      - key: R2_ENDPOINT_URL
+        sync: false
+      - key: R2_ACCESS_KEY_ID
+        sync: false
+      - key: R2_SECRET_ACCESS_KEY
+        sync: false
+      - key: R2_RECEIPTS_BUCKET
+        value: "azbooks-receipts"
+
+      # ── WhatsApp (optional — pending SIM) ──
+      - key: WHATSAPP_PHONE_NUMBER_ID
+        sync: false
+      - key: WHATSAPP_ACCESS_TOKEN
+        sync: false
+
+      # ── Receipt URL ──
+      - key: RECEIPT_BASE_URL
+        value: "https://books.circleaz.in"
+
+      # ── New Relic APM ──
+      - key: NEW_RELIC_LICENSE_KEY
+        sync: false
+      - key: NEW_RELIC_APP_NAME
+        value: "AZBooks"

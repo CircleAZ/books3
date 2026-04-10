@@ -11,10 +11,15 @@ jobs:
     runs-on: ubuntu-latest
     
     env:
+      # Database — uses the direct (non-pooled) Neon connection string
+      # dj-database-url in settings.py reads this automatically
       DATABASE_URL: ${{ secrets.DATABASE_URL }}
       SECRET_KEY: ${{ secrets.SECRET_KEY }}
+      DEBUG: 'False'
+      # WhatsApp Cloud API
       WHATSAPP_PHONE_NUMBER_ID: ${{ secrets.WHATSAPP_PHONE_NUMBER_ID }}
       WHATSAPP_ACCESS_TOKEN: ${{ secrets.WHATSAPP_ACCESS_TOKEN }}
+      # Cloudflare R2
       R2_ENDPOINT_URL: ${{ secrets.R2_ENDPOINT_URL }}
       R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
       R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
@@ -35,6 +40,3 @@ jobs:
       
       - name: Run overdue reminders
         run: python manage.py send_overdue_reminders
-
-      - name: Flush expired JWT tokens
-        run: python manage.py flushexpiredtokens

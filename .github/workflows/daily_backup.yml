@@ -29,10 +29,10 @@ jobs:
 
       - name: Dump database
         env:
-          PGHOST: ${{ secrets.NEON_DB_HOST }}
-          PGDATABASE: ${{ secrets.NEON_DB_NAME }}
-          PGUSER: ${{ secrets.NEON_DB_USER }}
-          PGPASSWORD: ${{ secrets.NEON_DB_PASSWORD }}
+          PGHOST: ${{ secrets.DB_HOST }}
+          PGDATABASE: ${{ secrets.DB_NAME }}
+          PGUSER: ${{ secrets.DB_USER }}
+          PGPASSWORD: ${{ secrets.DB_PASSWORD }}
           PGSSLMODE: require
         run: |
           echo "Starting pg_dump..."
@@ -54,7 +54,7 @@ jobs:
       - name: Verify dump integrity
         run: |
           echo "Verifying dump with pg_restore --list..."
-          /usr/lib/postgresql/17/bin/pg_restore --list "${{ steps.filename.outputs.dump_file }}" > /dev/null
+          pg_restore --list "${{ steps.filename.outputs.dump_file }}" > /dev/null
           echo "✅ Dump verification passed"
 
       - name: Encrypt backup

@@ -10,6 +10,7 @@ import UserProfileDropdown from './UserProfileDropdown';
 import NotificationPanel from './NotificationPanel';
 import Breadcrumbs from './Breadcrumbs';
 import OmniSearch from '../common/OmniSearch';
+import OfflineSyncBadge from '../common/OfflineSyncBadge';
 import './MainLayout.css';
 
 export default function MainLayout({ children }) {
@@ -202,6 +203,8 @@ export default function MainLayout({ children }) {
                 onClose={() => setNotifOpen(false)}
                 onCountUpdate={setNotifCount}
             />
+
+            <OfflineSyncBadge />
 
             <main id="main-content" className={`main-content ${sidebarClass}`}>
                 <Breadcrumbs items={breadcrumbs} />

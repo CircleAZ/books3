@@ -3,6 +3,7 @@ Serializers for Customer app.
 """
 import re
 from rest_framework import serializers
+from django.db import models
 from django.utils.html import strip_tags
 from .models import Customer, Address, CustomerLink, Wallet, WalletTransaction
 from settings_app.models import (
@@ -359,6 +360,29 @@ class CustomerLinkSerializer(serializers.ModelSerializer):
         model = CustomerLink
         fields = ['id', 'customer_a', 'customer_a_name', 'customer_b', 'customer_b_name', 
                   'link_type', 'link_type_name']
+    
+    def validate(self, data):
+        a = data.get('customer_a')
+        b = data.get('customer_b')
+        
+        if a and b and a == b:
+            raise serializers.ValidationError("A customer cannot be linked to themselves.")
+        
+        if a and b:
+            # Check both directions: A→B or B→A
+            existing = CustomerLink.objects.filter(
+                models.Q(customer_a=a, customer_b=b) |
+                models.Q(customer_a=b, customer_b=a)
+            )
+            # Exclude current instance on update
+            if self.instance:
+                existing = existing.exclude(pk=self.instance.pk)
+            if existing.exists():
+                raise serializers.ValidationError(
+                    "A relationship already exists between these two customers."
+                )
+        
+        return data
 
 
 # ============ Wallet Serializers ============

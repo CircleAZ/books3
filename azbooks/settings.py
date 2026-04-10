@@ -14,6 +14,7 @@ import os
 from pathlib import Path
 from datetime import timedelta
 from dotenv import load_dotenv
+import dj_database_url
 
 # Load environment variables from .env file
 load_dotenv()
@@ -51,6 +52,9 @@ if not DEBUG:
     # NOTE: SECURE_SSL_REDIRECT = False — Cloudflare handles HTTPS redirect.
     # Setting True causes infinite redirect loops behind CF proxy.
 
+    # Required when behind a reverse proxy (Cloudflare) that terminates SSL
+    SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+
 
 # Application definition
 
@@ -65,7 +69,6 @@ INSTALLED_APPS = [
     # Third-party apps
     'rest_framework',
     'rest_framework_simplejwt',
-    'rest_framework_simplejwt.token_blacklist',
     'simple_history',
     'corsheaders',
     
@@ -118,34 +121,51 @@ WSGI_APPLICATION = 'azbooks.wsgi.application'
 
 # Database
 # https://docs.djangoproject.com/en/6.0/ref/settings/#databases
-# PostgreSQL configuration for production (per P4.md section 1.4)
+#
+# Uses DATABASE_URL env var (Neon pooled connection string in production).
+# Falls back to SQLite for local development when DATABASE_URL is not set.
+# Format: postgres://user:password@host:port/dbname?sslmode=require
 
-# Check if PostgreSQL is configured, otherwise use SQLite
-DB_ENGINE = os.getenv('DB_ENGINE', '')
-if DB_ENGINE:
+DATABASE_URL = os.getenv('DATABASE_URL', '')
+
+if DATABASE_URL:
     DATABASES = {
-        'default': {
-            'ENGINE': DB_ENGINE,
-            'NAME': os.getenv('DB_NAME', 'azbooks'),
-            'USER': os.getenv('DB_USER', ''),
-            'PASSWORD': os.getenv('DB_PASSWORD', ''),
-            'HOST': os.getenv('DB_HOST', 'localhost'),
-            'PORT': os.getenv('DB_PORT', '5432'),
-        }
+        'default': dj_database_url.config(
+            default=DATABASE_URL,
+            conn_max_age=600,              # Keep connections alive 10 min
+            conn_health_checks=True,       # Auto-reconnect stale connections
+            ssl_require=True,              # Neon requires SSL
+        )
     }
-    DATABASES['default']['CONN_MAX_AGE'] = 600            # Keep connections alive 10 min
-    DATABASES['default']['CONN_HEALTH_CHECKS'] = True      # Auto-reconnect stale connections
-    # Neon PostgreSQL requires SSL
-    if os.getenv('DB_SSLMODE'):
-        DATABASES['default']['OPTIONS'] = {
-            'sslmode': os.getenv('DB_SSLMODE', 'require'),
-        }
+    # Neon uses PgBouncer in transaction mode — server-side cursors
+    # (used by Django's .iterator()) are incompatible with transaction pooling.
+    # Without this, finance/views.py CSV export will crash.
+    DATABASES['default']['DISABLE_SERVER_SIDE_CURSORS'] = True
 else:
-    # Default to SQLite for development
+    # Default to SQLite for local development
     DATABASES = {
         'default': {
             'ENGINE': 'django.db.backends.sqlite3',
             'NAME': BASE_DIR / 'db.sqlite3',
+        }
+    }
+
+
+# Cache configuration
+# Uses Redis (Upstash) in production if REDIS_URL is set.
+# Falls back to in-memory cache for local development.
+_redis_url = os.getenv('REDIS_URL', '')
+if _redis_url:
+    CACHES = {
+        'default': {
+            'BACKEND': 'django.core.cache.backends.redis.RedisCache',
+            'LOCATION': _redis_url,
+        }
+    }
+else:
+    CACHES = {
+        'default': {
+            'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
         }
     }
 
@@ -221,12 +241,15 @@ REST_FRAMEWORK = {
     ] if DEBUG else []),
 }
 
-# Simple JWT configuration (Tribunal Fix: 15-min access, 60s proactive refresh buffer)
+# Simple JWT configuration
+# - 5-min access tokens: short-lived, no blacklist needed
+# - 1-day refresh tokens: rotated on each use
+# - BLACKLIST_AFTER_ROTATION disabled: reduces DB writes, 5-min window is acceptable risk
 SIMPLE_JWT = {
-    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=15),
+    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=5),
     'REFRESH_TOKEN_LIFETIME': timedelta(days=1),
     'ROTATE_REFRESH_TOKENS': True,
-    'BLACKLIST_AFTER_ROTATION': True,
+    'BLACKLIST_AFTER_ROTATION': False,
     'UPDATE_LAST_LOGIN': True,
     'ALGORITHM': 'HS256',
     'AUTH_HEADER_TYPES': ('Bearer',),

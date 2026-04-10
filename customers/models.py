@@ -163,7 +163,7 @@ class CustomerLink(UUIDPrimaryKeyModel):
     )
     
     class Meta:
-        unique_together = ['customer_a', 'customer_b', 'link_type']
+        unique_together = ['customer_a', 'customer_b']
     
     def __str__(self):
         return f"{self.customer_a} -> {self.customer_b} ({self.link_type})"
