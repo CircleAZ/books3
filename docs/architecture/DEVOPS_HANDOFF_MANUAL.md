@@ -52,6 +52,7 @@ graph TD
 
 ### Critical Flow Mechanics
 * **API Routing Mismatch Limit:** Render's default routing relies on `Host` headers. Because the CF Worker alters the request to hit `.onrender.com` URLs, the CF worker *must* inject `X-Forwarded-Host: api.circleaz.in`. Django relies entirely on this header to validate CSRF tokens.
+* **Host Header Poisoning Defense:** Because `USE_X_FORWARDED_HOST = True` is active, Django will blindly trust the origin header. To prevent attacks where a malicious actor bypasses Cloudflare and hits `.onrender.com` directly with a spoofed header, `ALLOWED_HOSTS` is strictly hardcoded to the three exact Render subdomains. A wildcard `.onrender.com` is absolutely forbidden.
 * **Worker Fallback Behavior:** The Worker `backendRequest` buffers POST data (`bodyBuffer = await request.clone().arrayBuffer()`). If a Render instance fails to return a `200 OK` within `15,000ms`, the Worker throws a synthetic AbortError and attempts to stream the identical `bodyBuffer` to the next Render deployment.
 * **Edge SWR Cache:** GET responses (not matching `/admin/` or `/token/`) are cached in Cloudflare limits. `CACHE_MAX_AGE=60`, `CACHE_SWR_TTL=3600`. Do not modify cached responses locally; invalidate via Worker redeploy.
 
@@ -87,7 +88,7 @@ graph LR
 ### Build Constraints & Warnings
 > **Cloudflare Worker Deploy Pathing:** The CF Worker cannot be built automatically from the repository root directory (`/`). GitHub integration will fail. You must CD into `/worker` and execute `npx wrangler deploy` manually, or explicitly lock the Root Directory build step to `/worker`.
 >
-> **Node.js 24 Actions Deprecation:** GitHub Actions `checkout@v4` and `setup-python@v5` will depreciate Node 20 runtimes. We must set `FORCE_JAVASCRIPT_ACTIONS_TO_NODE24=true` globally in `.github/workflows/` environment variables to prevent build runner catastrophic failure after mid-2026.
+> **Node.js 24 Actions Deprecation:** Older GitHub Actions natively target Node.js 20 runtimes. We explicitly use `checkout@v5` and `setup-python@v6` (or higher) to natively compile against Node 24 and prevent runner depreciation failures. Beware of copy-pasting older action versions into new workflows (do not use the `FORCE_JAVASCRIPT_ACTIONS_TO_NODE24` band-aid).
 >
 > **System Build Libraries (Cairo):** The Render `Dockerfile` leverages `python:3.13-slim` but executes PDF generation via `xhtml2pdf`. The `pycairo` module **will fail to build** during `pip install` without OS-level C libraries. `gcc`, `libcairo2-dev`, and `pkg-config` must violently remain inside the Dockerfile `apt-get` command.
 
