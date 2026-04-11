@@ -38,7 +38,7 @@ if not DEBUG and 'insecure' in SECRET_KEY:
     raise ImproperlyConfigured("Production requires a real SECRET_KEY. Set SECRET_KEY env var.")
 _hosts = os.getenv('ALLOWED_HOSTS', 'localhost,127.0.0.1,api.circleaz.in')
 ALLOWED_HOSTS = [x.strip() for x in _hosts.split(',') if x.strip()]
-ALLOWED_HOSTS.append('.onrender.com')
+ALLOWED_HOSTS.extend(['azbooks.onrender.com', 'azbooks-b.onrender.com', 'azbooks-c.onrender.com'])
 
 # CSRF trusted origins (required for Django 4.0+ when DEBUG=False)
 _trusted_origins = os.getenv('CSRF_TRUSTED_ORIGINS', 'http://localhost:8000,http://127.0.0.1:8000,https://api.circleaz.in')
