@@ -10,9 +10,9 @@ ENV NEW_RELIC_CONFIG_FILE=newrelic.ini
 
 WORKDIR /app
 
-# System deps for psycopg2-binary and Pillow
+# System deps for psycopg2-binary, Pillow, and pycairo
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    gcc libjpeg62-turbo-dev zlib1g-dev \
+    gcc libjpeg62-turbo-dev zlib1g-dev pkg-config libcairo2-dev \
     && rm -rf /var/lib/apt/lists/*
 
 # Install Python dependencies
