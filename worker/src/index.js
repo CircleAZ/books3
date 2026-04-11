@@ -99,6 +99,16 @@ async function routeWithFailover(request, url, ctx) {
     }
   }
 
+  // ── Buffer body to allow multiple retries ──
+  let bodyBuffer = undefined;
+  if (!isGET && request.method !== 'HEAD') {
+    try {
+      bodyBuffer = await request.clone().arrayBuffer();
+    } catch(e) {
+      // Body might be empty or unreadable
+    }
+  }
+
   // ── Try each backend ──
   let lastError = null;
 
@@ -109,7 +119,9 @@ async function routeWithFailover(request, url, ctx) {
       const backendUrl = backend + url.pathname + url.search;
       
       const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), BACKEND_TIMEOUT_MS);
+      // Login POST requests might take longer due to password hashing + cold starts
+      const timeoutMs = isGET ? BACKEND_TIMEOUT_MS : 15000;
+      const timeout = setTimeout(() => controller.abort(), timeoutMs);
 
       const newHeaders = new Headers(request.headers);
       newHeaders.set('X-Forwarded-Host', url.host);
@@ -117,11 +129,9 @@ async function routeWithFailover(request, url, ctx) {
       const backendRequest = new Request(backendUrl, {
         method: request.method,
         headers: newHeaders,
-        body: request.method !== 'GET' && request.method !== 'HEAD' 
-          ? request.body 
-          : undefined,
+        body: bodyBuffer,
         signal: controller.signal,
-        redirect: 'follow',
+        redirect: 'manual',
       });
 
       const response = await fetch(backendRequest);
