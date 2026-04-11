@@ -1,5 +1,8 @@
 name: Daily Overdue Payment Reminders
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 on:
   schedule:
     # 9:00 AM IST = 3:30 AM UTC

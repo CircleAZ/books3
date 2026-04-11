@@ -1,5 +1,8 @@
 name: Daily Database Backup
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 on:
   schedule:
     # 4:00 AM IST = 22:30 UTC (previous day)
