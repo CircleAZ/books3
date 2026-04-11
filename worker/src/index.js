@@ -111,9 +111,12 @@ async function routeWithFailover(request, url, ctx) {
       const controller = new AbortController();
       const timeout = setTimeout(() => controller.abort(), BACKEND_TIMEOUT_MS);
 
+      const newHeaders = new Headers(request.headers);
+      newHeaders.set('X-Forwarded-Host', url.host);
+
       const backendRequest = new Request(backendUrl, {
         method: request.method,
-        headers: request.headers,
+        headers: newHeaders,
         body: request.method !== 'GET' && request.method !== 'HEAD' 
           ? request.body 
           : undefined,

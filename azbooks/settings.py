@@ -36,11 +36,15 @@ DEBUG = os.getenv('DEBUG', 'True').lower() == 'true'
 if not DEBUG and 'insecure' in SECRET_KEY:
     from django.core.exceptions import ImproperlyConfigured
     raise ImproperlyConfigured("Production requires a real SECRET_KEY. Set SECRET_KEY env var.")
-
-ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS', 'localhost,127.0.0.1').split(',')
+_hosts = os.getenv('ALLOWED_HOSTS', 'localhost,127.0.0.1,api.circleaz.in')
+ALLOWED_HOSTS = [x.strip() for x in _hosts.split(',') if x.strip()]
 
 # CSRF trusted origins (required for Django 4.0+ when DEBUG=False)
-CSRF_TRUSTED_ORIGINS = os.getenv('CSRF_TRUSTED_ORIGINS', 'http://localhost:8000,http://127.0.0.1:8000').split(',')
+_trusted_origins = os.getenv('CSRF_TRUSTED_ORIGINS', 'http://localhost:8000,http://127.0.0.1:8000,https://api.circleaz.in')
+CSRF_TRUSTED_ORIGINS = [x.strip() for x in _trusted_origins.split(',') if x.strip()]
+
+# Trust the X-Forwarded-Host header from Cloudflare Worker
+USE_X_FORWARDED_HOST = True
 
 # Production security hardening
 if not DEBUG:
