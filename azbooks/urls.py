@@ -6,7 +6,7 @@ from django.urls import path, include
 from django.conf import settings
 from django.conf.urls.static import static
 from django.http import JsonResponse
-from django.views.decorators.http import require_GET
+from django.views.decorators.http import require_safe
 from django_ratelimit.decorators import ratelimit
 from rest_framework_simplejwt.views import (
     TokenObtainPairView,
@@ -15,8 +15,8 @@ from rest_framework_simplejwt.views import (
 )
 
 
-@require_GET
-@ratelimit(key='ip', rate='10/m', method='GET')
+@require_safe
+@ratelimit(key='ip', rate='10/m', method=['GET', 'HEAD'])
 def health_check(request):
     """Minimal health endpoint for UptimeRobot / Render / CF Worker warm-up.
     Rate-limited to 10 req/min per IP to prevent abuse."""
