@@ -2,7 +2,7 @@
 set -e
 
 echo "==> Running migrations..."
-python manage.py migrate --noinput
+python manage.py cluster_migrate
 
 echo "==> Creating superuser (if not exists)..."
 python manage.py shell -c "
