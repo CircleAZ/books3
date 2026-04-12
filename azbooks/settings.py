@@ -283,6 +283,7 @@ SIMPLE_JWT = {
     'USER_ID_FIELD': 'id',
     'USER_ID_CLAIM': 'user_id',
     'TOKEN_OBTAIN_SERIALIZER': 'account.serializers.CustomTokenObtainPairSerializer',
+    'TOKEN_REFRESH_SERIALIZER': 'account.serializers.CustomTokenRefreshSerializer',
 }
 
 # RBAC: Protected role-permission pairs that can NEVER be revoked.

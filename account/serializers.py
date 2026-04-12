@@ -2,12 +2,46 @@
 Account app serializers for AZ Books
 """
 from rest_framework import serializers
-from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
+from rest_framework_simplejwt.serializers import TokenObtainPairSerializer, TokenRefreshSerializer
+from rest_framework_simplejwt.tokens import RefreshToken
+from rest_framework_simplejwt.settings import api_settings
+from datetime import timedelta
 from django.contrib.auth import get_user_model
 from django.contrib.auth.password_validation import validate_password
 from .models import ActivityLog
 
 User = get_user_model()
+
+
+class CustomTokenRefreshSerializer(TokenRefreshSerializer):
+    """
+    Custom proxy for TokenRefreshSerializer to reinstate 
+    extended lifespans if the user enabled "Remember Me".
+    """
+    def validate(self, attrs):
+        data = super().validate(attrs)
+        refresh_str = data.get('refresh')
+        
+        if refresh_str:
+            new_refresh = RefreshToken(refresh_str)
+            user_id = new_refresh[api_settings.USER_ID_CLAIM]
+            
+            try:
+                user = User.objects.get(id=user_id)
+                if getattr(user, 'remember_me_enabled', False):
+                    # Reinstate the extended 7-day lifespan on the new Refresh Token
+                    new_refresh.set_exp(lifetime=timedelta(days=7))
+                    data['refresh'] = str(new_refresh)
+                    
+                    # Reinstate the extended 4-hour lifespan on the new Access Token
+                    new_access = new_refresh.access_token
+                    new_access.set_exp(lifetime=timedelta(hours=4))
+                    data['access'] = str(new_access)
+            except Exception:
+                # Fail gracefully back to system defaults if DB lookup fails
+                pass
+                
+        return data
 
 
 class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):

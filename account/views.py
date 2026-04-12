@@ -94,7 +94,7 @@ class LoginView(APIView):
         
         # Extend token lifetime if "remember me" is checked
         if remember_me:
-            refresh.set_exp(lifetime=timedelta(days=30))
+            refresh.set_exp(lifetime=timedelta(days=7))
             access_token = refresh.access_token
             # SEC-8: Reduced from 7 days to 4 hours — still long but not dangerous
             access_token.set_exp(lifetime=timedelta(hours=4))
