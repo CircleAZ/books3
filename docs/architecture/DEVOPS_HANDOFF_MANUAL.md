@@ -55,6 +55,8 @@ graph TD
 * **Host Header Poisoning Defense:** Because `USE_X_FORWARDED_HOST = True` is active, Django will blindly trust the origin header. To prevent attacks where a malicious actor bypasses Cloudflare and hits `.onrender.com` directly with a spoofed header, `ALLOWED_HOSTS` is strictly hardcoded to the three exact Render subdomains. A wildcard `.onrender.com` is absolutely forbidden.
 * **Worker Fallback Behavior:** The Worker `backendRequest` buffers POST data (`bodyBuffer = await request.clone().arrayBuffer()`). If a Render instance fails to return a `200 OK` within `15,000ms`, the Worker throws a synthetic AbortError and attempts to stream the identical `bodyBuffer` to the next Render deployment.
 * **Edge SWR Cache:** GET responses (not matching `/admin/` or `/token/`) are cached in Cloudflare limits. `CACHE_MAX_AGE=60`, `CACHE_SWR_TTL=3600`. Do not modify cached responses locally; invalidate via Worker redeploy.
+* **Distributed Media Flow:** Because local hard drives are ephemeral and unshared across the 3 failover Render instances, all Django user-uploaded media (`DEFAULT_FILE_STORAGE`) traverses `boto3` directly to a Cloudflare R2 bucket (`azbooks-media`) and is rendered publicly via the `media.circleaz.in` custom domain.
+* **Cluster Migration Locks:** To prevent PostgreSQL deadlock and `IntegrityError` collisions when Render automatically deploys 3 concurrent code updates, `docker-entrypoint.sh` executes a custom `cluster_migrate` script rather than a standard migration. This uses an Upstash Redis lock to enforce that only *Node A* triggers `ALTER TABLE` and `seed_all` queries, while Backup 1 and Backup 2 patiently hold their boot sequence until Node A releases the lock.
 
 ---
 
@@ -108,6 +110,10 @@ To ensure no "lost state" failures during handoff, here is the master map of whe
 | **GitHub Actions** | `DB_USER`, `DB_PASSWORD` | Sourced from Neon | GH Repository Secrets |
 | **GitHub Actions** | `BACKUP_ENCRYPT_KEY` | Symmetric AES key for DB dumps | GH Repository Secrets |
 | **GitHub Actions** | `R2_BACKUP_*` (3 keys)| S3-compatible R2 credentials | GH Repository Secrets |
+| **Django Backend** | `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY` | Media Bucket Auth | All 3 Render Dashboards |
+| **Django Backend** | `R2_ENDPOINT_URL` | Media `.r2.cloudflarestorage.com` | All 3 Render Dashboards |
+| **Django Backend** | `R2_BUCKET_NAME` | Media Bucket (e.g. `azbooks-media`) | All 3 Render Dashboards |
+| **Django Backend** | `RECEIPT_BASE_URL` | Custom Domain (e.g. `media.circleaz.in`) | All 3 Render Dashboards |
 | **React Frontend** | `VITE_API_URL` | `https://api.circleaz.in` | CF Pages Build Settings |
 
 *(Note: WhatsApp Business API tokens are pending hardware SIM activation and are currently untracked.)*

@@ -39,7 +39,23 @@ class Command(BaseCommand):
             try:
                 self.stdout.write("Running migrations...")
                 call_command('migrate', interactive=False)
-                self.stdout.write(self.style.SUCCESS("✅ Migrations complete."))
+                
+                self.stdout.write("Ensuring superuser exists...")
+                try:
+                    from account.models import User
+                    if not User.objects.filter(username='admin').exists():
+                        User.objects.create_superuser('admin', 'admin@azbooks.local', 'admin')
+                        self.stdout.write(self.style.SUCCESS('   ✓ Superuser "admin" created'))
+                except Exception as e:
+                    self.stdout.write(f"Superuser check failed (ignoring): {e}")
+
+                self.stdout.write("Seeding default data...")
+                try:
+                    call_command('seed_all')
+                except Exception as e:
+                    self.stdout.write(f"Seeding failed (ignoring): {e}")
+
+                self.stdout.write(self.style.SUCCESS("✅ Migrations and initializations complete."))
             finally:
                 # Release the lock immediately after completing
                 client.delete(lock_key)
@@ -55,5 +71,5 @@ class Command(BaseCommand):
                 time.sleep(2)
                 retries += 1
             
-            self.stdout.write(self.style.SUCCESS("✅ Wait complete. The Leader node successfully migrated the database."))
+            self.stdout.write(self.style.SUCCESS("✅ Wait complete. The Leader node successfully initialized the database."))
             self.stdout.write("Proceeding with boot sequence.")
