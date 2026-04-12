@@ -8,12 +8,33 @@ const AuthContext = createContext(null);
 const REFRESH_BUFFER_MS = 60 * 1000;
 
 /**
+ * Robustly decodes a Base64Url JWT payload.
+ * Standard atob throws DOMExceptions if it encounters '-' or '_', which are standard in Base64Url.
+ * This normalizes the Base64 sequence and uses UTF-8 decoding to ensure unicode resilience.
+ */
+function decodeJwtPayload(tokenStr) {
+    const base64Url = tokenStr.split('.')[1];
+    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+    const padded = base64.padEnd(base64.length + (4 - (base64.length % 4)) % 4, '=');
+    
+    const binary = atob(padded);
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) {
+        bytes[i] = binary.charCodeAt(i);
+    }
+    
+    // Use TextDecoder to safely handle any multi-byte UTF-8 sequences (e.g., emojis/i18n names)
+    const decoder = new TextDecoder('utf-8');
+    return JSON.parse(decoder.decode(bytes));
+}
+
+/**
  * Decode RBAC claims (role, roles, permissions) from a JWT access token.
  * This is synchronous — zero network dependency, works offline.
  */
 function decodeRbacClaims(tokenStr) {
     try {
-        const payload = JSON.parse(atob(tokenStr.split('.')[1]));
+        const payload = decodeJwtPayload(tokenStr);
         return {
             role: payload.role || null,
             roles: payload.roles || [],
@@ -71,8 +92,8 @@ export function AuthProvider({ children }) {
         if (expiryWarningRef.current) clearTimeout(expiryWarningRef.current);
 
         try {
-            // Decode JWT payload to get exp
-            const payload = JSON.parse(atob(tokenStr.split('.')[1]));
+            // Decode JWT payload to get exp safely
+            const payload = decodeJwtPayload(tokenStr);
             const expiresAt = payload.exp * 1000; // convert to ms
             const now = Date.now();
             const timeUntilRefresh = expiresAt - now - REFRESH_BUFFER_MS;
@@ -97,11 +118,16 @@ export function AuthProvider({ children }) {
                     }
                 }, timeUntilRefresh);
             } else {
-                // Token is already near expiry (e.g. page reload) — refresh immediately
-                refreshToken();
+                // MURPHY'S LAW FIX (DDoS Prevention)
+                // Token evaluates as expired/negative (either via clock skew or page load close to expiry).
+                // Do NOT refresh immediately. Doing so creates an infinite DDoS ping-pong across tabs if the 
+                // device clock is severely fast. Defer to the 'fetchWithAuth' 401 interceptor, which resolves 
+                // seamlessly and securely upon user interaction.
+                console.warn('Token lifetime near zero or negative (possible clock skew). Deferring to 401 interceptor.');
             }
         } catch (e) {
             // Can't decode token — skip proactive refresh
+            console.error('JWT Decode Error:', e);
         }
     }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -288,6 +314,7 @@ export function AuthProvider({ children }) {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ refresh }),
+                    cache: 'no-store',
                 });
 
                 if (!response.ok) return false;
