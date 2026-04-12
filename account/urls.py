@@ -5,13 +5,16 @@ from django.urls import path
 from .views import (
     LoginView, LogoutView, ProfileView, 
     ProfilePictureView, ChangePasswordView, ActivityLogView,
-    NotificationListView, NotificationCountView, NotificationReadView
+    NotificationListView, NotificationCountView, NotificationReadView,
+    OTPVerifyView, ResendOTPView
 )
 
 app_name = 'account'
 
 urlpatterns = [
     path('login/', LoginView.as_view(), name='login'),
+    path('verify-otp/', OTPVerifyView.as_view(), name='verify-otp'),
+    path('resend-otp/', ResendOTPView.as_view(), name='resend-otp'),
     path('logout/', LogoutView.as_view(), name='logout'),
     path('profile/', ProfileView.as_view(), name='profile'),
     path('profile/picture/', ProfilePictureView.as_view(), name='profile-picture'),

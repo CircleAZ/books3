@@ -222,3 +222,14 @@ class NotificationSerializer(serializers.ModelSerializer):
 # Deferred model assignment to avoid circular import
 from .models import Notification
 NotificationSerializer.Meta.model = Notification
+
+
+class OTPVerifySerializer(serializers.Serializer):
+    """OTP verification request serializer"""
+    otp_session = serializers.UUIDField()
+    code = serializers.CharField(max_length=6, min_length=6)
+
+
+class ResendOTPSerializer(serializers.Serializer):
+    """OTP resend request serializer"""
+    otp_session = serializers.UUIDField()

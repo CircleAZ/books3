@@ -168,6 +168,20 @@ export function AuthProvider({ children }) {
         return () => window.removeEventListener('storage', handleStorageChange);
     }, []);
 
+    const _processTokenResponse = (data) => {
+        localStorage.setItem('access_token', data.access);
+        localStorage.setItem('refresh_token', data.refresh);
+        localStorage.setItem('user', JSON.stringify(data.user));
+
+        if (data.profile) {
+            localStorage.setItem('profile', JSON.stringify(data.profile));
+        }
+
+        setToken(data.access);
+        setUser(data.user);
+        setRbac(decodeRbacClaims(data.access));
+    };
+
     const login = async (username, password, rememberMe = false) => {
         try {
             const response = await fetch(`${API_BASE}/account/login/`, {
@@ -182,20 +196,61 @@ export function AuthProvider({ children }) {
                 throw new Error(data.error || 'Login failed');
             }
 
-            // Store tokens
-            localStorage.setItem('access_token', data.access);
-            localStorage.setItem('refresh_token', data.refresh);
-            localStorage.setItem('user', JSON.stringify(data.user));
-
-            if (data.profile) {
-                localStorage.setItem('profile', JSON.stringify(data.profile));
+            // OTP required — credentials valid but tokens not issued yet
+            if (data.requires_otp) {
+                return {
+                    success: false,
+                    requires_otp: true,
+                    requires_email_verification: data.requires_email_verification || false,
+                    otp_session: data.otp_session,
+                    email: data.email,
+                };
             }
 
-            setToken(data.access);
-            setUser(data.user);
-            setRbac(decodeRbacClaims(data.access));
-
+            // Direct login (OTP skipped — already verified today)
+            _processTokenResponse(data);
             return { success: true };
+        } catch (error) {
+            return { success: false, error: error.message };
+        }
+    };
+
+    const verifyOtp = async (otpSession, code) => {
+        try {
+            const response = await fetch(`${API_BASE}/account/verify-otp/`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ otp_session: otpSession, code }),
+            });
+
+            const data = await response.json();
+
+            if (!response.ok) {
+                throw new Error(data.error || 'OTP verification failed');
+            }
+
+            _processTokenResponse(data);
+            return { success: true };
+        } catch (error) {
+            return { success: false, error: error.message };
+        }
+    };
+
+    const resendOtp = async (otpSession) => {
+        try {
+            const response = await fetch(`${API_BASE}/account/resend-otp/`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ otp_session: otpSession }),
+            });
+
+            const data = await response.json();
+
+            if (!response.ok) {
+                throw new Error(data.error || 'Failed to resend OTP');
+            }
+
+            return { success: true, otp_session: data.otp_session };
         } catch (error) {
             return { success: false, error: error.message };
         }
@@ -344,6 +399,8 @@ export function AuthProvider({ children }) {
         isAuthenticated: !!token,
         login,
         logout,
+        verifyOtp,
+        resendOtp,
         fetchWithAuth,
         // RBAC claims (decoded from JWT — zero network dependency)
         rbac,

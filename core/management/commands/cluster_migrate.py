@@ -43,9 +43,20 @@ class Command(BaseCommand):
                 self.stdout.write("Ensuring superuser exists...")
                 try:
                     from account.models import User
+                    superuser_email = os.getenv('SUPERUSER_EMAIL', 'adm.circle.az@gmail.com')
                     if not User.objects.filter(username='admin').exists():
-                        User.objects.create_superuser('admin', 'admin@azbooks.local', 'admin')
-                        self.stdout.write(self.style.SUCCESS('   ✓ Superuser "admin" created'))
+                        admin = User.objects.create_superuser('admin', superuser_email, 'admin')
+                        admin.email_verified = True
+                        admin.save(update_fields=['email_verified'])
+                        self.stdout.write(self.style.SUCCESS('   ✓ Superuser "admin" created (email verified)'))
+                    else:
+                        # Update existing admin email if it's the placeholder
+                        admin = User.objects.get(username='admin')
+                        if admin.email == 'admin@azbooks.local':
+                            admin.email = superuser_email
+                            admin.email_verified = True
+                            admin.save(update_fields=['email', 'email_verified'])
+                            self.stdout.write(self.style.SUCCESS(f'   ✓ Admin email updated to {superuser_email}'))
                 except Exception as e:
                     self.stdout.write(f"Superuser check failed (ignoring): {e}")
 

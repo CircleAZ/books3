@@ -8,6 +8,8 @@ export const ENDPOINTS = {
     // Auth
     LOGIN: `${API_BASE}/account/login/`,
     LOGOUT: `${API_BASE}/account/logout/`,
+    VERIFY_OTP: `${API_BASE}/account/verify-otp/`,
+    RESEND_OTP: `${API_BASE}/account/resend-otp/`,
     PROFILE: `${API_BASE}/account/profile/`,
     PROFILE_PICTURE: `${API_BASE}/account/profile/picture/`,
     CHANGE_PASSWORD: `${API_BASE}/account/change-password/`,

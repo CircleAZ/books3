@@ -47,6 +47,7 @@ import CustomerReports from './pages/reports/CustomerReports';
 import DataExport from './pages/reports/DataExport';
 import ActivityLog from './pages/reports/ActivityLog';
 import Login from './pages/Login';
+import OTPVerification from './pages/OTPVerification';
 import Profile from './pages/Profile';
 import FinanceIndex from './pages/finance/FinanceIndex';
 import ExpenseList from './pages/finance/ExpenseList';
@@ -115,6 +116,7 @@ function AppRoutes() {
     <Routes>
       {/* Public routes */}
       <Route path="/login" element={<Login />} />
+      <Route path="/verify-otp" element={<OTPVerification />} />
       <Route path="/r/:uuid" element={<PublicReceipt />} />
 
       {/* Protected routes */}

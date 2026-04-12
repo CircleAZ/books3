@@ -27,6 +27,17 @@ export default function Login() {
 
         if (result.success) {
             navigate(from, { replace: true });
+        } else if (result.requires_otp) {
+            // Redirect to OTP verification page
+            navigate('/verify-otp', {
+                state: {
+                    otp_session: result.otp_session,
+                    email: result.email,
+                    requires_email_verification: result.requires_email_verification,
+                    from: from,
+                },
+                replace: true,
+            });
         } else {
             setError(result.error);
         }
