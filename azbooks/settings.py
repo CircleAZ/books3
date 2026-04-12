@@ -222,6 +222,27 @@ STORAGES = {
 MEDIA_URL = 'media/'
 MEDIA_ROOT = BASE_DIR / 'media'
 
+# Cloudflare R2 Distributed Media Storage
+_r2_access_key = os.getenv('R2_ACCESS_KEY_ID')
+if _r2_access_key:
+    AWS_ACCESS_KEY_ID = _r2_access_key
+    AWS_SECRET_ACCESS_KEY = os.getenv('R2_SECRET_ACCESS_KEY')
+    AWS_STORAGE_BUCKET_NAME = os.getenv('R2_BUCKET_NAME', 'azbooks-media')
+    AWS_S3_ENDPOINT_URL = os.getenv('R2_ENDPOINT_URL')
+    
+    # Strip protocol from custom domain as storages appends it automatically
+    _custom_domain = os.getenv('RECEIPT_BASE_URL', 'media.circleaz.in')
+    AWS_S3_CUSTOM_DOMAIN = _custom_domain.replace('https://', '').replace('http://', '').strip('/')
+    
+    AWS_S3_SIGNATURE_VERSION = 's3v4'
+    AWS_S3_OBJECT_PARAMETERS = {'CacheControl': 'max-age=86400'}
+    
+    # Ensure generated URLs are clean and public
+    AWS_DEFAULT_ACL = None
+    AWS_QUERYSTRING_AUTH = False
+    
+    DEFAULT_FILE_STORAGE = 'azbooks.custom_storages.PublicMediaStorage'
+
 # Default primary key field type
 # https://docs.djangoproject.com/en/6.0/ref/settings/#default-auto-field
 
