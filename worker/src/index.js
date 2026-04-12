@@ -31,6 +31,12 @@ const NO_CACHE_PREFIXES = [
   '/api/account/',
   '/api/health/',
   '/admin/',
+  '/api/settings/',
+  '/api/inventory/',
+  '/api/finance/',
+  '/api/orders/',
+  '/api/customers/',
+  '/api/reports/',
 ];
 
 export default {
