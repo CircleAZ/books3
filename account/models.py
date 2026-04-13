@@ -110,6 +110,9 @@ class EmailOTP(UUIDPrimaryKeyModel):
         ordering = ['-created_at']
         verbose_name = 'Email OTP'
         verbose_name_plural = 'Email OTPs'
+        indexes = [
+            models.Index(fields=['user', 'is_used', 'purpose'], name='idx_emailotp_lookup'),
+        ]
 
     def __str__(self):
         return f"{self.user.username} - {self.purpose} - {self.code}"

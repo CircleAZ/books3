@@ -273,6 +273,7 @@ REST_FRAMEWORK = {
     ] + ([
         'rest_framework.renderers.BrowsableAPIRenderer',
     ] if DEBUG else []),
+    'NUM_PROXIES': 1,
 }
 
 # Simple JWT configuration
