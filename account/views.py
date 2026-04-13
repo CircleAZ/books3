@@ -56,9 +56,11 @@ def _send_otp_email(user, otp):
     )
 
 
+from .serializers import CustomTokenObtainPairSerializer
+
 def _build_token_response(user, remember_me, request):
     """Generate JWT tokens and return the full login response payload."""
-    refresh = RefreshToken.for_user(user)
+    refresh = CustomTokenObtainPairSerializer.get_token(user)
 
     if remember_me:
         refresh.set_exp(lifetime=timedelta(days=7))

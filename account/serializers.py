@@ -28,15 +28,38 @@ class CustomTokenRefreshSerializer(TokenRefreshSerializer):
             
             try:
                 user = User.objects.get(id=user_id)
+                new_access = new_refresh.access_token
+                
+                # REINJECT RBAC CLAIMS (Must happen on every rotation, regardless of remember_me)
+                new_access['username'] = user.username
+                new_access['first_name'] = user.first_name
+                new_access['last_name'] = user.last_name
+                new_access['role'] = user.role
+                new_access['is_staff'] = user.is_staff
+                new_access['is_superuser'] = user.is_superuser
+                
+                # Fetch fresh permissions from DB structure
+                try:
+                    from account.models import User
+                    from rest_framework_simplejwt.tokens import RefreshToken
+                    user_permissions = []
+                    if user.is_superuser:
+                        user_permissions.append('all')
+                    else:
+                        from account.models import RolePermission
+                        perms = RolePermission.objects.filter(role=user.role).select_related('permission')
+                        user_permissions = [p.permission.codename for p in perms]
+                    new_access['permissions'] = user_permissions
+                except Exception:
+                    new_access['permissions'] = []
+
                 if getattr(user, 'remember_me_enabled', False):
                     # Reinstate the extended 7-day lifespan on the new Refresh Token
                     new_refresh.set_exp(lifetime=timedelta(days=7))
-                    data['refresh'] = str(new_refresh)
-                    
-                    # Reinstate the extended 4-hour lifespan on the new Access Token
-                    new_access = new_refresh.access_token
                     new_access.set_exp(lifetime=timedelta(hours=4))
-                    data['access'] = str(new_access)
+                    
+                data['refresh'] = str(new_refresh)
+                data['access'] = str(new_access)
             except Exception:
                 # Fail gracefully back to system defaults if DB lookup fails
                 pass
