@@ -8,8 +8,8 @@
 }
 
 .otp-container {
-    background: var(--bg-card);
-    border: 1px solid var(--border-color);
+    background: var(--color-bg-secondary);
+    border: 1px solid var(--color-border);
     border-radius: 16px;
     padding: 40px 36px;
     width: 100%;
@@ -49,13 +49,13 @@
 .otp-header h1 {
     font-size: 1.5rem;
     font-weight: 700;
-    color: var(--text-primary);
+    color: var(--color-text-primary);
     margin: 0 0 8px;
 }
 
 .otp-subtitle {
     font-size: 0.9rem;
-    color: var(--text-secondary);
+    color: var(--color-text-secondary);
     line-height: 1.5;
     margin: 0;
 }
@@ -64,7 +64,7 @@
     display: inline-block;
     margin-top: 10px;
     padding: 6px 14px;
-    background: var(--bg-hover);
+    background: var(--color-bg-hover);
     border-radius: 20px;
     font-size: 0.85rem;
     color: var(--color-primary);
@@ -102,10 +102,10 @@
 .otp-input {
     width: 48px;
     height: 56px;
-    border: 2px solid var(--border-color);
+    border: 2px solid var(--color-border);
     border-radius: 12px;
-    background: var(--bg-input, var(--bg-secondary));
-    color: var(--text-primary);
+    background: var(--color-bg-tertiary);
+    color: var(--color-text-primary);
     font-size: 1.5rem;
     font-weight: 700;
     text-align: center;
@@ -138,13 +138,13 @@
 .otp-timer {
     text-align: center;
     font-size: 0.85rem;
-    color: var(--text-secondary);
+    color: var(--color-text-secondary);
     margin-bottom: 20px;
 }
 
 .otp-timer span {
     font-weight: 700;
-    color: var(--text-primary);
+    color: var(--color-text-primary);
     font-variant-numeric: tabular-nums;
 }
 
@@ -202,7 +202,7 @@
 
 .otp-footer p {
     font-size: 0.85rem;
-    color: var(--text-secondary);
+    color: var(--color-text-secondary);
     margin: 0 0 12px;
 }
 
@@ -222,14 +222,14 @@
 }
 
 .resend-wait {
-    color: var(--text-muted);
+    color: var(--color-text-muted);
     font-weight: 500;
 }
 
 .back-btn {
     background: none;
     border: none;
-    color: var(--text-secondary);
+    color: var(--color-text-secondary);
     cursor: pointer;
     font-size: 0.85rem;
     transition: color 0.2s;
@@ -237,7 +237,7 @@
 }
 
 .back-btn:hover {
-    color: var(--text-primary);
+    color: var(--color-text-primary);
 }
 
 /* Responsive */
