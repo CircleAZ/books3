@@ -259,9 +259,13 @@ class OTPVerifyView(APIView):
         return _build_token_response(user, remember_me, request)
 
 
-# Rate limiter for OTP resend (stricter than login)
+# Rate limiter for OTP resend (stricter: 3 per 5 minutes)
 class ResendOTPThrottle(AnonRateThrottle):
-    rate = '3/5m'
+    rate = '3/minute'  # placeholder — overridden below
+
+    def parse_rate(self, rate):
+        # Custom: 3 requests per 5 minutes (300 seconds)
+        return (3, 300)
 
 
 class ResendOTPView(APIView):
