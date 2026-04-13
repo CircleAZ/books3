@@ -14,6 +14,7 @@ redis>=5.0.0
 
 # Environment & Configuration
 python-dotenv>=1.2.1
+django-anymail[resend]>=12.0
 
 # Image Processing
 Pillow>=12.0.0

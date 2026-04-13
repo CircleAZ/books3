@@ -76,6 +76,7 @@ INSTALLED_APPS = [
     'rest_framework_simplejwt',
     'simple_history',
     'corsheaders',
+    'anymail',
     
     # AZ Books apps
     'core',
@@ -248,14 +249,11 @@ if _r2_access_key:
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
-# Email Configuration (Gmail SMTP for OTP delivery)
-EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
-EMAIL_HOST = 'smtp.gmail.com'
-EMAIL_PORT = 587
-EMAIL_USE_TLS = True
-EMAIL_TIMEOUT = 5  # Prevent indefinite hangs on Render outbound blocks
-EMAIL_HOST_USER = os.getenv('EMAIL_HOST_USER', '')
-EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD', '')
+# Email Configuration (Resend HTTP API for OTP delivery via django-anymail)
+EMAIL_BACKEND = "anymail.backends.resend.EmailBackend"
+ANYMAIL = {
+    "RESEND_API_KEY": os.getenv("RESEND_API_KEY", ""),
+}
 DEFAULT_FROM_EMAIL = os.getenv('DEFAULT_FROM_EMAIL', 'CircleAZ <adm.circle.az@gmail.com>')
 
 
