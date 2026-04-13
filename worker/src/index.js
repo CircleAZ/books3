@@ -65,6 +65,28 @@ export default {
 
     // Add CORS headers to all responses
     return addCORSHeaders(response, request);
+  },
+
+  /**
+   * Cron Trigger — runs every 5 minutes (configured in wrangler.toml).
+   * Pings all Render backends to prevent free-tier spin-down (15-min idle timeout).
+   * Without this, proactive token refreshes fail because all backends are cold.
+   */
+  async scheduled(event, env, ctx) {
+    const results = await Promise.allSettled(
+      BACKENDS.map(async (backend, i) => {
+        try {
+          const res = await fetch(`${backend}/api/health/`, {
+            method: 'GET',
+            headers: { 'User-Agent': 'AZBooks-Cron-Warmup' },
+          });
+          return { backend: i, status: res.status };
+        } catch (err) {
+          return { backend: i, error: err.message };
+        }
+      })
+    );
+    console.log('Cron warmup results:', JSON.stringify(results.map(r => r.value || r.reason)));
   }
 };
 

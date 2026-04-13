@@ -276,11 +276,11 @@ REST_FRAMEWORK = {
 }
 
 # Simple JWT configuration
-# - 5-min access tokens: short-lived, no blacklist needed
+# - 30-min access tokens: balanced for Render free-tier cold starts (30-60s wake)
 # - 1-day refresh tokens: rotated on each use
-# - BLACKLIST_AFTER_ROTATION disabled: reduces DB writes, 5-min window is acceptable risk
+# - BLACKLIST_AFTER_ROTATION disabled: reduces DB writes, 30-min window is acceptable risk
 SIMPLE_JWT = {
-    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=5),
+    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=30),
     'REFRESH_TOKEN_LIFETIME': timedelta(days=1),
     'ROTATE_REFRESH_TOKENS': True,
     'BLACKLIST_AFTER_ROTATION': False,

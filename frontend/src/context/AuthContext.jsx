@@ -3,9 +3,16 @@ import { API_BASE } from '../config/api';
 
 const AuthContext = createContext(null);
 
-// Token expiry offset — refresh 60 seconds before actual expiry
-// NOTE: Must be LESS than ACCESS_TOKEN_LIFETIME (15 min) or the timer never fires
-const REFRESH_BUFFER_MS = 60 * 1000;
+// Token expiry offset — refresh 2 minutes before actual expiry
+// NOTE: Must be LESS than ACCESS_TOKEN_LIFETIME (30 min) or the timer never fires
+const REFRESH_BUFFER_MS = 120 * 1000;
+
+// Backend keepalive interval (4 minutes) — prevents Render free-tier sleep
+const KEEPALIVE_INTERVAL_MS = 4 * 60 * 1000;
+
+// Retry settings for proactive token refresh
+const REFRESH_MAX_RETRIES = 3;
+const REFRESH_RETRY_DELAYS = [3000, 6000, 12000]; // 3s, 6s, 12s
 
 /**
  * Robustly decodes a Base64Url JWT payload.
@@ -60,6 +67,8 @@ export function AuthProvider({ children }) {
     const sessionWarningFiredRef = useRef(false);
     // Proactive refresh timer (ARCH-3)
     const refreshTimerRef = useRef(null);
+    // Backend keepalive timer
+    const keepaliveTimerRef = useRef(null);
 
     // Load auth state from localStorage on mount
     useEffect(() => {
@@ -86,31 +95,59 @@ export function AuthProvider({ children }) {
     // Session expiry warning timer
     const expiryWarningRef = useRef(null);
 
+    // ── Backend Keepalive Heartbeat ──
+    // Pings /api/health/ every 4 minutes while authenticated to prevent
+    // Render free-tier backends from going to sleep (15-min inactivity spin-down).
+    useEffect(() => {
+        if (!token) {
+            if (keepaliveTimerRef.current) clearInterval(keepaliveTimerRef.current);
+            return;
+        }
+
+        const pingBackend = () => {
+            fetch(`${API_BASE}/health/`, { method: 'GET', cache: 'no-store' }).catch(() => {});
+        };
+
+        // Ping immediately on login, then every 4 minutes
+        pingBackend();
+        keepaliveTimerRef.current = setInterval(pingBackend, KEEPALIVE_INTERVAL_MS);
+
+        return () => {
+            if (keepaliveTimerRef.current) clearInterval(keepaliveTimerRef.current);
+        };
+    }, [token]);
+
+    // ── Proactive Token Refresh with Retry ──
+    // Wraps refreshToken() with exponential backoff retries.
+    // Before each retry, sends a wake-up ping to warm the backend.
+    const refreshTokenWithRetryRef = useRef(null);
+
     // ARCH-3: Schedule proactive token refresh
     const scheduleTokenRefresh = useCallback((tokenStr) => {
         if (refreshTimerRef.current) clearTimeout(refreshTimerRef.current);
         if (expiryWarningRef.current) clearTimeout(expiryWarningRef.current);
 
         try {
-            // Decode JWT payload to get exp safely
             const payload = decodeJwtPayload(tokenStr);
-            const expiresAt = payload.exp * 1000; // convert to ms
+            const expiresAt = payload.exp * 1000;
             const now = Date.now();
             const timeUntilRefresh = expiresAt - now - REFRESH_BUFFER_MS;
 
             if (timeUntilRefresh > 0) {
                 refreshTimerRef.current = setTimeout(async () => {
                     sessionWarningFiredRef.current = false;
-                    const refreshed = await refreshToken();
+
+                    // Use the ref to always call the latest version
+                    const retryFn = refreshTokenWithRetryRef.current;
+                    const refreshed = retryFn ? await retryFn() : false;
+
                     if (!refreshed) {
-                        // UX-1: Warn user before force-logout (deduped)
                         if (!sessionWarningFiredRef.current) {
                             sessionWarningFiredRef.current = true;
                             window.dispatchEvent(new CustomEvent('session-expiring', {
                                 detail: { message: 'Your session is expiring. Please save your work.' }
                             }));
                         }
-
                         // Give user 60 seconds to finish before force-logout
                         expiryWarningRef.current = setTimeout(() => {
                             logout();
@@ -118,15 +155,10 @@ export function AuthProvider({ children }) {
                     }
                 }, timeUntilRefresh);
             } else {
-                // MURPHY'S LAW FIX (DDoS Prevention)
-                // Token evaluates as expired/negative (either via clock skew or page load close to expiry).
-                // Do NOT refresh immediately. Doing so creates an infinite DDoS ping-pong across tabs if the 
-                // device clock is severely fast. Defer to the 'fetchWithAuth' 401 interceptor, which resolves 
-                // seamlessly and securely upon user interaction.
-                console.warn('Token lifetime near zero or negative (possible clock skew). Deferring to 401 interceptor.');
+                // Token already expired or very close — defer to 401 interceptor
+                console.warn('Token lifetime near zero or negative. Deferring to 401 interceptor.');
             }
         } catch (e) {
-            // Can't decode token — skip proactive refresh
             console.error('JWT Decode Error:', e);
         }
     }, []); // eslint-disable-line react-hooks/exhaustive-deps
@@ -391,6 +423,29 @@ export function AuthProvider({ children }) {
 
         return refreshPromiseRef.current;
     };
+
+    // Retry wrapper: attempts refreshToken up to 3 times with wake-up pings
+    const refreshTokenWithRetry = async () => {
+        for (let attempt = 0; attempt <= REFRESH_MAX_RETRIES; attempt++) {
+            const success = await refreshToken();
+            if (success) return true;
+
+            // Don't retry if we've exhausted attempts
+            if (attempt >= REFRESH_MAX_RETRIES) break;
+
+            // Wake up backend before next retry
+            try {
+                await fetch(`${API_BASE}/health/`, { method: 'GET', cache: 'no-store' });
+            } catch { /* ignore */ }
+
+            // Wait before retrying (3s, 6s, 12s)
+            await new Promise(r => setTimeout(r, REFRESH_RETRY_DELAYS[attempt]));
+        }
+        return false;
+    };
+
+    // Keep retry ref always pointing to latest closure
+    refreshTokenWithRetryRef.current = refreshTokenWithRetry;
 
     const value = {
         user,

@@ -17,3 +17,9 @@ compatibility_date = "2024-12-01"
 
 [observability]
 enabled = true
+
+# Cron Trigger — pings all Render backends every 5 minutes
+# to prevent free-tier spin-down (15-min idle timeout).
+# This ensures token refresh requests always find a warm backend.
+[triggers]
+crons = ["*/5 * * * *"]
