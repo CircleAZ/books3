@@ -146,6 +146,7 @@ class LoginSerializer(serializers.Serializer):
     username = serializers.CharField(max_length=150)
     password = serializers.CharField(write_only=True, max_length=128)
     remember_me = serializers.BooleanField(default=False, required=False)
+    device_token = serializers.CharField(required=False, allow_null=True, allow_blank=True)
 
 
 class ChangePasswordSerializer(serializers.Serializer):

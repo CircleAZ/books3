@@ -48,7 +48,6 @@ class User(AbstractUser, UUIDPrimaryKeyModel):
 
     # OTP / Email Verification
     email_verified = models.BooleanField(default=False)
-    last_otp_verified_at = models.DateTimeField(null=True, blank=True)
     
     class Meta:
         verbose_name = 'User'
@@ -69,13 +68,6 @@ class User(AbstractUser, UUIDPrimaryKeyModel):
         if self.first_name and self.last_name:
             return f"{self.first_name[0]}{self.last_name[0]}".upper()
         return self.username[:2].upper()
-
-    @property
-    def otp_verified_today(self):
-        """Check if OTP was already verified today (server timezone)."""
-        if not self.last_otp_verified_at:
-            return False
-        return self.last_otp_verified_at.date() == timezone.now().date()
 
     @property
     def masked_email(self):

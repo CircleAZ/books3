@@ -15,6 +15,7 @@ from django.core.mail import send_mail
 from django.conf import settings
 from django.utils import timezone
 from datetime import timedelta
+from django.core.signing import TimestampSigner, SignatureExpired, BadSignature
 
 from .models import ActivityLog, Notification, EmailOTP
 from .serializers import (
@@ -58,7 +59,23 @@ def _send_otp_email(user, otp):
 
 from .serializers import CustomTokenObtainPairSerializer
 
-def _build_token_response(user, remember_me, request):
+def _generate_device_token(user):
+    """Generate a signed token proving this device verified an OTP."""
+    signer = TimestampSigner()
+    return signer.sign(str(user.id))
+
+def _validate_device_token(token, user):
+    """Validate sign token and ensure it's < 24h old and belongs to user."""
+    if not token:
+        return False
+    signer = TimestampSigner()
+    try:
+        user_id = signer.unsign(token, max_age=86400) # 24 hours
+        return str(user_id) == str(user.id)
+    except (SignatureExpired, BadSignature):
+        return False
+
+def _build_token_response(user, remember_me, request, device_token=None):
     """Generate JWT tokens and return the full login response payload."""
     refresh = CustomTokenObtainPairSerializer.get_token(user)
 
@@ -99,7 +116,8 @@ def _build_token_response(user, remember_me, request):
             'last_name': user.last_name,
             'role': user.role,
         },
-        'profile': profile_data
+        'profile': profile_data,
+        **({'device_token': device_token} if device_token else {})
     })
 
 
@@ -159,6 +177,7 @@ class LoginView(APIView):
         cache.delete(lockout_key)
 
         # --- OTP Decision Logic ---
+        device_token = serializer.validated_data.get('device_token')
 
         # Case 1: Email not verified → force email verification OTP
         if not user.email_verified:
@@ -179,11 +198,11 @@ class LoginView(APIView):
             })
 
         # Case 2: Remember Me ON + active session (token refresh handles it) → skip OTP
-        # Case 3: OTP already verified today → skip OTP
-        if user.otp_verified_today:
-            return _build_token_response(user, remember_me, request)
+        # Case 3: Valid Device Token (verified within last 24h) → skip OTP
+        if _validate_device_token(device_token, user):
+            return _build_token_response(user, remember_me, request, device_token)
 
-        # Case 4: OTP required (first login of the day)
+        # Case 4: OTP required (first login on this device today)
         otp = EmailOTP.generate(user, purpose='login')
         try:
             _send_otp_email(user, otp)
@@ -250,15 +269,16 @@ class OTPVerifyView(APIView):
         if otp.purpose == EmailOTP.Purpose.VERIFY_EMAIL:
             user.email_verified = True
 
-        # Update last OTP verification timestamp
-        user.last_otp_verified_at = timezone.now()
-        user.save(update_fields=['email_verified', 'last_otp_verified_at'])
+        user.save(update_fields=['email_verified'])
+
+        # Generate new device token to skip OTP on this device for next 24h
+        device_token = _generate_device_token(user)
 
         # Retrieve remember_me preference from cache
         remember_me = cache.get(f'otp_remember_{otp.id}', False)
         cache.delete(f'otp_remember_{otp.id}')
 
-        return _build_token_response(user, remember_me, request)
+        return _build_token_response(user, remember_me, request, device_token)
 
 
 # Rate limiter for OTP resend (stricter: 3 per 5 minutes)

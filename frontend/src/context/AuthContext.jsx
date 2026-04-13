@@ -208,6 +208,12 @@ export function AuthProvider({ children }) {
         if (data.profile) {
             localStorage.setItem('profile', JSON.stringify(data.profile));
         }
+        
+        // DEVICE TOKEN: Store securely in localStorage. 
+        // This is explicitly NOT cleared on logout so this device remains trusted.
+        if (data.device_token) {
+            localStorage.setItem('device_token', data.device_token);
+        }
 
         setToken(data.access);
         setUser(data.user);
@@ -216,10 +222,16 @@ export function AuthProvider({ children }) {
 
     const login = async (username, password, rememberMe = false) => {
         try {
+            const deviceToken = localStorage.getItem('device_token');
             const response = await fetch(`${API_BASE}/account/login/`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ username, password, remember_me: rememberMe }),
+                body: JSON.stringify({ 
+                    username, 
+                    password, 
+                    remember_me: rememberMe,
+                    ...(deviceToken ? { device_token: deviceToken } : {})
+                }),
             });
 
             const data = await response.json();
