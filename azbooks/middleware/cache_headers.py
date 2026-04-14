@@ -28,7 +28,7 @@ class SWRCacheMiddleware:
         '/api/inventory/vendors/': 300,
         '/api/customers/customers/map_data/': 300,
         '/api/reports/': 120,
-        '/api/settings/store/': 600,
+        # '/api/settings/store/' removed: changes must propagate immediately (currency symbol, etc.)
     }
 
     # NEVER cache these (V.O.R.T.E.X. directive)
