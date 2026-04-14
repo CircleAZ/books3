@@ -34,23 +34,32 @@ class CustomTokenRefreshSerializer(TokenRefreshSerializer):
                 new_access['username'] = user.username
                 new_access['first_name'] = user.first_name
                 new_access['last_name'] = user.last_name
-                new_access['role'] = user.role
                 new_access['is_staff'] = user.is_staff
                 new_access['is_superuser'] = user.is_superuser
                 
                 # Fetch fresh permissions from DB structure
                 try:
-                    from account.models import User
-                    from rest_framework_simplejwt.tokens import RefreshToken
                     user_permissions = []
                     if user.is_superuser:
                         user_permissions.append('all')
+                        new_access['role'] = 'Admin'
+                        new_access['roles'] = ['Admin']
                     else:
-                        from account.models import RolePermission
-                        perms = RolePermission.objects.filter(role=user.role).select_related('permission')
-                        user_permissions = [p.permission.codename for p in perms]
+                        from settings_app.models import Role, RolePermission
+                        user_roles = Role.objects.filter(role_users__user=user)
+                        if user_roles.exists():
+                            new_access['role'] = user_roles.first().name
+                            new_access['roles'] = list(user_roles.values_list('name', flat=True))
+                            perms = RolePermission.objects.filter(role__in=user_roles).select_related('permission')
+                            user_permissions = list(set([p.permission.codename for p in perms]))
+                        else:
+                            new_access['role'] = None
+                            new_access['roles'] = []
+
                     new_access['permissions'] = user_permissions
-                except Exception:
+                except Exception as e:
+                    new_access['role'] = None
+                    new_access['roles'] = []
                     new_access['permissions'] = []
 
                 if getattr(user, 'remember_me_enabled', False):
