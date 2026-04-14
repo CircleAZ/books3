@@ -32,57 +32,30 @@ class Command(BaseCommand):
         call_command('seed_rbac', **({"reset": True} if options['reset'] else {}))
 
         # ──────────────────────────────────────────────
-        # 2. Tax Settings
+        # BUSINESS DATA SEEDS DISABLED BY USER REQUEST
+        # All data (Taxes, Categories, Settings, etc.) will be added manually via Dashboard.
         # ──────────────────────────────────────────────
-        self.stdout.write(self.style.MIGRATE_HEADING('\n━━━ 2/10  Tax Settings ━━━'))
-        self._seed_tax_settings()
-
-        # ──────────────────────────────────────────────
-        # 3. Payment Methods
-        # ──────────────────────────────────────────────
-        self.stdout.write(self.style.MIGRATE_HEADING('\n━━━ 3/10  Payment Methods ━━━'))
-        self._seed_payment_methods()
-
-        # ──────────────────────────────────────────────
-        # 4. Inventory (Categories, Vendors, Tags)
-        # ──────────────────────────────────────────────
-        self.stdout.write(self.style.MIGRATE_HEADING('\n━━━ 4/10  Inventory ━━━'))
-        self._seed_categories()
-        self._seed_vendors()
-        self._seed_tags()
-
-        # ──────────────────────────────────────────────
-        # 5. Customer Groups, Link Types, Location Tags
-        # ──────────────────────────────────────────────
-        self.stdout.write(self.style.MIGRATE_HEADING('\n━━━ 5/10  Customer Config ━━━'))
-        self._seed_customer_groups()
-        self._seed_link_types()
-        self._seed_location_tags()
-
-        # ──────────────────────────────────────────────
-        # 6. Return Reasons
-        # ──────────────────────────────────────────────
-        self.stdout.write(self.style.MIGRATE_HEADING('\n━━━ 6/10  Return Reasons ━━━'))
-        self._seed_return_reasons()
-
-        # ──────────────────────────────────────────────
-        # 7. Receipt Settings + Notification Preferences
-        # ──────────────────────────────────────────────
-        self.stdout.write(self.style.MIGRATE_HEADING('\n━━━ 7/10  Receipt & Notifications ━━━'))
-        self._seed_receipt_settings()
-        self._seed_notification_preferences()
-
-        # ──────────────────────────────────────────────
-        # 8. Integration Settings
-        # ──────────────────────────────────────────────
-        self.stdout.write(self.style.MIGRATE_HEADING('\n━━━ 8/10  Integrations ━━━'))
-        self._seed_integration_settings()
-
-        # ──────────────────────────────────────────────
-        # 9. Employee Salaries
-        # ──────────────────────────────────────────────
-        self.stdout.write(self.style.MIGRATE_HEADING('\n━━━ 9/10  Employee Salaries ━━━'))
-        self._seed_employee_salaries()
+        # self.stdout.write(self.style.MIGRATE_HEADING('\n━━━ 2/10  Tax Settings ━━━'))
+        # self._seed_tax_settings()
+        # self.stdout.write(self.style.MIGRATE_HEADING('\n━━━ 3/10  Payment Methods ━━━'))
+        # self._seed_payment_methods()
+        # self.stdout.write(self.style.MIGRATE_HEADING('\n━━━ 4/10  Inventory ━━━'))
+        # self._seed_categories()
+        # self._seed_vendors()
+        # self._seed_tags()
+        # self.stdout.write(self.style.MIGRATE_HEADING('\n━━━ 5/10  Customer Config ━━━'))
+        # self._seed_customer_groups()
+        # self._seed_link_types()
+        # self._seed_location_tags()
+        # self.stdout.write(self.style.MIGRATE_HEADING('\n━━━ 6/10  Return Reasons ━━━'))
+        # self._seed_return_reasons()
+        # self.stdout.write(self.style.MIGRATE_HEADING('\n━━━ 7/10  Receipt & Notifications ━━━'))
+        # self._seed_receipt_settings()
+        # self._seed_notification_preferences()
+        # self.stdout.write(self.style.MIGRATE_HEADING('\n━━━ 8/10  Integrations ━━━'))
+        # self._seed_integration_settings()
+        # self.stdout.write(self.style.MIGRATE_HEADING('\n━━━ 9/10  Employee Salaries ━━━'))
+        # self._seed_employee_salaries()
 
         # ──────────────────────────────────────────────
         # 10. Message Templates
