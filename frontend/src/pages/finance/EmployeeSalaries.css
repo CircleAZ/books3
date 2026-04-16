@@ -129,7 +129,7 @@
     border-color: var(--color-primary);
 }
 
-.payment-summary {
+.salary-payment-summary {
     background: rgba(255, 255, 255, 0.03);
     padding: 1.5rem;
     border-radius: 8px;

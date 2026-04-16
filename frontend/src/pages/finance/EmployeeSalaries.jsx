@@ -198,7 +198,7 @@ export default function EmployeeSalaries() {
                                 ></textarea>
                             </div>
 
-                            <div className="payment-summary">
+                            <div className="salary-payment-summary">
                                 <div className="summary-row">
                                     <span>Base Salary:</span>
                                     <span>{currency}{Number(selectedSalary?.base_amount).toLocaleString()}</span>
