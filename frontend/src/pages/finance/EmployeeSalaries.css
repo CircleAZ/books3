@@ -179,3 +179,81 @@
         grid-column: span 1;
     }
 }
+
+/* Clickable rows */
+.clickable-row {
+    cursor: pointer;
+    transition: background 0.15s;
+}
+
+.clickable-row:hover {
+    background: rgba(255, 255, 255, 0.04);
+}
+
+/* View Detail Panel */
+.view-details {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    margin-bottom: 1.5rem;
+}
+
+.detail-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.5rem 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.detail-label {
+    font-size: 0.85rem;
+    color: var(--color-text-muted, #888);
+}
+
+.detail-value {
+    font-weight: 600;
+    color: #fff;
+}
+
+/* Recent Payments */
+.recent-payments-section {
+    margin-top: 1rem;
+    padding-top: 0.75rem;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.recent-payments-section h4 {
+    margin: 0 0 0.5rem 0;
+    font-size: 0.85rem;
+    color: var(--color-text-muted, #888);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.payment-item {
+    display: flex;
+    justify-content: space-between;
+    padding: 0.4rem 0;
+    font-size: 0.9rem;
+    color: #ccc;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+/* Edit Modal Selects */
+.form-group select {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: white;
+    padding: 0.75rem;
+    border-radius: 8px;
+    outline: none;
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+    cursor: pointer;
+}
+
+.form-group select:focus {
+    border-color: var(--color-primary);
+}
