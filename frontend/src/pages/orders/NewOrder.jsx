@@ -64,23 +64,14 @@ export default function NewOrder() {
 
     // Drawer panel ref
     const drawerRef = useRef(null);
-    // Back-button closes drawer on mobile
-    useEffect(() => {
-        if (isDrawerOpen) {
-            window.history.pushState({ drawerOpen: true }, '');
-            const onPopState = () => {
-                setIsDrawerOpen(false);
-                if (drawerRef.current) drawerRef.current.style.transform = '';
-            };
-            window.addEventListener('popstate', onPopState);
-            return () => window.removeEventListener('popstate', onPopState);
-        }
-    }, [isDrawerOpen, setIsDrawerOpen]);
+    const isDrawerOpenRef = useRef(isDrawerOpen);
+    isDrawerOpenRef.current = isDrawerOpen;
 
-    // Warn on refresh/close when cart has items
+    // Ref for cart length (used in event handlers to avoid stale closures)
     const cartLengthRef = useRef(cartItems.length);
     cartLengthRef.current = cartItems.length;
 
+    // Warn on browser refresh/close when cart has items
     useEffect(() => {
         const onBeforeUnload = (e) => {
             if (cartLengthRef.current > 0) {
@@ -93,25 +84,43 @@ export default function NewOrder() {
         return () => window.removeEventListener('beforeunload', onBeforeUnload);
     }, []);
 
-    // Guard against SPA back-navigation when cart has items
+    // Unified back-button handler: drawer close > cart guard > allow navigation
     useEffect(() => {
-        if (cartItems.length === 0) return;
-        // Push a guard state so back button hits us first
-        window.history.pushState({ cartGuard: true }, '');
-        const onPop = () => {
-            if (cartItems.length > 0) {
+        // Push a guard state whenever drawer opens OR cart gets items
+        const needsGuard = isDrawerOpen || cartItems.length > 0;
+        if (!needsGuard) return;
+
+        window.history.pushState({ posGuard: true }, '');
+
+        const onPopState = () => {
+            // Priority 1: If drawer is open, just close it
+            if (isDrawerOpenRef.current) {
+                setIsDrawerOpen(false);
+                if (drawerRef.current) drawerRef.current.style.transform = '';
+                // Re-push guard if cart still has items
+                if (cartLengthRef.current > 0) {
+                    window.history.pushState({ posGuard: true }, '');
+                }
+                return;
+            }
+
+            // Priority 2: Cart has items — confirm before leaving
+            if (cartLengthRef.current > 0) {
                 if (window.confirm('You have items in your cart. Leave this page?')) {
-                    // Allow: go back again for real
                     window.history.back();
                 } else {
-                    // Block: re-push guard state
-                    window.history.pushState({ cartGuard: true }, '');
+                    window.history.pushState({ posGuard: true }, '');
                 }
+                return;
             }
+
+            // Priority 3: Nothing to guard, let it go
+            window.history.back();
         };
-        window.addEventListener('popstate', onPop);
-        return () => window.removeEventListener('popstate', onPop);
-    }, [cartItems.length > 0]); // eslint-disable-line react-hooks/exhaustive-deps
+
+        window.addEventListener('popstate', onPopState);
+        return () => window.removeEventListener('popstate', onPopState);
+    }, [isDrawerOpen, cartItems.length > 0]); // eslint-disable-line react-hooks/exhaustive-deps
 
     // Debounced Customer Search (with AbortController)
     useEffect(() => {
