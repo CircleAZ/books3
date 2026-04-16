@@ -1,5 +1,4 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { useBlocker } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useCurrency } from '../../context/CurrencyContext';
 import { useCart } from '../../context/CartContext';
@@ -94,12 +93,25 @@ export default function NewOrder() {
         return () => window.removeEventListener('beforeunload', onBeforeUnload);
     }, []);
 
-    // Block SPA navigation (React Router back button) when cart has items
-    useBlocker(({ currentLocation, nextLocation }) => {
-        if (cartItems.length === 0) return false;
-        if (currentLocation.pathname === nextLocation.pathname) return false;
-        return !window.confirm('You have items in your cart. Leave this page?');
-    });
+    // Guard against SPA back-navigation when cart has items
+    useEffect(() => {
+        if (cartItems.length === 0) return;
+        // Push a guard state so back button hits us first
+        window.history.pushState({ cartGuard: true }, '');
+        const onPop = () => {
+            if (cartItems.length > 0) {
+                if (window.confirm('You have items in your cart. Leave this page?')) {
+                    // Allow: go back again for real
+                    window.history.back();
+                } else {
+                    // Block: re-push guard state
+                    window.history.pushState({ cartGuard: true }, '');
+                }
+            }
+        };
+        window.addEventListener('popstate', onPop);
+        return () => window.removeEventListener('popstate', onPop);
+    }, [cartItems.length > 0]); // eslint-disable-line react-hooks/exhaustive-deps
 
     // Debounced Customer Search (with AbortController)
     useEffect(() => {
