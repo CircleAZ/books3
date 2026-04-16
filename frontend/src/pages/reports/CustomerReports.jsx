@@ -121,8 +121,8 @@ export default function CustomerReports() {
                 </div>
 
                 {/* RFM Segmentation */}
+                <h3 className="section-title">RFM Segmentation</h3>
                 <div className="report-card">
-                    <h3>RFM Segmentation</h3>
                     <div className="rfm-grid">
                         {rfmSegments.map((segment, idx) => {
                             const count = rfmData.find(r => r.segment === segment.name)?.count || 0;
