@@ -23,7 +23,8 @@ export default function OrderDetails() {
     const [statusUpdate, setStatusUpdate] = useState({ field: 'order_status', value: '', note: '' });
     const [showShareMenu, setShowShareMenu] = useState(false);
     const [showPaymentModal, setShowPaymentModal] = useState(false);
-    const [paymentForm, setPaymentForm] = useState({ amount: '', method: 'cash', upi_reference: '' });
+    const [paymentForm, setPaymentForm] = useState({ amount: '', method: 'cash', upi_reference: '', upi_account: '' });
+    const [upiAccounts, setUpiAccounts] = useState([]);
     const [paymentSubmitting, setPaymentSubmitting] = useState(false);
     const [paymentError, setPaymentError] = useState('');
     const [showHistory, setShowHistory] = useState(false);
@@ -52,7 +53,22 @@ export default function OrderDetails() {
 
     useEffect(() => {
         fetchOrderDetails();
-    }, [fetchOrderDetails]);
+        
+        // Fetch active UPI accounts for payment recording
+        const fetchUpiAccounts = async () => {
+            try {
+                const response = await fetchWithAuth(ENDPOINTS.SETTINGS_UPI_ACCOUNTS);
+                if (response.ok) {
+                    const data = await response.json();
+                    const accounts = data.results || data;
+                    setUpiAccounts(accounts.filter(acc => acc.is_active));
+                }
+            } catch (err) {
+                console.error('Failed to fetch UPI accounts:', err);
+            }
+        };
+        fetchUpiAccounts();
+    }, [fetchOrderDetails, fetchWithAuth]);
 
     const handleAddNote = async (e) => {
         e.preventDefault();
@@ -187,7 +203,8 @@ export default function OrderDetails() {
         setPaymentForm({
             amount: order.balance_due > 0 ? Number(order.balance_due).toFixed(2) : '',
             method: 'cash',
-            upi_reference: ''
+            upi_reference: '',
+            upi_account: upiAccounts.length > 0 ? upiAccounts[0].upi_id : ''
         });
         setPaymentError('');
         setShowPaymentModal(true);
@@ -198,12 +215,16 @@ export default function OrderDetails() {
         setPaymentSubmitting(true);
         setPaymentError('');
         try {
+            const finalUpiReference = paymentForm.method === 'upi' 
+                ? (paymentForm.upi_account ? `[${paymentForm.upi_account}] ${paymentForm.upi_reference}`.trim() : paymentForm.upi_reference) 
+                : '';
+
             const response = await fetchWithAuth(`${ENDPOINTS.ORDERS}${id}/add_payment/`, {
                 method: 'POST',
                 body: JSON.stringify({
                     amount: paymentForm.amount,
                     method: paymentForm.method,
-                    upi_reference: paymentForm.upi_reference
+                    upi_reference: finalUpiReference
                 })
             });
             if (response.ok) {
@@ -727,15 +748,32 @@ export default function OrderDetails() {
                                 </div>
                             </div>
                             {paymentForm.method === 'upi' && (
-                                <div className="form-group">
-                                    <label>UPI Reference / Transaction ID</label>
-                                    <input
-                                        type="text"
-                                        placeholder="e.g. 1234567890@upi"
-                                        value={paymentForm.upi_reference}
-                                        onChange={(e) => setPaymentForm({ ...paymentForm, upi_reference: e.target.value })}
-                                    />
-                                </div>
+                                <>
+                                    <div className="form-group">
+                                        <label>Credited To (UPI Account)</label>
+                                        <select
+                                            value={paymentForm.upi_account}
+                                            onChange={(e) => setPaymentForm({ ...paymentForm, upi_account: e.target.value })}
+                                            required
+                                        >
+                                            <option value="">-- Select Store UPI Account --</option>
+                                            {upiAccounts.map(account => (
+                                                <option key={account.id} value={account.upi_id}>
+                                                    {account.display_name} ({account.upi_id})
+                                                </option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                    <div className="form-group">
+                                        <label>Transaction ID / Reference (Optional)</label>
+                                        <input
+                                            type="text"
+                                            placeholder="e.g. 1234567890"
+                                            value={paymentForm.upi_reference}
+                                            onChange={(e) => setPaymentForm({ ...paymentForm, upi_reference: e.target.value })}
+                                        />
+                                    </div>
+                                </>
                             )}
                             <div className="modal-actions">
                                 <button type="button" className="btn btn-ghost" onClick={() => setShowPaymentModal(false)}>
