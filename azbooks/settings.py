@@ -214,6 +214,9 @@ STATIC_URL = 'static/'
 STATICFILES_DIRS = [BASE_DIR / 'static']
 STATIC_ROOT = BASE_DIR / 'staticfiles'
 STORAGES = {
+    'default': {
+        'BACKEND': 'django.core.files.storage.FileSystemStorage',
+    },
     'staticfiles': {
         'BACKEND': 'whitenoise.storage.CompressedStaticFilesStorage',
     },
@@ -242,7 +245,9 @@ if _r2_access_key:
     AWS_DEFAULT_ACL = None
     AWS_QUERYSTRING_AUTH = False
     
-    DEFAULT_FILE_STORAGE = 'azbooks.custom_storages.PublicMediaStorage'
+    STORAGES['default'] = {
+        'BACKEND': 'azbooks.custom_storages.PublicMediaStorage'
+    }
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/6.0/ref/settings/#default-auto-field
