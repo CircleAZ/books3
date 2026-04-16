@@ -62,44 +62,20 @@ export default function NewOrder() {
     // Synchronous submission lock — prevents rapid-fire duplicate orders (VULN-3)
     const isSubmittingRef = useRef(false);
 
-    // Drawer pull-to-close refs
+    // Drawer panel ref
     const drawerRef = useRef(null);
-    const touchStartY = useRef(0);
-    const touchDeltaY = useRef(0);
-    const isDragging = useRef(false);
-
-    const handleDrawerTouchStart = (e) => {
-        touchStartY.current = e.touches[0].clientY;
-        touchDeltaY.current = 0;
-        isDragging.current = false;
-    };
-
-    const handleDrawerTouchMove = (e) => {
-        const delta = e.touches[0].clientY - touchStartY.current;
-        if (delta > 0) {
-            isDragging.current = true;
-            touchDeltaY.current = delta;
-            if (drawerRef.current) {
-                drawerRef.current.style.transform = `translateY(${delta}px)`;
-                drawerRef.current.style.transition = 'none';
-            }
-        }
-    };
-
-    const handleDrawerTouchEnd = () => {
-        if (drawerRef.current) {
-            drawerRef.current.style.transition = '';
-            const threshold = window.innerHeight * 0.3;
-            if (touchDeltaY.current > threshold) {
+    // Back-button closes drawer on mobile
+    useEffect(() => {
+        if (isDrawerOpen) {
+            window.history.pushState({ drawerOpen: true }, '');
+            const onPopState = () => {
                 setIsDrawerOpen(false);
-                drawerRef.current.style.transform = '';
-            } else {
-                drawerRef.current.style.transform = '';
-            }
+                if (drawerRef.current) drawerRef.current.style.transform = '';
+            };
+            window.addEventListener('popstate', onPopState);
+            return () => window.removeEventListener('popstate', onPopState);
         }
-        isDragging.current = false;
-        touchDeltaY.current = 0;
-    };
+    }, [isDrawerOpen, setIsDrawerOpen]);
 
     // Debounced Customer Search (with AbortController)
     useEffect(() => {
@@ -896,14 +872,7 @@ export default function NewOrder() {
             <div
                 className={`pos-right-panel ${isDrawerOpen ? 'drawer-open' : ''}`}
                 ref={drawerRef}
-                onTouchStart={handleDrawerTouchStart}
-                onTouchMove={handleDrawerTouchMove}
-                onTouchEnd={handleDrawerTouchEnd}
             >
-                {/* Drawer handle (mobile only) */}
-                <div className="cart-drawer-handle">
-                    <span className="drawer-handle-icon">&#x25BC;</span>
-                </div>
                 <div className="cart-header">
                     <span>Cart ({cartItems.length} items)</span>
                     {clearStage === 'idle' && (

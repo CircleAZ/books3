@@ -689,49 +689,25 @@
         flex: none;
         width: 100%;
         height: 100vh;
+        height: 100dvh;
         border-radius: 0;
         transform: translateY(100%);
         transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-        overflow: hidden;
+        overflow-y: auto;
+        overflow-x: hidden;
         box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.4);
         display: flex;
         flex-direction: column;
+        -webkit-overflow-scrolling: touch;
     }
 
     .pos-right-panel.drawer-open {
         transform: translateY(0);
     }
 
-    /* ---- Drawer Handle ---- */
+    /* ---- Drawer Handle (removed — back button closes drawer now) ---- */
     .cart-drawer-handle {
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        padding: var(--space-sm) 0;
-        cursor: grab;
-        position: sticky;
-        top: 0;
-        background: var(--color-bg-secondary);
-        z-index: 1;
-        touch-action: none;
-    }
-
-    .drawer-handle-icon {
-        font-size: 20px;
-        color: var(--color-text-muted);
-        animation: bounce-hint 2s ease infinite;
-    }
-
-    @keyframes bounce-hint {
-
-        0%,
-        100% {
-            transform: translateY(0);
-        }
-
-        50% {
-            transform: translateY(4px);
-        }
+        display: none;
     }
 
     /* ---- Smaller section padding ---- */
@@ -814,7 +790,9 @@
     /* POS action buttons — bigger touch targets */
     .pos-actions {
         padding: var(--space-sm);
+        padding-bottom: calc(var(--space-sm) + env(safe-area-inset-bottom, 16px));
         gap: var(--space-xs);
+        flex-shrink: 0;
     }
 
     .btn-full {
@@ -880,11 +858,6 @@
     .btn-full {
         min-height: 48px;
         font-size: var(--font-size-md);
-    }
-
-    /* Cart items — compact */
-    .cart-items-list {
-        /* flex: 1 from 768px breakpoint handles sizing */
     }
 
     .cart-item {
