@@ -234,7 +234,8 @@
 .ps-overlay {
     position: fixed;
     inset: 0;
-    background: rgba(0, 0, 0, 0.5);
+    background: rgba(0, 0, 0, 0.85);
+    backdrop-filter: blur(6px);
     z-index: 1000;
     display: flex;
     align-items: center;
@@ -271,7 +272,7 @@
 }
 
 .ps-modal-body {
-    padding: 1.5rem;
+    padding: 1.25rem;
 }
 
 .ps-modal-footer {
@@ -515,5 +516,23 @@
     .ps-items-row {
         grid-template-columns: 2fr 1fr 50px 1fr 30px;
         font-size: 0.75rem;
+    }
+    .ps-overlay {
+        padding: 0;
+    }
+    .ps-modal {
+        max-height: 100vh;
+        max-height: 100dvh;
+        border-radius: 0;
+        height: 100%;
+    }
+    .ps-modal-body {
+        padding: 1rem;
+    }
+    .ps-modal-header {
+        padding: 1rem;
+    }
+    .ps-modal-footer {
+        padding: 0.75rem 1rem;
     }
 }
