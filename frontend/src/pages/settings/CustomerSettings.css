@@ -19,6 +19,12 @@
     margin-bottom: var(--space-lg);
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+}
+
+.settings-tab-bar::-webkit-scrollbar {
+    display: none;
 }
 
 .settings-tab {
@@ -50,6 +56,9 @@
     border-radius: var(--radius-lg);
     padding: var(--page-padding);
     min-height: 500px;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    min-width: 0;
 }
 
 /* Common Styles for Sub-components */
