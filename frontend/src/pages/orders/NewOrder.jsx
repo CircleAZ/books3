@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { useBlocker } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useCurrency } from '../../context/CurrencyContext';
 import { useCart } from '../../context/CartContext';
@@ -78,15 +79,27 @@ export default function NewOrder() {
     }, [isDrawerOpen, setIsDrawerOpen]);
 
     // Warn on refresh/close when cart has items
+    const cartLengthRef = useRef(cartItems.length);
+    cartLengthRef.current = cartItems.length;
+
     useEffect(() => {
-        if (cartItems.length === 0) return;
         const onBeforeUnload = (e) => {
-            e.preventDefault();
-            e.returnValue = '';
+            if (cartLengthRef.current > 0) {
+                e.preventDefault();
+                e.returnValue = 'You have items in your cart. Are you sure you want to leave?';
+                return e.returnValue;
+            }
         };
         window.addEventListener('beforeunload', onBeforeUnload);
         return () => window.removeEventListener('beforeunload', onBeforeUnload);
-    }, [cartItems.length]);
+    }, []);
+
+    // Block SPA navigation (React Router back button) when cart has items
+    useBlocker(({ currentLocation, nextLocation }) => {
+        if (cartItems.length === 0) return false;
+        if (currentLocation.pathname === nextLocation.pathname) return false;
+        return !window.confirm('You have items in your cart. Leave this page?');
+    });
 
     // Debounced Customer Search (with AbortController)
     useEffect(() => {
