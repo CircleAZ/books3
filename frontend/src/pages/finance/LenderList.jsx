@@ -111,7 +111,6 @@ export default function LenderList() {
                                 <th>Email</th>
                                 <th>Active Loans</th>
                                 <th>Total Outstanding</th>
-                                <th>Actions</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -139,14 +138,11 @@ export default function LenderList() {
                                         <td className="outstanding-amount">
                                             {currency}{Number(lender.total_outstanding || 0).toLocaleString()}
                                         </td>
-                                        <td onClick={(e) => e.stopPropagation()}>
-                                            <button className="btn-icon" title="View Details">👁️</button>
-                                        </td>
                                     </tr>
                                 ))
                             ) : (
                                 <tr>
-                                    <td colSpan="7" style={{ textAlign: 'center', padding: '3rem' }}>
+                                    <td colSpan="6" style={{ textAlign: 'center', padding: '3rem' }}>
                                         <div className="no-data">
                                             <span>🏦</span>
                                             <p>No lenders found. Add your first lender to get started.</p>
