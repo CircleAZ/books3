@@ -77,6 +77,17 @@ export default function NewOrder() {
         }
     }, [isDrawerOpen, setIsDrawerOpen]);
 
+    // Warn on refresh/close when cart has items
+    useEffect(() => {
+        if (cartItems.length === 0) return;
+        const onBeforeUnload = (e) => {
+            e.preventDefault();
+            e.returnValue = '';
+        };
+        window.addEventListener('beforeunload', onBeforeUnload);
+        return () => window.removeEventListener('beforeunload', onBeforeUnload);
+    }, [cartItems.length]);
+
     // Debounced Customer Search (with AbortController)
     useEffect(() => {
         if (!customerSearch || customerSearch.length < 2) {
