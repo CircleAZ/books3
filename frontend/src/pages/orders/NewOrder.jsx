@@ -1206,8 +1206,18 @@ export default function NewOrder() {
                                         </label>
                                     </div>
                                     {referencePhoto && (
-                                        <div className="mt-1 small text-muted">
-                                            Selected: {referencePhoto.name}
+                                        <div className="mt-2 small text-muted" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', backgroundColor: 'var(--bg-card)', padding: '8px', borderRadius: '4px', border: '1px solid var(--border-color)' }}>
+                                            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginRight: '8px' }}>
+                                                Selected: {referencePhoto.name}
+                                            </span>
+                                            <button 
+                                                type="button" 
+                                                onClick={() => setReferencePhoto(null)} 
+                                                style={{ background: 'none', border: 'none', color: 'var(--color-danger)', cursor: 'pointer', fontSize: '1.2rem', lineHeight: 1 }}
+                                                title="Remove selection"
+                                            >
+                                                ×
+                                            </button>
                                         </div>
                                     )}
                                 </div>
