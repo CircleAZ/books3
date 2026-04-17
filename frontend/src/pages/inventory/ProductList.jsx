@@ -188,7 +188,11 @@ export default function ProductList() {
                                             <tr key={product.id} onClick={() => navigate(`/inventory/product/${product.id}`)} style={{ cursor: 'pointer' }}>
                                                 <td className="product-image-cell">
                                                     {product.primary_image_url ? (
-                                                        <img src={`${MEDIA_BASE}${product.primary_image_url}`} alt={product.name} className="product-image" />
+                                                        <img 
+                                                            src={product.primary_image_url.startsWith('http') ? product.primary_image_url : `${MEDIA_BASE}${product.primary_image_url}`} 
+                                                            alt={product.name} 
+                                                            className="product-image" 
+                                                        />
                                                     ) : (
                                                         <div className="product-image" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                                                             <span style={{ fontSize: '0.7rem', color: 'var(--color-text-muted)' }}>IMG</span>

@@ -188,9 +188,11 @@ export default function ProductDetails() {
                         <h3>Images</h3>
                         <div className="image-gallery">
                             {product.images && product.images.length > 0 ? (
-                                product.images.map((img, i) => (
-                                    <img key={i} src={img.image || img} alt={product.name} className="gallery-img" />
-                                ))
+                                product.images.map((img, i) => {
+                                    const srcUrl = img.image || img;
+                                    const finalSrc = srcUrl.startsWith('http') ? srcUrl : `${ENDPOINTS.INVENTORY_PRODUCTS.split('/api')[0]}${srcUrl}`;
+                                    return <img key={i} src={finalSrc} alt={product.name} className="gallery-img" />;
+                                })
                             ) : (
                                 <div className="no-images">No images</div>
                             )}
