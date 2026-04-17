@@ -139,6 +139,20 @@ class ProductViewSet(viewsets.ModelViewSet):
         product.hard_delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
 
+    @action(detail=True, methods=['post'])
+    def remove_image(self, request, pk=None):
+        """Remove a specific image from the product."""
+        try:
+            product = self.get_object()
+            image_id = request.data.get('image_id')
+            # Local import to avoid circular dependency if needed, but ProductImage is already accessible if we query product.images
+            image = product.images.get(id=image_id)
+            image.delete()
+            return Response({'detail': 'Image removed successfully.'}, status=status.HTTP_200_OK)
+        except Exception as e:
+            return Response({'detail': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+
 
 class StockAdjustmentViewSet(viewsets.ModelViewSet):
     queryset = StockAdjustment.objects.all().order_by('-created_at')

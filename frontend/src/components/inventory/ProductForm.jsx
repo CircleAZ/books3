@@ -162,7 +162,34 @@ export default function ProductForm({ initialData = null, isEdit = false }) {
         });
     };
 
-    // TODO: Handle removing existing images in Edit mode if API supports it
+    const removeExistingImage = async (imageId) => {
+        if (!isEdit || !initialData?.id || !imageId) return;
+        
+        try {
+            setLoading(true);
+            const url = `${ENDPOINTS.INVENTORY_PRODUCTS}${initialData.id}/remove_image/`;
+            const response = await fetchWithAuth(url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ image_id: imageId })
+            });
+
+            if (response.ok) {
+                setExistingImages(prev => prev.filter(img => img.id !== imageId));
+                setSubmitSuccess('Image removed successfully.');
+                setTimeout(() => setSubmitSuccess(null), 3000);
+            } else {
+                setSubmitError('Failed to remove image from server.');
+                setTimeout(() => setSubmitError(null), 3000);
+            }
+        } catch (error) {
+            console.error('Error removing image:', error);
+            setSubmitError('Error removing image.');
+            setTimeout(() => setSubmitError(null), 3000);
+        } finally {
+            setLoading(false);
+        }
+    };
 
     const handleSubmit = async (addAnother = false) => {
         // LENS-02: Run client-side validation first
@@ -453,7 +480,15 @@ export default function ProductForm({ initialData = null, isEdit = false }) {
                                     {existingImages.map((img, index) => (
                                         <div key={index} className="image-preview">
                                             <img src={img.image || img} alt={`Existing ${index}`} />
-                                            {/* TODO: Add remove functionality for existing images */}
+                                            {img.id && (
+                                                <button 
+                                                    type="button" 
+                                                    className="remove-image" 
+                                                    onClick={() => removeExistingImage(img.id)}
+                                                >
+                                                    ×
+                                                </button>
+                                            )}
                                         </div>
                                     ))}
                                 </div>
