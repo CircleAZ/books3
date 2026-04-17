@@ -231,7 +231,7 @@ _r2_access_key = os.getenv('R2_ACCESS_KEY_ID')
 if _r2_access_key:
     AWS_ACCESS_KEY_ID = _r2_access_key
     AWS_SECRET_ACCESS_KEY = os.getenv('R2_SECRET_ACCESS_KEY')
-    AWS_STORAGE_BUCKET_NAME = os.getenv('R2_RECEIPTS_BUCKET', 'azbooks-receipts')
+    AWS_STORAGE_BUCKET_NAME = os.getenv('R2_BUCKET_NAME', 'azbooks-media')
     AWS_S3_ENDPOINT_URL = os.getenv('R2_ENDPOINT_URL')
     
     # Strip protocol from custom domain as storages appends it automatically
