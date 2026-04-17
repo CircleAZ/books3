@@ -235,7 +235,7 @@ if _r2_access_key:
     AWS_S3_ENDPOINT_URL = os.getenv('R2_ENDPOINT_URL')
     
     # Strip protocol from custom domain as storages appends it automatically
-    _custom_domain = os.getenv('RECEIPT_BASE_URL', 'media.circleaz.in')
+    _custom_domain = os.getenv('R2_CUSTOM_DOMAIN', 'media.circleaz.in')
     AWS_S3_CUSTOM_DOMAIN = _custom_domain.replace('https://', '').replace('http://', '').strip('/')
     
     AWS_S3_SIGNATURE_VERSION = 's3v4'
