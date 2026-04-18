@@ -3,6 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useCurrency } from '../../context/CurrencyContext';
 import { ENDPOINTS, API_BASE } from '../../config/api';
+import Pagination from '../../components/common/Pagination';
 import './ProductList.css';
 
 const MEDIA_BASE = API_BASE.replace(/\/api\/?$/, '');
@@ -22,6 +23,7 @@ export default function ProductList() {
     const [vendor, setVendor] = useState('');
     const [page, setPage] = useState(1);
     const [totalPages, setTotalPages] = useState(1);
+    const [ordering, setOrdering] = useState('display_id');
 
     // Filter options
     const [categories, setCategories] = useState([]);
@@ -46,7 +48,8 @@ export default function ProductList() {
                 page,
                 search: debouncedSearch,
                 category,
-                vendor
+                vendor,
+                ordering
             });
 
             const response = await fetchWithAuth(`${ENDPOINTS.INVENTORY_PRODUCTS}?${queryParams.toString()}`);
@@ -62,7 +65,7 @@ export default function ProductList() {
         } finally {
             setLoading(false);
         }
-    }, [fetchWithAuth, page, debouncedSearch, category, vendor]);
+    }, [fetchWithAuth, page, debouncedSearch, category, vendor, ordering]);
 
     const fetchFilters = useCallback(async () => {
         try {
@@ -106,6 +109,15 @@ export default function ProductList() {
 
     const handleVendorChange = (e) => {
         setVendor(e.target.value);
+        setPage(1);
+    };
+
+    const toggleSort = (column) => {
+        if (ordering === column) {
+            setOrdering(`-${column}`);
+        } else {
+            setOrdering(column);
+        }
         setPage(1);
     };
 
@@ -171,13 +183,27 @@ export default function ProductList() {
                             <thead>
                                 <tr>
                                     <th>Image</th>
-                                    <th>ID</th>
-                                    <th>Name</th>
-                                    <th>Category</th>
-                                    <th>Vendor</th>
-                                    <th>Cost</th>
-                                    <th>Selling</th>
-                                    <th>Stock</th>
+                                    <th onClick={() => toggleSort('display_id')} className="sortable" style={{ cursor: 'pointer' }}>
+                                        ID {ordering.includes('display_id') && (ordering.startsWith('-') ? '↓' : '↑')}
+                                    </th>
+                                    <th onClick={() => toggleSort('name')} className="sortable" style={{ cursor: 'pointer' }}>
+                                        Name {ordering.includes('name') && (ordering.startsWith('-') ? '↓' : '↑')}
+                                    </th>
+                                    <th onClick={() => toggleSort('category__name')} className="sortable" style={{ cursor: 'pointer' }}>
+                                        Category {ordering.includes('category__name') && (ordering.startsWith('-') ? '↓' : '↑')}
+                                    </th>
+                                    <th onClick={() => toggleSort('vendor__name')} className="sortable" style={{ cursor: 'pointer' }}>
+                                        Vendor {ordering.includes('vendor__name') && (ordering.startsWith('-') ? '↓' : '↑')}
+                                    </th>
+                                    <th onClick={() => toggleSort('cost_price')} className="sortable" style={{ cursor: 'pointer' }}>
+                                        Cost {ordering.includes('cost_price') && (ordering.startsWith('-') ? '↓' : '↑')}
+                                    </th>
+                                    <th onClick={() => toggleSort('selling_price')} className="sortable" style={{ cursor: 'pointer' }}>
+                                        Selling {ordering.includes('selling_price') && (ordering.startsWith('-') ? '↓' : '↑')}
+                                    </th>
+                                    <th onClick={() => toggleSort('stock_quantity')} className="sortable" style={{ cursor: 'pointer' }}>
+                                        Stock {ordering.includes('stock_quantity') && (ordering.startsWith('-') ? '↓' : '↑')}
+                                    </th>
                                     <th>Status</th>
                                     <th>Actions</th>
                                 </tr>
@@ -236,24 +262,15 @@ export default function ProductList() {
                     </>
                 )}
 
-                <div className="pagination-controls">
-                    <span className="page-info">
+                <div className="pagination-bar">
+                    <span className="page-info text-muted small" style={{ display: 'block', textAlign: 'center', marginTop: '10px' }}>
                         Page {page} of {totalPages || 1}
                     </span>
-                    <button
-                        className="btn btn-ghost"
-                        disabled={page <= 1}
-                        onClick={() => setPage(p => Math.max(1, p - 1))}
-                    >
-                        Previous
-                    </button>
-                    <button
-                        className="btn btn-ghost"
-                        disabled={page >= totalPages}
-                        onClick={() => setPage(p => Math.min(totalPages, p + 1))}
-                    >
-                        Next
-                    </button>
+                    <Pagination 
+                        currentPage={page} 
+                        totalPages={totalPages} 
+                        onPageChange={setPage} 
+                    />
                 </div>
             </div>
         </div>

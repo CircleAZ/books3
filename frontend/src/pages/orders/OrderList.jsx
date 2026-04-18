@@ -4,6 +4,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useCurrency } from '../../context/CurrencyContext';
 import { ENDPOINTS } from '../../config/api';
 import { getStatusClass, formatStatusLabel, STATUS_OPTIONS } from '../../utils/statusUtils';
+import Pagination from '../../components/common/Pagination';
 import '../OrderList.css';
 
 export default function OrderList() {
@@ -350,24 +351,12 @@ export default function OrderList() {
 
                         <div className="pagination-bar">
                             <span className="total-count">Total: {count} orders</span>
-                            <div className="pagination-controls">
-                                <button
-                                    className="btn btn-ghost"
-                                    disabled={page <= 1}
-                                    onClick={() => setPage(p => Math.max(1, p - 1))}
-                                >
-                                    Previous
-                                </button>
-                                <span className="page-info">
-                                    Page {page} of {totalPages || 1}
-                                </span>
-                                <button
-                                    className="btn btn-ghost"
-                                    disabled={page >= totalPages}
-                                    onClick={() => setPage(p => Math.min(totalPages, p + 1))}
-                                >
-                                    Next
-                                </button>
+                            <div className="pagination-controls-wrapper" style={{ flexGrow: 1, display: 'flex', justifyContent: 'center' }}>
+                                <Pagination 
+                                    currentPage={page} 
+                                    totalPages={totalPages} 
+                                    onPageChange={setPage} 
+                                />
                             </div>
                         </div>
                     </>

@@ -61,8 +61,8 @@ class ProductViewSet(viewsets.ModelViewSet):
     filter_backends = [filters.SearchFilter, DjangoFilterBackend, filters.OrderingFilter]
     search_fields = ['name', 'display_id']
     filterset_fields = ['category', 'vendor', 'is_deleted']
-    ordering_fields = ['created_at', 'name', 'selling_price', 'order_count']
-    ordering = ['-order_count']
+    ordering_fields = ['created_at', 'name', 'category__name', 'vendor__name', 'cost_price', 'selling_price', 'stock_quantity', 'order_count']
+    ordering = ['-order_count', '-created_at', 'id']
 
     def get_queryset(self):
         return super().get_queryset().annotate(
