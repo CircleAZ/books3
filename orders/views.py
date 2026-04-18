@@ -11,6 +11,7 @@ from rest_framework.permissions import IsAuthenticated
 from django_filters.rest_framework import DjangoFilterBackend
 from django.db import transaction
 import django_filters
+from core.permissions import HasRequiredPermission
 
 from .models import (
     Order, OrderItem, Payment, OrderStatusHistory, OrderNote,
@@ -52,7 +53,16 @@ class OrderViewSet(viewsets.ModelViewSet):
             output_field=CharField(),
         ),
     )
-    permission_classes = [IsAuthenticated]
+    permission_classes = [HasRequiredPermission]
+    required_permission = 'orders.edit_orders'
+    permission_map = {
+        'list': 'orders.view_orders',
+        'retrieve': 'orders.view_orders',
+        'create': 'orders.create_orders',
+        'update': 'orders.edit_orders',
+        'partial_update': 'orders.edit_orders',
+        'destroy': 'orders.cancel_orders',
+    }
     filter_backends = [filters.SearchFilter, filters.OrderingFilter, DjangoFilterBackend]
     search_fields = ['display_id', 'guest_name', 'guest_phone', 'customer__first_name', 'customer__last_name']
     ordering_fields = ['created_at', 'total', 'display_id', 'payment_status', 'order_status', 'delivery_status', 'customer_sort_name', 'item_count']
@@ -480,7 +490,8 @@ class PaymentViewSet(viewsets.ModelViewSet):
     """CRUD for payments."""
     queryset = Payment.objects.all().select_related('order', 'created_by')
     serializer_class = PaymentSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [HasRequiredPermission]
+    required_permission = 'orders.manage_payments'
     filter_backends = [DjangoFilterBackend]
     filterset_fields = ['order', 'method']
     
@@ -493,7 +504,8 @@ class OrderNoteViewSet(viewsets.ModelViewSet):
     """CRUD for order notes."""
     queryset = OrderNote.objects.all().select_related('order', 'created_by')
     serializer_class = OrderNoteSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [HasRequiredPermission]
+    required_permission = 'orders.view_orders'
     filter_backends = [DjangoFilterBackend]
     filterset_fields = ['order']
     
@@ -519,7 +531,8 @@ class ReturnReasonViewSet(viewsets.ModelViewSet):
     """CRUD for return reasons."""
     queryset = ReturnReason.objects.all()
     serializer_class = ReturnReasonSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [HasRequiredPermission]
+    required_permission = 'orders.manage_returns'
     pagination_class = None
     filter_backends = [filters.SearchFilter]
     search_fields = ['name']
@@ -532,7 +545,8 @@ class ReturnViewSet(viewsets.ModelViewSet):
     queryset = Return.objects.all().select_related(
         'order', 'order__customer', 'created_by'
     ).prefetch_related('items', 'items__order_item', 'items__order_item__product', 'items__reason', 'refunds')
-    permission_classes = [IsAuthenticated]
+    permission_classes = [HasRequiredPermission]
+    required_permission = 'orders.manage_returns'
     filter_backends = [filters.SearchFilter, filters.OrderingFilter, DjangoFilterBackend]
     search_fields = ['display_id', 'order__display_id', 'order__guest_name', 'order__customer__first_name']
     ordering_fields = ['created_at', 'display_id']
@@ -653,7 +667,8 @@ class RefundViewSet(viewsets.ModelViewSet):
     """CRUD for refunds."""
     queryset = Refund.objects.all().select_related('order', 'return_request', 'created_by')
     serializer_class = RefundSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [HasRequiredPermission]
+    required_permission = 'orders.manage_returns'
     filter_backends = [DjangoFilterBackend]
     filterset_fields = ['order', 'return_request', 'status', 'method']
     

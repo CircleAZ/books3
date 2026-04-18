@@ -1,4 +1,5 @@
 from rest_framework import viewsets, permissions, status
+from core.permissions import HasRequiredPermission
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from django.db.models import Sum, Count, Avg, F, Q, ExpressionWrapper, DecimalField, Max
@@ -19,7 +20,7 @@ from django.http import HttpResponse
 
 
 class ReportBaseViewSet(viewsets.ViewSet):
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [HasRequiredPermission]
 
     def export_csv(self, filename, header, rows):
         response = HttpResponse(content_type='text/csv')
@@ -71,6 +72,7 @@ class ReportBaseViewSet(viewsets.ViewSet):
 
 
 class SalesReportViewSet(ReportBaseViewSet):
+    required_permission = 'reports.view_sales'
     
     @action(detail=False, methods=['get'])
     def summary(self, request):
@@ -218,6 +220,7 @@ class SalesReportViewSet(ReportBaseViewSet):
         return Response(payments)
 
 class InventoryReportViewSet(ReportBaseViewSet):
+    required_permission = 'reports.view_inventory'
     
     @action(detail=False, methods=['get'])
     def valuation(self, request):
@@ -418,6 +421,7 @@ class InventoryReportViewSet(ReportBaseViewSet):
         return self.export_csv(filename, header, rows)
 
 class CustomerReportViewSet(ReportBaseViewSet):
+    required_permission = 'reports.view_customers'
     
     @action(detail=False, methods=['get'])
     def summary(self, request):
@@ -598,7 +602,8 @@ class CustomerReportViewSet(ReportBaseViewSet):
 class ActivityLogViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = ActivityLog.objects.all()
     serializer_class = ActivityLogSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [HasRequiredPermission]
+    required_permission = 'settings.view_audit_logs'
     
     def get_queryset(self):
         queryset = super().get_queryset()
@@ -619,8 +624,7 @@ class ActivityLogViewSet(viewsets.ReadOnlyModelViewSet):
         return queryset
 
 class FinanceReportViewSet(ReportBaseViewSet):
-    from core.permissions import HasRequiredPermission
-    permission_classes = [permissions.IsAuthenticated, HasRequiredPermission]
+    permission_classes = [HasRequiredPermission]
     required_permission = 'finance.view_reports'
     
     @action(detail=False, methods=['get'])

@@ -1,7 +1,7 @@
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
-from rest_framework.permissions import IsAuthenticated
+from core.permissions import HasRequiredPermission
 
 from .product_set_models import ProductSet, ProductSetItem
 from .product_set_serializers import (
@@ -24,7 +24,13 @@ class ProductSetViewSet(viewsets.ModelViewSet):
       POST   /api/inventory/product-sets/{id}/duplicate/  — clone set
       GET    /api/inventory/product-sets/resolve/   — find best set for customer scope
     """
-    permission_classes = [IsAuthenticated]
+    permission_classes = [HasRequiredPermission]
+    required_permission = 'inventory.manage_products'
+    permission_map = {
+        'list': 'inventory.view_products',
+        'retrieve': 'inventory.view_products',
+        'resolve': 'inventory.view_products',
+    }
     queryset = ProductSet.objects.all()
 
     def get_serializer_class(self):

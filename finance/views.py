@@ -366,11 +366,23 @@ class BankTransactionViewSet(viewsets.ModelViewSet):
 # ======== Employee Finance ViewSets ========
 
 class EmployeeExpenseViewSet(viewsets.ModelViewSet):
-    """CRUD for employee expenses."""
-    queryset = EmployeeExpense.objects.select_related('employee', 'category', 'approved_by')
+    """CRUD for employee expenses.
+    
+    Staff can submit claims (create) and view their own (list/retrieve).
+    Finance roles (Admin/Manager/Accountant) can view all and approve/reject/reimburse.
+    """
+    queryset = EmployeeExpense.objects.select_related('employee', 'category', 'reviewed_by')
     serializer_class = EmployeeExpenseSerializer
     permission_classes = [HasRequiredPermission]
     required_permission = 'finance.manage_expenses'
+    permission_map = {
+        'list': None,       # Any authenticated user (queryset filters to own)
+        'retrieve': None,   # Any authenticated user (queryset filters to own)
+        'create': None,     # Any authenticated user can submit claims
+        'approve': 'finance.approve_expenses',
+        'reject': 'finance.approve_expenses',
+        'reimburse': 'finance.approve_expenses',
+    }
     pagination_class = FinancePagination
     
     def get_queryset(self):

@@ -13,11 +13,17 @@ from .serializers import (
 )
 from .services import StockService
 from django.db import transaction
+from core.permissions import HasRequiredPermission
 
 class CategoryViewSet(viewsets.ModelViewSet):
     queryset = Category.objects.annotate(product_count=Count('products'))
     serializer_class = CategorySerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [HasRequiredPermission]
+    required_permission = 'inventory.manage_categories'
+    permission_map = {
+        'list': 'inventory.view_products',
+        'retrieve': 'inventory.view_products',
+    }
 
     def destroy(self, request, *args, **kwargs):
         instance = self.get_object()
@@ -46,18 +52,32 @@ class CategoryViewSet(viewsets.ModelViewSet):
 class VendorViewSet(viewsets.ModelViewSet):
     queryset = Vendor.objects.annotate(product_count=Count('products'))
     serializer_class = VendorSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [HasRequiredPermission]
+    required_permission = 'inventory.manage_vendors'
+    permission_map = {
+        'list': 'inventory.view_products',
+        'retrieve': 'inventory.view_products',
+    }
 
 class TagViewSet(viewsets.ModelViewSet):
     queryset = Tag.objects.all()
     serializer_class = TagSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [HasRequiredPermission]
+    required_permission = 'inventory.manage_products'
 
 class ProductViewSet(viewsets.ModelViewSet):
     # Default queryset filters out deleted items via SoftDeleteManager
     # Optimized queryset to prevent N+1 queries
     queryset = Product.objects.all().select_related('category', 'vendor').prefetch_related('images', 'tags')
-    permission_classes = [IsAuthenticated]
+    permission_classes = [HasRequiredPermission]
+    required_permission = 'inventory.manage_products'
+    permission_map = {
+        'list': 'inventory.view_products',
+        'retrieve': 'inventory.view_products',
+        'low_stock': 'inventory.view_products',
+        'negative_stock': 'inventory.view_products',
+        'deleted': 'inventory.manage_products',
+    }
     filter_backends = [filters.SearchFilter, DjangoFilterBackend, filters.OrderingFilter]
     search_fields = ['name', 'display_id']
     filterset_fields = ['category', 'vendor', 'is_deleted']
@@ -157,7 +177,8 @@ class ProductViewSet(viewsets.ModelViewSet):
 class StockAdjustmentViewSet(viewsets.ModelViewSet):
     queryset = StockAdjustment.objects.all().order_by('-created_at')
     serializer_class = StockAdjustmentSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [HasRequiredPermission]
+    required_permission = 'inventory.manage_stock'
     filter_backends = [filters.SearchFilter, DjangoFilterBackend]
     search_fields = ['product__name', 'reason', 'notes']
     filterset_fields = ['product', 'adjustment_type', 'created_by']
@@ -182,7 +203,8 @@ class StockAdjustmentViewSet(viewsets.ModelViewSet):
 class StockHistoryViewSet(viewsets.ModelViewSet):
     queryset = StockHistory.objects.all()
     serializer_class = StockHistorySerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [HasRequiredPermission]
+    required_permission = 'inventory.view_products'
     filter_backends = [filters.OrderingFilter, DjangoFilterBackend]
     ordering = ['-created_at']
     filterset_fields = ['product', 'reason']
@@ -192,3 +214,4 @@ class StockHistoryViewSet(viewsets.ModelViewSet):
     http_method_names = ['get', 'head', 'options'] # Read-only
 
     # perform_create removed. Usage must go through StockAdjustment.
+

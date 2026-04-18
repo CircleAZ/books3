@@ -99,7 +99,12 @@ class CustomerViewSet(viewsets.ModelViewSet):
     queryset = Customer.objects.all().select_related(
         'school', 'class_obj', 'division', 'subdivision', 'customer_group', 'wallet'
     ).prefetch_related('addresses', 'addresses__location_tags')
-    permission_classes = [IsAuthenticated]
+    permission_classes = [HasRequiredPermission]
+    required_permission = 'customers.manage_customers'
+    permission_map = {
+        'list': 'customers.view_customers',
+        'retrieve': 'customers.view_customers',
+    }
     filter_backends = [filters.SearchFilter, filters.OrderingFilter, DjangoFilterBackend]
     search_fields = ['first_name', 'middle_name', 'last_name', 'phone', 'email', 'display_id']
     ordering_fields = ['created_at', 'first_name', 'last_name', 'display_id']
@@ -858,7 +863,12 @@ class AddressViewSet(viewsets.ModelViewSet):
     """CRUD for customer addresses."""
     queryset = Address.objects.all().prefetch_related('location_tags')
     serializer_class = AddressSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [HasRequiredPermission]
+    required_permission = 'customers.manage_addresses'
+    permission_map = {
+        'list': 'customers.view_addresses',
+        'retrieve': 'customers.view_addresses',
+    }
     filter_backends = [DjangoFilterBackend]
     filterset_fields = ['customer', 'is_primary']
 
@@ -867,7 +877,8 @@ class CustomerLinkViewSet(viewsets.ModelViewSet):
     """CRUD for customer links (relationships)."""
     queryset = CustomerLink.objects.all().select_related('customer_a', 'customer_b', 'link_type')
     serializer_class = CustomerLinkSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [HasRequiredPermission]
+    required_permission = 'customers.manage_customers'
     filter_backends = [DjangoFilterBackend]
     filterset_fields = ['customer_a', 'customer_b', 'link_type']
     
@@ -884,7 +895,8 @@ class WalletViewSet(viewsets.ReadOnlyModelViewSet):
     """Read-only view for wallets. Use Customer actions for credit/debit."""
     queryset = Wallet.objects.all().select_related('customer').prefetch_related('transactions')
     serializer_class = WalletSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [HasRequiredPermission]
+    required_permission = 'customers.view_customers'
     filter_backends = [DjangoFilterBackend]
     filterset_fields = ['customer']
 
@@ -894,7 +906,12 @@ class WalletViewSet(viewsets.ReadOnlyModelViewSet):
 class SchoolViewSet(viewsets.ModelViewSet):
     queryset = School.objects.all()
     serializer_class = SchoolSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [HasRequiredPermission]
+    required_permission = 'customers.manage_schools'
+    permission_map = {
+        'list': 'customers.view_customers',
+        'retrieve': 'customers.view_customers',
+    }
     filter_backends = [filters.SearchFilter]
     search_fields = ['name']
 
@@ -1012,7 +1029,12 @@ class SchoolViewSet(viewsets.ModelViewSet):
 class ClassViewSet(viewsets.ModelViewSet):
     queryset = Class.objects.all().select_related('school')
     serializer_class = ClassSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [HasRequiredPermission]
+    required_permission = 'customers.manage_schools'
+    permission_map = {
+        'list': 'customers.view_customers',
+        'retrieve': 'customers.view_customers',
+    }
     filter_backends = [DjangoFilterBackend]
     filterset_fields = ['school']
 
@@ -1020,7 +1042,12 @@ class ClassViewSet(viewsets.ModelViewSet):
 class DivisionViewSet(viewsets.ModelViewSet):
     queryset = Division.objects.all().select_related('class_obj')
     serializer_class = DivisionSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [HasRequiredPermission]
+    required_permission = 'customers.manage_schools'
+    permission_map = {
+        'list': 'customers.view_customers',
+        'retrieve': 'customers.view_customers',
+    }
     filter_backends = [DjangoFilterBackend]
     filterset_fields = ['class_obj']
 
@@ -1028,7 +1055,12 @@ class DivisionViewSet(viewsets.ModelViewSet):
 class SubdivisionViewSet(viewsets.ModelViewSet):
     queryset = Subdivision.objects.all().select_related('division')
     serializer_class = SubdivisionSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [HasRequiredPermission]
+    required_permission = 'customers.manage_schools'
+    permission_map = {
+        'list': 'customers.view_customers',
+        'retrieve': 'customers.view_customers',
+    }
     filter_backends = [DjangoFilterBackend]
     filterset_fields = ['division']
 
@@ -1038,7 +1070,12 @@ class SubdivisionViewSet(viewsets.ModelViewSet):
 class ClassTemplateViewSet(viewsets.ModelViewSet):
     queryset = ClassTemplate.objects.all()
     serializer_class = ClassTemplateSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [HasRequiredPermission]
+    required_permission = 'customers.manage_schools'
+    permission_map = {
+        'list': 'customers.view_customers',
+        'retrieve': 'customers.view_customers',
+    }
     pagination_class = None
     filter_backends = [filters.SearchFilter]
     search_fields = ['name']
@@ -1047,7 +1084,12 @@ class ClassTemplateViewSet(viewsets.ModelViewSet):
 class DivisionTemplateViewSet(viewsets.ModelViewSet):
     queryset = DivisionTemplate.objects.all()
     serializer_class = DivisionTemplateSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [HasRequiredPermission]
+    required_permission = 'customers.manage_schools'
+    permission_map = {
+        'list': 'customers.view_customers',
+        'retrieve': 'customers.view_customers',
+    }
     pagination_class = None
     filter_backends = [filters.SearchFilter]
     search_fields = ['name']
@@ -1056,7 +1098,12 @@ class DivisionTemplateViewSet(viewsets.ModelViewSet):
 class SubdivisionTemplateViewSet(viewsets.ModelViewSet):
     queryset = SubdivisionTemplate.objects.all()
     serializer_class = SubdivisionTemplateSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [HasRequiredPermission]
+    required_permission = 'customers.manage_schools'
+    permission_map = {
+        'list': 'customers.view_customers',
+        'retrieve': 'customers.view_customers',
+    }
     pagination_class = None
     filter_backends = [filters.SearchFilter]
     search_fields = ['name']
@@ -1065,7 +1112,12 @@ class SubdivisionTemplateViewSet(viewsets.ModelViewSet):
 class CustomerGroupViewSet(viewsets.ModelViewSet):
     queryset = CustomerGroup.objects.all()
     serializer_class = CustomerGroupSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [HasRequiredPermission]
+    required_permission = 'customers.manage_customers'
+    permission_map = {
+        'list': 'customers.view_customers',
+        'retrieve': 'customers.view_customers',
+    }
     filter_backends = [filters.SearchFilter]
     search_fields = ['name']
 
@@ -1073,13 +1125,23 @@ class CustomerGroupViewSet(viewsets.ModelViewSet):
 class LinkTypeViewSet(viewsets.ModelViewSet):
     queryset = LinkType.objects.all()
     serializer_class = LinkTypeSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [HasRequiredPermission]
+    required_permission = 'customers.manage_customers'
+    permission_map = {
+        'list': 'customers.view_customers',
+        'retrieve': 'customers.view_customers',
+    }
 
 
 class LocationTagViewSet(viewsets.ModelViewSet):
     queryset = LocationTag.objects.all()
     serializer_class = LocationTagSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [HasRequiredPermission]
+    required_permission = 'customers.manage_customers'
+    permission_map = {
+        'list': 'customers.view_customers',
+        'retrieve': 'customers.view_customers',
+    }
     filter_backends = [filters.SearchFilter]
     search_fields = ['name']
     

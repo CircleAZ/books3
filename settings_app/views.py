@@ -17,28 +17,19 @@ from .serializers import (
 
 User = get_user_model()
 
-class IsAdminUser(permissions.BasePermission):
-    """
-    Custom permission to only allow admins to edit settings.
-    For now, we stick to Django's is_staff or specific role check.
-    """
-    def has_permission(self, request, view):
-        return request.user and request.user.is_authenticated and request.user.is_staff
-
 class StoreSettingsViewSet(viewsets.GenericViewSet):
     """
     Manage Store Settings (Singleton).
     Read access for any authenticated user (currency, store name, etc.).
-    Write access restricted to admin/staff users.
+    Write access restricted to users with settings.manage_store permission.
     """
     queryset = StoreSettings.objects.all()
     serializer_class = StoreSettingsSerializer
-
-    def get_permissions(self):
-        if self.action == 'list':
-            # Any authenticated user can read store settings (needed for currency symbol, store name, etc.)
-            return [permissions.IsAuthenticated()]
-        return [IsAdminUser()]
+    permission_classes = [HasRequiredPermission]
+    required_permission = 'settings.manage_store'
+    permission_map = {
+        'list': None,  # Any authenticated user can read store settings
+    }
 
     def list(self, request):
         instance = StoreSettings.get_instance()
@@ -117,7 +108,8 @@ class RoleViewSet(viewsets.ModelViewSet):
         return Response(data)
 
 class FinancialSettingsViewSet(viewsets.ViewSet):
-    permission_classes = [IsAdminUser]
+    permission_classes = [HasRequiredPermission]
+    required_permission = 'settings.manage_taxes'
     
     @action(detail=False, methods=['get'])
     def taxes(self, request):
@@ -128,12 +120,14 @@ class FinancialSettingsViewSet(viewsets.ViewSet):
 class TaxSettingsViewSet(viewsets.ModelViewSet):
     queryset = TaxSettings.objects.all()
     serializer_class = TaxSettingsSerializer
-    permission_classes = [IsAdminUser]
+    permission_classes = [HasRequiredPermission]
+    required_permission = 'settings.manage_taxes'
 
 class NotificationSettingsViewSet(viewsets.ModelViewSet):
     queryset = NotificationPreference.objects.all()
     serializer_class = NotificationPreferenceSerializer
-    permission_classes = [IsAdminUser]
+    permission_classes = [HasRequiredPermission]
+    required_permission = 'settings.manage_notifications'
 
 from .models import ReceiptSettings, UPIAccount, IntegrationSettings
 
@@ -143,7 +137,8 @@ class ReceiptSettingsViewSet(viewsets.GenericViewSet):
     """
     queryset = ReceiptSettings.objects.all()
     serializer_class = ReceiptSettingsSerializer
-    permission_classes = [IsAdminUser]
+    permission_classes = [HasRequiredPermission]
+    required_permission = 'settings.manage_receipts'
 
     def list(self, request):
         instance = ReceiptSettings.get_instance()
@@ -163,26 +158,30 @@ class PaymentMethodViewSet(viewsets.ModelViewSet):
     """CRUD for payment methods."""
     queryset = PaymentMethod.objects.all()
     serializer_class = PaymentMethodSerializer
-    permission_classes = [IsAdminUser]
+    permission_classes = [HasRequiredPermission]
+    required_permission = 'settings.manage_payments'
 
 
 class UPIAccountViewSet(viewsets.ModelViewSet):
     """CRUD for UPI accounts."""
     queryset = UPIAccount.objects.all()
     serializer_class = UPIAccountSerializer
-    permission_classes = [IsAdminUser]
+    permission_classes = [HasRequiredPermission]
+    required_permission = 'settings.manage_payments'
 
 
 class IntegrationSettingsViewSet(viewsets.ModelViewSet):
     """CRUD for third-party integrations."""
     queryset = IntegrationSettings.objects.all()
     serializer_class = IntegrationSettingsSerializer
-    permission_classes = [IsAdminUser]
+    permission_classes = [HasRequiredPermission]
+    required_permission = 'settings.manage_integrations'
 
 
 class SystemInfoView(APIView):
     """System information and health check."""
-    permission_classes = [IsAdminUser]
+    permission_classes = [HasRequiredPermission]
+    required_permission = 'settings.manage_store'
     
     def get(self, request):
         import django
@@ -195,7 +194,8 @@ class SystemInfoView(APIView):
 
 class DataManagementView(APIView):
     """Backup and restore controls."""
-    permission_classes = [IsAdminUser]
+    permission_classes = [HasRequiredPermission]
+    required_permission = 'settings.manage_store'
     
     def get(self, request):
         """Get last backup info."""
@@ -216,4 +216,4 @@ class DataManagementView(APIView):
         return Response(
             {'error': 'Invalid action. Use: backup'},
             status=status.HTTP_400_BAD_REQUEST
-        )
+        )
