@@ -23,6 +23,7 @@ export default function ProductList() {
     const [vendor, setVendor] = useState('');
     const [page, setPage] = useState(1);
     const [totalPages, setTotalPages] = useState(1);
+    const [count, setCount] = useState(0);
     const [ordering, setOrdering] = useState('display_id');
 
     // Filter options
@@ -56,6 +57,7 @@ export default function ProductList() {
             if (response.ok) {
                 const data = await response.json();
                 setProducts(data.results || []);
+                setCount(data.count || 0);
                 setTotalPages(Math.ceil((data.count || 0) / (data.page_size || 10)));
             } else {
                 console.error('Failed to fetch products');
@@ -121,6 +123,15 @@ export default function ProductList() {
         setPage(1);
     };
 
+    const clearFilters = () => {
+        setSearch('');
+        setCategory('');
+        setVendor('');
+        setPage(1);
+    };
+
+    const isFilterActive = category !== '' || vendor !== '' || search !== '';
+
     const getStatus = (product) => {
         if (product.stock_quantity <= 0) return 'out-of-stock';
         if (product.stock_quantity <= (product.low_stock_threshold || 5)) return 'low-stock';
@@ -170,6 +181,16 @@ export default function ProductList() {
                         <option key={vend.id || vend.name} value={vend.id || vend.name}>{vend.name}</option>
                     ))}
                 </select>
+
+                {isFilterActive && (
+                    <button className="btn btn-ghost btn-sm" onClick={clearFilters} style={{ borderColor: 'var(--color-warning)', color: 'var(--color-warning)' }}>
+                        Clear
+                    </button>
+                )}
+            </div>
+
+            <div className="total-qty-indicator" style={{ fontWeight: 'bold', color: 'var(--color-primary)', fontSize: '1.1rem', marginBottom: '8px' }}>
+                Total Qty: {count}
             </div>
 
             <div className="inventory-table-container">
@@ -263,9 +284,6 @@ export default function ProductList() {
                 )}
 
                 <div className="pagination-bar">
-                    <span className="page-info text-muted small" style={{ display: 'block', textAlign: 'center', marginTop: '10px' }}>
-                        Page {page} of {totalPages || 1}
-                    </span>
                     <Pagination 
                         currentPage={page} 
                         totalPages={totalPages} 
