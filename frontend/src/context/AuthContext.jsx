@@ -359,6 +359,20 @@ export function AuthProvider({ children }) {
     useEffect(() => { tokenRef.current = token; }, [token]);
 
     const fetchWithAuth = useCallback(async (url, options = {}) => {
+        // PROACTIVE INTERCEPTOR: Prevent doomed 401 requests from polluting the console
+        if (tokenRef.current) {
+            try {
+                const payload = decodeJwtPayload(tokenRef.current);
+                const expiresAt = payload.exp * 1000;
+                // If token expires in less than 30 seconds (or is already expired), refresh BEFORE sending
+                if (expiresAt - Date.now() < 30000) {
+                    await refreshToken();
+                }
+            } catch (e) {
+                // Ignore decoding errors and let the backend reject it naturally
+            }
+        }
+
         const headers = {
             ...options.headers,
         };
@@ -368,8 +382,11 @@ export function AuthProvider({ children }) {
             headers['Content-Type'] = headers['Content-Type'] || 'application/json';
         }
 
-        if (tokenRef.current) {
-            headers['Authorization'] = `Bearer ${tokenRef.current}`;
+        // Must read directly from localStorage here in case `refreshToken()` just ran
+        // because React state `tokenRef.current` won't be updated until the next cycle
+        const currentToken = localStorage.getItem('access_token') || tokenRef.current;
+        if (currentToken) {
+            headers['Authorization'] = `Bearer ${currentToken}`;
         }
 
         const response = await fetch(url, { ...options, headers, cache: 'no-store' });
