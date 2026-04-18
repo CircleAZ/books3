@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useCurrency } from '../../context/CurrencyContext';
 import { ENDPOINTS } from '../../config/api';
+import Pagination from '../../components/common/Pagination';
 import './InitiateReturn.css';
 
 export default function InitiateReturn() {
@@ -24,6 +25,12 @@ export default function InitiateReturn() {
     const [selectedItems, setSelectedItems] = useState({}); // { order_item_id: { quantity, reason, stock_action } }
     const [notes, setNotes] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
+
+    // Recent Delivered Orders State (Default View)
+    const [recentOrders, setRecentOrders] = useState([]);
+    const [currentPage, setCurrentPage] = useState(1);
+    const [totalPages, setTotalPages] = useState(1);
+    const [isLoadingRecent, setIsLoadingRecent] = useState(false);
 
     // Fetch return reasons on mount
     useEffect(() => {
@@ -66,6 +73,29 @@ export default function InitiateReturn() {
 
         return () => clearTimeout(timer);
     }, [searchQuery, fetchWithAuth]);
+
+    // Fetch recent delivered orders for default view
+    useEffect(() => {
+        if (searchQuery || selectedOrder) return;
+        
+        const fetchRecent = async () => {
+            setIsLoadingRecent(true);
+            try {
+                const response = await fetchWithAuth(`${ENDPOINTS.ORDERS}?delivery_status=delivered&page=${currentPage}`);
+                if (response.ok) {
+                    const data = await response.json();
+                    setRecentOrders(data.results || []);
+                    // Assuming standard page size of 10 from backend
+                    setTotalPages(Math.ceil((data.count || 0) / 10) || 1);
+                }
+            } catch (error) {
+                console.error('Error fetching recent orders:', error);
+            } finally {
+                setIsLoadingRecent(false);
+            }
+        };
+        fetchRecent();
+    }, [searchQuery, selectedOrder, currentPage, fetchWithAuth]);
 
     const handleSelectOrder = async (orderId) => {
         setIsLoadingOrder(true);
@@ -219,6 +249,72 @@ export default function InitiateReturn() {
                     )}
                 </div>
             </section>
+
+            {!selectedOrder && !searchQuery && (
+                <section className="recent-orders-section mt-4 fade-in">
+                    <div className="glass-card">
+                        <div className="section-header">
+                            <h3 className="section-title">Eligible Returnable Orders</h3>
+                        </div>
+                        {isLoadingRecent ? (
+                            <div className="loading-state py-4">
+                                <div className="spinner"></div>
+                            </div>
+                        ) : recentOrders.length > 0 ? (
+                            <>
+                                <div className="table-responsive">
+                                    <table className="returns-table" style={{ width: '100%', textAlign: 'left' }}>
+                                        <thead>
+                                            <tr>
+                                                <th style={{ padding: '0.75rem' }}>Order ID</th>
+                                                <th style={{ padding: '0.75rem' }}>Customer</th>
+                                                <th style={{ padding: '0.75rem' }}>Date</th>
+                                                <th style={{ padding: '0.75rem' }}>Status</th>
+                                                <th style={{ padding: '0.75rem' }}>Action</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {recentOrders.map(order => (
+                                                <tr key={order.id} style={{ borderBottom: '1px solid var(--color-border)' }}>
+                                                    <td style={{ padding: '0.75rem' }}>#{order.id.split('-')[0].toUpperCase()}</td>
+                                                    <td style={{ padding: '0.75rem' }}>{order.customer_name || 'Guest'}</td>
+                                                    <td style={{ padding: '0.75rem' }}>{new Date(order.created_at).toLocaleDateString()}</td>
+                                                    <td style={{ padding: '0.75rem', textTransform: 'capitalize' }}>
+                                                        <span className={`status-badge status-${order.delivery_status || 'delivered'}`}>
+                                                            {order.derived_status || order.delivery_status}
+                                                        </span>
+                                                    </td>
+                                                    <td style={{ padding: '0.75rem' }}>
+                                                        <button 
+                                                            className="btn btn-sm btn-primary"
+                                                            onClick={() => handleSelectOrder(order.id)}
+                                                        >
+                                                            Select
+                                                        </button>
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                                {totalPages > 1 && (
+                                    <div className="mt-4" style={{ display: 'flex', justifyContent: 'center' }}>
+                                        <Pagination
+                                            currentPage={currentPage}
+                                            totalPages={totalPages}
+                                            onPageChange={setCurrentPage}
+                                        />
+                                    </div>
+                                )}
+                            </>
+                        ) : (
+                            <div className="empty-state py-4 text-center text-muted">
+                                No recently delivered orders available for return.
+                            </div>
+                        )}
+                    </div>
+                </section>
+            )}
 
             {isLoadingOrder && (
                 <div className="loading-state">
