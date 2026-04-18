@@ -161,7 +161,7 @@ export default function ProductSets() {
 
     // Filter templates securely based on cascading rules
     const getValidDivisions = () => {
-        if (!formData.school || !formData.class_name) return [];
+        if (!formData.class_name) return [];
         return divisionTemplates.filter(d => 
             !d.applicable_class_names || d.applicable_class_names.length === 0 || 
             d.applicable_class_names.includes(formData.class_name)
@@ -169,7 +169,7 @@ export default function ProductSets() {
     };
 
     const getValidSubdivisions = () => {
-        if (!formData.school || !formData.division_name) return [];
+        if (!formData.division_name) return [];
         return subdivisionTemplates.filter(sd => 
             !sd.applicable_division_names || sd.applicable_division_names.length === 0 || 
             sd.applicable_division_names.includes(formData.division_name)
@@ -544,7 +544,7 @@ export default function ProductSets() {
                                             <select
                                                 value={formData.division_name}
                                                 onChange={e => setFormData(p => ({ ...p, division_name: e.target.value, subdivision_name: '' }))}
-                                                disabled={!formData.school || !formData.class_name}
+                                                disabled={!formData.class_name}
                                             >
                                                 <option value="">Select Division (e.g. A, B)</option>
                                                 {getValidDivisions().map(d => (
@@ -557,7 +557,7 @@ export default function ProductSets() {
                                             <select
                                                 value={formData.subdivision_name}
                                                 onChange={e => setFormData(p => ({ ...p, subdivision_name: e.target.value }))}
-                                                disabled={!formData.school || !formData.division_name}
+                                                disabled={!formData.division_name}
                                             >
                                                 <option value="">Select Subdivision (e.g. Gujarati Medium)</option>
                                                 {getValidSubdivisions().map(sd => (

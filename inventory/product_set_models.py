@@ -115,7 +115,27 @@ class ProductSet(UUIDPrimaryKeyModel):
             if match:
                 return match
 
-        # Priority 4: universal default (no school)
+        # Priority 4: universal default + division + subdivision
+        if division_name and subdivision_name:
+            match = qs.filter(
+                school__isnull=True,
+                division_name=division_name,
+                subdivision_name=subdivision_name,
+            ).first()
+            if match:
+                return match
+
+        # Priority 5: universal default + division
+        if division_name:
+            match = qs.filter(
+                school__isnull=True,
+                division_name=division_name,
+                subdivision_name='',
+            ).first()
+            if match:
+                return match
+
+        # Priority 6: universal default (no school, no division)
         return qs.filter(
             school__isnull=True,
             division_name='',
