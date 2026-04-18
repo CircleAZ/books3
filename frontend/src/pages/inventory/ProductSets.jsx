@@ -21,6 +21,8 @@ export default function ProductSets() {
     // Dropdown options
     const [classTemplates, setClassTemplates] = useState([]);
     const [schools, setSchools] = useState([]);
+    const [divisionTemplates, setDivisionTemplates] = useState([]);
+    const [subdivisionTemplates, setSubdivisionTemplates] = useState([]);
 
     // Form modal state
     const [showForm, setShowForm] = useState(false);
@@ -62,9 +64,11 @@ export default function ProductSets() {
     useEffect(() => {
         const fetchOptions = async () => {
             try {
-                const [ctRes, sRes] = await Promise.all([
+                const [ctRes, sRes, divRes, subdivRes] = await Promise.all([
                     fetchWithAuth(ENDPOINTS.CLASS_TEMPLATES),
                     fetchWithAuth(ENDPOINTS.SCHOOLS),
+                    fetchWithAuth(ENDPOINTS.DIVISION_TEMPLATES),
+                    fetchWithAuth(ENDPOINTS.SUBDIVISION_TEMPLATES),
                 ]);
                 if (ctRes.ok) {
                     const data = await ctRes.json();
@@ -76,6 +80,14 @@ export default function ProductSets() {
                 if (sRes.ok) {
                     const data = await sRes.json();
                     setSchools(data.results || data || []);
+                }
+                if (divRes.ok) {
+                    const data = await divRes.json();
+                    setDivisionTemplates(data.results || data || []);
+                }
+                if (subdivRes.ok) {
+                    const data = await subdivRes.json();
+                    setSubdivisionTemplates(data.results || data || []);
                 }
             } catch (err) {
                 console.error('Failed to load options:', err);
@@ -502,21 +514,27 @@ export default function ProductSets() {
                                         </div>
                                         <div className="form-group">
                                             <label>Division <span className="ps-optional">(optional)</span></label>
-                                            <input
-                                                type="text"
+                                            <select
                                                 value={formData.division_name}
                                                 onChange={e => setFormData(p => ({ ...p, division_name: e.target.value }))}
-                                                placeholder="e.g. A, B"
-                                            />
+                                            >
+                                                <option value="">Select Division (e.g. A, B)</option>
+                                                {divisionTemplates.map(d => (
+                                                    <option key={d.id} value={d.name}>{d.name}</option>
+                                                ))}
+                                            </select>
                                         </div>
                                         <div className="form-group">
                                             <label>Subdivision <span className="ps-optional">(optional)</span></label>
-                                            <input
-                                                type="text"
+                                            <select
                                                 value={formData.subdivision_name}
                                                 onChange={e => setFormData(p => ({ ...p, subdivision_name: e.target.value }))}
-                                                placeholder="e.g. Gujarati Medium"
-                                            />
+                                            >
+                                                <option value="">Select Subdivision (e.g. Gujarati Medium)</option>
+                                                {subdivisionTemplates.map(sd => (
+                                                    <option key={sd.id} value={sd.name}>{sd.name}</option>
+                                                ))}
+                                            </select>
                                         </div>
                                     </div>
                                 </div>
