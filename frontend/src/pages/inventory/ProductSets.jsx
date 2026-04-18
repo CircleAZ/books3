@@ -159,6 +159,23 @@ export default function ProductSets() {
         setShowForm(true);
     };
 
+    // Filter templates securely based on cascading rules
+    const getValidDivisions = () => {
+        if (!formData.school || !formData.class_name) return [];
+        return divisionTemplates.filter(d => 
+            !d.applicable_class_names || d.applicable_class_names.length === 0 || 
+            d.applicable_class_names.includes(formData.class_name)
+        );
+    };
+
+    const getValidSubdivisions = () => {
+        if (!formData.school || !formData.division_name) return [];
+        return subdivisionTemplates.filter(sd => 
+            !sd.applicable_division_names || sd.applicable_division_names.length === 0 || 
+            sd.applicable_division_names.includes(formData.division_name)
+        );
+    };
+
     // Open edit form
     const openEdit = (set) => {
         setEditingSet(set);
@@ -491,7 +508,12 @@ export default function ProductSets() {
                                             <label>Class <span className="required-star">*</span></label>
                                             <select
                                                 value={formData.class_name}
-                                                onChange={e => setFormData(p => ({ ...p, class_name: e.target.value }))}
+                                                onChange={e => setFormData(p => ({ 
+                                                    ...p, 
+                                                    class_name: e.target.value,
+                                                    division_name: '',
+                                                    subdivision_name: ''
+                                                }))}
                                                 required
                                             >
                                                 <option value="">Select Class</option>
@@ -504,7 +526,12 @@ export default function ProductSets() {
                                             <label>School <span className="ps-optional">(optional override)</span></label>
                                             <select
                                                 value={formData.school}
-                                                onChange={e => setFormData(p => ({ ...p, school: e.target.value }))}
+                                                onChange={e => setFormData(p => ({ 
+                                                    ...p, 
+                                                    school: e.target.value,
+                                                    division_name: '',
+                                                    subdivision_name: ''
+                                                }))}
                                             >
                                                 <option value="">All Schools (Default)</option>
                                                 {schools.map(s => (
@@ -516,10 +543,11 @@ export default function ProductSets() {
                                             <label>Division <span className="ps-optional">(optional)</span></label>
                                             <select
                                                 value={formData.division_name}
-                                                onChange={e => setFormData(p => ({ ...p, division_name: e.target.value }))}
+                                                onChange={e => setFormData(p => ({ ...p, division_name: e.target.value, subdivision_name: '' }))}
+                                                disabled={!formData.school || !formData.class_name}
                                             >
                                                 <option value="">Select Division (e.g. A, B)</option>
-                                                {divisionTemplates.map(d => (
+                                                {getValidDivisions().map(d => (
                                                     <option key={d.id} value={d.name}>{d.name}</option>
                                                 ))}
                                             </select>
@@ -529,9 +557,10 @@ export default function ProductSets() {
                                             <select
                                                 value={formData.subdivision_name}
                                                 onChange={e => setFormData(p => ({ ...p, subdivision_name: e.target.value }))}
+                                                disabled={!formData.school || !formData.division_name}
                                             >
                                                 <option value="">Select Subdivision (e.g. Gujarati Medium)</option>
-                                                {subdivisionTemplates.map(sd => (
+                                                {getValidSubdivisions().map(sd => (
                                                     <option key={sd.id} value={sd.name}>{sd.name}</option>
                                                 ))}
                                             </select>
