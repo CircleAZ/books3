@@ -102,7 +102,7 @@ DEFAULT_ROLES = {
             # Finance - view + manage expenses
             'finance.view_dashboard', 'finance.view_reports',
             'finance.manage_expenses', 'finance.approve_expenses',
-            'finance.manage_income', 'finance.export',
+            'finance.manage_income', 'finance.manage_banking', 'finance.export',
             # Reports - all
             'reports.view_sales', 'reports.view_inventory',
             'reports.view_customers', 'reports.view_finance',
@@ -219,6 +219,21 @@ class Command(BaseCommand):
             )
             status = '✅ Assigned' if created else '⏭️  Already assigned'
             self.stdout.write(f'  {status}: {superuser.username} → Admin')
+
+        self.stdout.write('\n🛡️  Assigning default role to orphaned users...')
+        default_role = Role.objects.filter(is_default=True).first()
+        if default_role:
+            orphaned_users = User.objects.exclude(
+                user_roles__isnull=False
+            ).filter(is_active=True, is_superuser=False)
+            for orphan in orphaned_users:
+                _, created = UserRole.objects.get_or_create(
+                    user=orphan, role=default_role
+                )
+                status = '✅ Assigned' if created else '⏭️  Already assigned'
+                self.stdout.write(f'  {status}: {orphan.username} → {default_role.name}')
+        else:
+            self.stdout.write(self.style.WARNING('  ⚠️  No default role found. Skipping.'))
 
         self.stdout.write(self.style.SUCCESS('\n✅ RBAC seeding complete!'))
         self.stdout.write(f'   {Permission.objects.count()} permissions')

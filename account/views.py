@@ -105,6 +105,11 @@ def _build_token_response(user, remember_me, request, device_token=None):
 
     profile_data = UserSerializer(user, context={'request': request}).data
 
+    # Resolve RBAC role name from UserRole table (not the deprecated User.role CharField)
+    from settings_app.models import Role
+    rbac_roles = Role.objects.filter(role_users__user=user)
+    rbac_role_name = rbac_roles.first().name if rbac_roles.exists() else None
+
     return Response({
         'access': str(access_token),
         'refresh': str(refresh),
@@ -114,7 +119,7 @@ def _build_token_response(user, remember_me, request, device_token=None):
             'email': user.email,
             'first_name': user.first_name,
             'last_name': user.last_name,
-            'role': user.role,
+            'role': rbac_role_name,
         },
         'profile': profile_data,
         **({'device_token': device_token} if device_token else {})

@@ -302,7 +302,7 @@ class BankAccountViewSet(viewsets.ModelViewSet):
     queryset = BankAccount.objects.all()
     serializer_class = BankAccountSerializer
     permission_classes = [HasRequiredPermission]
-    required_permission = 'finance.manage_bank_accounts'
+    required_permission = 'finance.manage_banking'
     pagination_class = FinancePagination
     
     def get_queryset(self):
@@ -326,7 +326,7 @@ class BankTransactionViewSet(viewsets.ModelViewSet):
     queryset = BankTransaction.objects.select_related('bank_account', 'created_by')
     serializer_class = BankTransactionSerializer
     permission_classes = [HasRequiredPermission]
-    required_permission = 'finance.manage_bank_accounts'
+    required_permission = 'finance.manage_banking'
     pagination_class = FinancePagination
     
     def get_queryset(self):
@@ -370,20 +370,23 @@ class EmployeeExpenseViewSet(viewsets.ModelViewSet):
     queryset = EmployeeExpense.objects.select_related('employee', 'category', 'approved_by')
     serializer_class = EmployeeExpenseSerializer
     permission_classes = [HasRequiredPermission]
-    required_permission = 'finance.manage_employee_expenses'
+    required_permission = 'finance.manage_expenses'
     pagination_class = FinancePagination
     
     def get_queryset(self):
         qs = super().get_queryset()
         
-        # P1 Fix: Finance role users (Manager/Accountant) can see all claims
+        # RBAC Fix: Check roles from UserRole table (not the orphaned User.role CharField)
         user = self.request.user
-        is_finance_role = False
-        if hasattr(user, 'role') and user.role:
-            role_name = user.role.name if hasattr(user.role, 'name') else str(user.role)
-            is_finance_role = role_name in ['Admin', 'Manager', 'Accountant', 'Store Manager']
+        from settings_app.models import Role
+        user_role_names = set(
+            Role.objects.filter(role_users__user=user).values_list('name', flat=True)
+        )
+        is_finance_role = bool(
+            user_role_names & {'Admin', 'Manager', 'Accountant'}
+        )
         
-        if not user.is_staff and not is_finance_role:
+        if not user.is_superuser and not is_finance_role:
             qs = qs.filter(employee=user)
         
         status_filter = self.request.query_params.get('status')

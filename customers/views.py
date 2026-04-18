@@ -36,7 +36,7 @@ class InlineSchoolCreateView(APIView):
     { "type": "division", "name": "Section A", "class_id": "uuid" }
     """
     permission_classes = [HasRequiredPermission]
-    required_permission = 'customers.inline_create_taxonomy'
+    required_permission = 'customers.manage_customers'
     throttle_classes = [UserRateThrottle]  # CA-07: 30/min default
 
     def post(self, request):
