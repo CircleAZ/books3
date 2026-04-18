@@ -33,12 +33,22 @@ export default function OrderList() {
 
     const activeFilterCount = [orderStatus, paymentStatus, deliveryStatus, returnStatus, refundStatus, cancellationStatus, dateAfter, dateBefore].filter(Boolean).length;
 
+    // Debounced search state
+    const [debouncedSearch, setDebouncedSearch] = useState('');
+
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            setDebouncedSearch(search);
+        }, 500);
+        return () => clearTimeout(timer);
+    }, [search]);
+
     const fetchOrders = useCallback(async () => {
         setLoading(true);
         try {
             const queryParams = new URLSearchParams({
                 page,
-                search,
+                search: debouncedSearch,
                 order_status: orderStatus,
                 payment_status: paymentStatus,
                 delivery_status: deliveryStatus,
@@ -71,21 +81,12 @@ export default function OrderList() {
         } finally {
             setLoading(false);
         }
-    }, [fetchWithAuth, page, search, orderStatus, paymentStatus, deliveryStatus, returnStatus, refundStatus, cancellationStatus, dateAfter, dateBefore, ordering]);
+    }, [fetchWithAuth, page, debouncedSearch, orderStatus, paymentStatus, deliveryStatus, returnStatus, refundStatus, cancellationStatus, dateAfter, dateBefore, ordering]);
 
-    // Immediate fetch on navigation or filter changes
+    // Unified fetch execution: fires precisely when filters/pages or location.key changes
     useEffect(() => {
         fetchOrders();
-    }, [location.key]);
-
-    // Debounced fetch for search input
-    useEffect(() => {
-        if (!search) return;
-        const timer = setTimeout(() => {
-            fetchOrders();
-        }, 500);
-        return () => clearTimeout(timer);
-    }, [fetchOrders, search]);
+    }, [fetchOrders, location.key]);
 
     const handleSearchChange = (e) => {
         setSearch(e.target.value);

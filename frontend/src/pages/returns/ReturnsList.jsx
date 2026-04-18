@@ -24,12 +24,22 @@ export default function ReturnsList() {
     const [dateBefore, setDateBefore] = useState('');
     const [ordering, setOrdering] = useState('-created_at');
 
+    // Debounced search state
+    const [debouncedSearch, setDebouncedSearch] = useState('');
+
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            setDebouncedSearch(search);
+        }, 500);
+        return () => clearTimeout(timer);
+    }, [search]);
+
     const fetchReturns = useCallback(async () => {
         setLoading(true);
         try {
             const queryParams = new URLSearchParams({
                 page,
-                search,
+                search: debouncedSearch,
                 status,
                 created_after: dateAfter ? `${dateAfter}T00:00:00` : '',
                 created_before: dateBefore ? `${dateBefore}T23:59:59` : '',
@@ -57,21 +67,12 @@ export default function ReturnsList() {
         } finally {
             setLoading(false);
         }
-    }, [fetchWithAuth, page, search, status, dateAfter, dateBefore, ordering]);
+    }, [fetchWithAuth, page, debouncedSearch, status, dateAfter, dateBefore, ordering]);
 
-    // Immediate fetch on navigation
+    // Unified fetch execution: fires precisely when filters/pages or location.key changes
     useEffect(() => {
         fetchReturns();
-    }, [location.key]);
-
-    // Debounced fetch for search input
-    useEffect(() => {
-        if (!search) return;
-        const timer = setTimeout(() => {
-            fetchReturns();
-        }, 500);
-        return () => clearTimeout(timer);
-    }, [fetchReturns, search]);
+    }, [fetchReturns, location.key]);
 
     const handleSearchChange = (e) => {
         setSearch(e.target.value);

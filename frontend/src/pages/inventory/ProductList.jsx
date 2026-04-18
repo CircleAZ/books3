@@ -27,12 +27,24 @@ export default function ProductList() {
     const [categories, setCategories] = useState([]);
     const [vendors, setVendors] = useState([]);
 
+    // Debounced search state
+    const [debouncedSearch, setDebouncedSearch] = useState('');
+
+    useEffect(() => {
+        setIsSearching(true);
+        const timer = setTimeout(() => {
+            setDebouncedSearch(search);
+            setIsSearching(false);
+        }, 500);
+        return () => clearTimeout(timer);
+    }, [search]);
+
     const fetchProducts = useCallback(async () => {
         setLoading(true);
         try {
             const queryParams = new URLSearchParams({
                 page,
-                search,
+                search: debouncedSearch,
                 category,
                 vendor
             });
@@ -50,7 +62,7 @@ export default function ProductList() {
         } finally {
             setLoading(false);
         }
-    }, [fetchWithAuth, page, search, category, vendor]);
+    }, [fetchWithAuth, page, debouncedSearch, category, vendor]);
 
     const fetchFilters = useCallback(async () => {
         try {
@@ -72,20 +84,10 @@ export default function ProductList() {
         }
     }, [fetchWithAuth]);
 
-    // Immediate fetch on navigation or filter changes
+    // Unified fetch execution: fires precisely when filters/pages or location.key changes
     useEffect(() => {
         fetchProducts();
-    }, [location.key]);
-
-    // Debounced fetch for search input
-    useEffect(() => {
-        if (!search) return;
-        setIsSearching(true);
-        const timer = setTimeout(() => {
-            fetchProducts().finally(() => setIsSearching(false));
-        }, 500);
-        return () => clearTimeout(timer);
-    }, [fetchProducts, search]);
+    }, [fetchProducts, location.key]);
 
     // Initial load for filters
     useEffect(() => {
