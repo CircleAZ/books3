@@ -37,9 +37,9 @@ class ProductSetSerializer(serializers.ModelSerializer):
             'id', 'name', 'description', 'class_name',
             'school', 'school_name', 'division_name', 'subdivision_name',
             'is_active', 'item_count', 'total_value',
-            'items', 'created_at', 'created_by',
+            'items', 'created_by',
         ]
-        read_only_fields = ['created_by', 'created_at']
+        read_only_fields = ['created_by']
 
 
 class ProductSetCreateSerializer(serializers.ModelSerializer):
