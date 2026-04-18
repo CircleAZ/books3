@@ -206,8 +206,8 @@ export default function ProductSets() {
     // Save form
     const handleSave = async (e) => {
         e.preventDefault();
-        if (!formData.name.trim() || !formData.class_name) {
-            showToast('Name and Class are required', 'error');
+        if (!formData.class_name) {
+            showToast('Class is required', 'error');
             return;
         }
         if (formItems.length === 0) {
@@ -217,8 +217,23 @@ export default function ProductSets() {
 
         setSaving(true);
         try {
+            // Auto-generate name based on scope criteria
+            let generatedName = `STD ${formData.class_name}`;
+            if (formData.division_name) {
+                generatedName += ` ${formData.division_name}`;
+            }
+            if (formData.school) {
+                const schoolObj = schools.find(s => s.id === parseInt(formData.school) || s.id === formData.school);
+                if (schoolObj) {
+                    generatedName += ` - ${schoolObj.name}`;
+                } else {
+                     generatedName += ` - ${formData.school}`;
+                }
+            }
+
             const payload = {
                 ...formData,
+                name: generatedName,
                 school: formData.school || null,
                 items: formItems.map(i => ({
                     product: i.product,
@@ -430,16 +445,6 @@ export default function ProductSets() {
                                 <div className="ps-form-section">
                                     <h3>Set Details</h3>
                                     <div className="ps-form-grid">
-                                        <div className="form-group">
-                                            <label>Name <span className="required-star">*</span></label>
-                                            <input
-                                                type="text"
-                                                value={formData.name}
-                                                onChange={e => setFormData(p => ({ ...p, name: e.target.value }))}
-                                                placeholder="e.g. Class 7 Stationery Kit"
-                                                required
-                                            />
-                                        </div>
                                         <div className="form-group">
                                             <label>
                                                 <input

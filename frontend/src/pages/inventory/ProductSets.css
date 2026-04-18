@@ -245,7 +245,7 @@
 }
 
 .ps-modal {
-    background: var(--color-card);
+    background: #111823;
     border-radius: var(--radius-lg, 12px);
     width: 100%;
     max-width: 720px;
