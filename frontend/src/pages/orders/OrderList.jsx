@@ -72,8 +72,8 @@ export default function OrderList() {
                 const data = await response.json();
                 setOrders(data.results || []);
                 setCount(data.count || 0);
-                // Assuming page_size is 10 as per backend default or observed patterns
-                setTotalPages(Math.ceil((data.count || 0) / (data.page_size || 10)));
+                // Synchronize with DRF settings.PAGE_SIZE (20)
+                setTotalPages(Math.ceil((data.count || 0) / 20));
             } else {
                 console.error('Failed to fetch orders');
             }

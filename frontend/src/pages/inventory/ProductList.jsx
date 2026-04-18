@@ -58,7 +58,8 @@ export default function ProductList() {
                 const data = await response.json();
                 setProducts(data.results || []);
                 setCount(data.count || 0);
-                setTotalPages(Math.ceil((data.count || 0) / (data.page_size || 10)));
+                // Synchronize with DRF settings.PAGE_SIZE (20)
+                setTotalPages(Math.ceil((data.count || 0) / 20));
             } else {
                 console.error('Failed to fetch products');
             }

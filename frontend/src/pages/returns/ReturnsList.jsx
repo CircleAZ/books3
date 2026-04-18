@@ -58,8 +58,8 @@ export default function ReturnsList() {
                 const data = await response.json();
                 setReturns(data.results || []);
                 setCount(data.count || 0);
-                // Assuming page_size is 10
-                setTotalPages(Math.ceil((data.count || 0) / 10));
+                // Synchronize with DRF settings.PAGE_SIZE (20)
+                setTotalPages(Math.ceil((data.count || 0) / 20));
             } else {
                 console.error('Failed to fetch returns');
             }
