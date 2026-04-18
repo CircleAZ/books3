@@ -140,10 +140,19 @@ export default function ProductSets() {
         setFormItems(prev => prev.filter((_, i) => i !== idx));
     };
 
-    // Update item quantity
+    // Update item quantity (allows raw string during typing)
     const updateItemQty = (idx, qty) => {
         setFormItems(prev => prev.map((item, i) =>
-            i === idx ? { ...item, quantity: Math.max(1, parseInt(qty) || 1) } : item
+            i === idx ? { ...item, quantity: qty } : item
+        ));
+    };
+
+    // Validate and sanitize quantity on blur
+    const sanitizeItemQty = (idx, currentQty) => {
+        let val = parseInt(currentQty, 10);
+        if (isNaN(val) || val < 1) val = 1;
+        setFormItems(prev => prev.map((item, i) =>
+            i === idx ? { ...item, quantity: val } : item
         ));
     };
 
@@ -618,8 +627,12 @@ export default function ProductSets() {
                                                     <input
                                                         type="number"
                                                         min="1"
-                                                        value={item.quantity}
+                                                        value={item.quantity === null || item.quantity === undefined ? '' : item.quantity}
                                                         onChange={e => updateItemQty(idx, e.target.value)}
+                                                        onBlur={(e) => sanitizeItemQty(idx, e.target.value)}
+                                                        onKeyDown={(e) => {
+                                                            if (e.key === 'Enter') e.target.blur();
+                                                        }}
                                                         className="ps-qty-input"
                                                     />
                                                     <span className="ps-items-total">
