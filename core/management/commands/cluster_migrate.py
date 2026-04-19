@@ -21,6 +21,10 @@ class Command(BaseCommand):
         if not redis or not redis_url:
             self.stdout.write(self.style.WARNING("Redis not detected. Running standard local migration."))
             call_command('migrate', interactive=False)
+            try:
+                call_command('createcachetable', 'django_cache', interactive=False)
+            except Exception:
+                pass
             return
 
         self.stdout.write("Initializing Redis connection for distributed lock...")
@@ -39,6 +43,12 @@ class Command(BaseCommand):
             try:
                 self.stdout.write("Running migrations...")
                 call_command('migrate', interactive=False)
+                
+                self.stdout.write("Ensuring cache table exists...")
+                try:
+                    call_command('createcachetable', 'django_cache', interactive=False)
+                except Exception as e:
+                    pass # Table likely already exists
                 
                 self.stdout.write("Ensuring superuser exists...")
                 try:
