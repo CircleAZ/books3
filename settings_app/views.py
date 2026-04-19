@@ -104,6 +104,20 @@ class RoleViewSet(viewsets.ModelViewSet):
             perms.append(HasElevatedAuth())
         return perms
 
+    def update(self, request, *args, **kwargs):
+        response = super().update(request, *args, **kwargs)
+        instance = self.get_object()
+        serializer = RoleSerializer(instance)
+        response.data = serializer.data
+        return response
+
+    def create(self, request, *args, **kwargs):
+        response = super().create(request, *args, **kwargs)
+        instance = Role.objects.get(id=response.data['id'])
+        serializer = RoleSerializer(instance)
+        response.data = serializer.data
+        return response
+
     @action(detail=False, methods=['get'])
     def permissions(self, request):
         perms = Permission.objects.all()
