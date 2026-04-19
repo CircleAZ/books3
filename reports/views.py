@@ -247,6 +247,8 @@ class InventoryReportViewSet(ReportBaseViewSet):
         
         valuation['total_cost_value'] = valuation['total_cost_value'] or 0
         valuation['total_selling_value'] = valuation['total_selling_value'] or 0
+        valuation['potential_profit'] = valuation['total_selling_value'] - valuation['total_cost_value']
+        valuation['total_items'] = Product.objects.count()
         
         return Response(valuation)
 
@@ -254,7 +256,9 @@ class InventoryReportViewSet(ReportBaseViewSet):
     def low_stock(self, request):
         low_stock_products = Product.objects.filter(
             stock_quantity__lt=F('low_stock_threshold')
-        ).values('id', 'name', 'stock_quantity', 'low_stock_threshold')
+        ).annotate(
+            reorder_point=F('low_stock_threshold')
+        ).values('id', 'name', 'stock_quantity', 'reorder_point')
         
         return Response(low_stock_products)
 
@@ -265,6 +269,7 @@ class InventoryReportViewSet(ReportBaseViewSet):
         except (ValueError, TypeError):
             days = 30
         cutoff = timezone.now() - timedelta(days=days)
+        today = timezone.now().date()
         
         # Products with 0 sales in N+ days (confirmed or completed orders)
         sold_product_ids = OrderItem.objects.filter(
@@ -272,11 +277,29 @@ class InventoryReportViewSet(ReportBaseViewSet):
             order__order_status__in=['confirmed', 'completed']
         ).values_list('product_id', flat=True).distinct()
         
-        dead_stock = Product.objects.exclude(
+        dead_stock_qs = Product.objects.exclude(
             id__in=sold_product_ids
-        ).filter(stock_quantity__gt=0).values('id', 'name', 'stock_quantity', 'cost_price')
+        ).filter(stock_quantity__gt=0).annotate(
+            last_order_date=Max(
+                'order_items__order__created_at',
+                filter=Q(order_items__order__order_status__in=['confirmed', 'completed'])
+            )
+        ).values('id', 'name', 'stock_quantity', 'cost_price', 'last_order_date')
         
-        return Response(dead_stock)
+        data = []
+        for p in dead_stock_qs:
+            last_sold = p['last_order_date'].date() if p['last_order_date'] else None
+            days_since = (today - last_sold).days if last_sold else None
+            data.append({
+                'id': p['id'],
+                'name': p['name'],
+                'stock_quantity': p['stock_quantity'],
+                'cost_price': p['cost_price'],
+                'last_sold': last_sold.isoformat() if last_sold else None,
+                'days_since_sale': days_since
+            })
+        
+        return Response(data)
 
     @action(detail=False, methods=['get'])
     def movement(self, request):
@@ -782,7 +805,7 @@ class FinanceReportViewSet(ReportBaseViewSet):
         
         # Cash Outflows
         cash_paid_expenses = ExpensePayment.objects.filter(
-            date__range=[start_date, end_date]
+            payment_date__range=[start_date, end_date]
         ).aggregate(total=Sum('amount'))['total'] or Decimal('0.00')
         
         # Salaries Paid
