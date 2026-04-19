@@ -9,7 +9,6 @@ from django.utils.dateparse import parse_date
 from datetime import timedelta
 from decimal import Decimal
 import logging
-import traceback as tb_module
 
 logger = logging.getLogger(__name__)
 
@@ -195,34 +194,30 @@ class SalesReportViewSet(ReportBaseViewSet):
 
     @action(detail=False, methods=['get'])
     def export(self, request):
-        try:
-            result = self._validate_dates(request)
-            if isinstance(result, Response):
-                return result
-            start_date, end_date = result
-            period = request.query_params.get('period', 'custom')
+        result = self._validate_dates(request)
+        if isinstance(result, Response):
+            return result
+        start_date, end_date = result
+        period = request.query_params.get('period', 'custom')
+        
+        orders = Order.objects.filter(
+            created_at__date__range=[start_date, end_date],
+            order_status__in=['confirmed', 'completed']
+        ).select_related('customer')
+        
+        header = ['Order ID', 'Date', 'Customer', 'Status', 'Items', 'Total Amount']
+        rows = []
+        for order in orders:
+            rows.append([
+                order.display_id,
+                order.created_at.strftime('%Y-%m-%d %H:%M'),
+                order.customer.full_name if order.customer else 'Guest',
+                order.order_status,
+                order.items.count(),
+                order.total
+            ])
             
-            orders = Order.objects.filter(
-                created_at__date__range=[start_date, end_date],
-                order_status__in=['confirmed', 'completed']
-            ).select_related('customer')
-            
-            header = ['Order ID', 'Date', 'Customer', 'Status', 'Items', 'Total Amount']
-            rows = []
-            for order in orders:
-                rows.append([
-                    order.display_id,
-                    order.created_at.strftime('%Y-%m-%d %H:%M'),
-                    order.customer.full_name if order.customer else 'Guest',
-                    order.order_status,
-                    order.items.count(),
-                    order.total
-                ])
-                
-            return self.export_csv(f'sales_report_{period}', header, rows)
-        except Exception as e:
-            logger.exception('Sales export failed')
-            return Response({'error': str(e), 'traceback': tb_module.format_exc()}, status=500)
+        return self.export_csv(f'sales_report_{period}', header, rows)
 
     @action(detail=False, methods=['get'])
     def by_payment_method(self, request):
