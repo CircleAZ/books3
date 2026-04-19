@@ -70,9 +70,12 @@ class ReportBaseViewSet(viewsets.ViewSet):
             cell.alignment = header_align
 
         # Write data rows
+        import uuid
         data_font = Font(name='Calibri', size=11)
         for row_idx, row in enumerate(rows, 2):
             for col_idx, value in enumerate(row, 1):
+                if isinstance(value, uuid.UUID):
+                    value = str(value)
                 cell = ws.cell(row=row_idx, column=col_idx, value=value)
                 cell.font = data_font
                 cell.border = thin_border
