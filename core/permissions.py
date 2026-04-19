@@ -132,7 +132,7 @@ class HasRequiredPermission(permissions.BasePermission):
 
 class HasElevatedAuth(permissions.BasePermission):
     """
-    Validates if the user has an active elevated auth session (OTP verified within last 10 mins).
+    Validates if the user has an active elevated auth session (OTP verified within last 1 hour).
     Throws a 403 with a specific error code to trigger the frontend interceptor.
     """
     def has_permission(self, request, view):

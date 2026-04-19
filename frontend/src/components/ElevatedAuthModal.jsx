@@ -137,7 +137,7 @@ export default function ElevatedAuthModal() {
                         </div>
                     ) : (
                         <>
-                            <p className="helper-text">Enter the 6-digit code sent to your email to unlock elevated permissions for 10 minutes.</p>
+                            <p className="helper-text">Enter the 6-digit code sent to your email to unlock elevated permissions for 1 hour.</p>
                             <div className="otp-inputs" onPaste={handlePaste}>
                                 {otp.map((digit, index) => (
                                     <input

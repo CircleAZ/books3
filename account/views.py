@@ -611,14 +611,14 @@ class VerifyElevatedOTPView(APIView):
         otp.is_used = True
         otp.save(update_fields=['is_used'])
 
-        # Set 10-minute elevated session in cache
-        cache.set(f'elevated_auth_{user.id}', True, timeout=600)
+        # Set 1-hour elevated session in cache
+        cache.set(f'elevated_auth_{user.id}', True, timeout=3600)
 
         # Log the elevated auth event
         ActivityLog.log_action(
             user=user,
             action=ActivityLog.ActionType.OTHER,
-            description='Elevated authentication granted (10 minutes)',
+            description='Elevated authentication granted (1 hour)',
             request=request
         )
 
