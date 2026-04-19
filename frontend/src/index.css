@@ -465,3 +465,11 @@ input::placeholder {
     outline: none !important;
     -webkit-tap-highlight-color: transparent;
 }
+
+/* Global Table Responsive Wrapper */
+.table-responsive {
+    width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    margin-bottom: var(--space-md);
+}

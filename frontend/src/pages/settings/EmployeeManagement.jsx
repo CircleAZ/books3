@@ -123,41 +123,43 @@ const EmployeeManagement = () => {
             <div style={{display:'flex',justifyContent:'flex-end',marginBottom:'var(--space-md)'}}>
                 <button className="btn btn-primary" onClick={handleAddClick}>+ Add Employee</button>
             </div>
-            <table className="data-table">
-                <thead>
-                    <tr>
-                        <th>Username</th>
-                        <th>Email</th>
-                        <th>Name</th>
-                        <th>Role</th>
-                        <th>Status</th>
-                        <th>Actions</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {users.map(user => (
-                        <tr key={user.id}>
-                            <td>{user.username}</td>
-                            <td>{user.email}</td>
-                            <td>{user.first_name} {user.last_name}</td>
-                            <td>{user.roles && user.roles.length > 0 ? user.roles.map(r => r.name).join(', ') : 'No Role'}</td>
-                            <td>
-                                <span className={`status-badge ${user.is_active ? 'active' : 'inactive'}`}>
-                                    {user.is_active ? 'Active' : 'Inactive'}
-                                </span>
-                            </td>
-                            <td>
-                                <button className="btn-icon" onClick={() => handleEditClick(user)} title="Edit">
-                                    Edit
-                                </button>
-                                <button className="btn-icon" onClick={() => toggleActivation(user.id)} title="Toggle Activation">
-                                    {user.is_active ? 'Deactivate' : 'Activate'}
-                                </button>
-                            </td>
+            <div className="table-responsive">
+                <table className="data-table">
+                    <thead>
+                        <tr>
+                            <th>Username</th>
+                            <th>Email</th>
+                            <th>Name</th>
+                            <th>Role</th>
+                            <th>Status</th>
+                            <th>Actions</th>
                         </tr>
-                    ))}
-                </tbody>
-            </table>
+                    </thead>
+                    <tbody>
+                        {users.map(user => (
+                            <tr key={user.id}>
+                                <td>{user.username}</td>
+                                <td>{user.email}</td>
+                                <td>{user.first_name} {user.last_name}</td>
+                                <td>{user.roles && user.roles.length > 0 ? user.roles.map(r => r.name).join(', ') : 'No Role'}</td>
+                                <td>
+                                    <span className={`status-badge ${user.is_active ? 'active' : 'inactive'}`}>
+                                        {user.is_active ? 'Active' : 'Inactive'}
+                                    </span>
+                                </td>
+                                <td>
+                                    <button className="btn-icon" onClick={() => handleEditClick(user)} title="Edit">
+                                        Edit
+                                    </button>
+                                    <button className="btn-icon" onClick={() => toggleActivation(user.id)} title="Toggle Activation">
+                                        {user.is_active ? 'Deactivate' : 'Activate'}
+                                    </button>
+                                </td>
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
+            </div>
 
             {showModal && (
                 <div className="modal-overlay">
