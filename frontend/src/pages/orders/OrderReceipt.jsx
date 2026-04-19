@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useCurrency } from '../../context/CurrencyContext';
+import { useStoreSettings } from '../../context/StoreContext';
 import { ENDPOINTS } from '../../config/api';
 import { useToast } from '../../context/ToastContext';
 import './OrderReceipt.css';
@@ -12,27 +13,19 @@ export default function OrderReceipt() {
     const { fetchWithAuth } = useAuth();
     const { currency } = useCurrency();
     const { showToast } = useToast();
+    const { storeSettings } = useStoreSettings();
     const [order, setOrder] = useState(null);
-    const [storeSettings, setStoreSettings] = useState(null);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
         const fetchData = async () => {
             try {
-                const [orderRes, storeRes] = await Promise.all([
-                    fetchWithAuth(`${ENDPOINTS.ORDERS}${id}/`),
-                    fetchWithAuth(ENDPOINTS.SETTINGS_STORE)
-                ]);
+                const orderRes = await fetchWithAuth(`${ENDPOINTS.ORDERS}${id}/`);
 
                 if (orderRes.ok) {
                     setOrder(await orderRes.json());
                 } else {
                     showToast('Failed to load order for receipt', 'error');
-                }
-
-                if (storeRes.ok) {
-                    const storeData = await storeRes.json();
-                    setStoreSettings(Array.isArray(storeData) ? storeData[0] : (storeData.results ? storeData.results[0] : storeData));
                 }
             } catch (error) {
                 console.error(error);

@@ -3,6 +3,7 @@ import { AuthProvider, useAuth } from './context/AuthContext';
 import { CurrencyProvider } from './context/CurrencyContext';
 import { CartProvider } from './context/CartContext';
 import { ToastProvider } from './context/ToastContext';
+import { StoreProvider } from './context/StoreContext';
 import PermissionRoute from './components/PermissionRoute';
 import MainLayout from './components/layout/MainLayout';
 import Dashboard from './pages/Dashboard';
@@ -510,11 +511,13 @@ export default function App() {
     <BrowserRouter>
       <AuthProvider>
         <CurrencyProvider>
-          <CartProvider>
-            <ToastProvider>
-              <AppRoutes />
-            </ToastProvider>
-          </CartProvider>
+          <StoreProvider>
+            <CartProvider>
+              <ToastProvider>
+                <AppRoutes />
+              </ToastProvider>
+            </CartProvider>
+          </StoreProvider>
         </CurrencyProvider>
       </AuthProvider>
     </BrowserRouter>

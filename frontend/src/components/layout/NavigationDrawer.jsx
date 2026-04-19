@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import { menuSections } from '../../config/navigation';
 import usePermissions from '../../utils/usePermissions';
+import { useStoreSettings } from '../../context/StoreContext';
 import './NavigationDrawer.css';
 
 const icons = {
@@ -107,6 +108,7 @@ export default function NavigationDrawer({ drawerMode, overlayOpen, onClose, onM
     const drawerRef = useRef(null);
     const location = useLocation();
     const { hasPermission } = usePermissions();
+    const { storeSettings } = useStoreSettings();
 
     // Filter menu sections based on RBAC permissions
     const filteredMenu = menuSections.map(section => {
@@ -205,8 +207,12 @@ export default function NavigationDrawer({ drawerMode, overlayOpen, onClose, onM
                     </button>
                     {!isMini && (
                         <NavLink to="/" className="drawer-logo" onClick={onClose}>
-                            <div className="logo-icon" aria-hidden="true">AZ</div>
-                            <span className="logo-text">AZ Books</span>
+                            {storeSettings?.logo ? (
+                                <img src={storeSettings.logo} alt="Store Logo" className="logo-img" />
+                            ) : (
+                                <div className="logo-icon" aria-hidden="true">AZ</div>
+                            )}
+                            <span className="logo-text">{storeSettings?.name || 'AZ Books'}</span>
                         </NavLink>
                     )}
                 </div>

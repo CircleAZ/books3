@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 
 import { useAuth } from '../../context/AuthContext';
 import { useCurrency } from '../../context/CurrencyContext';
+import { useStoreSettings } from '../../context/StoreContext';
 import { ENDPOINTS } from '../../config/api';
 import '../settings/SettingsIndex.css';
 import './StoreSettings.css'; // Assume similar styles to other forms
@@ -9,7 +10,9 @@ import './StoreSettings.css'; // Assume similar styles to other forms
 const StoreSettings = () => {
     const { fetchWithAuth } = useAuth();
     const { setCurrency } = useCurrency();
+    const { fetchStoreSettings } = useStoreSettings();
     const [loading, setLoading] = useState(true);
+    const [logoFile, setLogoFile] = useState(null);
     const [formData, setFormData] = useState({
         name: '',
         address: '',
@@ -51,12 +54,23 @@ const StoreSettings = () => {
     const handleSubmit = async (e) => {
         e.preventDefault();
         try {
+            const submitData = new FormData();
+            Object.keys(formData).forEach(key => {
+                if (key !== 'logo' && formData[key] !== null) {
+                    submitData.append(key, formData[key]);
+                }
+            });
+            if (logoFile) {
+                submitData.append('logo', logoFile);
+            }
+
             const response = await fetchWithAuth(`${ENDPOINTS.SETTINGS_STORE}`, {
                 method: 'POST', // or PUT depending on backend view
-                body: JSON.stringify(formData)
+                body: submitData
             });
             if (response.ok) {
                 setCurrency(formData.currency_symbol);
+                fetchStoreSettings();
                 alert('Store settings updated successfully');
             } else {
                 alert('Failed to update settings');
@@ -72,9 +86,18 @@ const StoreSettings = () => {
         <div className="settings-container">
 
             <form onSubmit={handleSubmit} className="settings-form">
+                <div className="form-group full-width">
+                    <label>Store Logo</label>
+                    <input type="file" accept="image/*" onChange={(e) => setLogoFile(e.target.files[0])} />
+                    {formData.logo && typeof formData.logo === 'string' && (
+                        <div style={{ marginTop: '10px' }}>
+                            <img src={formData.logo} alt="Store Logo Preview" style={{ maxHeight: '100px', objectFit: 'contain' }} />
+                        </div>
+                    )}
+                </div>
                 <div className="form-group">
                     <label>Store Name</label>
-                    <input name="name" value={formData.name} onChange={handleChange} required />
+                    <input name="name" value={formData.name || ''} onChange={handleChange} required />
                 </div>
                 <div className="form-group">
                     <label>Address</label>
