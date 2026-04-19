@@ -22,11 +22,11 @@ const PaymentSettings = () => {
         loadAll();
     }, []);
 
-    const loadAll = async () => {
+    async function loadAll() {
         setLoading(true);
         await Promise.all([fetchMethods(), fetchUpiAccounts()]);
         setLoading(false);
-    };
+    }
 
     const fetchMethods = async () => {
         try {
