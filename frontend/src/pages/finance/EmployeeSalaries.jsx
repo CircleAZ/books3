@@ -271,7 +271,7 @@ export default function EmployeeSalaries() {
                                         type="number"
                                         value={editData.base_amount}
                                         onChange={e => setEditData({ ...editData, base_amount: e.target.value })}
-                                        min="1"
+                                        min="0"
                                         required
                                     />
                                 </div>

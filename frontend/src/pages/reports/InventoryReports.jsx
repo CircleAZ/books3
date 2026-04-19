@@ -141,7 +141,8 @@ export default function InventoryReports() {
                 {activeTab === 'valuation' && (
                     <div className="table-card">
                         <h3>Stock Valuation by Product</h3>
-                        <table className="data-table">
+                        <div className="table-responsive">
+                            <table className="data-table">
                             <thead>
                                 <tr>
                                     <th>Product</th>
@@ -165,13 +166,15 @@ export default function InventoryReports() {
                                 ))}
                             </tbody>
                         </table>
+                        </div>
                     </div>
                 )}
 
                 {activeTab === 'lowstock' && (
                     <div className="table-card">
                         <h3>Low Stock Items</h3>
-                        <table className="data-table">
+                        <div className="table-responsive">
+                            <table className="data-table">
                             <thead>
                                 <tr>
                                     <th>Product</th>
@@ -198,13 +201,15 @@ export default function InventoryReports() {
                                 )}
                             </tbody>
                         </table>
+                        </div>
                     </div>
                 )}
 
                 {activeTab === 'deadstock' && (
                     <div className="table-card">
                         <h3>Dead Stock (No sales in 30+ days)</h3>
-                        <table className="data-table">
+                        <div className="table-responsive">
+                            <table className="data-table">
                             <thead>
                                 <tr>
                                     <th>Product</th>
@@ -227,6 +232,7 @@ export default function InventoryReports() {
                                 )}
                             </tbody>
                         </table>
+                        </div>
                     </div>
                 )}
 
@@ -254,7 +260,8 @@ export default function InventoryReports() {
                             </div>
                         </div>
                         <h4>By Reason</h4>
-                        <table className="data-table">
+                        <div className="table-responsive">
+                            <table className="data-table">
                             <thead>
                                 <tr><th>Reason</th><th>Qty Change</th><th>Entries</th></tr>
                             </thead>
@@ -268,8 +275,10 @@ export default function InventoryReports() {
                                 ))}
                             </tbody>
                         </table>
+                        </div>
                         <h4 style={{ marginTop: '1rem' }}>Recent Movements</h4>
-                        <table className="data-table">
+                        <div className="table-responsive">
+                            <table className="data-table">
                             <thead>
                                 <tr><th>Product</th><th>Change</th><th>After</th><th>Reason</th><th>By</th><th>Date</th></tr>
                             </thead>
@@ -288,6 +297,7 @@ export default function InventoryReports() {
                                 ))}
                             </tbody>
                         </table>
+                        </div>
                     </div>
                 )}
 
@@ -308,7 +318,8 @@ export default function InventoryReports() {
                                 </div>
                             </div>
                         </div>
-                        <table className="data-table">
+                        <div className="table-responsive">
+                            <table className="data-table">
                             <thead>
                                 <tr><th>Product</th><th>SKU</th><th>Stock</th><th>Cost Price</th><th>Total Value</th></tr>
                             </thead>
@@ -327,6 +338,7 @@ export default function InventoryReports() {
                                 )}
                             </tbody>
                         </table>
+                        </div>
                     </div>
                 )}
 

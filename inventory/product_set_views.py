@@ -32,6 +32,7 @@ class ProductSetViewSet(viewsets.ModelViewSet):
         'resolve': 'inventory.view_products',
     }
     queryset = ProductSet.objects.all()
+    pagination_class = None
 
     def get_serializer_class(self):
         if self.action in ('create', 'update', 'partial_update'):

@@ -22,7 +22,7 @@ export default function ActivityLog() {
                 page,
                 search: searchTerm,
                 action_type: filterType,
-                start_date: dateFilter
+                date: dateFilter
             });
 
             // Remove empty params

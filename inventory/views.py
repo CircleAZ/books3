@@ -24,6 +24,7 @@ class CategoryViewSet(viewsets.ModelViewSet):
         'list': 'inventory.view_products',
         'retrieve': 'inventory.view_products',
     }
+    pagination_class = None
 
     def destroy(self, request, *args, **kwargs):
         instance = self.get_object()
@@ -58,6 +59,7 @@ class VendorViewSet(viewsets.ModelViewSet):
         'list': 'inventory.view_products',
         'retrieve': 'inventory.view_products',
     }
+    pagination_class = None
 
 class TagViewSet(viewsets.ModelViewSet):
     queryset = Tag.objects.all()

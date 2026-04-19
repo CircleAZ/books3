@@ -439,7 +439,7 @@ class EmployeeSalary(TimestampedModel):
     base_amount = models.DecimalField(
         max_digits=12, 
         decimal_places=2,
-        validators=[MinValueValidator(Decimal('0.01'))]
+        validators=[MinValueValidator(Decimal('0.00'))]
     )
     frequency = models.CharField(max_length=20, choices=Frequency.choices, default=Frequency.MONTHLY)
     payment_day = models.PositiveSmallIntegerField(

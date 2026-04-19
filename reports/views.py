@@ -625,6 +625,7 @@ class ActivityLogViewSet(viewsets.ReadOnlyModelViewSet):
         queryset = super().get_queryset()
         user_id = self.request.query_params.get('user')
         action_type = self.request.query_params.get('action_type')
+        exact_date = self.request.query_params.get('date')
         start_date = self.request.query_params.get('start_date')
         end_date = self.request.query_params.get('end_date')
         
@@ -632,10 +633,13 @@ class ActivityLogViewSet(viewsets.ReadOnlyModelViewSet):
             queryset = queryset.filter(user_id=user_id)
         if action_type:
             queryset = queryset.filter(action_type=action_type)
-        if start_date:
-            queryset = queryset.filter(created_at__date__gte=start_date)
-        if end_date:
-            queryset = queryset.filter(created_at__date__lte=end_date)
+        if exact_date:
+            queryset = queryset.filter(created_at__date=exact_date)
+        else:
+            if start_date:
+                queryset = queryset.filter(created_at__date__gte=start_date)
+            if end_date:
+                queryset = queryset.filter(created_at__date__lte=end_date)
             
         return queryset
 
