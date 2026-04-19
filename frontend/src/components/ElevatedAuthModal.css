@@ -1,0 +1,79 @@
+.elevated-auth-modal {
+    z-index: 9999; /* Must be above everything else */
+}
+
+.elevated-auth-modal .modal-content {
+    max-width: 450px;
+    padding: 32px;
+    border-radius: 12px;
+    text-align: center;
+}
+
+.elevated-auth-modal .modal-header h2 {
+    color: #e53e3e;
+    margin-bottom: 8px;
+    font-size: 1.5rem;
+}
+
+.elevated-auth-modal .modal-header p {
+    color: var(--color-text-muted);
+    font-size: 0.95rem;
+}
+
+.elevated-auth-modal .modal-body {
+    margin: 24px 0;
+}
+
+.elevated-auth-modal .loading-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 16px;
+    padding: 24px 0;
+    color: var(--color-text-muted);
+}
+
+.elevated-auth-modal .helper-text {
+    margin-bottom: 20px;
+    font-size: 0.9rem;
+    color: var(--color-text);
+}
+
+.elevated-auth-modal .otp-inputs {
+    display: flex;
+    gap: 8px;
+    justify-content: center;
+}
+
+.elevated-auth-modal .otp-inputs input {
+    width: 48px;
+    height: 56px;
+    font-size: 1.5rem;
+    text-align: center;
+    border: 2px solid var(--color-border);
+    border-radius: 8px;
+    background: var(--color-surface);
+    color: var(--color-text);
+    transition: all 0.2s;
+}
+
+.elevated-auth-modal .otp-inputs input:focus {
+    outline: none;
+    border-color: var(--color-primary);
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+}
+
+.elevated-auth-modal .otp-inputs input.filled {
+    border-color: var(--color-primary);
+    background: rgba(37, 99, 235, 0.05);
+}
+
+.elevated-auth-modal .error-message {
+    background: #fef2f2;
+    color: #dc2626;
+    padding: 12px;
+    border-radius: 6px;
+    margin-bottom: 16px;
+    font-size: 0.9rem;
+    border: 1px solid #fecaca;
+}

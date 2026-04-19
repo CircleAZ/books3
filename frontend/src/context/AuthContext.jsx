@@ -60,6 +60,9 @@ export function AuthProvider({ children }) {
     const [loading, setLoading] = useState(true);
     // RBAC state — decoded from JWT, no network fetch required
     const [rbac, setRbac] = useState({ role: null, roles: [], permissions: [], is_staff: false, is_superuser: false });
+    
+    // Elevated Auth Modal state
+    const [elevatedAuthRequest, setElevatedAuthRequest] = useState(null);
 
     // LENS-17 fix: Prevent concurrent refresh attempts
     const refreshPromiseRef = useRef(null);
@@ -406,6 +409,26 @@ export function AuthProvider({ children }) {
 
         // RBAC 403 interceptor: force token refresh to sync permissions (Tribunal Consensus 3)
         if (response.status === 403) {
+            const clonedResponse = response.clone();
+            const data = await clonedResponse.json().catch(() => ({}));
+
+            if (data.code === 'requires_elevated_otp') {
+                return new Promise((resolve, reject) => {
+                    setElevatedAuthRequest({
+                        resolve: () => {
+                            setElevatedAuthRequest(null);
+                            fetch(url, { ...options, headers, cache: 'no-store' })
+                                .then(resolve)
+                                .catch(reject);
+                        },
+                        reject: () => {
+                            setElevatedAuthRequest(null);
+                            resolve(response); // Resolve with original 403
+                        }
+                    });
+                });
+            }
+
             const refreshed = await refreshToken();
             if (refreshed) {
                 const freshToken = localStorage.getItem('access_token');
@@ -476,6 +499,17 @@ export function AuthProvider({ children }) {
     // Keep retry ref always pointing to latest closure
     refreshTokenWithRetryRef.current = refreshTokenWithRetry;
 
+    // Phase 4: Cache-Breaker Interval - Sync permissions every 5 minutes
+    useEffect(() => {
+        if (!token) return;
+        const interval = setInterval(() => {
+            if (refreshTokenWithRetryRef.current) {
+                refreshTokenWithRetryRef.current();
+            }
+        }, 5 * 60 * 1000);
+        return () => clearInterval(interval);
+    }, [token]);
+
     const value = {
         user,
         token,
@@ -488,6 +522,8 @@ export function AuthProvider({ children }) {
         fetchWithAuth,
         // RBAC claims (decoded from JWT — zero network dependency)
         rbac,
+        elevatedAuthRequest,
+        setElevatedAuthRequest,
     };
 
     return (

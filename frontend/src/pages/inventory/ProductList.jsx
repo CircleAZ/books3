@@ -4,6 +4,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useCurrency } from '../../context/CurrencyContext';
 import { ENDPOINTS, API_BASE } from '../../config/api';
 import Pagination from '../../components/common/Pagination';
+import GuardedAction from '../../components/GuardedAction';
 import './ProductList.css';
 
 const MEDIA_BASE = API_BASE.replace(/\/api\/?$/, '');
@@ -152,9 +153,11 @@ export default function ProductList() {
         <div className="inventory-container fade-in">
             <div className="inventory-header">
                 <div className="inventory-actions">
-                    <button className="btn btn-primary" onClick={() => navigate('/inventory/add')}>
-                        + Add Product
-                    </button>
+                    <GuardedAction permission="inventory.manage_products">
+                        <button className="btn btn-primary" onClick={() => navigate('/inventory/add')}>
+                            + Add Product
+                        </button>
+                    </GuardedAction>
                 </div>
             </div>
 
@@ -262,12 +265,14 @@ export default function ProductList() {
                                                     </span>
                                                 </td>
                                                 <td onClick={(e) => e.stopPropagation()}>
-                                                    <button
-                                                        className="btn btn-sm btn-ghost"
-                                                        onClick={() => navigate(`/inventory/edit/${product.id}`)}
-                                                    >
-                                                        Edit
-                                                    </button>
+                                                    <GuardedAction permission="inventory.manage_products">
+                                                        <button
+                                                            className="btn btn-sm btn-ghost"
+                                                            onClick={() => navigate(`/inventory/edit/${product.id}`)}
+                                                        >
+                                                            Edit
+                                                        </button>
+                                                    </GuardedAction>
                                                 </td>
                                             </tr>
                                         );

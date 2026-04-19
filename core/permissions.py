@@ -27,6 +27,8 @@ Usage:
 import logging
 from django.conf import settings
 from rest_framework import permissions
+from rest_framework.exceptions import PermissionDenied
+from django.core.cache import cache
 
 logger = logging.getLogger(__name__)
 
@@ -127,4 +129,25 @@ class HasRequiredPermission(permissions.BasePermission):
                 f"permission '{permission_codename}': {e}"
             )
             return False
+
+class HasElevatedAuth(permissions.BasePermission):
+    """
+    Validates if the user has an active elevated auth session (OTP verified within last 10 mins).
+    Throws a 403 with a specific error code to trigger the frontend interceptor.
+    """
+    def has_permission(self, request, view):
+        if not request.user or not request.user.is_authenticated:
+            return False
+
+        cache_key = f'elevated_auth_{request.user.id}'
+        
+        if cache.get(cache_key):
+            return True
+
+        # Failed elevated auth check
+        raise PermissionDenied({
+            "code": "requires_elevated_otp",
+            "message": "High-risk action requires OTP verification.",
+            "detail": "High-risk action requires OTP verification."
+        })
 

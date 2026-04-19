@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { ENDPOINTS } from '../../config/api';
 import { searchableItems } from '../../config/navigation';
+import usePermissions from '../../utils/usePermissions';
 import './OmniSearch.css';
 
 const searchCategories = [
@@ -31,6 +32,7 @@ export default function OmniSearch({ isOpen, onClose }) {
     const debounceRef = useRef(null);
     const navigate = useNavigate();
     const { fetchWithAuth } = useAuth();
+    const { hasPermission } = usePermissions();
 
     // Focus input when opened
     useEffect(() => {
@@ -117,10 +119,10 @@ export default function OmniSearch({ isOpen, onClose }) {
     // Build combined results whenever query, category, or API results change
     useEffect(() => {
         if (!query.trim()) {
-            // No query — show quick actions (filtered by category)
-            const filtered = activeCategory === 'all' || activeCategory === 'actions'
+            // No query — show quick actions (filtered by category and permission)
+            const filtered = (activeCategory === 'all' || activeCategory === 'actions'
                 ? quickActions
-                : [];
+                : []).filter(item => !item.permission || hasPermission(item.permission));
             setResults(filtered);
             setSelectedIndex(0);
             return;
@@ -131,14 +133,16 @@ export default function OmniSearch({ isOpen, onClose }) {
 
         // Quick actions matching query
         if (activeCategory === 'all' || activeCategory === 'actions') {
-            const actionMatches = quickActions.filter(a => a.label.toLowerCase().includes(q));
+            const actionMatches = quickActions.filter(a => 
+                a.label.toLowerCase().includes(q) && (!a.permission || hasPermission(a.permission))
+            );
             combined.push(...actionMatches);
         }
 
         // Navigation items matching query
         if (activeCategory === 'all' || activeCategory === 'actions') {
             const navMatches = searchableItems
-                .filter(item => item.label.toLowerCase().includes(q))
+                .filter(item => item.label.toLowerCase().includes(q) && (!item.permission || hasPermission(item.permission)))
                 .slice(0, 5)
                 .map(item => ({ ...item, id: `nav-${item.path}`, icon: '🔗', category: 'actions' }));
             combined.push(...navMatches);

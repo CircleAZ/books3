@@ -5,6 +5,7 @@ import { useCurrency } from '../../context/CurrencyContext';
 import { ENDPOINTS } from '../../config/api';
 import './EmployeeExpenses.css';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
+import GuardedAction from '../../components/GuardedAction';
 
 export default function EmployeeExpenses() {
     const { fetchWithAuth } = useAuth();
@@ -26,8 +27,6 @@ export default function EmployeeExpenses() {
 
     const profileData = localStorage.getItem('profile');
     const profile = profileData ? JSON.parse(profileData) : null;
-    const userRole = profile?.role?.toLowerCase() || 'staff';
-    const isManager = ['manager', 'owner'].includes(userRole);
 
     const fetchExpenses = useCallback(async () => {
         setLoading(true);
@@ -213,22 +212,26 @@ export default function EmployeeExpenses() {
                                         </td>
                                         <td>
                                             <div className="action-buttons">
-                                                {isManager && expense.status === 'pending' && !expense.description?.startsWith('Trip:') && (
+                                                {expense.status === 'pending' && !expense.description?.startsWith('Trip:') && (
                                                     <>
-                                                        <button
-                                                            className="btn-icon approve"
-                                                            onClick={() => handleAction(expense.id, 'approve')}
-                                                            title="Approve"
-                                                        >
-                                                            ✅
-                                                        </button>
-                                                        <button
-                                                            className="btn-icon reject"
-                                                            onClick={() => handleAction(expense.id, 'reject')}
-                                                            title="Reject"
-                                                        >
-                                                            ❌
-                                                        </button>
+                                                        <GuardedAction permission="finance.manage_expenses">
+                                                            <button
+                                                                className="btn-icon approve"
+                                                                onClick={() => handleAction(expense.id, 'approve')}
+                                                                title="Approve"
+                                                            >
+                                                                ✅
+                                                            </button>
+                                                        </GuardedAction>
+                                                        <GuardedAction permission="finance.manage_expenses">
+                                                            <button
+                                                                className="btn-icon reject"
+                                                                onClick={() => handleAction(expense.id, 'reject')}
+                                                                title="Reject"
+                                                            >
+                                                                ❌
+                                                            </button>
+                                                        </GuardedAction>
                                                     </>
                                                 )}
                                                 <button 

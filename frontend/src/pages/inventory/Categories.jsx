@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { ENDPOINTS } from '../../config/api';
 import CategoryModal from '../../components/inventory/CategoryModal';
+import GuardedAction from '../../components/GuardedAction';
 import './ProductList.css'; // Reusing table styles
 
 export default function Categories() {
@@ -78,9 +79,11 @@ export default function Categories() {
             <div className="inventory-header">
 
                 <div className="inventory-actions">
-                    <button className="btn btn-primary" onClick={() => handleOpenModal()}>
-                        + Add Category
-                    </button>
+                    <GuardedAction permission="inventory.manage_products">
+                        <button className="btn btn-primary" onClick={() => handleOpenModal()}>
+                            + Add Category
+                        </button>
+                    </GuardedAction>
                 </div>
             </div>
 
@@ -106,8 +109,12 @@ export default function Categories() {
                                     <td>{cat.description}</td>
                                     <td>{cat.display_id || '-'}</td>
                                     <td>
-                                        <button className="btn btn-sm btn-ghost" onClick={() => handleOpenModal(cat)}>Edit</button>
-                                        <button className="btn btn-sm btn-danger-ghost" onClick={() => handleDeleteClick(cat)}>Delete</button>
+                                        <GuardedAction permission="inventory.manage_products">
+                                            <button className="btn btn-sm btn-ghost" onClick={() => handleOpenModal(cat)}>Edit</button>
+                                        </GuardedAction>
+                                        <GuardedAction permission="inventory.manage_products">
+                                            <button className="btn btn-sm btn-danger-ghost" onClick={() => handleDeleteClick(cat)}>Delete</button>
+                                        </GuardedAction>
                                     </td>
                                 </tr>
                             ))}

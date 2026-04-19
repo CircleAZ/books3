@@ -24,6 +24,7 @@ export default function ProductDetails() {
     const [showStockModal, setShowStockModal] = useState(false);
     const [adjustmentType, setAdjustmentType] = useState('add');
     const [quantity, setQuantity] = useState('');
+    const [unitCost, setUnitCost] = useState('');
     const [reason, setReason] = useState('adjustment');
     const [notes, setNotes] = useState('');
     const [stockError, setStockError] = useState('');
@@ -52,6 +53,7 @@ export default function ProductDetails() {
     const handleOpenStockModal = () => {
         setAdjustmentType('add');
         setQuantity('');
+        setUnitCost('');
         setReason('adjustment');
         setNotes('');
         setStockError('');
@@ -73,6 +75,7 @@ export default function ProductDetails() {
                     product: product.id,
                     adjustment_type: adjustmentType,
                     quantity: Number(quantity),
+                    unit_cost: unitCost ? Number(unitCost) : undefined,
                     reason,
                     notes,
                 }),
@@ -268,6 +271,13 @@ export default function ProductDetails() {
                                 <label>Quantity</label>
                                 <input type="number" min="0" placeholder={adjustmentType === 'set' ? 'New stock count' : 'Quantity received'} value={quantity} onChange={e => setQuantity(e.target.value)} required />
                             </div>
+
+                            {adjustmentType === 'add' && (
+                                <div className="form-group">
+                                    <label>Unit Cost (Optional)</label>
+                                    <input type="number" min="0" step="0.01" placeholder="Current cost will be used if blank" value={unitCost} onChange={e => setUnitCost(e.target.value)} />
+                                </div>
+                            )}
 
                             <div className="form-group">
                                 <label>Reason</label>

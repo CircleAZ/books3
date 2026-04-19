@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import { menuSections } from '../../config/navigation';
+import usePermissions from '../../utils/usePermissions';
 import './NavigationDrawer.css';
 
 const icons = {
@@ -105,6 +106,23 @@ function MenuItem({ item, onNavigate, isMini, currentPath }) {
 export default function NavigationDrawer({ drawerMode, overlayOpen, onClose, onMenuClick, hamburgerRef, hamburgerLabel }) {
     const drawerRef = useRef(null);
     const location = useLocation();
+    const { hasPermission } = usePermissions();
+
+    // Filter menu sections based on RBAC permissions
+    const filteredMenu = menuSections.map(section => {
+        if (section.type === 'separator') return section;
+        if (section.permission && !hasPermission(section.permission)) return null;
+
+        if (section.children) {
+            const allowedChildren = section.children.filter(child => {
+                if (child.permission && !hasPermission(child.permission)) return false;
+                return true;
+            });
+            if (allowedChildren.length === 0) return null; // Hide parent if all children are hidden
+            return { ...section, children: allowedChildren };
+        }
+        return section;
+    }).filter(Boolean);
 
     // Determine the CSS classes for the drawer
     const isPersistent = drawerMode === 'full' || drawerMode === 'mini';
@@ -195,7 +213,7 @@ export default function NavigationDrawer({ drawerMode, overlayOpen, onClose, onM
 
                 {/* F2: aria-label on <nav> to distinguish from BottomNavBar */}
                 <nav className="drawer-nav" aria-label="Sidebar navigation">
-                    {menuSections.map((item, idx) => (
+                    {filteredMenu.map((item, idx) => (
                         <MenuItem key={item.id || idx} item={item} onNavigate={onClose} isMini={isMini} currentPath={location.pathname} />
                     ))}
                 </nav>

@@ -1,5 +1,14 @@
 from rest_framework import serializers
 from .models import Category, Vendor, Tag, Product, ProductImage, StockAdjustment, StockHistory
+from core.permissions import HasRequiredPermission
+
+def has_finance_perms(request):
+    if not request or not getattr(request, 'user', None) or not request.user.is_authenticated:
+        return False
+    if getattr(request.user, 'is_superuser', False):
+        return True
+    return (HasRequiredPermission._check_rbac(request.user, 'finance.manage_expenses') or
+            HasRequiredPermission._check_rbac(request.user, 'finance.view_reports'))
 
 class CategorySerializer(serializers.ModelSerializer):
     product_count = serializers.IntegerField(read_only=True)
@@ -20,6 +29,15 @@ class VendorSerializer(serializers.ModelSerializer):
             'address', 'notes', 'product_count'
         ]
 
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        request = self.context.get('request')
+        if not has_finance_perms(request):
+            data.pop('contact_name', None)
+            data.pop('contact_email', None)
+            data.pop('contact_phone', None)
+        return data
+
 class StockAdjustmentSerializer(serializers.ModelSerializer):
     product_name = serializers.CharField(source='product.name', read_only=True)
 
@@ -30,6 +48,13 @@ class StockAdjustmentSerializer(serializers.ModelSerializer):
             'quantity', 'unit_cost', 'reason', 'notes', 'created_by', 'created_at'
         ]
         read_only_fields = ['created_by', 'created_at']
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        request = self.context.get('request')
+        if not has_finance_perms(request):
+            data.pop('unit_cost', None)
+        return data
 
     def create(self, validated_data):
         # Ensure created_by is set from context if available
@@ -63,6 +88,13 @@ class ProductListSerializer(serializers.ModelSerializer):
             'deleted_at'
         ]
         read_only_fields = ['display_id']
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        request = self.context.get('request')
+        if not has_finance_perms(request):
+            data.pop('cost_price', None)
+        return data
 
     def get_primary_image_url(self, obj):
         # Use .all() to leverage prefetch_related cache
@@ -99,6 +131,13 @@ class ProductDetailSerializer(serializers.ModelSerializer):
             'stock_quantity', 'low_stock_threshold', 'is_low_stock'
         ]
         read_only_fields = ['display_id']
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        request = self.context.get('request')
+        if not has_finance_perms(request):
+            data.pop('cost_price', None)
+        return data
 
     def get_is_low_stock(self, obj):
         return obj.stock_quantity <= obj.low_stock_threshold
@@ -207,3 +246,10 @@ class StockHistorySerializer(serializers.ModelSerializer):
             'notes', 'created_by', 'created_by_name', 'created_at'
         ]
         read_only_fields = ['quantity_after', 'cost_at_time', 'created_by']
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        request = self.context.get('request')
+        if not has_finance_perms(request):
+            data.pop('cost_at_time', None)
+        return data

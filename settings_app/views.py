@@ -3,7 +3,7 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from django.contrib.auth import get_user_model
-from core.permissions import HasRequiredPermission
+from core.permissions import HasRequiredPermission, HasElevatedAuth
 from .models import (
     StoreSettings, Role, Permission, TaxSettings, 
     PaymentMethod, NotificationPreference, IntegrationSettings
@@ -72,6 +72,12 @@ class UserViewSet(viewsets.ModelViewSet):
         # Prevent Deleting/Editing Superuser by normal admins if needed
         return User.objects.all().order_by('-date_joined')
 
+    def get_permissions(self):
+        perms = super().get_permissions()
+        if self.action == 'destroy':
+            perms.append(HasElevatedAuth())
+        return perms
+
     @action(detail=True, methods=['post'])
     def toggle_activation(self, request, pk=None):
         user = self.get_object()
@@ -91,6 +97,12 @@ class RoleViewSet(viewsets.ModelViewSet):
         if self.action in ['create', 'update', 'partial_update']:
             return RoleUpdateSerializer
         return RoleSerializer
+
+    def get_permissions(self):
+        perms = super().get_permissions()
+        if self.action in ['create', 'update', 'partial_update', 'destroy']:
+            perms.append(HasElevatedAuth())
+        return perms
 
     @action(detail=False, methods=['get'])
     def permissions(self, request):

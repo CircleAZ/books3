@@ -20,6 +20,7 @@ export default function StockControl() {
     const [selectedProduct, setSelectedProduct] = useState('');
     const [adjustmentType, setAdjustmentType] = useState('add'); // add, subtract, set
     const [quantity, setQuantity] = useState('');
+    const [unitCost, setUnitCost] = useState('');
     const [reason, setReason] = useState('adjustment');
     const [notes, setNotes] = useState('');
     const [error, setError] = useState('');
@@ -106,6 +107,7 @@ export default function StockControl() {
         }
         setAdjustmentType('add');
         setQuantity('');
+        setUnitCost('');
         setReason('adjustment');
         setNotes('');
         setError('');
@@ -150,6 +152,7 @@ export default function StockControl() {
             product: selectedProduct,
             adjustment_type: type,
             quantity: parseInt(quantity, 10),
+            unit_cost: unitCost ? Number(unitCost) : undefined,
             reason: reason,
             notes: notes
         };
@@ -423,6 +426,13 @@ export default function StockControl() {
                                     placeholder={adjustmentType === 'set' ? "Enter counted stock" : adjustmentType === 'add' ? "Quantity received" : "Quantity removed"}
                                 />
                             </div>
+
+                            {adjustmentType === 'add' && (
+                                <div className="form-group">
+                                    <label>Unit Cost (Optional)</label>
+                                    <input type="number" min="0" step="0.01" placeholder="Current cost will be used if blank" value={unitCost} onChange={e => setUnitCost(e.target.value)} />
+                                </div>
+                            )}
 
                             <div className="form-group">
                                 <label>Reason</label>

@@ -11,6 +11,7 @@ from rest_framework.throttling import AnonRateThrottle
 from rest_framework_simplejwt.tokens import RefreshToken, OutstandingToken, BlacklistedToken
 from django.contrib.auth import authenticate, get_user_model
 from django.core.cache import cache
+from core.permissions import HasElevatedAuth
 from django.core.mail import send_mail
 from django.conf import settings
 from django.utils import timezone
@@ -352,6 +353,9 @@ class LogoutView(APIView):
                 token = RefreshToken(refresh_token)
                 token.blacklist()
             
+            # Clear elevated auth cache on logout
+            cache.delete(f'elevated_auth_{request.user.id}')
+            
             # Log activity
             ActivityLog.log_action(
                 user=request.user,
@@ -435,7 +439,7 @@ class ChangePasswordView(APIView):
     POST /api/account/change-password/
     Change user's password
     """
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, HasElevatedAuth]
     
     def post(self, request):
         serializer = ChangePasswordSerializer(
@@ -554,3 +558,68 @@ class NotificationReadView(APIView):
                 {'error': 'Notification not found'},
                 status=status.HTTP_404_NOT_FOUND
             )
+
+class RequestElevatedOTPView(APIView):
+    """
+    POST /api/account/request-elevated-otp/
+    Request an OTP to activate elevated authentication session for high-risk actions.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        user = request.user
+        otp = EmailOTP.generate(user, purpose=EmailOTP.Purpose.ELEVATED_AUTH)
+        try:
+            _send_otp_email(user, otp)
+            return Response({'message': 'Elevated OTP sent to your email.'})
+        except Exception as e:
+            return Response(
+                {'error': 'Failed to send OTP email.'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+class VerifyElevatedOTPView(APIView):
+    """
+    POST /api/account/verify-elevated-otp/
+    Verify the elevated OTP and grant a 10-minute elevated auth window.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        code = request.data.get('code')
+        if not code:
+            return Response({'error': 'Code is required.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        user = request.user
+        try:
+            # Get latest unused elevated OTP
+            otp = EmailOTP.objects.filter(
+                user=user, 
+                purpose=EmailOTP.Purpose.ELEVATED_AUTH,
+                is_used=False
+            ).latest('created_at')
+        except EmailOTP.DoesNotExist:
+            return Response({'error': 'No active OTP found. Please request a new one.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        if otp.is_expired:
+            return Response({'error': 'OTP has expired. Please request a new one.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        if otp.code != code:
+            return Response({'error': 'Invalid OTP code.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Success
+        otp.is_used = True
+        otp.save(update_fields=['is_used'])
+
+        # Set 10-minute elevated session in cache
+        cache.set(f'elevated_auth_{user.id}', True, timeout=600)
+
+        # Log the elevated auth event
+        ActivityLog.log_action(
+            user=user,
+            action=ActivityLog.ActionType.OTHER,
+            description='Elevated authentication granted (10 minutes)',
+            request=request
+        )
+
+        return Response({'message': 'Elevated access granted.'})

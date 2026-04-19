@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
+import usePermissions from '../utils/usePermissions';
 import { useCurrency } from '../context/CurrencyContext';
 import { ENDPOINTS } from '../config/api';
 import StatCard from '../components/dashboard/StatCard';
@@ -12,6 +13,7 @@ import './Dashboard.css';
 
 export default function Dashboard() {
     const { fetchWithAuth, user } = useAuth();
+    const { hasPermission } = usePermissions();
     const { currency } = useCurrency();
     const [loading, setLoading] = useState(true);
     const [stats, setStats] = useState(null);
@@ -24,30 +26,44 @@ export default function Dashboard() {
     useEffect(() => {
         const fetchDashboardData = async () => {
             try {
-                // Fetch basic dashboard data
-                const [statsRes, productsRes, trendRes, ordersRes, alertsRes, lowStockRes] = await Promise.all([
-                    fetchWithAuth(ENDPOINTS.DASHBOARD_STATS),
-                    fetchWithAuth(ENDPOINTS.DASHBOARD_TOP_PRODUCTS),
-                    fetchWithAuth(ENDPOINTS.DASHBOARD_SALES_TREND),
-                    fetchWithAuth(ENDPOINTS.DASHBOARD_RECENT_ORDERS),
-                    fetchWithAuth(ENDPOINTS.DASHBOARD_ALERTS),
-                    fetchWithAuth(`${ENDPOINTS.INVENTORY_PRODUCTS}low_stock/`) // Assuming this endpoint exists or handled by AlertsView logic
-                ]);
+                const promises = [];
+                const keys = [];
 
-                if (statsRes.ok) setStats(await statsRes.json());
-                if (productsRes.ok) setTopProducts(await productsRes.json());
-                if (trendRes.ok) setSalesTrend(await trendRes.json());
-                if (ordersRes.ok) setRecentOrders(await ordersRes.json());
-                if (alertsRes.ok) setAlerts(await alertsRes.json());
-
-                // Note: Low Stock might be redundant if AlertsView handles it, but keeping for specific widget
-                if (lowStockRes.ok) {
-                    setLowStockItems(await lowStockRes.json());
-                } else if (!lowStockRes.ok && alertsRes.ok) {
-                    // Fallback: extract from alerts if specific endpoint fails (or implement endpoint)
-                    // keeping simple for now, assuming low_stock endpoint is implemented or we use alerts
+                if (hasPermission('orders.view_orders') || hasPermission('reports.view_sales_reports')) {
+                    promises.push(fetchWithAuth(ENDPOINTS.DASHBOARD_STATS));
+                    keys.push('stats');
+                    promises.push(fetchWithAuth(ENDPOINTS.DASHBOARD_SALES_TREND));
+                    keys.push('trend');
+                    promises.push(fetchWithAuth(ENDPOINTS.DASHBOARD_RECENT_ORDERS));
+                    keys.push('orders');
                 }
 
+                if (hasPermission('inventory.view_products')) {
+                    promises.push(fetchWithAuth(ENDPOINTS.DASHBOARD_TOP_PRODUCTS));
+                    keys.push('products');
+                    promises.push(fetchWithAuth(`${ENDPOINTS.INVENTORY_PRODUCTS}low_stock/`));
+                    keys.push('lowStock');
+                }
+
+                // Alerts can be basic or require specific perms
+                promises.push(fetchWithAuth(ENDPOINTS.DASHBOARD_ALERTS));
+                keys.push('alerts');
+
+                const results = await Promise.all(promises);
+
+                for (let i = 0; i < results.length; i++) {
+                    const res = results[i];
+                    const key = keys[i];
+                    if (res.ok) {
+                        const data = await res.json();
+                        if (key === 'stats') setStats(data);
+                        if (key === 'trend') setSalesTrend(data);
+                        if (key === 'orders') setRecentOrders(data);
+                        if (key === 'products') setTopProducts(data);
+                        if (key === 'lowStock') setLowStockItems(data.results || data);
+                        if (key === 'alerts') setAlerts(data);
+                    }
+                }
             } catch (error) {
                 console.error('Error fetching dashboard data:', error);
             } finally {
@@ -56,7 +72,7 @@ export default function Dashboard() {
         };
 
         fetchDashboardData();
-    }, [fetchWithAuth]);
+    }, [fetchWithAuth, hasPermission]);
 
     if (loading) {
         return <div className="dashboard-loading">Loading dashboard...</div>;
@@ -70,48 +86,58 @@ export default function Dashboard() {
             </section>
 
             {/* Stats Grid */}
-            <div className="stats-grid">
-                <StatCard
-                    title="Today's Sales"
-                    value={`${currency}${stats?.today_sales_value || '0.00'}`}
-                    subtext={`${stats?.today_sales_count || 0} orders`}
-                    icon="📈"
-                    type="sales"
-                />
-                <StatCard
-                    title="Pending Orders"
-                    value={stats?.pending_orders_count || 0}
-                    subtext={`Value: ${currency}${stats?.pending_orders_value || '0.00'}`}
-                    icon="📦"
-                    type="orders"
-                />
-                <StatCard
-                    title="Recent Customers"
-                    value={stats?.recent_customers_count || 0}
-                    subtext="Last 7 days"
-                    icon="👥"
-                    type="customers"
-                />
-                <StatCard
-                    title="Low Stock Items"
-                    value={stats?.low_stock_count || 0}
-                    subtext="Action required"
-                    icon="📊"
-                    type="inventory"
-                />
-            </div>
+            {(hasPermission('orders.view_orders') || hasPermission('reports.view_sales_reports') || hasPermission('inventory.view_products')) && (
+                <div className="stats-grid">
+                    {(hasPermission('orders.view_orders') || hasPermission('reports.view_sales_reports')) && (
+                        <>
+                            <StatCard
+                                title="Today's Sales"
+                                value={`${currency}${stats?.today_sales_value || '0.00'}`}
+                                subtext={`${stats?.today_sales_count || 0} orders`}
+                                icon="📈"
+                                type="sales"
+                            />
+                            <StatCard
+                                title="Pending Orders"
+                                value={stats?.pending_orders_count || 0}
+                                subtext={`Value: ${currency}${stats?.pending_orders_value || '0.00'}`}
+                                icon="📦"
+                                type="orders"
+                            />
+                            <StatCard
+                                title="Recent Customers"
+                                value={stats?.recent_customers_count || 0}
+                                subtext="Last 7 days"
+                                icon="👥"
+                                type="customers"
+                            />
+                        </>
+                    )}
+                    {hasPermission('inventory.view_products') && (
+                        <StatCard
+                            title="Low Stock Items"
+                            value={stats?.low_stock_count || 0}
+                            subtext="Action required"
+                            icon="📊"
+                            type="inventory"
+                        />
+                    )}
+                </div>
+            )}
 
             {/* Charts Section */}
-            <div className="charts-grid">
-                <SalesTrendChart data={salesTrend} />
-                <TopProductsChart data={topProducts} />
-            </div>
+            {(hasPermission('orders.view_orders') || hasPermission('reports.view_sales_reports')) && (
+                <div className="charts-grid">
+                    <SalesTrendChart data={salesTrend} />
+                    {hasPermission('inventory.view_products') && <TopProductsChart data={topProducts} />}
+                </div>
+            )}
 
             <div className="dashboard-bottom-grid">
-                <RecentOrdersWidget orders={recentOrders} />
+                {hasPermission('orders.view_orders') && <RecentOrdersWidget orders={recentOrders} />}
 
                 {/*  Mixed Alerts & Low Stock - For now using LowStockWidget if we have data, else Alerts */}
-                {lowStockItems.length > 0 ? (
+                {hasPermission('inventory.view_products') && lowStockItems.length > 0 ? (
                     <LowStockWidget items={lowStockItems} />
                 ) : (
                     <div className="alerts-section">
@@ -131,28 +157,36 @@ export default function Dashboard() {
                     </div>
                 )}
 
-                <CoverageWidget />
+                {hasPermission('reports.view_sales_reports') && <CoverageWidget />}
             </div>
 
             <section className="quick-actions-section">
                 <h3>Quick Actions</h3>
                 <div className="quick-actions-grid">
-                    <a href="/orders/new" className="quick-action-card">
-                        <span className="action-icon">➕</span>
-                        <span>New Order</span>
-                    </a>
-                    <a href="/inventory/add" className="quick-action-card">
-                        <span className="action-icon">📦</span>
-                        <span>Add Product</span>
-                    </a>
-                    <a href="/customers/add" className="quick-action-card">
-                        <span className="action-icon">👤</span>
-                        <span>Add Customer</span>
-                    </a>
-                    <a href="/reports" className="quick-action-card">
-                        <span className="action-icon">📊</span>
-                        <span>View Reports</span>
-                    </a>
+                    {hasPermission('orders.create_orders') && (
+                        <a href="/orders/new" className="quick-action-card">
+                            <span className="action-icon">➕</span>
+                            <span>New Order</span>
+                        </a>
+                    )}
+                    {hasPermission('inventory.manage_products') && (
+                        <a href="/inventory/add" className="quick-action-card">
+                            <span className="action-icon">📦</span>
+                            <span>Add Product</span>
+                        </a>
+                    )}
+                    {hasPermission('customers.manage_customers') && (
+                        <a href="/customers/add" className="quick-action-card">
+                            <span className="action-icon">👤</span>
+                            <span>Add Customer</span>
+                        </a>
+                    )}
+                    {hasPermission('reports.view_sales_reports') && (
+                        <a href="/reports" className="quick-action-card">
+                            <span className="action-icon">📊</span>
+                            <span>View Reports</span>
+                        </a>
+                    )}
                 </div>
             </section>
         </div>

@@ -3,6 +3,7 @@ import { AuthProvider, useAuth } from './context/AuthContext';
 import { CurrencyProvider } from './context/CurrencyContext';
 import { CartProvider } from './context/CartContext';
 import { ToastProvider } from './context/ToastContext';
+import PermissionRoute from './components/PermissionRoute';
 import MainLayout from './components/layout/MainLayout';
 import Dashboard from './pages/Dashboard';
 import ProductList from './pages/inventory/ProductList';
@@ -79,27 +80,10 @@ import GatewayManagement from './pages/messaging/GatewayManagement';
 import MessageQueue from './pages/messaging/MessageQueue';
 import MessageTemplates from './pages/messaging/MessageTemplates';
 import PublicReceipt from './pages/public/PublicReceipt';
+import ElevatedAuthModal from './components/ElevatedAuthModal';
 import './index.css';
 
-// Protected Route wrapper
-function ProtectedRoute({ children }) {
-  const { isAuthenticated, loading } = useAuth();
-  const location = useLocation();
-
-  if (loading) {
-    return (
-      <div className="loading-screen">
-        <div className="spinner-large"></div>
-      </div>
-    );
-  }
-
-  if (!isAuthenticated) {
-    return <Navigate to="/login" state={{ from: location }} replace />;
-  }
-
-  return children;
-}
+// Protected Route wrapper removed, using imported PermissionRoute instead
 
 // 404 page
 function NotFoundPage() {
@@ -113,401 +97,402 @@ function NotFoundPage() {
 
 function AppRoutes() {
   return (
-    <Routes>
-      {/* Public routes */}
+    <>
+      <ElevatedAuthModal />
+      <Routes>
+        {/* Public routes */}
       <Route path="/login" element={<Login />} />
       <Route path="/verify-otp" element={<OTPVerification />} />
       <Route path="/r/:uuid" element={<PublicReceipt />} />
 
       {/* Protected routes */}
       <Route path="/" element={
-        <ProtectedRoute>
+        <PermissionRoute>
           <MainLayout><Dashboard /></MainLayout>
-        </ProtectedRoute>
+        </PermissionRoute>
       } />
       <Route path="/inventory" element={
-        <ProtectedRoute>
+        <PermissionRoute permission="inventory.view_products">
           <MainLayout><ProductList /></MainLayout>
-        </ProtectedRoute>
+        </PermissionRoute>
       } />
       <Route path="/inventory/add" element={
-        <ProtectedRoute>
+        <PermissionRoute permission="inventory.manage_products">
           <MainLayout><AddProduct /></MainLayout>
-        </ProtectedRoute>
+        </PermissionRoute>
       } />
       <Route path="/inventory/categories" element={
-        <ProtectedRoute>
+        <PermissionRoute permission="inventory.view_products">
           <MainLayout><Categories /></MainLayout>
-        </ProtectedRoute>
+        </PermissionRoute>
       } />
       <Route path="/inventory/vendors" element={
-        <ProtectedRoute>
+        <PermissionRoute permission="inventory.manage_vendors">
           <MainLayout><Vendors /></MainLayout>
-        </ProtectedRoute>
+        </PermissionRoute>
       } />
       <Route path="/inventory/stock" element={
-        <ProtectedRoute>
+        <PermissionRoute permission="inventory.manage_stock">
           <MainLayout><StockControl /></MainLayout>
-        </ProtectedRoute>
+        </PermissionRoute>
       } />
       <Route path="/inventory/product/:id" element={
-        <ProtectedRoute>
+        <PermissionRoute permission="inventory.view_products">
           <MainLayout><ProductDetails /></MainLayout>
-        </ProtectedRoute>
+        </PermissionRoute>
       } />
       <Route path="/inventory/edit/:id" element={
-        <ProtectedRoute>
+        <PermissionRoute permission="inventory.manage_products">
           <MainLayout><EditProduct /></MainLayout>
-        </ProtectedRoute>
+        </PermissionRoute>
       } />
 
       {/* Customer routes */}
       <Route path="/customers" element={
-        <ProtectedRoute>
+        <PermissionRoute permission="customers.view_customers">
           <MainLayout><CustomerList /></MainLayout>
-        </ProtectedRoute>
+        </PermissionRoute>
       } />
       <Route path="/customers/add" element={
-        <ProtectedRoute>
+        <PermissionRoute permission="customers.manage_customers">
           <MainLayout><AddCustomer /></MainLayout>
-        </ProtectedRoute>
+        </PermissionRoute>
       } />
       <Route path="/customers/settings" element={
-        <ProtectedRoute>
+        <PermissionRoute permission="customers.manage_schools">
           <MainLayout><CustomerSettings /></MainLayout>
-        </ProtectedRoute>
+        </PermissionRoute>
       } />
       <Route path="/customers/map" element={
-        <ProtectedRoute>
+        <PermissionRoute permission="customers.view_map">
           <MainLayout><CustomerMap /></MainLayout>
-        </ProtectedRoute>
+        </PermissionRoute>
       } />
       <Route path="/customers/coverage" element={
-        <ProtectedRoute>
+        <PermissionRoute permission="customers.view_customers">
           <MainLayout><CoverageList /></MainLayout>
-        </ProtectedRoute>
+        </PermissionRoute>
       } />
       <Route path="/customers/report" element={
-        <ProtectedRoute>
+        <PermissionRoute permission="customers.view_customers">
           <MainLayout><SeasonReport /></MainLayout>
-        </ProtectedRoute>
+        </PermissionRoute>
       } />
       <Route path="/customers/:id" element={
-        <ProtectedRoute>
+        <PermissionRoute permission="customers.view_customers">
           <MainLayout><CustomerDetails /></MainLayout>
-        </ProtectedRoute>
+        </PermissionRoute>
       } />
       <Route path="/customers/:id/edit" element={
-        <ProtectedRoute>
+        <PermissionRoute permission="customers.manage_customers">
           <MainLayout><AddCustomer /></MainLayout>
-        </ProtectedRoute>
+        </PermissionRoute>
       } />
 
       <Route path="/orders" element={
-        <ProtectedRoute>
+        <PermissionRoute permission="orders.view_orders">
           <MainLayout><OrderList /></MainLayout>
-        </ProtectedRoute>
+        </PermissionRoute>
       } />
       <Route path="/orders/:id" element={
-        <ProtectedRoute>
+        <PermissionRoute permission="orders.view_orders">
           <MainLayout><OrderDetails /></MainLayout>
-        </ProtectedRoute>
+        </PermissionRoute>
       } />
       <Route path="/orders/new" element={
-        <ProtectedRoute>
+        <PermissionRoute permission="orders.create_orders">
           <MainLayout><NewOrder /></MainLayout>
-        </ProtectedRoute>
+        </PermissionRoute>
       } />
       <Route path="/orders/:id/edit" element={
-        <ProtectedRoute>
+        <PermissionRoute permission="orders.edit_orders">
           <MainLayout><EditOrder /></MainLayout>
-        </ProtectedRoute>
+        </PermissionRoute>
       } />
       <Route path="/orders/:id/receipt" element={
-        <ProtectedRoute>
+        <PermissionRoute permission="orders.view_orders">
           <OrderReceipt />
-        </ProtectedRoute>
+        </PermissionRoute>
       } />
       <Route path="/returns" element={
-        <ProtectedRoute>
+        <PermissionRoute permission="orders.manage_returns">
           <MainLayout><ReturnsList /></MainLayout>
-        </ProtectedRoute>
+        </PermissionRoute>
       } />
       <Route path="/returns/new" element={
-        <ProtectedRoute>
+        <PermissionRoute permission="orders.manage_returns">
           <MainLayout><InitiateReturn /></MainLayout>
-        </ProtectedRoute>
+        </PermissionRoute>
       } />
       <Route path="/returns/:id" element={
-        <ProtectedRoute>
+        <PermissionRoute permission="orders.manage_returns">
           <MainLayout><ReturnDetails /></MainLayout>
-        </ProtectedRoute>
+        </PermissionRoute>
       } />
 
       {/* Finance Routes */}
       <Route path="/finance" element={
-        <ProtectedRoute>
+        <PermissionRoute permission="finance.view_dashboard">
           <MainLayout><FinanceIndex /></MainLayout>
-        </ProtectedRoute>
+        </PermissionRoute>
       } />
       <Route path="/finance/dashboard" element={
         <Navigate to="/finance" replace />
       } />
       <Route path="/finance/expenses" element={
-        <ProtectedRoute>
+        <PermissionRoute permission="finance.manage_expenses">
           <MainLayout><ExpenseList /></MainLayout>
-        </ProtectedRoute>
+        </PermissionRoute>
       } />
       <Route path="/finance/expenses/add" element={
-        <ProtectedRoute>
+        <PermissionRoute permission="finance.manage_expenses">
           <MainLayout><AddExpense /></MainLayout>
-        </ProtectedRoute>
+        </PermissionRoute>
       } />
       <Route path="/finance/expenses/:id" element={
-        <ProtectedRoute>
+        <PermissionRoute permission="finance.manage_expenses">
           <MainLayout><ExpenseDetails /></MainLayout>
-        </ProtectedRoute>
+        </PermissionRoute>
       } />
       <Route path="/finance/categories" element={
-        <ProtectedRoute>
+        <PermissionRoute permission="finance.manage_expenses">
           <MainLayout><ExpenseCategories /></MainLayout>
-        </ProtectedRoute>
+        </PermissionRoute>
       } />
       <Route path="/finance/employee-expenses" element={
-        <ProtectedRoute>
+        <PermissionRoute>
           <MainLayout><EmployeeExpenses /></MainLayout>
-        </ProtectedRoute>
+        </PermissionRoute>
       } />
       <Route path="/finance/salaries" element={
-        <ProtectedRoute>
+        <PermissionRoute permission="finance.manage_salaries">
           <MainLayout><EmployeeSalaries /></MainLayout>
-        </ProtectedRoute>
+        </PermissionRoute>
       } />
 
       <Route path="/finance/reports/profit-loss" element={
-        <ProtectedRoute>
+        <PermissionRoute permission="finance.view_reports">
           <MainLayout><ProfitLossReport /></MainLayout>
-        </ProtectedRoute>
+        </PermissionRoute>
       } />
       <Route path="/finance/reports/balance-sheet" element={
-        <ProtectedRoute>
+        <PermissionRoute permission="finance.view_reports">
           <MainLayout><BalanceSheet /></MainLayout>
-        </ProtectedRoute>
+        </PermissionRoute>
       } />
       <Route path="/finance/reports/cash-flow" element={
-        <ProtectedRoute>
+        <PermissionRoute permission="finance.view_reports">
           <MainLayout><CashFlowReport /></MainLayout>
-        </ProtectedRoute>
+        </PermissionRoute>
       } />
       <Route path="/finance/reports/expenses" element={
-        <ProtectedRoute>
+        <PermissionRoute permission="finance.view_reports">
           <MainLayout><ExpenseReport /></MainLayout>
-        </ProtectedRoute>
+        </PermissionRoute>
       } />
       <Route path="/finance/reports/sales-tax" element={
-        <ProtectedRoute>
+        <PermissionRoute permission="finance.view_reports">
           <MainLayout><TaxReport /></MainLayout>
-        </ProtectedRoute>
+        </PermissionRoute>
       } />
       <Route path="/finance/banking" element={
-        <ProtectedRoute>
+        <PermissionRoute permission="finance.manage_banking">
           <MainLayout><BankAccounts /></MainLayout>
-        </ProtectedRoute>
+        </PermissionRoute>
       } />
       <Route path="/finance/banking/transactions" element={
-        <ProtectedRoute>
+        <PermissionRoute permission="finance.manage_banking">
           <MainLayout><BankTransactions /></MainLayout>
-        </ProtectedRoute>
+        </PermissionRoute>
       } />
       <Route path="/finance/banking/record" element={
-        <ProtectedRoute>
+        <PermissionRoute permission="finance.manage_banking">
           <MainLayout><RecordTransaction /></MainLayout>
-        </ProtectedRoute>
+        </PermissionRoute>
       } />
       <Route path="/finance/recurring" element={
-        <ProtectedRoute>
+        <PermissionRoute permission="finance.manage_recurring">
           <MainLayout><RecurringExpenses /></MainLayout>
-        </ProtectedRoute>
+        </PermissionRoute>
       } />
       <Route path="/finance/budgets" element={
-        <ProtectedRoute>
+        <PermissionRoute permission="finance.manage_budgets">
           <MainLayout><CategoryBudgets /></MainLayout>
-        </ProtectedRoute>
+        </PermissionRoute>
       } />
       <Route path="/finance/income-categories" element={
-        <ProtectedRoute>
+        <PermissionRoute permission="finance.manage_income">
           <MainLayout><IncomeCategories /></MainLayout>
-        </ProtectedRoute>
+        </PermissionRoute>
       } />
       <Route path="/finance/lenders" element={
-        <ProtectedRoute>
+        <PermissionRoute permission="finance.manage_loans">
           <MainLayout><LenderList /></MainLayout>
-        </ProtectedRoute>
+        </PermissionRoute>
       } />
       <Route path="/finance/lenders/:id" element={
-        <ProtectedRoute>
+        <PermissionRoute permission="finance.manage_loans">
           <MainLayout><LenderDetails /></MainLayout>
-        </ProtectedRoute>
+        </PermissionRoute>
       } />
       <Route path="/finance/loans/:id" element={
-        <ProtectedRoute>
+        <PermissionRoute permission="finance.manage_loans">
           <MainLayout><LoanDetails /></MainLayout>
-        </ProtectedRoute>
+        </PermissionRoute>
       } />
 
       <Route path="/finance/trips" element={
-        <ProtectedRoute>
+        <PermissionRoute permission="finance.manage_trips">
           <MainLayout><TripList /></MainLayout>
-        </ProtectedRoute>
+        </PermissionRoute>
       } />
       <Route path="/finance/trips/new" element={
-        <ProtectedRoute>
+        <PermissionRoute permission="finance.manage_trips">
           <MainLayout><CreateTrip /></MainLayout>
-        </ProtectedRoute>
+        </PermissionRoute>
       } />
       <Route path="/finance/trips/:id" element={
-        <ProtectedRoute>
+        <PermissionRoute permission="finance.manage_trips">
           <MainLayout><TripDetails /></MainLayout>
-        </ProtectedRoute>
+        </PermissionRoute>
       } />
 
       <Route path="/account/profile" element={
-        <ProtectedRoute>
+        <PermissionRoute>
           <MainLayout><Profile /></MainLayout>
-        </ProtectedRoute>
+        </PermissionRoute>
       } />
 
       {/* Messaging Routes */}
       <Route path="/messaging" element={
-        <ProtectedRoute>
+        <PermissionRoute permission="settings.manage_store">
           <MainLayout><MessagingIndex /></MainLayout>
-        </ProtectedRoute>
+        </PermissionRoute>
       } />
       <Route path="/messaging/gateways" element={
-        <ProtectedRoute>
+        <PermissionRoute permission="settings.manage_store">
           <MainLayout><GatewayManagement /></MainLayout>
-        </ProtectedRoute>
+        </PermissionRoute>
       } />
       <Route path="/messaging/queue" element={
-        <ProtectedRoute>
+        <PermissionRoute permission="settings.manage_store">
           <MainLayout><MessageQueue /></MainLayout>
-        </ProtectedRoute>
+        </PermissionRoute>
       } />
       <Route path="/messaging/templates" element={
-        <ProtectedRoute>
+        <PermissionRoute permission="settings.manage_store">
           <MainLayout><MessageTemplates /></MainLayout>
-        </ProtectedRoute>
+        </PermissionRoute>
       } />
 
       {/* Reports Routes */}
       <Route path="/reports" element={
-        <ProtectedRoute>
+        <PermissionRoute>
           <MainLayout><ReportsIndex /></MainLayout>
-        </ProtectedRoute>
+        </PermissionRoute>
       } />
       <Route path="/reports/sales" element={
-        <ProtectedRoute>
+        <PermissionRoute permission="reports.view_sales">
           <MainLayout><SalesReports /></MainLayout>
-        </ProtectedRoute>
+        </PermissionRoute>
       } />
       <Route path="/reports/inventory" element={
-        <ProtectedRoute>
+        <PermissionRoute permission="reports.view_inventory">
           <MainLayout><InventoryReports /></MainLayout>
-        </ProtectedRoute>
+        </PermissionRoute>
       } />
       <Route path="/reports/customers" element={
-        <ProtectedRoute>
+        <PermissionRoute permission="reports.view_customers">
           <MainLayout><CustomerReports /></MainLayout>
-        </ProtectedRoute>
+        </PermissionRoute>
       } />
       <Route path="/reports/export" element={
-        <ProtectedRoute>
+        <PermissionRoute permission="reports.export">
           <MainLayout><DataExport /></MainLayout>
-        </ProtectedRoute>
+        </PermissionRoute>
       } />
       <Route path="/reports/activity" element={
-        <ProtectedRoute>
+        <PermissionRoute permission="settings.view_audit_logs">
           <MainLayout><ActivityLog /></MainLayout>
-        </ProtectedRoute>
+        </PermissionRoute>
       } />
 
       <Route path="/inventory/deleted" element={
-        <ProtectedRoute>
+        <PermissionRoute permission="inventory.manage_products">
           <MainLayout><DeletedProducts /></MainLayout>
-        </ProtectedRoute>
+        </PermissionRoute>
       } />
       <Route path="/inventory/product-sets" element={
-        <ProtectedRoute>
+        <PermissionRoute permission="inventory.view_products">
           <MainLayout><ProductSets /></MainLayout>
-        </ProtectedRoute>
+        </PermissionRoute>
       } />
 
 
 
       {/* Settings Routes */}
       <Route path="/settings" element={
-        <ProtectedRoute>
+        <PermissionRoute>
           <MainLayout><SettingsIndex /></MainLayout>
-        </ProtectedRoute>
+        </PermissionRoute>
       } />
       <Route path="/settings/store" element={
-        <ProtectedRoute>
+        <PermissionRoute permission="settings.manage_store">
           <MainLayout><StoreSettings /></MainLayout>
-        </ProtectedRoute>
+        </PermissionRoute>
       } />
       <Route path="/settings/employees" element={
-        <ProtectedRoute>
+        <PermissionRoute permission="settings.manage_users">
           <MainLayout><EmployeeManagement /></MainLayout>
-        </ProtectedRoute>
+        </PermissionRoute>
       } />
       <Route path="/settings/roles" element={
-        <ProtectedRoute>
+        <PermissionRoute permission="settings.manage_roles">
           <MainLayout><RolesPermissions /></MainLayout>
-        </ProtectedRoute>
+        </PermissionRoute>
       } />
       <Route path="/settings/finance" element={
-        <ProtectedRoute>
+        <PermissionRoute permission="settings.manage_taxes">
           <MainLayout><FinancialSettings /></MainLayout>
-        </ProtectedRoute>
+        </PermissionRoute>
       } />
       <Route path="/settings/data" element={
-        <ProtectedRoute>
+        <PermissionRoute permission="settings.manage_store">
           <MainLayout><DataManagement /></MainLayout>
-        </ProtectedRoute>
+        </PermissionRoute>
       } />
 
-
       <Route path="/settings/customers" element={
-        <ProtectedRoute>
+        <PermissionRoute permission="settings.manage_store">
           <MainLayout><CustomerSettings /></MainLayout>
-        </ProtectedRoute>
+        </PermissionRoute>
       } />
 
       <Route path="/settings/receipt" element={
-        <ProtectedRoute>
+        <PermissionRoute permission="settings.manage_receipts">
           <MainLayout><ReceiptSettings /></MainLayout>
-        </ProtectedRoute>
+        </PermissionRoute>
       } />
       <Route path="/settings/payments" element={
-        <ProtectedRoute>
+        <PermissionRoute permission="settings.manage_payments">
           <MainLayout><PaymentSettings /></MainLayout>
-        </ProtectedRoute>
+        </PermissionRoute>
       } />
       <Route path="/settings/notifications" element={
-        <ProtectedRoute>
+        <PermissionRoute permission="settings.manage_notifications">
           <MainLayout><NotificationSettings /></MainLayout>
-        </ProtectedRoute>
+        </PermissionRoute>
       } />
       <Route path="/settings/integrations" element={
-        <ProtectedRoute>
+        <PermissionRoute permission="settings.manage_integrations">
           <MainLayout><IntegrationSettings /></MainLayout>
-        </ProtectedRoute>
+        </PermissionRoute>
       } />
 
       <Route path="/settings/system" element={
-        <ProtectedRoute>
+        <PermissionRoute permission="settings.manage_store">
           <MainLayout><SystemInfo /></MainLayout>
-        </ProtectedRoute>
+        </PermissionRoute>
       } />
 
 
@@ -516,6 +501,7 @@ function AppRoutes() {
         <MainLayout><NotFoundPage /></MainLayout>
       } />
     </Routes>
+    </>
   );
 }
 

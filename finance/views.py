@@ -20,7 +20,7 @@ from rest_framework.views import APIView
 from rest_framework.permissions import IsAuthenticated, IsAdminUser
 from rest_framework.pagination import PageNumberPagination
 from rest_framework.throttling import UserRateThrottle
-from core.permissions import HasRequiredPermission
+from core.permissions import HasRequiredPermission, HasElevatedAuth
 
 from .models import (
     ExpenseCategory, Expense, ExpensePayment, OtherIncome,
@@ -310,6 +310,12 @@ class BankAccountViewSet(viewsets.ModelViewSet):
         if self.request.query_params.get('active_only'):
             qs = qs.filter(is_active=True)
         return qs
+
+    def get_permissions(self):
+        perms = super().get_permissions()
+        if self.action in ['create', 'update', 'partial_update', 'destroy', 'set_default']:
+            perms.append(HasElevatedAuth())
+        return perms
     
     @action(detail=True, methods=['post'], throttle_classes=[FinanceActionThrottle])
     def set_default(self, request, pk=None):

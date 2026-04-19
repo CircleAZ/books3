@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
-import { useCurrency } from '../../context/CurrencyContext';
 import { ENDPOINTS } from '../../config/api';
+import usePermissions from '../../utils/usePermissions';
 import CategoryModal from './CategoryModal';
 import VendorModal from './VendorModal';
 import './ProductForm.css';
@@ -10,8 +10,10 @@ import './ProductForm.css';
 export default function ProductForm({ initialData = null, isEdit = false }) {
     const { fetchWithAuth } = useAuth();
     const { currency } = useCurrency();
+    const { hasPermission } = usePermissions();
     const navigate = useNavigate();
     const [loading, setLoading] = useState(false);
+    const canViewCost = hasPermission('finance.manage_expenses') || hasPermission('finance.view_reports');
 
     // LENS-02/10/01: Validation & feedback state
     const [fieldErrors, setFieldErrors] = useState({});
@@ -210,6 +212,7 @@ export default function ProductForm({ initialData = null, isEdit = false }) {
             const submitData = new FormData();
 
             Object.keys(formData).forEach(key => {
+                if (key === 'cost_price' && !canViewCost) return; // Prevent overwriting cost_price if restricted
                 submitData.append(key, formData[key] === null ? '' : formData[key]);
             });
 
@@ -364,20 +367,22 @@ export default function ProductForm({ initialData = null, isEdit = false }) {
                 <div className="form-section">
                     <h3>Pricing & Inventory</h3>
                     <div className="form-row">
-                        <div className="form-group">
-                            <label>Cost Price ({currency})</label>
-                            <input
-                                type="number"
-                                name="cost_price"
-                                value={formData.cost_price}
-                                onChange={handleInputChange}
-                                min="0"
-                                step="0.01"
-                                className={fieldErrors.cost_price ? 'input-error' : ''}
-                            />
-                            {fieldErrors.cost_price && <span className="field-error">{fieldErrors.cost_price}</span>}
-                            <small className="helper-text">What you paid the supplier</small>
-                        </div>
+                        {canViewCost && (
+                            <div className="form-group">
+                                <label>Cost Price ({currency})</label>
+                                <input
+                                    type="number"
+                                    name="cost_price"
+                                    value={formData.cost_price}
+                                    onChange={handleInputChange}
+                                    min="0"
+                                    step="0.01"
+                                    className={fieldErrors.cost_price ? 'input-error' : ''}
+                                />
+                                {fieldErrors.cost_price && <span className="field-error">{fieldErrors.cost_price}</span>}
+                                <small className="helper-text">What you paid the supplier</small>
+                            </div>
+                        )}
                         <div className="form-group">
                             <label>Selling Price ({currency}) <span className="required-mark">*</span></label>
                             <input

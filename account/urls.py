@@ -6,7 +6,8 @@ from .views import (
     LoginView, LogoutView, ProfileView, 
     ProfilePictureView, ChangePasswordView, ActivityLogView,
     NotificationListView, NotificationCountView, NotificationReadView,
-    OTPVerifyView, ResendOTPView
+    OTPVerifyView, ResendOTPView,
+    RequestElevatedOTPView, VerifyElevatedOTPView
 )
 
 app_name = 'account'
@@ -23,4 +24,6 @@ urlpatterns = [
     path('notifications/', NotificationListView.as_view(), name='notifications'),
     path('notifications/count/', NotificationCountView.as_view(), name='notification-count'),
     path('notifications/<uuid:pk>/read/', NotificationReadView.as_view(), name='notification-read'),
+    path('request-elevated-otp/', RequestElevatedOTPView.as_view(), name='request-elevated-otp'),
+    path('verify-elevated-otp/', VerifyElevatedOTPView.as_view(), name='verify-elevated-otp'),
 ]

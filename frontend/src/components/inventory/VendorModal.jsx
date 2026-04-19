@@ -1,9 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { ENDPOINTS } from '../../config/api';
+import usePermissions from '../../utils/usePermissions';
 
 export default function VendorModal({ isOpen, onClose, vendor, onSuccess }) {
     const { fetchWithAuth } = useAuth();
+    const { hasPermission } = usePermissions();
+    const canViewContact = hasPermission('finance.manage_expenses') || hasPermission('finance.view_reports');
     const [formData, setFormData] = useState({ name: '', description: '', contact_email: '', contact_phone: '' });
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
@@ -35,11 +38,17 @@ export default function VendorModal({ isOpen, onClose, vendor, onSuccess }) {
 
         const method = vendor ? 'PUT' : 'POST';
 
+        const payload = { ...formData };
+        if (vendor && !canViewContact) {
+            delete payload.contact_email;
+            delete payload.contact_phone;
+        }
+
         try {
             const response = await fetchWithAuth(url, {
                 method,
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(formData)
+                body: JSON.stringify(payload)
             });
 
             if (response.ok) {
@@ -74,30 +83,32 @@ export default function VendorModal({ isOpen, onClose, vendor, onSuccess }) {
                             onChange={e => setFormData({ ...formData, name: e.target.value })}
                         />
                     </div>
-                    <div className="form-row" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-                        <div className="form-group">
-                            <label>Email</label>
-                            <input
-                                type="email"
-                                style={{ width: '100%' }}
-                                value={formData.contact_email}
-                                onChange={e => setFormData({ ...formData, contact_email: e.target.value })}
-                            />
+                    {canViewContact && (
+                        <div className="form-row" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                            <div className="form-group">
+                                <label>Email</label>
+                                <input
+                                    type="email"
+                                    style={{ width: '100%' }}
+                                    value={formData.contact_email}
+                                    onChange={e => setFormData({ ...formData, contact_email: e.target.value })}
+                                />
+                            </div>
+                            <div className="form-group">
+                                <label>Phone</label>
+                                <input
+                                    type="text"
+                                    inputMode="numeric"
+                                    maxLength="10"
+                                    pattern="\d{10}"
+                                    title="Phone number must be exactly 10 digits"
+                                    style={{ width: '100%' }}
+                                    value={formData.contact_phone}
+                                    onChange={e => setFormData({ ...formData, contact_phone: e.target.value.replace(/\D/g, '').slice(0, 10) })}
+                                />
+                            </div>
                         </div>
-                        <div className="form-group">
-                            <label>Phone</label>
-                            <input
-                                type="text"
-                                inputMode="numeric"
-                                maxLength="10"
-                                pattern="\d{10}"
-                                title="Phone number must be exactly 10 digits"
-                                style={{ width: '100%' }}
-                                value={formData.contact_phone}
-                                onChange={e => setFormData({ ...formData, contact_phone: e.target.value.replace(/\D/g, '').slice(0, 10) })}
-                            />
-                        </div>
-                    </div>
+                    )}
                     <div className="form-group">
                         <label>Description</label>
                         <textarea

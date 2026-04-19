@@ -86,6 +86,7 @@ class EmailOTP(UUIDPrimaryKeyModel):
     class Purpose(models.TextChoices):
         LOGIN = 'login', 'Login Verification'
         VERIFY_EMAIL = 'verify_email', 'Email Verification'
+        ELEVATED_AUTH = 'elevated_auth', 'Elevated Authentication'
 
     user = models.ForeignKey(
         'account.User',
