@@ -54,7 +54,10 @@ export default function InventoryReports() {
                 const a = document.createElement('a');
                 a.href = url;
                 a.download = `inventory_${type}.csv`;
+                document.body.appendChild(a);
                 a.click();
+                document.body.removeChild(a);
+                window.URL.revokeObjectURL(url);
             }
         } catch (error) {
             console.error('Export failed:', error);

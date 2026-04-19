@@ -43,20 +43,36 @@ class ReportBaseViewSet(viewsets.ViewSet):
     def get_date_range(self, request):
         start_date_str = request.query_params.get('start_date')
         end_date_str = request.query_params.get('end_date')
+        period = request.query_params.get('period')
         
+        today = timezone.now().date()
+        
+        if period:
+            if period == 'today':
+                return today, today
+            elif period == 'week':
+                return today - timedelta(days=7), today
+            elif period == 'month':
+                return today - timedelta(days=30), today
+            elif period == 'year':
+                return today - timedelta(days=365), today
+            elif period == 'all':
+                from datetime import date
+                return date(2000, 1, 1), today
+
         if start_date_str:
             start_date = parse_date(start_date_str)
             if start_date is None:
                 return None, None  # Signal invalid date
         else:
-            start_date = timezone.now().date() - timedelta(days=30)
+            start_date = today - timedelta(days=30)
             
         if end_date_str:
             end_date = parse_date(end_date_str)
             if end_date is None:
                 return None, None  # Signal invalid date
         else:
-            end_date = timezone.now().date()
+            end_date = today
             
         return start_date, end_date
 

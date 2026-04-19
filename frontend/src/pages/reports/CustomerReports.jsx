@@ -36,6 +36,25 @@ export default function CustomerReports() {
         }
     };
 
+    const exportCSV = async () => {
+        try {
+            const res = await fetchWithAuth(`${ENDPOINTS.REPORTS_CUSTOMERS}export/`);
+            if (res.ok) {
+                const blob = await res.blob();
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `customer_report.csv`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                window.URL.revokeObjectURL(url);
+            }
+        } catch (error) {
+            console.error('Export failed:', error);
+        }
+    };
+
     const rfmSegments = [
         { name: 'Champions', description: 'Best customers who buy often', color: '#22c55e', icon: '🏆' },
         { name: 'Loyal', description: 'Regular customers with high spend', color: '#40cdba', icon: '💎' },
@@ -51,7 +70,7 @@ export default function CustomerReports() {
     return (
         <div className="customer-reports-page">
             <header className="reports-header">
-                <button className="export-btn">📥 Export</button>
+                <button className="export-btn" onClick={exportCSV}>📥 Export</button>
             </header>
 
             {/* Summary Cards */}
