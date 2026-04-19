@@ -584,7 +584,7 @@ class CustomerReportViewSet(ReportBaseViewSet):
                 c.id,
                 f"{c.first_name} {c.last_name}",
                 c.email,
-                c.phone_number,
+                c.phone,
                 c.order_count or 0,
                 c.total_spent or 0,
                 c.created_at.strftime('%Y-%m-%d')
