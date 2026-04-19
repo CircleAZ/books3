@@ -371,7 +371,7 @@ class InventoryReportViewSet(ReportBaseViewSet):
                 output_field=DecimalField()
             )
         ).values(
-            'id', 'name', 'sku', 'stock_quantity', 'cost_price', 'inventory_value'
+            'id', 'name', 'display_id', 'stock_quantity', 'cost_price', 'inventory_value'
         ).order_by('-inventory_value')
         
         total_value = sum(p['inventory_value'] or 0 for p in aging_products)
@@ -445,13 +445,13 @@ class InventoryReportViewSet(ReportBaseViewSet):
             products = Product.objects.all()
             filename = 'inventory_valuation'
             
-        header = ['SKU', 'Product Name', 'Stock', 'Cost Price', 'Selling Price', 'Cost Value', 'Selling Value']
+        header = ['Product ID', 'Product Name', 'Stock', 'Cost Price', 'Selling Price', 'Cost Value', 'Selling Value']
         rows = []
         for p in products:
             cost_val = (p.stock_quantity * p.cost_price) if p.stock_quantity and p.cost_price else 0
             sell_val = (p.stock_quantity * p.selling_price) if p.stock_quantity and p.selling_price else 0
             rows.append([
-                p.sku,
+                p.display_id,
                 p.name,
                 p.stock_quantity,
                 p.cost_price,
