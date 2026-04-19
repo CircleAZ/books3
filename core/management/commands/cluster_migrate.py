@@ -22,9 +22,9 @@ class Command(BaseCommand):
             self.stdout.write(self.style.WARNING("Redis not detected. Running standard local migration."))
             call_command('migrate', interactive=False)
             try:
-                call_command('createcachetable', 'django_cache', interactive=False)
-            except Exception:
-                pass
+                call_command('createcachetable', 'django_cache')
+            except Exception as e:
+                self.stdout.write(self.style.WARNING(f"Cache table creation warning: {e}"))
             return
 
         self.stdout.write("Initializing Redis connection for distributed lock...")
@@ -46,9 +46,9 @@ class Command(BaseCommand):
                 
                 self.stdout.write("Ensuring cache table exists...")
                 try:
-                    call_command('createcachetable', 'django_cache', interactive=False)
+                    call_command('createcachetable', 'django_cache')
                 except Exception as e:
-                    pass # Table likely already exists
+                    self.stdout.write(self.style.WARNING(f"Cache table creation warning: {e}"))
                 
                 self.stdout.write("Ensuring superuser exists...")
                 try:
