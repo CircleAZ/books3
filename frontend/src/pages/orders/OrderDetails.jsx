@@ -358,7 +358,7 @@ export default function OrderDetails() {
                                         </button>
                                         <div className="actions-menu-divider" />
                                         {order.can_edit && (
-                                            <GuardedAction permission="orders.manage_orders">
+                                            <GuardedAction permission="orders.edit_orders">
                                                 <button
                                                     className="actions-menu-item"
                                                     onClick={() => {
@@ -386,7 +386,7 @@ export default function OrderDetails() {
                                         {order.can_cancel && (
                                             <>
                                                 <div className="actions-menu-divider" />
-                                                <GuardedAction permission="orders.manage_orders">
+                                                <GuardedAction permission="orders.cancel_orders">
                                                     <button
                                                         className="actions-menu-item actions-menu-item-danger"
                                                         onClick={() => {
@@ -415,10 +415,10 @@ export default function OrderDetails() {
                         <p style={{ margin: '0.25rem 0 0', fontSize: '0.875rem' }}>This order has a pending cancellation request. Approve to finalize or reject to resume the order.</p>
                     </div>
                     <div style={{ display: 'flex', gap: '0.5rem', flexShrink: 0 }}>
-                        <GuardedAction permission="orders.manage_orders">
+                        <GuardedAction permission="orders.cancel_orders">
                             <button className="btn btn-primary btn-sm" onClick={handleApproveCancellation}>✓ Approve</button>
                         </GuardedAction>
-                        <GuardedAction permission="orders.manage_orders">
+                        <GuardedAction permission="orders.cancel_orders">
                             <button className="btn btn-ghost btn-sm" onClick={handleRejectCancellation}>✗ Reject</button>
                         </GuardedAction>
                     </div>
@@ -575,7 +575,7 @@ export default function OrderDetails() {
                                     Due: {currency}{Number(order.balance_due).toFixed(2)}
                                 </span>
                                 {order.balance_due > 0 && (
-                                    <GuardedAction permission="orders.manage_orders">
+                                    <GuardedAction permission="orders.manage_payments">
                                         <button className="btn btn-primary btn-sm" onClick={openPaymentModal}>
                                             + Record Payment
                                         </button>
