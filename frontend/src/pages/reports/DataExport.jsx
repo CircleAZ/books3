@@ -16,19 +16,21 @@ export default function DataExport() {
         try {
             let endpoint = '';
             let filename = '';
+            const formatParam = format === 'xlsx' ? '&format=xlsx' : '';
+            const formatSuffix = format === 'xlsx' ? '.xlsx' : '.csv';
 
             switch (type) {
                 case 'Products':
-                    endpoint = `${ENDPOINTS.REPORTS_INVENTORY}export/?type=all`;
-                    filename = 'inventory_export';
+                    endpoint = `${ENDPOINTS.REPORTS_INVENTORY}export/?type=all${formatParam}`;
+                    filename = `inventory_export${formatSuffix}`;
                     break;
                 case 'Customers':
-                    endpoint = `${ENDPOINTS.REPORTS_CUSTOMERS}export/`;
-                    filename = 'customers_export';
+                    endpoint = `${ENDPOINTS.REPORTS_CUSTOMERS}export/?_=1${formatParam}`;
+                    filename = `customers_export${formatSuffix}`;
                     break;
                 case 'Orders':
-                    endpoint = `${ENDPOINTS.REPORTS_SALES}export/?period=all`;
-                    filename = 'orders_export';
+                    endpoint = `${ENDPOINTS.REPORTS_SALES}export/?period=all${formatParam}`;
+                    filename = `orders_export${formatSuffix}`;
                     break;
                 default:
                     throw new Error('Unknown export type');
@@ -43,10 +45,11 @@ export default function DataExport() {
                 const url = window.URL.createObjectURL(blob);
                 const a = document.createElement('a');
                 a.href = url;
-                a.download = `${filename}.csv`; // Backend currently acts as CSV only
+                a.download = filename;
                 document.body.appendChild(a);
                 a.click();
                 a.remove();
+                window.URL.revokeObjectURL(url);
                 setProgress(100);
                 setTimeout(() => setExporting(false), 1000);
             } else {
@@ -80,15 +83,15 @@ export default function DataExport() {
                             />
                             <span>CSV (.csv)</span>
                         </label>
-                        {/* Excel support pending backend implementation */}
-                        <label className="radio-item disabled">
+                        <label className={`radio-item ${format === 'xlsx' ? 'active' : ''}`}>
                             <input
                                 type="radio"
                                 name="format"
-                                value="excel"
-                                disabled
+                                value="xlsx"
+                                checked={format === 'xlsx'}
+                                onChange={(e) => setFormat(e.target.value)}
                             />
-                            <span>Excel (.xlsx) (Coming Soon)</span>
+                            <span>Excel (.xlsx)</span>
                         </label>
                     </div>
                 </div>

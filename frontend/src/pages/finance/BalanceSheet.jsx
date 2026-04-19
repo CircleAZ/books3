@@ -41,18 +41,20 @@ const BalanceSheet = () => {
         }).format(amount || 0);
     };
 
-    const handleExport = async (type) => {
+    const handleExport = async (fmt = 'csv') => {
         try {
-            const response = await fetchWithAuth(`${ENDPOINTS.REPORTS_FINANCE}export/?type=balance_sheet`);
+            const formatParam = fmt === 'xlsx' ? '&format=xlsx' : '';
+            const response = await fetchWithAuth(`${ENDPOINTS.REPORTS_FINANCE}export/?type=balance_sheet${formatParam}`);
             if (response.ok) {
                 const blob = await response.blob();
                 const url = window.URL.createObjectURL(blob);
                 const a = document.createElement('a');
                 a.href = url;
-                a.download = `balance_sheet_${new Date().toISOString().split('T')[0]}.csv`;
+                a.download = `balance_sheet_${new Date().toISOString().split('T')[0]}.${fmt}`;
                 document.body.appendChild(a);
                 a.click();
                 a.remove();
+                window.URL.revokeObjectURL(url);
             }
         } catch (error) {
             console.error('Export failed:', error);
@@ -139,6 +141,9 @@ const BalanceSheet = () => {
             <div className="report-footer-actions">
                 <button onClick={() => handleExport('csv')} className="btn-export csv">
                     <FileSpreadsheet size={18} /> Export CSV
+                </button>
+                <button onClick={() => handleExport('xlsx')} className="btn-export xlsx">
+                    <FileSpreadsheet size={18} /> Export Excel
                 </button>
             </div>
         </div>

@@ -63,18 +63,20 @@ const TaxReport = () => {
         }).format(amount || 0);
     };
 
-    const handleExport = async () => {
+    const handleExport = async (fmt = 'csv') => {
         try {
-            const response = await fetchWithAuth(`${ENDPOINTS.REPORTS_FINANCE}export/?type=tax_report`);
+            const formatParam = fmt === 'xlsx' ? '&format=xlsx' : '';
+            const response = await fetchWithAuth(`${ENDPOINTS.REPORTS_FINANCE}export/?type=tax_report${formatParam}`);
             if (response.ok) {
                 const blob = await response.blob();
                 const url = window.URL.createObjectURL(blob);
                 const a = document.createElement('a');
                 a.href = url;
-                a.download = `tax_report_${period}.csv`;
+                a.download = `tax_report_${period}.${fmt}`;
                 document.body.appendChild(a);
                 a.click();
                 a.remove();
+                window.URL.revokeObjectURL(url);
             }
         } catch (error) {
             console.error('Export failed:', error);
@@ -139,8 +141,11 @@ const TaxReport = () => {
             </div>
 
             <div className="report-footer-actions">
-                <button onClick={handleExport} className="btn-export csv">
+                <button onClick={() => handleExport('csv')} className="btn-export csv">
                     <FileSpreadsheet size={18} /> Export CSV
+                </button>
+                <button onClick={() => handleExport('xlsx')} className="btn-export xlsx">
+                    <FileSpreadsheet size={18} /> Export Excel
                 </button>
             </div>
         </div>

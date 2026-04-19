@@ -25,6 +25,13 @@ from django.http import HttpResponse
 class ReportBaseViewSet(viewsets.ViewSet):
     permission_classes = [HasRequiredPermission]
 
+    def export_file(self, request, filename, header, rows):
+        """Dispatch to CSV or Excel based on ?format= query param."""
+        fmt = request.query_params.get('format', 'csv').lower()
+        if fmt == 'xlsx':
+            return self.export_excel(filename, header, rows)
+        return self.export_csv(filename, header, rows)
+
     def export_csv(self, filename, header, rows):
         response = HttpResponse(content_type='text/csv')
         response['Content-Disposition'] = f'attachment; filename="{filename}.csv"'
@@ -34,6 +41,64 @@ class ReportBaseViewSet(viewsets.ViewSet):
         for row in rows:
             writer.writerow([self._sanitize_csv_value(v) for v in row])
             
+        return response
+
+    def export_excel(self, filename, header, rows):
+        """Generate a styled .xlsx file using openpyxl."""
+        from openpyxl import Workbook
+        from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+        from openpyxl.utils import get_column_letter
+        from io import BytesIO
+
+        wb = Workbook()
+        ws = wb.active
+        ws.title = filename[:31]  # Excel sheet name max 31 chars
+
+        # Header style
+        header_font = Font(name='Calibri', bold=True, size=11, color='FFFFFF')
+        header_fill = PatternFill(start_color='2B5797', end_color='2B5797', fill_type='solid')
+        header_align = Alignment(horizontal='center', vertical='center')
+        thin_border = Border(
+            bottom=Side(style='thin', color='CCCCCC')
+        )
+
+        # Write header row
+        for col_idx, col_name in enumerate(header, 1):
+            cell = ws.cell(row=1, column=col_idx, value=col_name)
+            cell.font = header_font
+            cell.fill = header_fill
+            cell.alignment = header_align
+
+        # Write data rows
+        data_font = Font(name='Calibri', size=11)
+        for row_idx, row in enumerate(rows, 2):
+            for col_idx, value in enumerate(row, 1):
+                cell = ws.cell(row=row_idx, column=col_idx, value=value)
+                cell.font = data_font
+                cell.border = thin_border
+
+        # Auto-fit column widths
+        for col_idx in range(1, len(header) + 1):
+            max_length = len(str(header[col_idx - 1]))
+            for row_idx in range(2, len(rows) + 2):
+                cell_value = ws.cell(row=row_idx, column=col_idx).value
+                if cell_value is not None:
+                    max_length = max(max_length, len(str(cell_value)))
+            ws.column_dimensions[get_column_letter(col_idx)].width = min(max_length + 3, 50)
+
+        # Freeze header row
+        ws.freeze_panes = 'A2'
+
+        # Write to response
+        buffer = BytesIO()
+        wb.save(buffer)
+        buffer.seek(0)
+
+        response = HttpResponse(
+            buffer.getvalue(),
+            content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        )
+        response['Content-Disposition'] = f'attachment; filename="{filename}.xlsx"'
         return response
     
     @staticmethod
@@ -217,7 +282,7 @@ class SalesReportViewSet(ReportBaseViewSet):
                 order.total
             ])
             
-        return self.export_csv(f'sales_report_{period}', header, rows)
+        return self.export_file(request, f'sales_report_{period}', header, rows)
 
     @action(detail=False, methods=['get'])
     def by_payment_method(self, request):
@@ -460,7 +525,7 @@ class InventoryReportViewSet(ReportBaseViewSet):
                 sell_val
             ])
             
-        return self.export_csv(filename, header, rows)
+        return self.export_file(request, filename, header, rows)
 
 class CustomerReportViewSet(ReportBaseViewSet):
     required_permission = 'reports.view_customers'
@@ -590,7 +655,7 @@ class CustomerReportViewSet(ReportBaseViewSet):
                 c.created_at.strftime('%Y-%m-%d')
             ])
             
-        return self.export_csv('customer_report', header, rows)
+        return self.export_file(request, 'customer_report', header, rows)
 
     @action(detail=False, methods=['get'])
     def locations(self, request):
@@ -1109,4 +1174,4 @@ class FinanceReportViewSet(ReportBaseViewSet):
         else:
             return Response({'error': 'Invalid report type'}, status=400)
             
-        return self.export_csv(filename, header, rows)
+        return self.export_file(request, filename, header, rows)

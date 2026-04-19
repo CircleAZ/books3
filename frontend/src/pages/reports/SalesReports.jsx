@@ -47,15 +47,16 @@ export default function SalesReports() {
         }
     };
 
-    const exportCSV = async () => {
+    const handleExport = async (fmt = 'csv') => {
         try {
-            const res = await fetchWithAuth(`${ENDPOINTS.REPORTS_SALES}export/?period=${dateRange}`);
+            const formatParam = fmt === 'xlsx' ? '&format=xlsx' : '';
+            const res = await fetchWithAuth(`${ENDPOINTS.REPORTS_SALES}export/?period=${dateRange}${formatParam}`);
             if (res.ok) {
                 const blob = await res.blob();
                 const url = window.URL.createObjectURL(blob);
                 const a = document.createElement('a');
                 a.href = url;
-                a.download = `sales_report_${dateRange}.csv`;
+                a.download = `sales_report_${dateRange}.${fmt}`;
                 document.body.appendChild(a);
                 a.click();
                 document.body.removeChild(a);
@@ -88,9 +89,14 @@ export default function SalesReports() {
                             onClick={() => setDateRange('month')}
                         >This Month</button>
                     </div>
-                    <button className="export-btn" onClick={exportCSV}>
-                        📥 Export CSV
-                    </button>
+                    <div className="export-buttons">
+                        <button className="export-btn" onClick={() => handleExport('csv')}>
+                            📥 Export CSV
+                        </button>
+                        <button className="export-btn excel" onClick={() => handleExport('xlsx')}>
+                            📊 Export Excel
+                        </button>
+                    </div>
                 </div>
             </header>
 

@@ -63,6 +63,20 @@
     box-shadow: 0 4px 15px rgba(64, 205, 186, 0.3);
 }
 
+.export-buttons {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+}
+
+.export-btn.excel {
+    background: linear-gradient(135deg, #217346, #33a06f);
+}
+
+.export-btn.excel:hover {
+    box-shadow: 0 4px 15px rgba(33, 115, 70, 0.4);
+}
+
 .summary-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));

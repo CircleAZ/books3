@@ -45,15 +45,16 @@ export default function InventoryReports() {
         }
     };
 
-    const exportCSV = async (type) => {
+    const handleExport = async (type, fmt = 'csv') => {
         try {
-            const res = await fetchWithAuth(`${ENDPOINTS.REPORTS_INVENTORY}export/?type=${type}`);
+            const formatParam = fmt === 'xlsx' ? '&format=xlsx' : '';
+            const res = await fetchWithAuth(`${ENDPOINTS.REPORTS_INVENTORY}export/?type=${type}${formatParam}`);
             if (res.ok) {
                 const blob = await res.blob();
                 const url = window.URL.createObjectURL(blob);
                 const a = document.createElement('a');
                 a.href = url;
-                a.download = `inventory_${type}.csv`;
+                a.download = `inventory_${type}.${fmt}`;
                 document.body.appendChild(a);
                 a.click();
                 document.body.removeChild(a);
@@ -71,9 +72,14 @@ export default function InventoryReports() {
     return (
         <div className="inventory-reports-page">
             <header className="reports-header">
-                <button className="export-btn" onClick={() => exportCSV('all')}>
-                    📥 Export All
-                </button>
+                <div className="export-buttons">
+                    <button className="export-btn" onClick={() => handleExport('all', 'csv')}>
+                        📥 Export CSV
+                    </button>
+                    <button className="export-btn excel" onClick={() => handleExport('all', 'xlsx')}>
+                        📊 Export Excel
+                    </button>
+                </div>
             </header>
 
             {/* Valuation Summary */}

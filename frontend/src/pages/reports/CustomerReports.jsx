@@ -36,15 +36,16 @@ export default function CustomerReports() {
         }
     };
 
-    const exportCSV = async () => {
+    const handleExport = async (fmt = 'csv') => {
         try {
-            const res = await fetchWithAuth(`${ENDPOINTS.REPORTS_CUSTOMERS}export/`);
+            const formatParam = fmt === 'xlsx' ? '&format=xlsx' : '';
+            const res = await fetchWithAuth(`${ENDPOINTS.REPORTS_CUSTOMERS}export/?_=1${formatParam}`);
             if (res.ok) {
                 const blob = await res.blob();
                 const url = window.URL.createObjectURL(blob);
                 const a = document.createElement('a');
                 a.href = url;
-                a.download = `customer_report.csv`;
+                a.download = `customer_report.${fmt}`;
                 document.body.appendChild(a);
                 a.click();
                 document.body.removeChild(a);
@@ -70,7 +71,10 @@ export default function CustomerReports() {
     return (
         <div className="customer-reports-page">
             <header className="reports-header">
-                <button className="export-btn" onClick={exportCSV}>📥 Export</button>
+                <div className="export-buttons">
+                    <button className="export-btn" onClick={() => handleExport('csv')}>📥 Export CSV</button>
+                    <button className="export-btn excel" onClick={() => handleExport('xlsx')}>📊 Export Excel</button>
+                </div>
             </header>
 
             {/* Summary Cards */}
