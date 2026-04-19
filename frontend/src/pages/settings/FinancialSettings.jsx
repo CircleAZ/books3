@@ -63,11 +63,12 @@ const FinancialSettings = () => {
         }
     };
 
-    const handleToggleDefault = async (tax) => {
+    const handleSetDefault = async (tax) => {
+        if (tax.is_default) return;
         try {
             const response = await fetchWithAuth(`${ENDPOINTS.SETTINGS_TAXES}${tax.id}/`, {
                 method: 'PATCH',
-                body: JSON.stringify({ is_default: !tax.is_default })
+                body: JSON.stringify({ is_default: true })
             });
             if (response.ok) {
                 fetchTaxes();
@@ -106,9 +107,10 @@ const FinancialSettings = () => {
                                         <td>{tax.percentage}%</td>
                                         <td>
                                             <input
-                                                type="checkbox"
+                                                type="radio"
+                                                name="default_tax"
                                                 checked={tax.is_default}
-                                                onChange={() => handleToggleDefault(tax)}
+                                                onChange={() => handleSetDefault(tax)}
                                             />
                                         </td>
                                         <td>

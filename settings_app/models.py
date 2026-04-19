@@ -207,6 +207,11 @@ class Role(UUIDPrimaryKeyModel):
     class Meta:
         ordering = ['name']
     
+    def save(self, *args, **kwargs):
+        if self.is_default:
+            Role.objects.filter(is_default=True).exclude(pk=self.pk).update(is_default=False)
+        super().save(*args, **kwargs)
+
     def __str__(self):
         return self.name
 
@@ -272,6 +277,11 @@ class TaxSettings(UUIDPrimaryKeyModel):
         verbose_name_plural = 'Tax Settings'
         ordering = ['name']
     
+    def save(self, *args, **kwargs):
+        if self.is_default:
+            TaxSettings.objects.filter(is_default=True).exclude(pk=self.pk).update(is_default=False)
+        super().save(*args, **kwargs)
+
     def __str__(self):
         return f"{self.name} ({self.percentage}%)"
 
