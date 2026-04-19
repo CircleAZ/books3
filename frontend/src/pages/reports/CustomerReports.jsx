@@ -38,7 +38,7 @@ export default function CustomerReports() {
 
     const handleExport = async (fmt = 'csv') => {
         try {
-            const formatParam = fmt === 'xlsx' ? '&format=xlsx' : '';
+            const formatParam = fmt === 'xlsx' ? '&file_format=xlsx' : '';
             const res = await fetchWithAuth(`${ENDPOINTS.REPORTS_CUSTOMERS}export/?_=1${formatParam}`);
             if (res.ok) {
                 const blob = await res.blob();

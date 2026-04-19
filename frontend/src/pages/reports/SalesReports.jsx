@@ -49,7 +49,7 @@ export default function SalesReports() {
 
     const handleExport = async (fmt = 'csv') => {
         try {
-            const formatParam = fmt === 'xlsx' ? '&format=xlsx' : '';
+            const formatParam = fmt === 'xlsx' ? '&file_format=xlsx' : '';
             const res = await fetchWithAuth(`${ENDPOINTS.REPORTS_SALES}export/?period=${dateRange}${formatParam}`);
             if (res.ok) {
                 const blob = await res.blob();

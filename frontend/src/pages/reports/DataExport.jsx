@@ -16,7 +16,7 @@ export default function DataExport() {
         try {
             let endpoint = '';
             let filename = '';
-            const formatParam = format === 'xlsx' ? '&format=xlsx' : '';
+            const formatParam = format === 'xlsx' ? '&file_format=xlsx' : '';
             const formatSuffix = format === 'xlsx' ? '.xlsx' : '.csv';
 
             switch (type) {

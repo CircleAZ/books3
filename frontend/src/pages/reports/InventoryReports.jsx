@@ -47,7 +47,7 @@ export default function InventoryReports() {
 
     const handleExport = async (type, fmt = 'csv') => {
         try {
-            const formatParam = fmt === 'xlsx' ? '&format=xlsx' : '';
+            const formatParam = fmt === 'xlsx' ? '&file_format=xlsx' : '';
             const res = await fetchWithAuth(`${ENDPOINTS.REPORTS_INVENTORY}export/?type=${type}${formatParam}`);
             if (res.ok) {
                 const blob = await res.blob();

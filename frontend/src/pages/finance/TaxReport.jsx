@@ -65,7 +65,7 @@ const TaxReport = () => {
 
     const handleExport = async (fmt = 'csv') => {
         try {
-            const formatParam = fmt === 'xlsx' ? '&format=xlsx' : '';
+            const formatParam = fmt === 'xlsx' ? '&file_format=xlsx' : '';
             const response = await fetchWithAuth(`${ENDPOINTS.REPORTS_FINANCE}export/?type=tax_report${formatParam}`);
             if (response.ok) {
                 const blob = await response.blob();

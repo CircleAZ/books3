@@ -27,7 +27,7 @@ class ReportBaseViewSet(viewsets.ViewSet):
 
     def export_file(self, request, filename, header, rows):
         """Dispatch to CSV or Excel based on ?format= query param."""
-        fmt = request.query_params.get('format', 'csv').lower()
+        fmt = request.query_params.get('file_format', 'csv').lower()
         if fmt == 'xlsx':
             return self.export_excel(filename, header, rows)
         return self.export_csv(filename, header, rows)
