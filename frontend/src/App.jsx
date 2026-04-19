@@ -76,6 +76,7 @@ import LoanDetails from './pages/finance/LoanDetails';
 import TripList from './pages/finance/TripList';
 import CreateTrip from './pages/finance/CreateTrip';
 import TripDetails from './pages/finance/TripDetails';
+import CashManagement from './pages/finance/CashManagement';
 import MessagingIndex from './pages/messaging/MessagingIndex';
 import GatewayManagement from './pages/messaging/GatewayManagement';
 import MessageQueue from './pages/messaging/MessageQueue';
@@ -268,6 +269,11 @@ function AppRoutes() {
       <Route path="/finance/salaries" element={
         <PermissionRoute permission="finance.manage_salaries">
           <MainLayout><EmployeeSalaries /></MainLayout>
+        </PermissionRoute>
+      } />
+      <Route path="/finance/cash-management" element={
+        <PermissionRoute permission="finance.manage_banking">
+          <MainLayout><CashManagement /></MainLayout>
         </PermissionRoute>
       } />
 

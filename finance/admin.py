@@ -38,8 +38,8 @@ class ExpenseAdmin(admin.ModelAdmin):
 
 @admin.register(ExpensePayment)
 class ExpensePaymentAdmin(admin.ModelAdmin):
-    list_display = ['expense', 'date', 'amount', 'method', 'payer']
-    list_filter = ['method', 'date']
+    list_display = ['expense', 'payment_date', 'amount', 'payment_method', 'payer']
+    list_filter = ['payment_method', 'payment_date']
     search_fields = ['expense__payee_name', 'reference']
 
 

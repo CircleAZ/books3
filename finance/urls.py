@@ -11,7 +11,7 @@ from .views import (
     LenderViewSet, LoanViewSet, LoanRepaymentViewSet,
     IncomeCategoryViewSet, RecurringExpenseViewSet, CategoryBudgetViewSet,
     FinanceAuditLogViewSet, FinancialDashboardView,
-    ExpenseTripViewSet
+    ExpenseTripViewSet, CashWalletViewSet, CashTransferViewSet
 )
 
 router = DefaultRouter()
@@ -34,6 +34,9 @@ router.register(r'category-budgets', CategoryBudgetViewSet)
 router.register(r'audit-logs', FinanceAuditLogViewSet)
 # Trip / Expense Group
 router.register(r'expense-trips', ExpenseTripViewSet)
+# Cash Flow
+router.register(r'cash-wallets', CashWalletViewSet)
+router.register(r'cash-transfers', CashTransferViewSet)
 
 urlpatterns = [
     path('', include(router.urls)),

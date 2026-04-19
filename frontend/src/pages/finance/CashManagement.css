@@ -1,0 +1,74 @@
+.cash-management-container {
+    padding: 2rem;
+}
+
+.header-actions {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 2rem;
+}
+
+.wallets-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 1.5rem;
+}
+
+.wallet-card {
+    padding: 1.5rem;
+    position: relative;
+    border-top: 4px solid var(--primary-color);
+}
+
+.wallet-owner {
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+    margin-bottom: 1rem;
+}
+
+.wallet-balance {
+    font-size: 2rem;
+    font-weight: 700;
+    color: var(--text-primary);
+}
+
+.badge-system {
+    position: absolute;
+    top: 1rem;
+    right: 1rem;
+    background: rgba(230, 168, 23, 0.2);
+    color: var(--accent-warning);
+    padding: 0.2rem 0.5rem;
+    border-radius: 4px;
+    font-size: 0.8rem;
+    font-weight: 600;
+}
+
+.status-badge {
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+    font-size: 0.85rem;
+    font-weight: 500;
+    text-transform: capitalize;
+}
+
+.status-pending {
+    background-color: rgba(245, 158, 11, 0.2);
+    color: #f59e0b;
+}
+
+.status-approved {
+    background-color: rgba(16, 185, 129, 0.2);
+    color: #10b981;
+}
+
+.status-rejected {
+    background-color: rgba(239, 68, 68, 0.2);
+    color: #ef4444;
+}
+
+.action-buttons {
+    display: flex;
+    gap: 0.5rem;
+}

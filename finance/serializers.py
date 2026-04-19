@@ -562,3 +562,33 @@ class FinancialDashboardSerializer(serializers.Serializer):
     period = serializers.CharField()
     start_date = serializers.DateField()
     end_date = serializers.DateField()
+
+# ======== Cash Flow Serializers ========
+
+from .models import CashWallet, CashTransfer
+
+class CashWalletSerializer(serializers.ModelSerializer):
+    owner_name = serializers.CharField(source='owner.username', read_only=True)
+    
+    class Meta:
+        model = CashWallet
+        fields = ['id', 'name', 'owner', 'owner_name', 'is_system', 'balance', 'is_active', 'created_at']
+        read_only_fields = ['id', 'is_system', 'balance', 'created_at']
+
+class CashTransferSerializer(serializers.ModelSerializer):
+    source_wallet_name = serializers.CharField(source='source_wallet.name', read_only=True)
+    destination_wallet_name = serializers.CharField(source='destination_wallet.name', read_only=True)
+    destination_bank_name = serializers.CharField(source='destination_bank.name', read_only=True)
+    initiated_by_name = serializers.CharField(source='initiated_by.username', read_only=True)
+    approved_by_name = serializers.CharField(source='approved_by.username', read_only=True)
+    
+    class Meta:
+        model = CashTransfer
+        fields = [
+            'id', 'source_wallet', 'source_wallet_name', 'destination_wallet', 'destination_wallet_name', 
+            'destination_bank', 'destination_bank_name', 'amount', 'reference_id', 'status', 
+            'initiated_by', 'initiated_by_name', 'approved_by', 'approved_by_name', 
+            'created_at', 'updated_at'
+        ]
+        read_only_fields = ['id', 'status', 'initiated_by', 'approved_by', 'created_at', 'updated_at']
+

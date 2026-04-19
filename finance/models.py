@@ -8,7 +8,9 @@ from decimal import Decimal
 from django.db import models, transaction
 from simple_history.models import HistoricalRecords
 from django.conf import settings
+from django.core.exceptions import ValidationError
 from django.core.validators import MinValueValidator
+from django.utils import timezone
 from core.models import TimestampedModel, SoftDeleteModel
 
 
@@ -155,13 +157,18 @@ class ExpensePayment(SoftDeleteModel):
         on_delete=models.CASCADE,
         related_name='payments'
     )
-    date = models.DateField()
+    payment_date = models.DateField()
     amount = models.DecimalField(
         max_digits=12, 
         decimal_places=2,
         validators=[MinValueValidator(Decimal('0.01'))]
     )
-    method = models.CharField(max_length=20, choices=PaymentMethod.choices)
+    
+    # Phase 1 Migration Fields
+    source_bank = models.ForeignKey('BankAccount', on_delete=models.PROTECT, null=True, blank=True, related_name='expense_payments')
+    source_wallet = models.ForeignKey('CashWallet', on_delete=models.PROTECT, null=True, blank=True, related_name='expense_payments')
+    payment_method = models.CharField(max_length=20, choices=PaymentMethod.choices, null=True, blank=True)
+    
     reference = models.CharField(max_length=100, blank=True, help_text='Transaction/Cheque reference')
     payer = models.ForeignKey(
         settings.AUTH_USER_MODEL,
@@ -173,10 +180,10 @@ class ExpensePayment(SoftDeleteModel):
     notes = models.TextField(blank=True)
     
     class Meta:
-        ordering = ['-date', '-created_at']
+        ordering = ['-payment_date', '-created_at']
     
     def __str__(self):
-        return f"{self.date} - {self.amount} ({self.method})"
+        return f"{self.payment_date} - {self.amount} ({self.payment_method})"
     
     def save(self, *args, **kwargs):
         is_new = self._state.adding
@@ -229,6 +236,96 @@ class OtherIncome(SoftDeleteModel):
         return f"{self.date} - {self.source} - {self.amount}"
 
 
+class CashWallet(TimestampedModel):
+    """
+    Decoupled cash tracking system for individual users and system vaults.
+    """
+    name = models.CharField(max_length=100)
+    owner = models.OneToOneField(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        null=True, blank=True,
+        related_name='cash_wallet',
+        help_text="If null, this is a system wallet (e.g., Vault, Safe)"
+    )
+    is_system = models.BooleanField(default=False)
+    balance = models.DecimalField(
+        max_digits=14, 
+        decimal_places=2, 
+        default=Decimal('0.00')
+    )
+    is_active = models.BooleanField(default=True)
+
+    class Meta:
+        ordering = ['-is_system', 'name']
+
+    def __str__(self):
+        return f"{self.name} (₹{self.balance})"
+
+
+class CashTransfer(TimestampedModel):
+    """
+    Approval flow for moving cash between wallets or to a bank.
+    """
+    class Status(models.TextChoices):
+        PENDING = 'pending', 'Pending Approval'
+        APPROVED = 'approved', 'Approved'
+        REJECTED = 'rejected', 'Rejected'
+        
+    source_wallet = models.ForeignKey(CashWallet, on_delete=models.PROTECT, related_name='outbound_transfers')
+    destination_wallet = models.ForeignKey(CashWallet, on_delete=models.PROTECT, null=True, blank=True, related_name='inbound_transfers')
+    destination_bank = models.ForeignKey('BankAccount', on_delete=models.PROTECT, null=True, blank=True, related_name='inbound_cash_deposits')
+    
+    amount = models.DecimalField(max_digits=14, decimal_places=2, validators=[MinValueValidator(Decimal('0.01'))])
+    status = models.CharField(max_length=20, choices=Status.choices, default=Status.PENDING)
+    
+    initiated_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name='initiated_cash_transfers')
+    approved_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, null=True, blank=True, related_name='approved_cash_transfers')
+    
+    notes = models.TextField(blank=True)
+
+    def clean(self):
+        if not self.destination_wallet and not self.destination_bank:
+            raise ValidationError("Must specify either a destination wallet or a destination bank.")
+        if self.destination_wallet and self.destination_bank:
+            raise ValidationError("Cannot specify both a destination wallet and a destination bank.")
+        if self.status == self.Status.APPROVED and not self.approved_by:
+            raise ValidationError("Approved transfers must have an approver.")
+        if self.initiated_by == self.approved_by:
+            raise ValidationError("A user cannot approve their own cash transfer.")
+
+    def __str__(self):
+        return f"Transfer ₹{self.amount} from {self.source_wallet.name} ({self.status})"
+
+
+class CashWalletTransaction(SoftDeleteModel):
+    """
+    Ledger for CashWallet, mirroring BankTransaction.
+    """
+    class TransactionType(models.TextChoices):
+        DEPOSIT = 'deposit', 'Deposit'
+        WITHDRAWAL = 'withdrawal', 'Withdrawal'
+        
+    wallet = models.ForeignKey(CashWallet, on_delete=models.PROTECT, related_name='transactions')
+    transaction_type = models.CharField(max_length=20, choices=TransactionType.choices)
+    amount = models.DecimalField(max_digits=14, decimal_places=2, validators=[MinValueValidator(Decimal('0.01'))])
+    
+    # Generic linking fields (order payment, expense, transfer)
+    reference_id = models.CharField(max_length=100, blank=True)
+    description = models.TextField(blank=True)
+    
+    balance_after = models.DecimalField(max_digits=14, decimal_places=2)
+    
+    date = models.DateField(default=timezone.now)
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"{self.transaction_type.title()} ₹{self.amount} - {self.wallet.name}"
+
+
 class BankAccount(TimestampedModel):
     """
     Bank accounts for tracking company finances.
@@ -236,7 +333,7 @@ class BankAccount(TimestampedModel):
     class AccountType(models.TextChoices):
         CURRENT = 'current', 'Current Account'
         SAVINGS = 'savings', 'Savings Account'
-        CASH = 'cash', 'Cash Account'
+        CASH = 'cash', 'Cash Account (Deprecated)'
     
     name = models.CharField(max_length=100)
     account_type = models.CharField(max_length=20, choices=AccountType.choices)
@@ -474,7 +571,12 @@ class SalaryPayment(SoftDeleteModel):
     deductions = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal('0.00'))
     bonuses = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal('0.00'))
     net_amount = models.DecimalField(max_digits=12, decimal_places=2)
-    payment_method = models.CharField(max_length=50)
+    
+    # Phase 1 Migration Fields
+    source_bank = models.ForeignKey('BankAccount', on_delete=models.PROTECT, null=True, blank=True, related_name='salary_payments')
+    source_wallet = models.ForeignKey('CashWallet', on_delete=models.PROTECT, null=True, blank=True, related_name='salary_payments')
+    payment_method = models.CharField(max_length=50, null=True, blank=True)
+    
     reference = models.CharField(max_length=100, blank=True)
     notes = models.TextField(blank=True)
     paid_by = models.ForeignKey(
@@ -638,7 +740,12 @@ class LoanRepayment(SoftDeleteModel):
         decimal_places=2,
         default=Decimal('0.00')
     )
-    payment_method = models.CharField(max_length=50)
+    
+    # Phase 1 Migration Fields
+    source_bank = models.ForeignKey('BankAccount', on_delete=models.PROTECT, null=True, blank=True, related_name='loan_repayments')
+    source_wallet = models.ForeignKey('CashWallet', on_delete=models.PROTECT, null=True, blank=True, related_name='loan_repayments')
+    payment_method = models.CharField(max_length=50, null=True, blank=True)
+    
     reference = models.CharField(max_length=100, blank=True)
     notes = models.TextField(blank=True)
     recorded_by = models.ForeignKey(

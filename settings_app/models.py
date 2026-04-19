@@ -299,6 +299,7 @@ class PaymentMethod(UUIDPrimaryKeyModel):
     method_type = models.CharField(max_length=20, choices=METHOD_TYPES)
     is_enabled = models.BooleanField(default=True)
     display_order = models.PositiveIntegerField(default=0)
+    linked_bank_account = models.ForeignKey('finance.BankAccount', on_delete=models.PROTECT, null=True, blank=True, help_text="Required for Card and Bank Transfer methods")
     
     class Meta:
         ordering = ['display_order', 'name']
@@ -313,6 +314,7 @@ class UPIAccount(UUIDPrimaryKeyModel):
     display_name = models.CharField(max_length=100)
     is_active = models.BooleanField(default=True)
     qr_code = models.ImageField(upload_to='upi_qr/', blank=True, null=True)
+    linked_bank_account = models.ForeignKey('finance.BankAccount', on_delete=models.PROTECT, null=True, blank=True, help_text="The bank account this UPI ID deposits into")
     
     def __str__(self):
         return f"{self.display_name} ({self.upi_id})"

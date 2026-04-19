@@ -250,7 +250,18 @@ class ExpensePaymentViewSet(viewsets.ModelViewSet):
     pagination_class = FinancePagination
     
     def perform_create(self, serializer):
-        serializer.save(recorded_by=self.request.user)
+        from .services import LedgerService
+        from django.db import transaction
+        with transaction.atomic():
+            payment = serializer.save(payer=self.request.user)
+            LedgerService.process_withdrawal(
+                amount=payment.amount,
+                source_bank=payment.source_bank,
+                source_wallet=payment.source_wallet,
+                reference=payment.reference or f"expense_{payment.expense.id}",
+                description=f"Payment for Expense #{payment.expense.id}",
+                user=self.request.user
+            )
 
 
 # ======== Income ViewSets ========
@@ -527,7 +538,18 @@ class SalaryPaymentViewSet(viewsets.ModelViewSet):
     pagination_class = FinancePagination
     
     def perform_create(self, serializer):
-        serializer.save(paid_by=self.request.user)
+        from .services import LedgerService
+        from django.db import transaction
+        with transaction.atomic():
+            payment = serializer.save(paid_by=self.request.user)
+            LedgerService.process_withdrawal(
+                amount=payment.net_amount,
+                source_bank=payment.source_bank,
+                source_wallet=payment.source_wallet,
+                reference=payment.reference or f"salary_{payment.id}",
+                description=f"Salary Payment to {payment.salary.employee.username}",
+                user=self.request.user
+            )
 
 
 # ======== Lender ViewSets ========
@@ -609,7 +631,18 @@ class LoanRepaymentViewSet(viewsets.ModelViewSet):
     pagination_class = FinancePagination
     
     def perform_create(self, serializer):
-        serializer.save(recorded_by=self.request.user)
+        from .services import LedgerService
+        from django.db import transaction
+        with transaction.atomic():
+            payment = serializer.save(recorded_by=self.request.user)
+            LedgerService.process_withdrawal(
+                amount=payment.amount,
+                source_bank=payment.source_bank,
+                source_wallet=payment.source_wallet,
+                reference=payment.reference or f"loan_{payment.loan.id}",
+                description=f"Loan Repayment to {payment.loan.lender.name}",
+                user=self.request.user
+            )
 
 
 # ======== New Feature ViewSets ========
@@ -1043,3 +1076,76 @@ class FinancialDashboardView(APIView):
         cache.set(cache_key, data, timeout=ttl)
         
         return Response(data)
+
+# ======== Cash Flow ViewSets ========
+
+from .models import CashWallet, CashTransfer
+from .serializers import CashWalletSerializer, CashTransferSerializer
+
+class CashWalletViewSet(viewsets.ModelViewSet):
+    """CRUD for cash wallets."""
+    queryset = CashWallet.objects.all().select_related('owner')
+    serializer_class = CashWalletSerializer
+    permission_classes = [HasRequiredPermission]
+    required_permission = 'finance.manage_banking'
+    pagination_class = FinancePagination
+    
+    def get_queryset(self):
+        qs = super().get_queryset()
+        if self.request.query_params.get('active_only'):
+            qs = qs.filter(is_active=True)
+        if not self.request.user.is_superuser:
+            qs = qs.filter(Q(owner=self.request.user) | Q(is_system=True))
+        return qs
+
+class CashTransferViewSet(viewsets.ModelViewSet):
+    """CRUD for cash transfers with peer review."""
+    queryset = CashTransfer.objects.select_related('source_wallet', 'destination_wallet', 'destination_bank', 'initiated_by', 'approved_by')
+    serializer_class = CashTransferSerializer
+    permission_classes = [HasRequiredPermission]
+    required_permission = 'finance.manage_banking'
+    pagination_class = FinancePagination
+    
+    def perform_create(self, serializer):
+        serializer.save(initiated_by=self.request.user)
+        
+    @action(detail=True, methods=['post'], throttle_classes=[FinanceActionThrottle])
+    def approve(self, request, pk=None):
+        transfer = self.get_object()
+        if transfer.status != 'pending':
+            return Response({'error': 'Transfer is not pending.'}, status=status.HTTP_400_BAD_REQUEST)
+        if transfer.initiated_by == request.user and not request.user.is_superuser:
+            return Response({'error': 'Cannot approve your own transfer. Requires peer manager review.'}, status=status.HTTP_403_FORBIDDEN)
+            
+        from .services import LedgerService
+        from django.db import transaction
+        with transaction.atomic():
+            transfer.status = 'approved'
+            transfer.approved_by = request.user
+            transfer.save()
+            
+            # Atomic ledger transfer
+            LedgerService.process_withdrawal(
+                amount=transfer.amount,
+                source_wallet=transfer.source_wallet,
+                description=f"Transfer to {transfer.destination_wallet.name if transfer.destination_wallet else transfer.destination_bank.name}",
+                user=request.user
+            )
+            LedgerService.process_deposit(
+                amount=transfer.amount,
+                destination_bank=transfer.destination_bank,
+                destination_wallet=transfer.destination_wallet,
+                description=f"Transfer from {transfer.source_wallet.name}",
+                user=request.user
+            )
+            
+        return Response(CashTransferSerializer(transfer).data)
+        
+    @action(detail=True, methods=['post'], throttle_classes=[FinanceActionThrottle])
+    def reject(self, request, pk=None):
+        transfer = self.get_object()
+        if transfer.status != 'pending':
+            return Response({'error': 'Transfer is not pending.'}, status=status.HTTP_400_BAD_REQUEST)
+        transfer.status = 'rejected'
+        transfer.save()
+        return Response(CashTransferSerializer(transfer).data)

@@ -15,7 +15,7 @@ class PaymentSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = Payment
-        fields = ['id', 'order', 'method', 'amount', 'upi_reference', 'created_at', 'created_by_name']
+        fields = ['id', 'order', 'method', 'destination_bank', 'destination_wallet', 'amount', 'upi_reference', 'created_at', 'created_by_name']
         read_only_fields = ['id', 'created_at', 'created_by_name']
     
     def validate(self, data):
@@ -143,7 +143,9 @@ class OrderItemCreateSerializer(serializers.Serializer):
 
 class PaymentCreateSerializer(serializers.Serializer):
     """For creating payments nested inside order creation (no order FK required)."""
-    method = serializers.CharField(max_length=20)
+    method = serializers.CharField(max_length=20, required=False, allow_blank=True, allow_null=True)
+    destination_bank = serializers.UUIDField(required=False, allow_null=True)
+    destination_wallet = serializers.UUIDField(required=False, allow_null=True)
     amount = serializers.DecimalField(max_digits=10, decimal_places=2)
     upi_reference = serializers.CharField(max_length=255, required=False, allow_blank=True, default='')
 
@@ -188,12 +190,23 @@ class OrderCreateSerializer(serializers.ModelSerializer):
             )
         
         for payment_data in payments_data:
-            Payment.objects.create(
+            payment = Payment.objects.create(
                 order=order,
                 amount=payment_data['amount'],
-                method=payment_data['method'],
+                method=payment_data.get('method', ''),
+                destination_bank_id=payment_data.get('destination_bank'),
+                destination_wallet_id=payment_data.get('destination_wallet'),
                 upi_reference=payment_data.get('upi_reference', ''),
                 created_by=validated_data.get('created_by')
+            )
+            from finance.services import LedgerService
+            LedgerService.process_deposit(
+                amount=payment.amount,
+                destination_bank=payment.destination_bank,
+                destination_wallet=payment.destination_wallet,
+                reference=f"order_{order.display_id}",
+                description=f"Initial Payment for Order #{order.display_id}",
+                user=validated_data.get('created_by')
             )
         
         order.calculate_totals()
@@ -462,7 +475,7 @@ class RefundSerializer(serializers.ModelSerializer):
         model = Refund
         fields = [
             'id', 'return_request', 'return_display_id', 'order', 'order_display_id',
-            'amount', 'method', 'transaction_id', 'note', 'status',
+            'amount', 'method', 'source_bank', 'source_wallet', 'transaction_id', 'note', 'status',
             'created_at', 'created_by_name'
         ]
         read_only_fields = ['id', 'created_at', 'created_by_name']
@@ -489,6 +502,19 @@ class RefundSerializer(serializers.ModelSerializer):
                 })
         
         return data
+        
+    def create(self, validated_data):
+        refund = super().create(validated_data)
+        from finance.services import LedgerService
+        LedgerService.process_withdrawal(
+            amount=refund.amount,
+            source_bank=refund.source_bank,
+            source_wallet=refund.source_wallet,
+            reference=f"refund_{refund.id}",
+            description=f"Refund for Order #{refund.order.display_id}",
+            user=validated_data.get('created_by')
+        )
+        return refund
 
 
 class CreditNoteSerializer(serializers.ModelSerializer):

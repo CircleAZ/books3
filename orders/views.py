@@ -349,7 +349,9 @@ class OrderViewSet(viewsets.ModelViewSet):
         
         serializer = PaymentSerializer(data={
             'order': order.id,
-            'method': request.data.get('method'),
+            'method': request.data.get('method', ''),
+            'destination_bank': request.data.get('destination_bank'),
+            'destination_wallet': request.data.get('destination_wallet'),
             'amount': str(amount),
             'upi_reference': request.data.get('upi_reference', '')
         })
@@ -497,7 +499,16 @@ class PaymentViewSet(viewsets.ModelViewSet):
     
     def perform_create(self, serializer):
         with transaction.atomic():
-            serializer.save(created_by=self.request.user)
+            payment = serializer.save(created_by=self.request.user)
+            from finance.services import LedgerService
+            LedgerService.process_deposit(
+                amount=payment.amount,
+                destination_bank=payment.destination_bank,
+                destination_wallet=payment.destination_wallet,
+                reference=f"order_{payment.order.display_id}",
+                description=f"Payment for Order #{payment.order.display_id}",
+                user=self.request.user
+            )
 
 
 class OrderNoteViewSet(viewsets.ModelViewSet):

@@ -25,6 +25,17 @@ export default function EmployeeExpenses() {
         receipt: null
     });
 
+    // Reimbursement State
+    const [showReimburseModal, setShowReimburseModal] = useState(false);
+    const [reimburseExpenseId, setReimburseExpenseId] = useState(null);
+    const [availableBankAccounts, setAvailableBankAccounts] = useState([]);
+    const [availableCashWallets, setAvailableCashWallets] = useState([]);
+    const [reimburseForm, setReimburseForm] = useState({
+        method: 'cash',
+        source_bank: '',
+        source_wallet: ''
+    });
+
     const profileData = localStorage.getItem('profile');
     const profile = profileData ? JSON.parse(profileData) : null;
 
@@ -61,11 +72,35 @@ export default function EmployeeExpenses() {
         }
     }, [fetchWithAuth]);
 
+    const fetchLedgers = useCallback(async () => {
+        try {
+            const bankRes = await fetchWithAuth(ENDPOINTS.FINANCE_BANK_ACCOUNTS + '?active_only=true');
+            if (bankRes.ok) {
+                const bankData = await bankRes.json();
+                setAvailableBankAccounts(bankData.results || bankData);
+            }
+            const walletRes = await fetchWithAuth(ENDPOINTS.FINANCE_CASH_WALLETS + '?active_only=true');
+            if (walletRes.ok) {
+                const walletData = await walletRes.json();
+                setAvailableCashWallets(walletData.results || walletData);
+            }
+        } catch (err) {
+            console.error('Error fetching ledgers:', err);
+        }
+    }, [fetchWithAuth]);
+
     useEffect(() => {
         fetchExpenses();
-    }, [fetchExpenses]);
+        fetchLedgers();
+    }, [fetchExpenses, fetchLedgers]);
 
     const handleAction = async (id, action) => {
+        if (action === 'reimburse') {
+            setReimburseExpenseId(id);
+            setShowReimburseModal(true);
+            return;
+        }
+        
         if (!window.confirm(`Are you sure you want to ${action} this expense?`)) return;
 
         try {
@@ -79,6 +114,36 @@ export default function EmployeeExpenses() {
             }
         } catch (error) {
             console.error(`Error during ${action}:`, error);
+        }
+    };
+
+    const handleReimburseSubmit = async (e) => {
+        e.preventDefault();
+        setSubmitting(true);
+        try {
+            let payload = {};
+            if (reimburseForm.method === 'cash') {
+                payload.source_wallet = reimburseForm.source_wallet || (availableCashWallets.length > 0 ? availableCashWallets[0].id : null);
+            } else {
+                payload.source_bank = reimburseForm.source_bank || (availableBankAccounts.length > 0 ? availableBankAccounts[0].id : null);
+            }
+            
+            const response = await fetchWithAuth(`${ENDPOINTS.FINANCE_EMPLOYEE_EXPENSES}${reimburseExpenseId}/reimburse/`, {
+                method: 'POST',
+                body: JSON.stringify(payload)
+            });
+            if (response.ok) {
+                setShowReimburseModal(false);
+                fetchExpenses();
+                alert('Expense Reimbursed successfully!');
+            } else {
+                const err = await response.json();
+                alert(`Failed to reimburse: ${JSON.stringify(err)}`);
+            }
+        } catch (err) {
+            console.error(err);
+        } finally {
+            setSubmitting(false);
         }
     };
 
@@ -234,6 +299,16 @@ export default function EmployeeExpenses() {
                                                         </GuardedAction>
                                                     </>
                                                 )}
+                                                {expense.status === 'approved' && (
+                                                    <GuardedAction permission="finance.manage_expenses">
+                                                        <button
+                                                            className="btn btn-sm btn-success"
+                                                            onClick={() => handleAction(expense.id, 'reimburse')}
+                                                        >
+                                                            Reimburse
+                                                        </button>
+                                                    </GuardedAction>
+                                                )}
                                                 <button 
                                                     className="btn-icon" 
                                                     title="View Details"
@@ -318,6 +393,54 @@ export default function EmployeeExpenses() {
                                 <button type="button" className="btn btn-ghost" onClick={() => setShowSubmitModal(false)}>Cancel</button>
                                 <button type="submit" className="btn btn-primary" disabled={submitting} id="submit-expense-confirm">
                                     {submitting ? 'Submitting...' : 'Submit Claim'}
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
+
+            {/* Reimburse Modal */}
+            {showReimburseModal && (
+                <div className="modal-overlay" onClick={() => setShowReimburseModal(false)}>
+                    <div className="modal-content glass-card fade-in" onClick={e => e.stopPropagation()}>
+                        <div className="modal-header">
+                            <h2>Process Reimbursement</h2>
+                            <button className="close-btn" onClick={() => setShowReimburseModal(false)}>&times;</button>
+                        </div>
+                        <form onSubmit={handleReimburseSubmit}>
+                            <div className="form-group">
+                                <label>Payment Method</label>
+                                <select
+                                    className="form-control"
+                                    value={reimburseForm.method}
+                                    onChange={e => setReimburseForm({...reimburseForm, method: e.target.value})}
+                                >
+                                    <option value="cash">Cash</option>
+                                    <option value="bank">Bank Transfer</option>
+                                </select>
+                            </div>
+                            <div className="form-group">
+                                <label>Source Ledger</label>
+                                <select
+                                    className="form-control"
+                                    value={reimburseForm.method === 'cash' ? reimburseForm.source_wallet : reimburseForm.source_bank}
+                                    onChange={e => setReimburseForm({
+                                        ...reimburseForm, 
+                                        [reimburseForm.method === 'cash' ? 'source_wallet' : 'source_bank']: e.target.value
+                                    })}
+                                >
+                                    {reimburseForm.method === 'cash' ? (
+                                        availableCashWallets.map(w => <option key={w.id} value={w.id}>{w.name}</option>)
+                                    ) : (
+                                        availableBankAccounts.map(b => <option key={b.id} value={b.id}>{b.name}</option>)
+                                    )}
+                                </select>
+                            </div>
+                            <div className="modal-actions">
+                                <button type="button" className="btn btn-ghost" onClick={() => setShowReimburseModal(false)}>Cancel</button>
+                                <button type="submit" className="btn btn-success" disabled={submitting}>
+                                    {submitting ? 'Processing...' : 'Reimburse'}
                                 </button>
                             </div>
                         </form>

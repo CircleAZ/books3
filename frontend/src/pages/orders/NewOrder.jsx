@@ -35,6 +35,9 @@ export default function NewOrder() {
 
     const [availablePaymentMethods, setAvailablePaymentMethods] = useState([]);
     const [availableUpiAccounts, setAvailableUpiAccounts] = useState([]);
+    const [availableBankAccounts, setAvailableBankAccounts] = useState([]);
+    const [availableCashWallets, setAvailableCashWallets] = useState([]);
+    const [selectedDestination, setSelectedDestination] = useState('');
     const [availableCategories, setAvailableCategories] = useState([]);
 
     const [isLoading, setIsLoading] = useState(false);
@@ -248,6 +251,20 @@ export default function NewOrder() {
                     if (active.length > 0) {
                         setSelectedUpiAccount(active[0].upi_id);
                     }
+                }
+
+                // Fetch Bank Accounts
+                const bankRes = await fetchWithAuth(ENDPOINTS.FINANCE_BANK_ACCOUNTS + '?active_only=true');
+                if (bankRes.ok) {
+                    const bankData = await bankRes.json();
+                    setAvailableBankAccounts(bankData.results || bankData);
+                }
+
+                // Fetch Cash Wallets
+                const walletRes = await fetchWithAuth(ENDPOINTS.FINANCE_CASH_WALLETS + '?active_only=true');
+                if (walletRes.ok) {
+                    const walletData = await walletRes.json();
+                    setAvailableCashWallets(walletData.results || walletData);
                 }
 
                 // Fetch categories for Quick Add Product
@@ -469,9 +486,20 @@ export default function NewOrder() {
             }
         }
 
+        let destination_bank = null;
+        let destination_wallet = null;
+        
+        if (paymentMethod === 'cash') {
+            destination_wallet = selectedDestination || (availableCashWallets.length > 0 ? availableCashWallets[0].id : null);
+        } else {
+            destination_bank = selectedDestination || (availableBankAccounts.length > 0 ? availableBankAccounts[0].id : null);
+        }
+
         setPayments(prev => [...prev, {
             method: paymentMethod,
             amount: amt,
+            destination_bank,
+            destination_wallet,
             upi_reference: paymentMethod === 'upi' ? `QR-PAY-${Date.now()}` : '',
             timestamp: new Date().toISOString()
         }]);
@@ -585,6 +613,8 @@ export default function NewOrder() {
                 payments: payments.map(p => ({
                     method: p.method,
                     amount: p.amount,
+                    destination_bank: p.destination_bank,
+                    destination_wallet: p.destination_wallet,
                     upi_reference: p.upi_reference
                 }))
             };
@@ -1030,6 +1060,21 @@ export default function NewOrder() {
                                     <option value="cash">Cash</option>
                                     <option value="upi">UPI</option>
                                 </>
+                            )}
+                        </select>
+                        <select
+                            className="form-control form-select"
+                            value={selectedDestination}
+                            onChange={e => setSelectedDestination(e.target.value)}
+                        >
+                            {paymentMethod === 'cash' ? (
+                                availableCashWallets.map(w => (
+                                    <option key={w.id} value={w.id}>{w.name}</option>
+                                ))
+                            ) : (
+                                availableBankAccounts.map(b => (
+                                    <option key={b.id} value={b.id}>{b.name}</option>
+                                ))
                             )}
                         </select>
                         <input

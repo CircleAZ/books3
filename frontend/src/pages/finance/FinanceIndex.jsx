@@ -57,6 +57,7 @@ const sections = [
     { title: 'Budgets',            icon: PieChartIcon,  path: '/finance/budgets',               color: '#06b6d4' },
     { title: 'Income Categories',  icon: Coins,         path: '/finance/income-categories',     color: '#d97706' },
     { title: 'Trips',              icon: Briefcase,     path: '/finance/trips',                 color: '#0ea5e9' },
+    { title: 'Cash Management',    icon: Wallet,        path: '/finance/cash-management',       color: '#10b981' },
 ];
 
 const FinanceIndex = () => {

@@ -24,9 +24,14 @@ export default function ExpenseDetails() {
         date: new Date().toISOString().split('T')[0],
         amount: '',
         method: 'cash',
+        source_bank: '',
+        source_wallet: '',
         reference: '',
         notes: ''
     });
+
+    const [availableBankAccounts, setAvailableBankAccounts] = useState([]);
+    const [availableCashWallets, setAvailableCashWallets] = useState([]);
 
     const fetchExpenseDetails = useCallback(async () => {
         setLoading(true);
@@ -43,6 +48,21 @@ export default function ExpenseDetails() {
             } else {
                 setError('Failed to fetch expense details');
             }
+
+            // Fetch Bank Accounts
+            const bankRes = await fetchWithAuth(ENDPOINTS.FINANCE_BANK_ACCOUNTS + '?active_only=true');
+            if (bankRes.ok) {
+                const bankData = await bankRes.json();
+                setAvailableBankAccounts(bankData.results || bankData);
+            }
+
+            // Fetch Cash Wallets
+            const walletRes = await fetchWithAuth(ENDPOINTS.FINANCE_CASH_WALLETS + '?active_only=true');
+            if (walletRes.ok) {
+                const walletData = await walletRes.json();
+                setAvailableCashWallets(walletData.results || walletData);
+            }
+
         } catch (err) {
             console.error('Error:', err);
             setError('An error occurred while fetching data');
@@ -67,11 +87,21 @@ export default function ExpenseDetails() {
             return;
         }
 
+        // Determine source ledger
+        const payload = { ...paymentForm };
+        if (paymentForm.method === 'cash') {
+            payload.source_wallet = paymentForm.source_wallet || (availableCashWallets.length > 0 ? availableCashWallets[0].id : null);
+            payload.source_bank = null;
+        } else {
+            payload.source_bank = paymentForm.source_bank || (availableBankAccounts.length > 0 ? availableBankAccounts[0].id : null);
+            payload.source_wallet = null;
+        }
+
         setSubmitting(true);
         try {
             const response = await fetchWithAuth(`${ENDPOINTS.FINANCE_EXPENSES}${id}/add_payment/`, {
                 method: 'POST',
-                body: JSON.stringify(paymentForm)
+                body: JSON.stringify(payload)
             });
 
             if (response.ok) {
@@ -418,6 +448,24 @@ export default function ExpenseDetails() {
                                             <option value="bank">Bank Transfer</option>
                                             <option value="cheque">Cheque</option>
                                             <option value="card">Card</option>
+                                        </select>
+                                    </div>
+                                    <div className="form-group">
+                                        <label>Select Ledger</label>
+                                        <select
+                                            name={paymentForm.method === 'cash' ? "source_wallet" : "source_bank"}
+                                            value={paymentForm.method === 'cash' ? paymentForm.source_wallet : paymentForm.source_bank}
+                                            onChange={handleInputChange}
+                                        >
+                                            {paymentForm.method === 'cash' ? (
+                                                availableCashWallets.map(w => (
+                                                    <option key={w.id} value={w.id}>{w.name}</option>
+                                                ))
+                                            ) : (
+                                                availableBankAccounts.map(b => (
+                                                    <option key={b.id} value={b.id}>{b.name}</option>
+                                                ))
+                                            )}
                                         </select>
                                     </div>
                                     <div className="form-group">
