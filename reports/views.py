@@ -208,7 +208,7 @@ class SalesReportViewSet(ReportBaseViewSet):
             rows.append([
                 order.display_id,
                 order.created_at.strftime('%Y-%m-%d %H:%M'),
-                order.customer.get_full_name() if order.customer else 'Guest',
+                order.customer.full_name if order.customer else 'Guest',
                 order.order_status,
                 order.items.count(),
                 order.total
@@ -615,7 +615,7 @@ class CustomerReportViewSet(ReportBaseViewSet):
             data.append({
                 'id': str(addr.id),
                 'customer_id': str(addr.customer_id),
-                'customer_name': addr.customer.get_full_name() if addr.customer else '',
+                'customer_name': addr.customer.full_name if addr.customer else '',
                 'latitude': float(addr.latitude),
                 'longitude': float(addr.longitude),
                 'address': str(addr),
