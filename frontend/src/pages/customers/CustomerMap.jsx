@@ -507,13 +507,13 @@ export default function CustomerMap() {
 
                 {/* Filter toggle */}
                 <button
-                    className={`filter-toggle-btn ${filterOpen ? 'active' : ''}`}
+                    className={`map-filter-btn ${filterOpen ? 'active' : ''}`}
                     onClick={() => { setFilterOpen(!filterOpen); setPendingFilters({ ...filters }); }}
                     title="Toggle filters"
                 >
                     <span className="filter-icon">⚙</span>
                     {(filters.village || filters.group || filters.status.length < 4 || filters.season) && (
-                        <span className="filter-badge"></span>
+                        <span className="map-filter-badge"></span>
                     )}
                 </button>
 
