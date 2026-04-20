@@ -185,17 +185,29 @@ export default function CustomerMap() {
     useEffect(() => {
         if (loading || !mapRef.current || mapInstanceRef.current) return;
 
+        const streetLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+            maxZoom: 19,
+        });
+
+        const satelliteLayer = L.tileLayer('https://{s}.google.com/vt/lyrs=s,h&x={x}&y={y}&z={z}', {
+            maxZoom: 20,
+            subdomains: ['mt0', 'mt1', 'mt2', 'mt3'],
+            attribution: '&copy; Google'
+        });
+
         const map = L.map(mapRef.current, {
             center: [20.95, 72.95],
             zoom: 10,
             zoomControl: true,
             attributionControl: true,
+            layers: [satelliteLayer] // Default to satellite
         });
 
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
-            maxZoom: 19,
-        }).addTo(map);
+        L.control.layers({
+            "Satellite View": satelliteLayer,
+            "Street View": streetLayer
+        }, null, { position: 'bottomright' }).addTo(map);
 
         mapInstanceRef.current = map;
         setTimeout(() => map.invalidateSize(), 100);
