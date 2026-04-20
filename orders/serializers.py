@@ -98,6 +98,7 @@ class OrderDetailSerializer(serializers.ModelSerializer):
     status_history = OrderStatusHistorySerializer(many=True, read_only=True)
     order_notes = OrderNoteSerializer(many=True, read_only=True)
     customer_name = serializers.SerializerMethodField()
+    customer_phone = serializers.SerializerMethodField()
     amount_paid = serializers.DecimalField(max_digits=12, decimal_places=2, read_only=True)
     balance_due = serializers.DecimalField(max_digits=12, decimal_places=2, read_only=True)
     change_due = serializers.DecimalField(max_digits=12, decimal_places=2, read_only=True)
@@ -110,7 +111,7 @@ class OrderDetailSerializer(serializers.ModelSerializer):
         model = Order
         fields = [
             'id', 'display_id', 
-            'customer', 'customer_name', 'is_guest', 
+            'customer', 'customer_name', 'customer_phone', 'is_guest', 
             'guest_name', 'guest_phone', 'guest_email',
             'order_status', 'payment_status', 'delivery_status',
             'return_status', 'refund_status', 'cancellation_status',
@@ -126,6 +127,11 @@ class OrderDetailSerializer(serializers.ModelSerializer):
         if obj.is_guest:
             return obj.guest_name or 'Guest'
         return obj.customer.full_name if obj.customer else 'Unknown'
+
+    def get_customer_phone(self, obj):
+        if obj.is_guest:
+            return obj.guest_phone or ''
+        return obj.customer.phone if obj.customer else ''
     
     def get_receipt_uuid(self, obj):
         """Get the order's receipt_uuid."""
