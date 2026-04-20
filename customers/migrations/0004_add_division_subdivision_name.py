@@ -3,6 +3,31 @@
 from django.db import migrations, models
 
 
+def add_field_if_not_exists(apps, schema_editor):
+    """Add division_name and subdivision_name columns only if they don't already exist."""
+    connection = schema_editor.connection
+    table_name = 'customers_customer'
+
+    with connection.cursor() as cursor:
+        # Check existing columns
+        cursor.execute(
+            "SELECT column_name FROM information_schema.columns "
+            "WHERE table_name = %s AND column_name IN ('division_name', 'subdivision_name')",
+            [table_name]
+        )
+        existing = {row[0] for row in cursor.fetchall()}
+
+        if 'division_name' not in existing:
+            cursor.execute(
+                f'ALTER TABLE "{table_name}" ADD COLUMN "division_name" varchar(100) NOT NULL DEFAULT \'\''
+            )
+
+        if 'subdivision_name' not in existing:
+            cursor.execute(
+                f'ALTER TABLE "{table_name}" ADD COLUMN "subdivision_name" varchar(100) NOT NULL DEFAULT \'\''
+            )
+
+
 class Migration(migrations.Migration):
 
     dependencies = [
@@ -10,14 +35,21 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        migrations.AddField(
-            model_name='customer',
-            name='division_name',
-            field=models.CharField(blank=True, help_text='Division name without school (e.g. "A"). Set when independent toggle is ON.', max_length=100),
-        ),
-        migrations.AddField(
-            model_name='customer',
-            name='subdivision_name',
-            field=models.CharField(blank=True, help_text='Subdivision name without school (e.g. "Boys"). Set when independent toggle is ON.', max_length=100),
+        migrations.RunPython(add_field_if_not_exists, migrations.RunPython.noop),
+        # State-only AddField so Django ORM knows the fields exist
+        migrations.SeparateDatabaseAndState(
+            state_operations=[
+                migrations.AddField(
+                    model_name='customer',
+                    name='division_name',
+                    field=models.CharField(blank=True, help_text='Division name without school (e.g. "A"). Set when independent toggle is ON.', max_length=100),
+                ),
+                migrations.AddField(
+                    model_name='customer',
+                    name='subdivision_name',
+                    field=models.CharField(blank=True, help_text='Subdivision name without school (e.g. "Boys"). Set when independent toggle is ON.', max_length=100),
+                ),
+            ],
+            database_operations=[],  # Already handled by RunPython above
         ),
     ]
