@@ -341,7 +341,7 @@ export default function AddCustomer({ onSuccess, onCancel, isEmbedded = false })
                 if (data && data.address) {
                     setFormData(prev => ({
                         ...prev,
-                        village: data.address.village || data.address.town || data.address.city || data.address.suburb || prev.village,
+                        village: data.address.village || data.address.hamlet || data.address.town || data.address.city || data.address.municipality || data.address.county || data.address.suburb || prev.village,
                         pincode: data.address.postcode || prev.pincode,
                         address_line: data.display_name || prev.address_line,
                         landmark: data.address.neighbourhood || data.address.road || prev.landmark
