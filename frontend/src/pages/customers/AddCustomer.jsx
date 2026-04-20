@@ -33,6 +33,8 @@ export default function AddCustomer({ onSuccess, onCancel, isEmbedded = false })
         customer_group: '',
         notes: '',
         class_name: '',
+        division_name: '',
+        subdivision_name: '',
         // Address
         village: '',
         faliya: '',
@@ -60,6 +62,8 @@ export default function AddCustomer({ onSuccess, onCancel, isEmbedded = false })
     const [addressId, setAddressId] = useState(null);
     const [independentClass, setIndependentClass] = useState(false);
     const [classTemplatesForForm, setClassTemplatesForForm] = useState([]);
+    const [divisionTemplatesForForm, setDivisionTemplatesForForm] = useState([]);
+    const [subdivisionTemplatesForForm, setSubdivisionTemplatesForForm] = useState([]);
 
     // Customer Links state
     const [linkTypes, setLinkTypes] = useState([]);
@@ -83,12 +87,14 @@ export default function AddCustomer({ onSuccess, onCancel, isEmbedded = false })
     useEffect(() => {
         const fetchOptions = async () => {
             try {
-                const [schoolsRes, groupsRes, tagsRes, linkTypesRes, ctRes] = await Promise.all([
+                const [schoolsRes, groupsRes, tagsRes, linkTypesRes, ctRes, dtRes, stRes] = await Promise.all([
                     fetchWithAuth(ENDPOINTS.SCHOOLS),
                     fetchWithAuth(ENDPOINTS.CUSTOMERS_GROUPS),
                     fetchWithAuth(ENDPOINTS.CUSTOMERS_LOCATION_TAGS),
                     fetchWithAuth(ENDPOINTS.CUSTOMERS_LINK_TYPES || '/api/customers/link-types/'),
                     fetchWithAuth(ENDPOINTS.CLASS_TEMPLATES),
+                    fetchWithAuth(ENDPOINTS.DIVISION_TEMPLATES),
+                    fetchWithAuth(ENDPOINTS.SUBDIVISION_TEMPLATES),
                 ]);
 
                 if (schoolsRes.ok) {
@@ -113,6 +119,20 @@ export default function AddCustomer({ onSuccess, onCancel, isEmbedded = false })
                         a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' })
                     );
                     setClassTemplatesForForm(sorted);
+                }
+                if (dtRes.ok) {
+                    const data = await dtRes.json();
+                    const sorted = (data.results || data || []).sort((a, b) =>
+                        a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' })
+                    );
+                    setDivisionTemplatesForForm(sorted);
+                }
+                if (stRes.ok) {
+                    const data = await stRes.json();
+                    const sorted = (data.results || data || []).sort((a, b) =>
+                        a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' })
+                    );
+                    setSubdivisionTemplatesForForm(sorted);
                 }
             } catch (err) {
                 console.error('Error fetching options:', err);
@@ -428,6 +448,8 @@ export default function AddCustomer({ onSuccess, onCancel, isEmbedded = false })
             customer_group: formData.customer_group || null,
             notes: formData.notes || '',
             class_name: independentClass ? formData.class_name : '',
+            division_name: independentClass ? formData.division_name : '',
+            subdivision_name: independentClass ? formData.subdivision_name : '',
             addresses: []
         };
 
@@ -626,12 +648,56 @@ export default function AddCustomer({ onSuccess, onCancel, isEmbedded = false })
                                         <select
                                             name="class_name"
                                             value={formData.class_name}
-                                            onChange={handleInputChange}
+                                            onChange={e => {
+                                                setFormData(prev => ({ ...prev, class_name: e.target.value, division_name: '', subdivision_name: '' }));
+                                            }}
                                         >
                                             <option value="">Select Class</option>
                                             {classTemplatesForForm.map(ct => (
                                                 <option key={ct.id} value={ct.name}>{ct.name}</option>
                                             ))}
+                                        </select>
+                                    </div>
+                                    <div className="form-group">
+                                        <label>Division</label>
+                                        <select
+                                            name="division_name"
+                                            value={formData.division_name}
+                                            onChange={e => {
+                                                setFormData(prev => ({ ...prev, division_name: e.target.value, subdivision_name: '' }));
+                                            }}
+                                            disabled={!formData.class_name}
+                                        >
+                                            <option value="">Select Division</option>
+                                            {divisionTemplatesForForm
+                                                .filter(dt => {
+                                                    // Show all if no applicable_classes, otherwise filter by selected class_name
+                                                    if (!dt.applicable_class_names || dt.applicable_class_names.length === 0) return true;
+                                                    return dt.applicable_class_names.includes(formData.class_name);
+                                                })
+                                                .map(dt => (
+                                                    <option key={dt.id} value={dt.name}>{dt.name}</option>
+                                                ))}
+                                        </select>
+                                    </div>
+                                    <div className="form-group">
+                                        <label>Subdivision</label>
+                                        <select
+                                            name="subdivision_name"
+                                            value={formData.subdivision_name}
+                                            onChange={handleInputChange}
+                                            disabled={!formData.division_name}
+                                        >
+                                            <option value="">Select Subdivision</option>
+                                            {subdivisionTemplatesForForm
+                                                .filter(st => {
+                                                    // Show all if no applicable_divisions, otherwise filter by selected division_name
+                                                    if (!st.applicable_division_names || st.applicable_division_names.length === 0) return true;
+                                                    return st.applicable_division_names.includes(formData.division_name);
+                                                })
+                                                .map(st => (
+                                                    <option key={st.id} value={st.name}>{st.name}</option>
+                                                ))}
                                         </select>
                                     </div>
                                 </div>

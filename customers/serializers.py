@@ -180,7 +180,7 @@ class CustomerListSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'display_id', 'full_name', 'first_name', 'last_name',
             'phone', 'email', 'school_name', 'school_id',
-            'effective_class_name', 'class_name',
+            'effective_class_name', 'class_name', 'division_name', 'subdivision_name',
             'group_name', 'primary_address', 'wallet_balance', 'created_at'
         ]
     
@@ -222,7 +222,8 @@ class CustomerDetailSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'display_id', 'full_name', 'first_name', 'middle_name', 'last_name',
             'phone', 'email', 'school', 'class_obj', 'division', 'subdivision',
-            'class_name', 'customer_group', 'notes', 'addresses', 'links', 
+            'class_name', 'division_name', 'subdivision_name',
+            'customer_group', 'notes', 'addresses', 'links', 
             'wallet_balance', 'created_at', 'updated_at'
         ]
     
@@ -248,7 +249,8 @@ class CustomerCreateUpdateSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'display_id', 'first_name', 'middle_name', 'last_name',
             'phone', 'email', 'school', 'class_obj', 'division', 'subdivision',
-            'class_name', 'customer_group', 'notes', 'addresses'
+            'class_name', 'division_name', 'subdivision_name',
+            'customer_group', 'notes', 'addresses'
         ]
         read_only_fields = ['id', 'display_id']
     

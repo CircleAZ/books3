@@ -42,6 +42,14 @@ class Customer(DisplayIDMixin, SoftDeleteModel):
         max_length=100, blank=True,
         help_text='Class name without school (e.g. "7"). Set when independent toggle is ON.'
     )
+    division_name = models.CharField(
+        max_length=100, blank=True,
+        help_text='Division name without school (e.g. "A"). Set when independent toggle is ON.'
+    )
+    subdivision_name = models.CharField(
+        max_length=100, blank=True,
+        help_text='Subdivision name without school (e.g. "Boys"). Set when independent toggle is ON.'
+    )
     
     # Grouping
     customer_group = models.ForeignKey(
