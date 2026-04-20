@@ -238,7 +238,7 @@ export default function NewOrder() {
                     const enabled = (methodsData.results || methodsData).filter(m => m.is_enabled);
                     setAvailablePaymentMethods(enabled);
                     if (enabled.length > 0) {
-                        setPaymentMethod(enabled[0].method_type);
+                        setPaymentMethod(enabled[0].id);
                     }
                 }
 
@@ -489,18 +489,38 @@ export default function NewOrder() {
         let destination_bank = null;
         let destination_wallet = null;
         
-        if (paymentMethod === 'cash') {
+        const methodObj = availablePaymentMethods.find(m => m.id === paymentMethod);
+        const currentType = methodObj ? methodObj.method_type : paymentMethod;
+        const methodDesc = methodObj ? methodObj.name : (currentType === 'cash' ? 'Cash' : 'UPI');
+
+        if (currentType === 'cash') {
             destination_wallet = selectedDestination || (availableCashWallets.length > 0 ? availableCashWallets[0].id : null);
+            if (!destination_wallet) {
+                showToast('Error: No active Cash Wallet found. Contact Admin.', 'error');
+                return;
+            }
+        } else if (currentType === 'upi') {
+            const upiObj = availableUpiAccounts.find(u => u.upi_id === selectedUpiAccount);
+            if (!upiObj || !upiObj.linked_bank_account) {
+                showToast('Error: Selected UPI Account has no linked bank account. Contact Admin.', 'error');
+                return;
+            }
+            destination_bank = upiObj.linked_bank_account;
         } else {
-            destination_bank = selectedDestination || (availableBankAccounts.length > 0 ? availableBankAccounts[0].id : null);
+            // Card or Bank
+            if (!methodObj || !methodObj.linked_bank_account) {
+                showToast('Error: Selected Payment Method has no linked bank account. Contact Admin.', 'error');
+                return;
+            }
+            destination_bank = methodObj.linked_bank_account;
         }
 
         setPayments(prev => [...prev, {
-            method: paymentMethod,
+            method: methodDesc,
             amount: amt,
             destination_bank,
             destination_wallet,
-            upi_reference: paymentMethod === 'upi' ? `QR-PAY-${Date.now()}` : '',
+            upi_reference: currentType === 'upi' ? `QR-PAY-${Date.now()}` : '',
             timestamp: new Date().toISOString()
         }]);
         setPaymentAmount('');
@@ -656,6 +676,9 @@ export default function NewOrder() {
             setIsLoading(false);
         }
     };
+
+    const currentMethodObj = useMemo(() => availablePaymentMethods.find(m => m.id === paymentMethod), [availablePaymentMethods, paymentMethod]);
+    const currentMethodType = currentMethodObj ? currentMethodObj.method_type : paymentMethod;
 
     return (
         <div className="pos-container fade-in">
@@ -1051,7 +1074,7 @@ export default function NewOrder() {
                         >
                             {availablePaymentMethods.length > 0 ? (
                                 availablePaymentMethods.map(method => (
-                                    <option key={method.id} value={method.method_type}>
+                                    <option key={method.id} value={method.id}>
                                         {method.name}
                                     </option>
                                 ))
@@ -1062,21 +1085,18 @@ export default function NewOrder() {
                                 </>
                             )}
                         </select>
-                        <select
-                            className="form-control form-select"
-                            value={selectedDestination}
-                            onChange={e => setSelectedDestination(e.target.value)}
-                        >
-                            {paymentMethod === 'cash' ? (
-                                availableCashWallets.map(w => (
+                        
+                        {currentMethodType === 'cash' && (
+                            <select
+                                className="form-control form-select"
+                                value={selectedDestination}
+                                onChange={e => setSelectedDestination(e.target.value)}
+                            >
+                                {availableCashWallets.map(w => (
                                     <option key={w.id} value={w.id}>{w.name}</option>
-                                ))
-                            ) : (
-                                availableBankAccounts.map(b => (
-                                    <option key={b.id} value={b.id}>{b.name}</option>
-                                ))
-                            )}
-                        </select>
+                                ))}
+                            </select>
+                        )}
                         <input
                             type="number"
                             className="form-control"
@@ -1089,7 +1109,7 @@ export default function NewOrder() {
                     </div>
 
                     {/* UPI Account Selector */}
-                    {paymentMethod === 'upi' && availableUpiAccounts.length > 0 && (
+                    {currentMethodType === 'upi' && availableUpiAccounts.length > 0 && (
                         <div className="upi-account-selector mt-2">
                             <label className="small text-muted">Select UPI Account:</label>
                             <select
@@ -1107,7 +1127,7 @@ export default function NewOrder() {
                     )}
 
                     {/* QR Code Display */}
-                    {paymentMethod === 'upi' && paymentAmount > 0 && selectedUpiAccount && (() => {
+                    {currentMethodType === 'upi' && paymentAmount > 0 && selectedUpiAccount && (() => {
                         const upiUrl = `upi://pay?pa=${selectedUpiAccount}&pn=AZBooks&am=${paymentAmount}&cu=INR`;
                         const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(upiUrl)}`;
                         return (

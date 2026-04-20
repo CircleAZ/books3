@@ -10,11 +10,12 @@ const PaymentSettings = () => {
 
     const [methods, setMethods] = useState([]);
     const [upiAccounts, setUpiAccounts] = useState([]);
+    const [bankAccounts, setBankAccounts] = useState([]);
     const [loading, setLoading] = useState(true);
     const [showMethodModal, setShowMethodModal] = useState(false);
     const [showUpiModal, setShowUpiModal] = useState(false);
-    const [newMethod, setNewMethod] = useState({ name: '', method_type: 'cash', is_enabled: true, display_order: 0 });
-    const [newUpi, setNewUpi] = useState({ upi_id: '', display_name: '', is_active: true });
+    const [newMethod, setNewMethod] = useState({ name: '', method_type: 'cash', is_enabled: true, display_order: 0, linked_bank_account: '' });
+    const [newUpi, setNewUpi] = useState({ upi_id: '', display_name: '', is_active: true, linked_bank_account: '' });
     const [message, setMessage] = useState(null);
     const [confirmDialog, setConfirmDialog] = useState({ show: false, title: '', message: '', onConfirm: null });
 
@@ -24,7 +25,7 @@ const PaymentSettings = () => {
 
     async function loadAll() {
         setLoading(true);
-        await Promise.all([fetchMethods(), fetchUpiAccounts()]);
+        await Promise.all([fetchMethods(), fetchUpiAccounts(), fetchBankAccounts()]);
         setLoading(false);
     }
 
@@ -52,17 +53,32 @@ const PaymentSettings = () => {
         }
     };
 
+    const fetchBankAccounts = async () => {
+        try {
+            const response = await fetchWithAuth(`${ENDPOINTS.FINANCE_BANK_ACCOUNTS}?active_only=true`);
+            if (response.ok) {
+                const data = await response.json();
+                setBankAccounts(data.results || data);
+            }
+        } catch (error) {
+            console.error('Error fetching bank accounts:', error);
+        }
+    };
+
     const handleAddMethod = async (e) => {
         e.preventDefault();
         try {
             const response = await fetchWithAuth(ENDPOINTS.SETTINGS_PAYMENT_METHODS, {
                 method: 'POST',
-                body: JSON.stringify(newMethod)
+                body: JSON.stringify({
+                    ...newMethod,
+                    linked_bank_account: newMethod.method_type === 'cash' ? null : newMethod.linked_bank_account
+                })
             });
             if (response.ok) {
                 fetchMethods();
                 setShowMethodModal(false);
-                setNewMethod({ name: '', method_type: 'cash', is_enabled: true, display_order: 0 });
+                setNewMethod({ name: '', method_type: 'cash', is_enabled: true, display_order: 0, linked_bank_account: '' });
                 setMessage({ type: 'success', text: 'Payment method added' });
             } else {
                 const err = await response.json();
@@ -125,7 +141,7 @@ const PaymentSettings = () => {
             if (response.ok) {
                 fetchUpiAccounts();
                 setShowUpiModal(false);
-                setNewUpi({ upi_id: '', display_name: '', is_active: true });
+                setNewUpi({ upi_id: '', display_name: '', is_active: true, linked_bank_account: '' });
                 setMessage({ type: 'success', text: 'UPI account added' });
             } else {
                 const err = await response.json();
@@ -176,6 +192,12 @@ const PaymentSettings = () => {
         return icons[type] || '💰';
     };
 
+    const getBankName = (bankId) => {
+        if (!bankId) return <span className="text-muted">—</span>;
+        const bank = bankAccounts.find(b => b.id === bankId);
+        return bank ? bank.name : 'Unknown Bank';
+    };
+
     if (loading) return <div className="loading-container"><div className="spinner-large"></div></div>;
 
     return (
@@ -204,6 +226,7 @@ const PaymentSettings = () => {
                                     <th></th>
                                     <th>Name</th>
                                     <th>Type</th>
+                                    <th>Linked Bank</th>
                                     <th>Enabled</th>
                                     <th>Actions</th>
                                 </tr>
@@ -214,6 +237,7 @@ const PaymentSettings = () => {
                                         <td>{getMethodIcon(method.method_type)}</td>
                                         <td>{method.name}</td>
                                         <td><span className="badge">{method.method_type}</span></td>
+                                        <td>{getMethodIcon(method.method_type) !== '💵' ? getBankName(method.linked_bank_account) : <span className="badge">Cash Wallet</span>}</td>
                                         <td>
                                             <label className="toggle-switch">
                                                 <input
@@ -231,7 +255,7 @@ const PaymentSettings = () => {
                                 ))}
                                 {methods.length === 0 && (
                                     <tr>
-                                        <td colSpan="5" className="text-center">No payment methods configured. Add one to get started.</td>
+                                        <td colSpan="6" className="text-center">No payment methods configured. Add one to get started.</td>
                                     </tr>
                                 )}
                             </tbody>
@@ -252,6 +276,7 @@ const PaymentSettings = () => {
                                 <tr>
                                     <th>Display Name</th>
                                     <th>UPI ID</th>
+                                    <th>Linked Bank</th>
                                     <th>Active</th>
                                     <th>Actions</th>
                                 </tr>
@@ -261,6 +286,7 @@ const PaymentSettings = () => {
                                     <tr key={upi.id} className={!upi.is_active ? 'disabled-row' : ''}>
                                         <td>{upi.display_name}</td>
                                         <td><code>{upi.upi_id}</code></td>
+                                        <td>{getBankName(upi.linked_bank_account)}</td>
                                         <td>
                                             <label className="toggle-switch">
                                                 <input
@@ -278,7 +304,7 @@ const PaymentSettings = () => {
                                 ))}
                                 {upiAccounts.length === 0 && (
                                     <tr>
-                                        <td colSpan="4" className="text-center">No UPI accounts configured.</td>
+                                        <td colSpan="5" className="text-center">No UPI accounts configured.</td>
                                     </tr>
                                 )}
                             </tbody>
@@ -315,6 +341,25 @@ const PaymentSettings = () => {
                                     <option value="bank">Bank Transfer</option>
                                 </select>
                             </div>
+
+                            {newMethod.method_type !== 'cash' && (
+                                <div className="form-group">
+                                    <label>Linked Bank Account</label>
+                                    <select
+                                        className="form-select"
+                                        value={newMethod.linked_bank_account}
+                                        onChange={(e) => setNewMethod({ ...newMethod, linked_bank_account: e.target.value })}
+                                        required
+                                    >
+                                        <option value="">Select a Bank Account</option>
+                                        {bankAccounts.map(bank => (
+                                            <option key={bank.id} value={bank.id}>{bank.name} ({bank.bank_name})</option>
+                                        ))}
+                                    </select>
+                                    <small className="helper-text" style={{display: 'block', marginTop: '4px'}}>All funds from this method will be routed here.</small>
+                                </div>
+                            )}
+
                             <div className="form-group">
                                 <label>Display Order</label>
                                 <input
@@ -367,6 +412,21 @@ const PaymentSettings = () => {
                                     title="Enter a valid UPI ID (format: username@bankname)"
                                     required
                                 />
+                            </div>
+                            <div className="form-group">
+                                <label>Linked Bank Account</label>
+                                <select
+                                    className="form-select"
+                                    value={newUpi.linked_bank_account}
+                                    onChange={(e) => setNewUpi({ ...newUpi, linked_bank_account: e.target.value })}
+                                    required
+                                >
+                                    <option value="">Select a Bank Account</option>
+                                    {bankAccounts.map(bank => (
+                                        <option key={bank.id} value={bank.id}>{bank.name} ({bank.bank_name})</option>
+                                    ))}
+                                </select>
+                                <small className="helper-text" style={{display: 'block', marginTop: '4px'}}>Incoming UPI payments will be recorded here.</small>
                             </div>
                             <div className="form-check">
                                 <label>

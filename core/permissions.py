@@ -118,10 +118,16 @@ class HasRequiredPermission(permissions.BasePermission):
             if not user_roles.exists():
                 return False
 
-            return RolePermission.objects.filter(
-                role__in=user_roles,
-                permission__codename=permission_codename
-            ).select_related('permission').exists()
+            if isinstance(permission_codename, (list, tuple)):
+                return RolePermission.objects.filter(
+                    role__in=user_roles,
+                    permission__codename__in=permission_codename
+                ).select_related('permission').exists()
+            else:
+                return RolePermission.objects.filter(
+                    role__in=user_roles,
+                    permission__codename=permission_codename
+                ).select_related('permission').exists()
 
         except Exception as e:
             logger.error(

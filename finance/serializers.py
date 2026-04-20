@@ -214,6 +214,17 @@ class BankAccountSerializer(serializers.ModelSerializer):
     def validate_bank_name(self, value):
         return _sanitize(value)
 
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        request = self.context.get('request')
+        if request and request.user and not request.user.is_superuser:
+            from core.permissions import HasRequiredPermission
+            has_finance = HasRequiredPermission._check_rbac(request.user, 'finance.manage_banking')
+            if not has_finance:
+                for field in ['opening_balance', 'current_balance', 'recent_transactions', 'masked_account_number', 'ifsc_code', 'branch']:
+                    data.pop(field, None)
+        return data
+
 
 # ======== Employee Finance Serializers ========
 

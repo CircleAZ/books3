@@ -314,6 +314,10 @@ class BankAccountViewSet(viewsets.ModelViewSet):
     serializer_class = BankAccountSerializer
     permission_classes = [HasRequiredPermission]
     required_permission = 'finance.manage_banking'
+    permission_map = {
+        'list': ['finance.manage_banking', 'settings.manage_payments'],
+        'retrieve': ['finance.manage_banking', 'settings.manage_payments'],
+    }
     pagination_class = FinancePagination
     
     def get_queryset(self):
@@ -1088,15 +1092,23 @@ class CashWalletViewSet(viewsets.ModelViewSet):
     serializer_class = CashWalletSerializer
     permission_classes = [HasRequiredPermission]
     required_permission = 'finance.manage_banking'
+    permission_map = {
+        'list': ['finance.manage_banking', 'orders.create_orders'],
+        'retrieve': ['finance.manage_banking', 'orders.create_orders'],
+    }
     pagination_class = FinancePagination
     
     def get_queryset(self):
         qs = super().get_queryset()
         if self.request.query_params.get('active_only'):
             qs = qs.filter(is_active=True)
-        if not self.request.user.is_superuser:
-            qs = qs.filter(Q(owner=self.request.user) | Q(is_system=True))
-        return qs
+            
+        # If superuser or has manage_banking role, see all wallets
+        if self.request.user.is_superuser or HasRequiredPermission._check_rbac(self.request.user, 'finance.manage_banking'):
+            return qs
+            
+        # Normal cashier sees only their own or system wallets
+        return qs.filter(Q(owner=self.request.user) | Q(is_system=True))
 
 class CashTransferViewSet(viewsets.ModelViewSet):
     """CRUD for cash transfers with peer review."""
