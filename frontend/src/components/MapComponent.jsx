@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import './MapComponent.css';
-import { MapContainer, TileLayer, Marker, useMap, useMapEvents } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, useMap, useMapEvents, LayersControl } from 'react-leaflet';
 import L from 'leaflet';
 
 // Fix for default marker icons in React Leaflet
@@ -51,11 +51,23 @@ const MapComponent = ({ position, onLocationSelect, height = '300px', readonly =
             maxZoom={22}
             style={{ height: height, width: '100%', borderRadius: '8px', zIndex: 0 }}
         >
-            <TileLayer
-                attribution='&copy; <a href="https://www.maptiler.com/copyright/">MapTiler</a> &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-                url="https://api.maptiler.com/maps/hybrid/{z}/{x}/{y}.jpg?key=BQQceBuFb4tKDPHoivOL"
-                maxZoom={22}
-            />
+            <LayersControl position="bottomright">
+                <LayersControl.BaseLayer checked name="Satellite View">
+                    <TileLayer
+                        attribution="&copy; Google"
+                        url="https://{s}.google.com/vt/lyrs=y&x={x}&y={y}&z={z}"
+                        maxZoom={20}
+                        subdomains={['mt0', 'mt1', 'mt2', 'mt3']}
+                    />
+                </LayersControl.BaseLayer>
+                <LayersControl.BaseLayer name="Street View">
+                    <TileLayer
+                        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+                        url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                        maxZoom={19}
+                    />
+                </LayersControl.BaseLayer>
+            </LayersControl>
             <LocationMarker
                 position={position}
                 onLocationSelect={onLocationSelect}
