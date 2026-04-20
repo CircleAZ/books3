@@ -1,6 +1,7 @@
 .breadcrumbs {
     padding: var(--space-sm) 0;
     margin-bottom: var(--space-sm);
+    flex-shrink: 0;
 }
 
 .breadcrumbs ol {
