@@ -171,6 +171,8 @@ class CustomerListSerializer(serializers.ModelSerializer):
     school_name = serializers.CharField(source='school.name', read_only=True, default=None)
     school_id = serializers.UUIDField(source='school.id', read_only=True, default=None)
     effective_class_name = serializers.SerializerMethodField()
+    effective_division_name = serializers.SerializerMethodField()
+    effective_subdivision_name = serializers.SerializerMethodField()
     group_name = serializers.CharField(source='customer_group.name', read_only=True, default=None)
     primary_address = serializers.SerializerMethodField()
     wallet_balance = serializers.DecimalField(max_digits=10, decimal_places=2, read_only=True)
@@ -180,7 +182,8 @@ class CustomerListSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'display_id', 'full_name', 'first_name', 'last_name',
             'phone', 'email', 'school_name', 'school_id',
-            'effective_class_name', 'class_name', 'division_name', 'subdivision_name',
+            'effective_class_name', 'effective_division_name', 'effective_subdivision_name',
+            'class_name', 'division_name', 'subdivision_name',
             'group_name', 'primary_address', 'wallet_balance', 'created_at'
         ]
     
@@ -189,6 +192,16 @@ class CustomerListSerializer(serializers.ModelSerializer):
         if obj.class_obj:
             return obj.class_obj.name
         return obj.class_name or None
+    
+    def get_effective_division_name(self, obj):
+        if obj.division:
+            return obj.division.name
+        return obj.division_name or ''
+
+    def get_effective_subdivision_name(self, obj):
+        if obj.subdivision:
+            return obj.subdivision.name
+        return obj.subdivision_name or ''
     
     def get_primary_address(self, obj):
         addresses = getattr(obj, '_prefetched_objects_cache', {}).get('addresses', None)

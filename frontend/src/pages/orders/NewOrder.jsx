@@ -308,8 +308,8 @@ export default function NewOrder() {
                     url += `&school_id=${selectedCustomer.school_id}`;
                 }
                 // Pass division/subdivision for higher-specificity matching
-                const divName = selectedCustomer.division_name || '';
-                const subName = selectedCustomer.subdivision_name || '';
+                const divName = selectedCustomer.effective_division_name || selectedCustomer.division_name || '';
+                const subName = selectedCustomer.effective_subdivision_name || selectedCustomer.subdivision_name || '';
                 if (divName) {
                     url += `&division_name=${encodeURIComponent(divName)}`;
                 }
