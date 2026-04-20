@@ -83,6 +83,9 @@ export default function AddCustomer({ onSuccess, onCancel, isEmbedded = false })
         links: false
     });
 
+    // Address Override Toggle
+    const [overrideAddress, setOverrideAddress] = useState(false);
+
     // Fetch initial dropdown data, then customer details if in edit mode
     useEffect(() => {
         const fetchOptions = async () => {
@@ -324,12 +327,30 @@ export default function AddCustomer({ onSuccess, onCancel, isEmbedded = false })
         }));
     };
 
-    const handleLocationSelect = (latlng) => {
+    const handleLocationSelect = async (latlng) => {
         setFormData(prev => ({
             ...prev,
             latitude: parseFloat(latlng.lat.toFixed(6)),
             longitude: parseFloat(latlng.lng.toFixed(6))
         }));
+
+        if (!overrideAddress) {
+            try {
+                const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${latlng.lat}&lon=${latlng.lng}&zoom=18&addressdetails=1`);
+                const data = await response.json();
+                if (data && data.address) {
+                    setFormData(prev => ({
+                        ...prev,
+                        village: data.address.village || data.address.town || data.address.city || data.address.suburb || prev.village,
+                        pincode: data.address.postcode || prev.pincode,
+                        address_line: data.display_name || prev.address_line,
+                        landmark: data.address.neighbourhood || data.address.road || prev.landmark
+                    }));
+                }
+            } catch (err) {
+                console.error("Geocoding failed:", err);
+            }
+        }
     };
 
     const toggleSection = (section) => {
@@ -777,28 +798,39 @@ export default function AddCustomer({ onSuccess, onCancel, isEmbedded = false })
                                         position={formData.latitude !== null && formData.longitude !== null ? [formData.latitude, formData.longitude] : null}
                                         onLocationSelect={handleLocationSelect}
                                     />
-                                    {formData.latitude !== null && <p className="text-muted text-sm" style={{ marginTop: '5px' }}>Selected: {formData.latitude.toFixed(6)}, {formData.longitude.toFixed(6)}</p>}
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '5px' }}>
+                                        {formData.latitude !== null ? <p className="text-muted text-sm" style={{ margin: 0 }}>Selected: {formData.latitude.toFixed(6)}, {formData.longitude.toFixed(6)}</p> : <div/>}
+                                        <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem', color: 'var(--color-primary)', cursor: 'pointer', margin: 0, fontWeight: 600 }}>
+                                            <input 
+                                                type="checkbox" 
+                                                checked={overrideAddress} 
+                                                onChange={(e) => setOverrideAddress(e.target.checked)} 
+                                                style={{ cursor: 'pointer' }}
+                                            />
+                                            Manual Override (Disable Auto-Fill)
+                                        </label>
+                                    </div>
                                 </div>
 
                                 <div className="form-group">
                                     <label>Village</label>
-                                    <input type="text" name="village" value={formData.village} onChange={handleInputChange} />
+                                    <input type="text" name="village" value={formData.village} onChange={handleInputChange} disabled={!overrideAddress} style={!overrideAddress ? { backgroundColor: 'var(--color-bg-hover)' } : {}} />
                                 </div>
                                 <div className="form-group">
                                     <label>Faliya <span className="info-tooltip" title="Neighbourhood / Lane">ⓘ</span></label>
-                                    <input type="text" name="faliya" value={formData.faliya} onChange={handleInputChange} />
+                                    <input type="text" name="faliya" value={formData.faliya} onChange={handleInputChange} disabled={!overrideAddress} style={!overrideAddress ? { backgroundColor: 'var(--color-bg-hover)' } : {}} />
                                 </div>
                                 <div className="form-group full-width">
                                     <label>Address Line</label>
-                                    <textarea name="address_line" value={formData.address_line} onChange={handleInputChange} rows={2} />
+                                    <textarea name="address_line" value={formData.address_line} onChange={handleInputChange} rows={2} disabled={!overrideAddress} style={!overrideAddress ? { backgroundColor: 'var(--color-bg-hover)' } : {}} />
                                 </div>
                                 <div className="form-group">
                                     <label>Landmark</label>
-                                    <input type="text" name="landmark" value={formData.landmark} onChange={handleInputChange} />
+                                    <input type="text" name="landmark" value={formData.landmark} onChange={handleInputChange} disabled={!overrideAddress} style={!overrideAddress ? { backgroundColor: 'var(--color-bg-hover)' } : {}} />
                                 </div>
                                 <div className="form-group">
                                     <label>Pincode</label>
-                                    <input type="text" name="pincode" value={formData.pincode} onChange={handleInputChange} />
+                                    <input type="text" name="pincode" value={formData.pincode} onChange={handleInputChange} disabled={!overrideAddress} style={!overrideAddress ? { backgroundColor: 'var(--color-bg-hover)' } : {}} />
                                 </div>
                                 <div className="form-group full-width">
                                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
