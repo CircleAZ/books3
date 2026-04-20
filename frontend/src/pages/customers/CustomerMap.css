@@ -1,9 +1,23 @@
 /* ============ Customer Map Page ============ */
 .customer-map-page {
     position: relative;
-    width: 100%;
-    height: calc(100vh - 64px);
+    /* Full bleed horizontally by breaking out of page padding */
+    width: calc(100% + var(--page-padding, 8px) * 2);
+    margin-left: calc(-1 * var(--page-padding, 8px));
+    margin-right: calc(-1 * var(--page-padding, 8px));
+    
+    /* Calculate exact usable height between breadcrumbs and bottom nav */
+    /* 100vh - header(56px) - breadcrumbs(~46px) - bottom_nav(64px) */
+    height: calc(100vh - var(--header-height, 56px) - 46px - var(--bottom-nav-height, 64px) - env(safe-area-inset-bottom, 0px));
     overflow: hidden;
+}
+
+@media (min-width: 1024px) {
+    .customer-map-page {
+        /* On desktop: no bottom nav, but there is bottom padding */
+        height: calc(100vh - var(--header-height, 56px) - 46px - var(--space-lg, 24px));
+        border-radius: var(--radius-lg);
+    }
 }
 
 /* ============ Map Container ============ */
@@ -581,7 +595,6 @@
     .legend-title { font-size: 10px; }
     .legend-item { font-size: 11px; }
     .legend-dot { width: 16px; height: 16px; font-size: 8px; }
-    .customer-map-page { height: calc(100vh - 56px); }
 }
 
 /* ============ Leaflet z-index / theme fixes ============ */
