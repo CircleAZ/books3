@@ -94,6 +94,7 @@ export const menuSections = [
             { label: 'Lenders', title: 'Lenders', path: '/finance/lenders', permission: 'finance.manage_loans' },
             { label: 'Trips', title: 'Trips', path: '/finance/trips', permission: 'finance.manage_trips' },
             { label: 'New Trip', title: 'New Trip', path: '/finance/trips/new', permission: 'finance.manage_trips' },
+            { label: 'Cash Management', title: 'Cash Management', path: '/finance/cash-management', permission: 'finance.manage_banking' },
         ],
     },
     {
