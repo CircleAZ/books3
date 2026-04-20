@@ -7,15 +7,17 @@
     margin-right: calc(-1 * var(--page-padding, 8px));
     
     /* Calculate exact usable height between breadcrumbs and bottom nav */
-    /* 100vh - header(56px) - breadcrumbs(~46px) - bottom_nav(64px) */
-    height: calc(100vh - var(--header-height, 56px) - 46px - var(--bottom-nav-height, 64px) - env(safe-area-inset-bottom, 0px));
+    /* 100dvh - header(56px) - breadcrumbs(~50px) - bottom_nav(64px) */
+    height: calc(100vh - var(--header-height, 56px) - 50px - var(--bottom-nav-height, 64px) - env(safe-area-inset-bottom, 0px));
+    height: calc(100dvh - var(--header-height, 56px) - 50px - var(--bottom-nav-height, 64px) - env(safe-area-inset-bottom, 0px));
     overflow: hidden;
 }
 
 @media (min-width: 1024px) {
     .customer-map-page {
         /* On desktop: no bottom nav, but there is bottom padding */
-        height: calc(100vh - var(--header-height, 56px) - 46px - var(--space-lg, 24px));
+        height: calc(100vh - var(--header-height, 56px) - 50px - var(--space-lg, 24px));
+        height: calc(100dvh - var(--header-height, 56px) - 50px - var(--space-lg, 24px));
         border-radius: var(--radius-lg);
     }
 }
