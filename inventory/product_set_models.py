@@ -85,7 +85,7 @@ class ProductSet(UUIDPrimaryKeyModel):
 
         qs = cls.objects.filter(class_name=class_name, is_active=True)
 
-        # Priority 1: full match
+        # Priority 1: school + class + division + subdivision
         if school_id and division_name and subdivision_name:
             match = qs.filter(
                 school_id=school_id,
@@ -95,27 +95,7 @@ class ProductSet(UUIDPrimaryKeyModel):
             if match:
                 return match
 
-        # Priority 2: school + class + division
-        if school_id and division_name:
-            match = qs.filter(
-                school_id=school_id,
-                division_name=division_name,
-                subdivision_name='',
-            ).first()
-            if match:
-                return match
-
-        # Priority 3: school + class
-        if school_id:
-            match = qs.filter(
-                school_id=school_id,
-                division_name='',
-                subdivision_name='',
-            ).first()
-            if match:
-                return match
-
-        # Priority 4: universal default + division + subdivision
+        # Priority 2: universal default + division + subdivision
         if division_name and subdivision_name:
             match = qs.filter(
                 school__isnull=True,
@@ -125,11 +105,31 @@ class ProductSet(UUIDPrimaryKeyModel):
             if match:
                 return match
 
-        # Priority 5: universal default + division
+        # Priority 3: school + class + division
+        if school_id and division_name:
+            match = qs.filter(
+                school_id=school_id,
+                division_name=division_name,
+                subdivision_name='',
+            ).first()
+            if match:
+                return match
+
+        # Priority 4: universal default + division (e.g. noschool class 11 science)
         if division_name:
             match = qs.filter(
                 school__isnull=True,
                 division_name=division_name,
+                subdivision_name='',
+            ).first()
+            if match:
+                return match
+
+        # Priority 5: school + class (e.g. schoolA class 11)
+        if school_id:
+            match = qs.filter(
+                school_id=school_id,
+                division_name='',
                 subdivision_name='',
             ).first()
             if match:

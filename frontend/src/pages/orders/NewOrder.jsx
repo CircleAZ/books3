@@ -307,6 +307,15 @@ export default function NewOrder() {
                 if (selectedCustomer.school_id) {
                     url += `&school_id=${selectedCustomer.school_id}`;
                 }
+                // Pass division/subdivision for higher-specificity matching
+                const divName = selectedCustomer.division_name || '';
+                const subName = selectedCustomer.subdivision_name || '';
+                if (divName) {
+                    url += `&division_name=${encodeURIComponent(divName)}`;
+                }
+                if (subName) {
+                    url += `&subdivision_name=${encodeURIComponent(subName)}`;
+                }
 
                 const res = await fetchWithAuth(url);
                 if (!res.ok) return; // No matching set
@@ -580,8 +589,15 @@ export default function NewOrder() {
     const handleCustomerSuccess = (customer) => {
         setSelectedCustomer({
             id: customer.id,
+            display_id: customer.display_id,
             name: `${customer.first_name} ${customer.last_name}`.trim(),
-            phone: customer.phone
+            phone: customer.phone,
+            // Education fields needed for product set auto-load
+            school_id: customer.school?.id || customer.school || null,
+            effective_class_name: customer.class_obj?.name || customer.class_name || '',
+            class_name: customer.class_name || '',
+            division_name: customer.division_name || '',
+            subdivision_name: customer.subdivision_name || '',
         });
         setShowAddCustomer(false);
         showToast('Customer added and selected!', 'success');
@@ -777,7 +793,13 @@ export default function NewOrder() {
                                                     id: customer.id,
                                                     display_id: customer.display_id,
                                                     name: customer.first_name || quickAddInfo.first_name,
-                                                    phone: customer.phone || quickAddInfo.phone
+                                                    phone: customer.phone || quickAddInfo.phone,
+                                                    // Education fields — Quick Add has none, but include for consistency
+                                                    school_id: null,
+                                                    effective_class_name: '',
+                                                    class_name: '',
+                                                    division_name: '',
+                                                    subdivision_name: '',
                                                 });
                                                 setIsQuickAdd(false);
                                                 setQuickAddInfo({ first_name: '', phone: '' });
