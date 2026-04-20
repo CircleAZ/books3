@@ -191,7 +191,8 @@ export default function CustomerMap() {
         });
 
         const satelliteLayer = L.tileLayer('https://{s}.google.com/vt/lyrs=y&x={x}&y={y}&z={z}', {
-            maxZoom: 20,
+            maxZoom: 22,
+            maxNativeZoom: 20,
             subdomains: ['mt0', 'mt1', 'mt2', 'mt3'],
             attribution: '&copy; Google'
         });
