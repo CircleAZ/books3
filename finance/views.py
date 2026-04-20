@@ -1110,6 +1110,17 @@ class CashWalletViewSet(viewsets.ModelViewSet):
         # Normal cashier sees only their own or system wallets
         return qs.filter(Q(owner=self.request.user) | Q(is_system=True))
 
+    def get_permissions(self):
+        perms = super().get_permissions()
+        if self.action in ['create', 'update', 'partial_update', 'destroy']:
+            perms.append(HasElevatedAuth())
+        return perms
+
+    def perform_create(self, serializer):
+        """Auto-set is_system=True when no owner is specified (company wallet)."""
+        owner = serializer.validated_data.get('owner')
+        serializer.save(is_system=(owner is None))
+
 class CashTransferViewSet(viewsets.ModelViewSet):
     """CRUD for cash transfers with peer review."""
     queryset = CashTransfer.objects.select_related('source_wallet', 'destination_wallet', 'destination_bank', 'initiated_by', 'approved_by')

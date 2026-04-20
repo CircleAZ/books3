@@ -72,3 +72,51 @@
     display: flex;
     gap: 0.5rem;
 }
+
+/* Wallet Type Radio Cards */
+.wallet-type-selector {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.75rem;
+}
+
+.radio-card {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.5rem;
+    padding: 0.75rem;
+    border: 2px solid var(--border-color);
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.radio-card:hover {
+    border-color: var(--primary-color);
+    background: rgba(var(--primary-rgb, 99,102,241), 0.05);
+}
+
+.radio-card.active {
+    border-color: var(--primary-color);
+    background: rgba(var(--primary-rgb, 99,102,241), 0.1);
+}
+
+.radio-card input[type="radio"] {
+    margin-top: 3px;
+    accent-color: var(--primary-color);
+}
+
+.radio-card-content {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.radio-card-content strong {
+    font-size: 0.9rem;
+}
+
+.radio-card-content small {
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+}

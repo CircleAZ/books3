@@ -11,9 +11,11 @@ export default function CashManagement() {
     const [wallets, setWallets] = useState([]);
     const [transfers, setTransfers] = useState([]);
     const [bankAccounts, setBankAccounts] = useState([]);
+    const [allUsers, setAllUsers] = useState([]);
     const [loading, setLoading] = useState(true);
 
     const [showTransferModal, setShowTransferModal] = useState(false);
+    const [showCreateWalletModal, setShowCreateWalletModal] = useState(false);
     const [transferForm, setTransferForm] = useState({
         source_wallet: '',
         destination_type: 'bank', // 'bank' or 'wallet'
@@ -22,6 +24,12 @@ export default function CashManagement() {
         amount: '',
         reference_id: ''
     });
+    const [walletForm, setWalletForm] = useState({
+        wallet_type: 'company', // 'company' or 'personal'
+        name: '',
+        owner: '',
+    });
+    const [walletFormError, setWalletFormError] = useState('');
 
     const fetchData = useCallback(async () => {
         setLoading(true);
@@ -47,6 +55,13 @@ export default function CashManagement() {
                 setBankAccounts(bData.results || bData);
             }
 
+            // Fetch users for personal wallet assignment
+            const uRes = await fetchWithAuth(ENDPOINTS.SETTINGS_USERS);
+            if (uRes.ok) {
+                const uData = await uRes.json();
+                setAllUsers(uData.results || uData);
+            }
+
         } catch (err) {
             console.error('Error fetching cash management data:', err);
         } finally {
@@ -57,6 +72,11 @@ export default function CashManagement() {
     useEffect(() => {
         fetchData();
     }, [fetchData]);
+
+    // Users who don't already have a wallet
+    const usersWithoutWallet = allUsers.filter(u => {
+        return !wallets.some(w => w.owner === u.id);
+    });
 
     const handleTransferSubmit = async (e) => {
         e.preventDefault();
@@ -95,6 +115,50 @@ export default function CashManagement() {
             }
         } catch (err) {
             console.error('Transfer error:', err);
+        }
+    };
+
+    const handleCreateWallet = async (e) => {
+        e.preventDefault();
+        setWalletFormError('');
+
+        if (!walletForm.name.trim()) {
+            setWalletFormError('Wallet name is required.');
+            return;
+        }
+
+        try {
+            const payload = { name: walletForm.name.trim() };
+
+            if (walletForm.wallet_type === 'personal') {
+                if (!walletForm.owner) {
+                    setWalletFormError('Please select an employee.');
+                    return;
+                }
+                payload.owner = walletForm.owner;
+            }
+            // If wallet_type === 'company', no owner → backend sets is_system=True
+
+            const response = await fetchWithAuth(ENDPOINTS.FINANCE_CASH_WALLETS, {
+                method: 'POST',
+                body: JSON.stringify(payload)
+            });
+
+            if (response.ok) {
+                setShowCreateWalletModal(false);
+                setWalletForm({ wallet_type: 'company', name: '', owner: '' });
+                fetchData();
+            } else {
+                const err = await response.json();
+                // Handle OneToOneField violation gracefully
+                const errMsg = typeof err === 'object' 
+                    ? Object.values(err).flat().join(', ') 
+                    : JSON.stringify(err);
+                setWalletFormError(errMsg);
+            }
+        } catch (err) {
+            console.error('Create wallet error:', err);
+            setWalletFormError('Network error. Please try again.');
         }
     };
 
@@ -138,9 +202,14 @@ export default function CashManagement() {
         <div className="cash-management-container fade-in">
             <div className="header-actions">
                 <h1>Cash Management</h1>
-                <button className="btn btn-primary" onClick={() => setShowTransferModal(true)}>
-                    Initiate Transfer
-                </button>
+                <div className="d-flex gap-2">
+                    <button className="btn btn-secondary" onClick={() => setShowCreateWalletModal(true)}>
+                        + New Wallet
+                    </button>
+                    <button className="btn btn-primary" onClick={() => setShowTransferModal(true)}>
+                        Initiate Transfer
+                    </button>
+                </div>
             </div>
 
             <div className="wallets-grid">
@@ -307,6 +376,105 @@ export default function CashManagement() {
                             <div className="modal-actions">
                                 <button type="button" className="btn btn-ghost" onClick={() => setShowTransferModal(false)}>Cancel</button>
                                 <button type="submit" className="btn btn-primary">Initiate</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
+
+            {/* Create Wallet Modal */}
+            {showCreateWalletModal && (
+                <div className="modal-overlay">
+                    <div className="modal-content glass-card">
+                        <div className="modal-header">
+                            <h2>Create Cash Wallet</h2>
+                            <button className="close-btn" onClick={() => { setShowCreateWalletModal(false); setWalletFormError(''); }}>&times;</button>
+                        </div>
+                        <form onSubmit={handleCreateWallet}>
+                            <div className="form-group">
+                                <label>Wallet Type</label>
+                                <div className="wallet-type-selector">
+                                    <label className={`radio-card ${walletForm.wallet_type === 'company' ? 'active' : ''}`}>
+                                        <input
+                                            type="radio"
+                                            name="wallet_type"
+                                            value="company"
+                                            checked={walletForm.wallet_type === 'company'}
+                                            onChange={() => setWalletForm({ ...walletForm, wallet_type: 'company', owner: '', name: '' })}
+                                        />
+                                        <div className="radio-card-content">
+                                            <strong>🏢 Company Wallet</strong>
+                                            <small>Shared safe, register, or petty cash</small>
+                                        </div>
+                                    </label>
+                                    <label className={`radio-card ${walletForm.wallet_type === 'personal' ? 'active' : ''}`}>
+                                        <input
+                                            type="radio"
+                                            name="wallet_type"
+                                            value="personal"
+                                            checked={walletForm.wallet_type === 'personal'}
+                                            onChange={() => setWalletForm({ ...walletForm, wallet_type: 'personal', owner: '', name: '' })}
+                                        />
+                                        <div className="radio-card-content">
+                                            <strong>👤 Personal Wallet</strong>
+                                            <small>Assigned to a specific employee</small>
+                                        </div>
+                                    </label>
+                                </div>
+                            </div>
+
+                            {walletForm.wallet_type === 'personal' && (
+                                <div className="form-group">
+                                    <label>Assign to Employee</label>
+                                    <select
+                                        className="form-control"
+                                        value={walletForm.owner}
+                                        onChange={e => {
+                                            const selectedUser = allUsers.find(u => u.id === e.target.value);
+                                            setWalletForm({
+                                                ...walletForm,
+                                                owner: e.target.value,
+                                                name: selectedUser ? `${selectedUser.username}'s Wallet` : ''
+                                            });
+                                        }}
+                                        required
+                                    >
+                                        <option value="">Select Employee...</option>
+                                        {usersWithoutWallet.map(u => (
+                                            <option key={u.id} value={u.id}>
+                                                {u.full_name || u.username} ({u.role || 'staff'})
+                                            </option>
+                                        ))}
+                                    </select>
+                                    {usersWithoutWallet.length === 0 && (
+                                        <small className="helper-text" style={{ color: 'var(--color-warning)', display: 'block', marginTop: '4px' }}>
+                                            All employees already have wallets.
+                                        </small>
+                                    )}
+                                </div>
+                            )}
+
+                            <div className="form-group">
+                                <label>Wallet Name</label>
+                                <input
+                                    type="text"
+                                    className="form-control"
+                                    placeholder={walletForm.wallet_type === 'company' ? 'e.g., Branch 2 Register, Event Petty Cash' : "e.g., John's Wallet"}
+                                    value={walletForm.name}
+                                    onChange={e => setWalletForm({ ...walletForm, name: e.target.value })}
+                                    required
+                                />
+                            </div>
+
+                            {walletFormError && (
+                                <div className="form-error" style={{ color: 'var(--color-danger)', fontSize: '0.85rem', marginBottom: '12px', padding: '8px', background: 'rgba(239,68,68,0.1)', borderRadius: '6px' }}>
+                                    {walletFormError}
+                                </div>
+                            )}
+
+                            <div className="modal-actions">
+                                <button type="button" className="btn btn-ghost" onClick={() => { setShowCreateWalletModal(false); setWalletFormError(''); }}>Cancel</button>
+                                <button type="submit" className="btn btn-primary">Create Wallet</button>
                             </div>
                         </form>
                     </div>
