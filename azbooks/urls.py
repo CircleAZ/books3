@@ -16,10 +16,10 @@ from rest_framework_simplejwt.views import (
 
 
 @require_safe
-@ratelimit(key='ip', rate='10/m', method=['GET', 'HEAD'])
+@ratelimit(key='header:x-forwarded-for', rate='60/m', method=['GET', 'HEAD'])
 def health_check(request):
     """Minimal health endpoint for UptimeRobot / Render / CF Worker warm-up.
-    Rate-limited to 10 req/min per IP to prevent abuse."""
+    Rate-limited to 60 req/min per real client IP (via X-Forwarded-For for Cloudflare/proxy)."""
     return JsonResponse({"status": "ok"})
 
 
