@@ -117,62 +117,7 @@ const PublicReceipt = () => {
         }
     };
 
-    /* Fetch live balance before Pay Now (never cached) */
-    const fetchLiveBalance = async () => {
-        try {
-            const res = await fetch(`${API_BASE}/orders/receipts/${uuid}/balance/`);
-            if (!res.ok) return null;
-            const data = await res.json();
-            setLiveBalance(data.balance);
-            return data.balance;
-        } catch {
-            return null;
-        }
-    };
-
-    /* UPI deep link: upi://pay?pa=VPA&pn=Name&am=Amount&cu=INR */
-    const handlePayNow = async () => {
-        const balance = await fetchLiveBalance();
-        if (!balance || parseFloat(balance) <= 0) return;
-        
-        const storeName = receipt.store?.name || 'AZ Books';
-        // TODO: Set actual UPI VPA in StoreSettings
-        const vpa = receipt.store?.upi_vpa || 'azbooks@upi';
-        const upiUrl = `upi://pay?pa=${encodeURIComponent(vpa)}&pn=${encodeURIComponent(storeName)}&am=${balance}&cu=INR&tn=Receipt%23${receipt.display_id}`;
-        window.location.href = upiUrl;
-    };
-
-    /* Client-side PDF via html2pdf.js */
-    const handleDownloadPdf = async () => {
-        if (!receiptRef.current) return;
-        setPdfLoading(true);
-        try {
-            const html2pdf = (await import('html2pdf.js')).default;
-            const element = receiptRef.current;
-            
-            // Hide buttons before printing
-            const buttons = element.querySelectorAll('.receipt-actions, .lang-toggle');
-            buttons.forEach(b => b.style.display = 'none');
-
-            await html2pdf()
-                .set({
-                    margin: [10, 8, 10, 8],
-                    filename: `Receipt_${receipt.display_id}.pdf`,
-                    image: { type: 'jpeg', quality: 0.98 },
-                    html2canvas: { scale: 2, useCORS: true },
-                    jsPDF: { unit: 'mm', format: 'a5', orientation: 'portrait' },
-                })
-                .from(element)
-                .save();
-
-            // Restore buttons
-            buttons.forEach(b => b.style.display = '');
-        } catch (err) {
-            console.error('PDF generation failed:', err);
-        } finally {
-            setPdfLoading(false);
-        }
-    };
+    /* Live balance and PDF generation have been removed as per user requirements. */
 
     if (loading) {
         return (
@@ -198,7 +143,7 @@ const PublicReceipt = () => {
     }
 
     const currency = receipt.store?.currency_symbol || '₹';
-    const balance = parseFloat(liveBalance ?? receipt.balance ?? 0);
+    const balance = parseFloat(receipt.balance ?? 0);
     const hasBalance = balance > 0;
 
     return (
@@ -306,7 +251,7 @@ const PublicReceipt = () => {
                 </div>
 
                 {/* Payment History */}
-                {receipt.payments && receipt.payments.length > 0 ? (
+                {receipt.payments && receipt.payments.length > 0 && (
                     <div className="payment-history">
                         <h3>{t.paymentHistory}</h3>
                         <table className="payments-table">
@@ -328,29 +273,7 @@ const PublicReceipt = () => {
                             </tbody>
                         </table>
                     </div>
-                ) : (
-                    <div className="payment-history empty">
-                        <p className="no-payments">{t.noPayments}</p>
-                    </div>
                 )}
-
-                {/* Action Buttons */}
-                <div className="receipt-actions">
-                    {hasBalance && (
-                        <button className="pay-now-btn" onClick={handlePayNow}>
-                            💳 {t.payNow} — {currency}{balance.toFixed(2)}
-                        </button>
-                    )}
-                    <button 
-                        className="download-btn" 
-                        onClick={handleDownloadPdf}
-                        disabled={pdfLoading}
-                    >
-                        {pdfLoading ? '⏳...' : `📄 ${t.downloadPdf}`}
-                    </button>
-                </div>
-
-                <div className="powered-by">{t.poweredBy}</div>
             </div>
         </div>
     );
