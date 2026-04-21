@@ -77,30 +77,28 @@ class Command(BaseCommand):
         db_engine = connection.vendor  # 'postgresql' or 'sqlite'
 
         with connection.cursor() as cursor:
-            # Disable FK constraints
             if db_engine == 'postgresql':
-                cursor.execute("SET session_replication_role = 'replica';")
-            else:
-                cursor.execute("PRAGMA foreign_keys = OFF;")
-
-            total_deleted = 0
-            for table in TABLES_TO_WIPE:
+                # Use TRUNCATE CASCADE - no superuser needed, handles FKs automatically
+                table_list = ', '.join(f'"{t}"' for t in TABLES_TO_WIPE)
+                self.stdout.write(f'Truncating {len(TABLES_TO_WIPE)} tables...')
                 try:
-                    cursor.execute(f'SELECT COUNT(*) FROM "{table}"')
-                    count = cursor.fetchone()[0]
-                    if count > 0:
-                        cursor.execute(f'DELETE FROM "{table}"')
-                        self.stdout.write(f'  Deleted {count} rows from {table}')
-                        total_deleted += count
-                    else:
-                        self.stdout.write(f'  {table}: empty')
+                    cursor.execute(f'TRUNCATE {table_list} CASCADE;')
+                    self.stdout.write('  All tables truncated.')
                 except Exception as e:
-                    self.stdout.write(self.style.ERROR(f'  ERROR on {table}: {e}'))
-
-            # Re-enable FK constraints
-            if db_engine == 'postgresql':
-                cursor.execute("SET session_replication_role = 'origin';")
+                    self.stdout.write(self.style.ERROR(f'  TRUNCATE failed: {e}'))
+                    return
             else:
+                # SQLite fallback: disable FK checks, delete one by one
+                cursor.execute("PRAGMA foreign_keys = OFF;")
+                for table in TABLES_TO_WIPE:
+                    try:
+                        cursor.execute(f'SELECT COUNT(*) FROM "{table}"')
+                        count = cursor.fetchone()[0]
+                        if count > 0:
+                            cursor.execute(f'DELETE FROM "{table}"')
+                            self.stdout.write(f'  Deleted {count} rows from {table}')
+                    except Exception as e:
+                        self.stdout.write(self.style.ERROR(f'  ERROR on {table}: {e}'))
                 cursor.execute("PRAGMA foreign_keys = ON;")
 
         self.stdout.write('')
@@ -112,5 +110,5 @@ class Command(BaseCommand):
         self.stdout.write('  Budgets, Recurring Expenses')
         self.stdout.write('')
         self.stdout.write(self.style.SUCCESS(
-            f'[DONE] Wiped {total_deleted} total rows. Database is production-ready.'
+            '[DONE] Wiped. Database is production-ready.'
         ))
