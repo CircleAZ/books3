@@ -638,6 +638,98 @@ class LoanViewSet(viewsets.ModelViewSet):
             return Response(LoanSerializer(loan).data)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
+    @action(detail=True, methods=['post'], throttle_classes=[FinanceActionThrottle])
+    def disburse(self, request, pk=None):
+        """Record a loan disbursement into a bank account or cash wallet."""
+        from django.db import transaction as db_transaction
+        from decimal import Decimal
+
+        loan = self.get_object()
+        amount = Decimal(str(request.data.get('amount', 0)))
+        destination_bank_id = request.data.get('destination_bank')
+        destination_wallet_id = request.data.get('destination_wallet')
+        disburse_date = request.data.get('date', date.today())
+        reference = request.data.get('reference', '')
+        notes = request.data.get('notes', '')
+
+        if amount <= 0:
+            return Response({'error': 'Amount must be positive.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        remaining = loan.principal_amount - loan.disbursed_amount
+        if amount > remaining:
+            return Response(
+                {'error': f'Amount ({amount}) exceeds remaining undisbursed principal ({remaining}).'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        if not destination_bank_id and not destination_wallet_id:
+            return Response({'error': 'Must specify a destination bank account or cash wallet.'},
+                            status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            with db_transaction.atomic():
+                description = f"Loan disbursement from {loan.lender.name} - {loan.loan_number or loan.id}"
+
+                if destination_bank_id:
+                    bank_account = BankAccount.objects.get(pk=destination_bank_id)
+                    BankTransaction.objects.create(
+                        account=bank_account,
+                        transaction_type='deposit',
+                        date=disburse_date,
+                        amount=amount,
+                        description=description,
+                        reference=reference,
+                        related_loan=loan,
+                        recorded_by=request.user,
+                    )
+                elif destination_wallet_id:
+                    from .models import CashWallet, CashWalletTransaction
+                    wallet = CashWallet.objects.select_for_update().get(pk=destination_wallet_id)
+                    new_balance = wallet.balance + amount
+                    CashWalletTransaction.objects.create(
+                        wallet=wallet,
+                        transaction_type='deposit',
+                        amount=amount,
+                        description=description,
+                        reference_id=reference,
+                        related_loan=loan,
+                        balance_after=new_balance,
+                        date=disburse_date,
+                        created_by=request.user,
+                    )
+                    wallet.balance = new_balance
+                    wallet.save()
+
+                # Update loan disbursed_amount
+                Loan.objects.filter(pk=loan.pk).update(
+                    disbursed_amount=F('disbursed_amount') + amount
+                )
+
+            _audit_log('loan_disbursement', 'Loan', loan.id, request.user,
+                       {'amount': str(amount), 'destination_bank': destination_bank_id or '',
+                        'destination_wallet': destination_wallet_id or ''})
+            loan.refresh_from_db()
+            return Response(LoanSerializer(loan).data)
+        except BankAccount.DoesNotExist:
+            return Response({'error': 'Bank account not found.'}, status=status.HTTP_404_NOT_FOUND)
+        except Exception as e:
+            logger.exception(f'Error disbursing loan {pk}')
+            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    def perform_destroy(self, instance):
+        """Catch ProtectedError on loan deletion."""
+        from django.db.models import ProtectedError
+        try:
+            _audit_log('delete', 'Loan', instance.id, self.request.user,
+                       {'lender': instance.lender.name, 'principal': str(instance.principal_amount)})
+            instance.delete()
+        except ProtectedError as e:
+            blocking = [str(obj) for obj in list(e.protected_objects)[:5]]
+            raise serializers.ValidationError({
+                'error': f'Cannot delete this loan. It is still linked to: {", ".join(blocking)}. '
+                         f'Remove those references first.'
+            })
+
 
 class LoanRepaymentViewSet(viewsets.ModelViewSet):
     """CRUD for loan repayments."""

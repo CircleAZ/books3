@@ -41,11 +41,12 @@ export default function ManageGroups() {
         if (!trimmed.name) { showToast('Group name is required', 'error'); return; }
         setSaving(true);
         try {
-            const url = isEditing
+            const isUpdating = !!currentItem;
+            const url = isUpdating
                 ? `${ENDPOINTS.CUSTOMERS_GROUPS}${currentItem.id}/`
                 : ENDPOINTS.CUSTOMERS_GROUPS;
 
-            const method = isEditing ? 'PUT' : 'POST';
+            const method = isUpdating ? 'PUT' : 'POST';
 
             const res = await fetchWithAuth(url, {
                 method,
@@ -54,7 +55,7 @@ export default function ManageGroups() {
             });
 
             if (res.ok) {
-                showToast(isEditing ? 'Group updated' : 'Group created', 'success');
+                showToast(isUpdating ? 'Group updated' : 'Group created', 'success');
                 setIsEditing(false);
                 setCurrentItem(null);
                 setFormData({ name: '', description: '', discount_percent: 0 });

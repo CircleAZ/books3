@@ -313,9 +313,10 @@ class LoanSerializer(serializers.ModelSerializer):
         model = Loan
         fields = ['id', 'lender', 'lender_name', 'loan_number', 'principal_amount',
                   'interest_rate', 'interest_type', 'term_months', 'start_date', 'end_date',
-                  'monthly_payment', 'total_paid', 'balance_due', 'total_interest', 'emi',
-                  'is_active', 'notes', 'repayments', 'created_at', 'updated_at']
-        read_only_fields = ['id', 'total_paid', 'created_at', 'updated_at']
+                  'monthly_payment', 'total_paid', 'disbursed_amount', 'balance_due',
+                  'total_interest', 'emi', 'is_active', 'notes', 'repayments',
+                  'created_at', 'updated_at']
+        read_only_fields = ['id', 'total_paid', 'disbursed_amount', 'created_at', 'updated_at']
 
     def validate_loan_number(self, value):
         return _sanitize(value)

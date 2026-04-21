@@ -313,6 +313,13 @@ class CashWalletTransaction(SoftDeleteModel):
     # Generic linking fields (order payment, expense, transfer)
     reference_id = models.CharField(max_length=100, blank=True)
     description = models.TextField(blank=True)
+    related_loan = models.ForeignKey(
+        'Loan',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='wallet_transactions'
+    )
     
     balance_after = models.DecimalField(max_digits=14, decimal_places=2)
     
@@ -406,6 +413,13 @@ class BankTransaction(SoftDeleteModel):
     # Linking
     related_expense = models.ForeignKey(
         Expense,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='bank_transactions'
+    )
+    related_loan = models.ForeignKey(
+        'Loan',
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
@@ -663,6 +677,12 @@ class Loan(SoftDeleteModel):
         max_digits=14, 
         decimal_places=2, 
         default=Decimal('0.00')
+    )
+    disbursed_amount = models.DecimalField(
+        max_digits=14,
+        decimal_places=2,
+        default=Decimal('0.00'),
+        help_text='Total amount disbursed into company accounts'
     )
     INTEREST_TYPE_CHOICES = [
         ('simple', 'Simple Interest'),
