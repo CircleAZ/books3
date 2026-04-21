@@ -121,6 +121,27 @@
     color: var(--color-primary);
 }
 
+.disbursement-fill {
+    background: linear-gradient(90deg, #f59e0b 0%, #fbbf24 100%);
+}
+
+.disburse-info {
+    padding: 0.75rem 1.25rem;
+    margin-bottom: 1rem;
+    background: rgba(245, 158, 11, 0.1);
+    border: 1px solid rgba(245, 158, 11, 0.3);
+    border-radius: 8px;
+    color: #fbbf24;
+    font-size: 0.9rem;
+}
+
+.header-actions {
+    display: flex;
+    gap: 0.75rem;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
 @media (max-width: 1024px) {
     .summary-progress {
         grid-column: 1 / -1;
