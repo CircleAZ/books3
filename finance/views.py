@@ -344,7 +344,7 @@ class BankAccountViewSet(viewsets.ModelViewSet):
 
 class BankTransactionViewSet(viewsets.ModelViewSet):
     """CRUD for bank transactions."""
-    queryset = BankTransaction.objects.select_related('bank_account', 'created_by')
+    queryset = BankTransaction.objects.select_related('account', 'recorded_by')
     serializer_class = BankTransactionSerializer
     permission_classes = [HasRequiredPermission]
     required_permission = 'finance.manage_banking'
