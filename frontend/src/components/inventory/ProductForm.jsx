@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { ENDPOINTS } from '../../config/api';
 import usePermissions from '../../utils/usePermissions';
+import { useCurrency } from '../../context/CurrencyContext';
 import CategoryModal from './CategoryModal';
 import VendorModal from './VendorModal';
 import './ProductForm.css';
