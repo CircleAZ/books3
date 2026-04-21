@@ -16,19 +16,19 @@ class Migration(migrations.Migration):
             name='paymentmethod',
             options={'ordering': ['display_order', 'type']},
         ),
+        migrations.RenameField(
+            model_name='paymentmethod',
+            old_name='name',
+            new_name='type',
+        ),
         migrations.RemoveField(
             model_name='paymentmethod',
             name='method_type',
         ),
-        migrations.RemoveField(
-            model_name='paymentmethod',
-            name='name',
-        ),
-        migrations.AddField(
+        migrations.AlterField(
             model_name='paymentmethod',
             name='type',
-            field=models.CharField(default='temp', max_length=100, unique=True),
-            preserve_default=False,
+            field=models.CharField(max_length=100, unique=True),
         ),
         migrations.AlterField(
             model_name='paymentmethod',
