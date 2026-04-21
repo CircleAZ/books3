@@ -105,7 +105,7 @@ const PaymentSettings = () => {
         setConfirmDialog({
             show: true,
             title: 'Delete Payment Method',
-            message: `Are you sure you want to delete "${method.name}"? This action cannot be undone.`,
+            message: `Are you sure you want to delete "${method.type}"? This action cannot be undone.`,
             onConfirm: async () => {
                 try {
                     const response = await fetchWithAuth(`${ENDPOINTS.SETTINGS_PAYMENT_METHODS}${method.id}/`, {

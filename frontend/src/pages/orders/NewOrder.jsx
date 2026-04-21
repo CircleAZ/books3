@@ -694,7 +694,10 @@ export default function NewOrder() {
     };
 
     const currentMethodObj = useMemo(() => availablePaymentMethods.find(m => m.id === paymentMethod), [availablePaymentMethods, paymentMethod]);
-    const currentMethodType = currentMethodObj ? currentMethodObj.method_type : paymentMethod;
+    // Infer the behavior type from the dynamic string since the enum was removed
+    const typeString = (currentMethodObj ? currentMethodObj.type : paymentMethod).toLowerCase();
+    const isCash = typeString.includes('cash');
+    const isUpi = typeString.includes('upi') || typeString.includes('gpay') || typeString.includes('phonepe') || typeString.includes('paytm');
 
     return (
         <div className="pos-container fade-in">
@@ -1097,7 +1100,7 @@ export default function NewOrder() {
                             {availablePaymentMethods.length > 0 ? (
                                 availablePaymentMethods.map(method => (
                                     <option key={method.id} value={method.id}>
-                                        {method.name}
+                                        {method.type}
                                     </option>
                                 ))
                             ) : (
@@ -1108,7 +1111,7 @@ export default function NewOrder() {
                             )}
                         </select>
                         
-                        {currentMethodType === 'cash' && (
+                        {isCash && (
                             <select
                                 className="form-control form-select"
                                 value={selectedDestination}
@@ -1131,7 +1134,7 @@ export default function NewOrder() {
                     </div>
 
                     {/* UPI Account Selector */}
-                    {currentMethodType === 'upi' && availableUpiAccounts.length > 0 && (
+                    {isUpi && availableUpiAccounts.length > 0 && (
                         <div className="upi-account-selector mt-2">
                             <label className="small text-muted">Select UPI Account:</label>
                             <select
@@ -1149,7 +1152,7 @@ export default function NewOrder() {
                     )}
 
                     {/* QR Code Display */}
-                    {currentMethodType === 'upi' && paymentAmount > 0 && selectedUpiAccount && (() => {
+                    {isUpi && paymentAmount > 0 && selectedUpiAccount && (() => {
                         const upiUrl = `upi://pay?pa=${selectedUpiAccount}&pn=AZBooks&am=${paymentAmount}&cu=INR`;
                         const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(upiUrl)}`;
                         return (
