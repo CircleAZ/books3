@@ -13,7 +13,7 @@ from django.db.models.functions import Coalesce
 from django.http import HttpResponse, StreamingHttpResponse
 from django.core.cache import cache
 from django.utils import timezone
-from rest_framework import viewsets, status
+from rest_framework import viewsets, status, serializers
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -340,6 +340,19 @@ class BankAccountViewSet(viewsets.ModelViewSet):
         account.save()
         _audit_log('set_default', 'BankAccount', account.id, request.user)
         return Response(BankAccountSerializer(account).data)
+
+    def perform_destroy(self, instance):
+        """Catch ProtectedError and return a clear message instead of 500."""
+        from django.db.models import ProtectedError
+        try:
+            instance.delete()
+        except ProtectedError as e:
+            # Extract the names of blocking objects
+            blocking = [str(obj) for obj in list(e.protected_objects)[:5]]
+            raise serializers.ValidationError({
+                'error': f'Cannot delete this bank account. It is still linked to: {", ".join(blocking)}. '
+                         f'Remove those references first.'
+            })
 
 
 class BankTransactionViewSet(viewsets.ModelViewSet):
