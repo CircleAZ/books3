@@ -19,11 +19,12 @@ export default function LoanDetails() {
         amount: '',
         principal_portion: '',
         interest_portion: '',
-        method: 'Bank Transfer',
+        method: '',
         reference: '',
         notes: ''
     });
     const [submitting, setSubmitting] = useState(false);
+    const [availablePaymentMethods, setAvailablePaymentMethods] = useState([]);
 
     const fetchLoanDetails = useCallback(async () => {
         setLoading(true);
@@ -34,6 +35,13 @@ export default function LoanDetails() {
                 setLoan(data);
             } else {
                 console.error('Failed to fetch loan details');
+            }
+
+            // Fetch Payment Methods
+            const methodRes = await fetchWithAuth(ENDPOINTS.SETTINGS_PAYMENT_METHODS);
+            if (methodRes.ok) {
+                const methodData = await methodRes.json();
+                setAvailablePaymentMethods((methodData.results || methodData).filter(m => m.is_enabled));
             }
         } catch (error) {
             console.error('Error fetching loan details:', error);
@@ -244,11 +252,19 @@ export default function LoanDetails() {
                                         name="method"
                                         value={repayFormData.method}
                                         onChange={handleInputChange}
+                                        required
                                     >
-                                        <option value="Bank Transfer">Bank Transfer</option>
-                                        <option value="Cheque">Cheque</option>
-                                        <option value="Cash">Cash</option>
-                                        <option value="Online">Online</option>
+                                        <option value="">-- Select Method --</option>
+                                        {availablePaymentMethods.length > 0 ? (
+                                            availablePaymentMethods.map(method => (
+                                                <option key={method.id} value={method.type}>{method.type}</option>
+                                            ))
+                                        ) : (
+                                            <>
+                                                <option value="Cash">Cash</option>
+                                                <option value="Bank Transfer">Bank Transfer</option>
+                                            </>
+                                        )}
                                     </select>
                                 </div>
                                 <div className="form-group">

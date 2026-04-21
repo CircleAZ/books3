@@ -19,10 +19,11 @@ export default function ReturnDetails() {
     // Refund form state
     const [refundForm, setRefundForm] = useState({
         amount: '',
-        method: 'cash',
+        method: '',
         transaction_id: '',
         note: ''
     });
+    const [availablePaymentMethods, setAvailablePaymentMethods] = useState([]);
 
     const fetchReturnDetails = useCallback(async () => {
         setLoading(true);
@@ -40,6 +41,13 @@ export default function ReturnDetails() {
                 setError(null);
             } else {
                 setError('Failed to fetch return details');
+            }
+
+            // Fetch Payment Methods
+            const methodRes = await fetchWithAuth(ENDPOINTS.SETTINGS_PAYMENT_METHODS);
+            if (methodRes.ok) {
+                const methodData = await methodRes.json();
+                setAvailablePaymentMethods((methodData.results || methodData).filter(m => m.is_enabled));
             }
         } catch (err) {
             setError('Error connecting to server');
@@ -311,9 +319,19 @@ export default function ReturnDetails() {
                                             <select
                                                 value={refundForm.method}
                                                 onChange={e => setRefundForm({ ...refundForm, method: e.target.value })}
+                                                required
                                             >
-                                                <option value="cash">Cash</option>
-                                                <option value="upi">UPI</option>
+                                                <option value="">-- Select Method --</option>
+                                                {availablePaymentMethods.length > 0 ? (
+                                                    availablePaymentMethods.map(method => (
+                                                        <option key={method.id} value={method.type}>{method.type}</option>
+                                                    ))
+                                                ) : (
+                                                    <>
+                                                        <option value="Cash">Cash</option>
+                                                        <option value="UPI">UPI</option>
+                                                    </>
+                                                )}
                                             </select>
                                         </div>
                                     </div>

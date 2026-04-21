@@ -31,10 +31,16 @@ export default function EmployeeExpenses() {
     const [availableBankAccounts, setAvailableBankAccounts] = useState([]);
     const [availableCashWallets, setAvailableCashWallets] = useState([]);
     const [reimburseForm, setReimburseForm] = useState({
-        method: 'cash',
+        method: '',
         source_bank: '',
         source_wallet: ''
     });
+
+    const [availablePaymentMethods, setAvailablePaymentMethods] = useState([]);
+    const isCashMethod = (method) => {
+        if (!method) return false;
+        return method.toLowerCase().includes('cash');
+    };
 
     const profileData = localStorage.getItem('profile');
     const profile = profileData ? JSON.parse(profileData) : null;
@@ -84,6 +90,11 @@ export default function EmployeeExpenses() {
                 const walletData = await walletRes.json();
                 setAvailableCashWallets(walletData.results || walletData);
             }
+            const methodRes = await fetchWithAuth(ENDPOINTS.SETTINGS_PAYMENT_METHODS);
+            if (methodRes.ok) {
+                const methodData = await methodRes.json();
+                setAvailablePaymentMethods((methodData.results || methodData).filter(m => m.is_enabled));
+            }
         } catch (err) {
             console.error('Error fetching ledgers:', err);
         }
@@ -122,7 +133,7 @@ export default function EmployeeExpenses() {
         setSubmitting(true);
         try {
             let payload = {};
-            if (reimburseForm.method === 'cash') {
+            if (isCashMethod(reimburseForm.method)) {
                 payload.source_wallet = reimburseForm.source_wallet || (availableCashWallets.length > 0 ? availableCashWallets[0].id : null);
             } else {
                 payload.source_bank = reimburseForm.source_bank || (availableBankAccounts.length > 0 ? availableBankAccounts[0].id : null);
@@ -416,21 +427,30 @@ export default function EmployeeExpenses() {
                                     value={reimburseForm.method}
                                     onChange={e => setReimburseForm({...reimburseForm, method: e.target.value})}
                                 >
-                                    <option value="cash">Cash</option>
-                                    <option value="bank">Bank Transfer</option>
+                                    <option value="">-- Select Method --</option>
+                                    {availablePaymentMethods.length > 0 ? (
+                                        availablePaymentMethods.map(method => (
+                                            <option key={method.id} value={method.type}>{method.type}</option>
+                                        ))
+                                    ) : (
+                                        <>
+                                            <option value="Cash">Cash</option>
+                                            <option value="Bank Transfer">Bank Transfer</option>
+                                        </>
+                                    )}
                                 </select>
                             </div>
                             <div className="form-group">
                                 <label>Source Ledger</label>
                                 <select
                                     className="form-control"
-                                    value={reimburseForm.method === 'cash' ? reimburseForm.source_wallet : reimburseForm.source_bank}
+                                    value={isCashMethod(reimburseForm.method) ? reimburseForm.source_wallet : reimburseForm.source_bank}
                                     onChange={e => setReimburseForm({
                                         ...reimburseForm, 
-                                        [reimburseForm.method === 'cash' ? 'source_wallet' : 'source_bank']: e.target.value
+                                        [isCashMethod(reimburseForm.method) ? 'source_wallet' : 'source_bank']: e.target.value
                                     })}
                                 >
-                                    {reimburseForm.method === 'cash' ? (
+                                    {isCashMethod(reimburseForm.method) ? (
                                         availableCashWallets.map(w => <option key={w.id} value={w.id}>{w.name}</option>)
                                     ) : (
                                         availableBankAccounts.map(b => <option key={b.id} value={b.id}>{b.name}</option>)

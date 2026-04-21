@@ -23,7 +23,7 @@ export default function ExpenseDetails() {
     const [paymentForm, setPaymentForm] = useState({
         date: new Date().toISOString().split('T')[0],
         amount: '',
-        method: 'cash',
+        method: '',
         source_bank: '',
         source_wallet: '',
         reference: '',
@@ -32,6 +32,12 @@ export default function ExpenseDetails() {
 
     const [availableBankAccounts, setAvailableBankAccounts] = useState([]);
     const [availableCashWallets, setAvailableCashWallets] = useState([]);
+    const [availablePaymentMethods, setAvailablePaymentMethods] = useState([]);
+
+    const isCashMethod = (method) => {
+        if (!method) return false;
+        return method.toLowerCase().includes('cash');
+    };
 
     const fetchExpenseDetails = useCallback(async () => {
         setLoading(true);
@@ -63,6 +69,13 @@ export default function ExpenseDetails() {
                 setAvailableCashWallets(walletData.results || walletData);
             }
 
+            // Fetch Payment Methods
+            const methodRes = await fetchWithAuth(ENDPOINTS.SETTINGS_PAYMENT_METHODS);
+            if (methodRes.ok) {
+                const methodData = await methodRes.json();
+                setAvailablePaymentMethods((methodData.results || methodData).filter(m => m.is_enabled));
+            }
+
         } catch (err) {
             console.error('Error:', err);
             setError('An error occurred while fetching data');
@@ -89,7 +102,7 @@ export default function ExpenseDetails() {
 
         // Determine source ledger
         const payload = { ...paymentForm };
-        if (paymentForm.method === 'cash') {
+        if (isCashMethod(paymentForm.method)) {
             payload.source_wallet = paymentForm.source_wallet || (availableCashWallets.length > 0 ? availableCashWallets[0].id : null);
             payload.source_bank = null;
         } else {
@@ -443,21 +456,30 @@ export default function ExpenseDetails() {
                                             onChange={handleInputChange}
                                             required
                                         >
-                                            <option value="cash">Cash</option>
-                                            <option value="upi">UPI</option>
-                                            <option value="bank">Bank Transfer</option>
-                                            <option value="cheque">Cheque</option>
-                                            <option value="card">Card</option>
+                                            <option value="">-- Select Method --</option>
+                                            {availablePaymentMethods.length > 0 ? (
+                                                availablePaymentMethods.map(method => (
+                                                    <option key={method.id} value={method.type}>{method.type}</option>
+                                                ))
+                                            ) : (
+                                                <>
+                                                    <option value="Cash">Cash</option>
+                                                    <option value="UPI">UPI</option>
+                                                    <option value="Bank Transfer">Bank Transfer</option>
+                                                    <option value="Cheque">Cheque</option>
+                                                    <option value="Card">Card</option>
+                                                </>
+                                            )}
                                         </select>
                                     </div>
                                     <div className="form-group">
                                         <label>Select Ledger</label>
                                         <select
-                                            name={paymentForm.method === 'cash' ? "source_wallet" : "source_bank"}
-                                            value={paymentForm.method === 'cash' ? paymentForm.source_wallet : paymentForm.source_bank}
+                                            name={isCashMethod(paymentForm.method) ? "source_wallet" : "source_bank"}
+                                            value={isCashMethod(paymentForm.method) ? paymentForm.source_wallet : paymentForm.source_bank}
                                             onChange={handleInputChange}
                                         >
-                                            {paymentForm.method === 'cash' ? (
+                                            {isCashMethod(paymentForm.method) ? (
                                                 availableCashWallets.map(w => (
                                                     <option key={w.id} value={w.id}>{w.name}</option>
                                                 ))

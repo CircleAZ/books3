@@ -24,8 +24,9 @@ export default function OrderDetails() {
     const [statusUpdate, setStatusUpdate] = useState({ field: 'order_status', value: '', note: '' });
     const [showShareMenu, setShowShareMenu] = useState(false);
     const [showPaymentModal, setShowPaymentModal] = useState(false);
-    const [paymentForm, setPaymentForm] = useState({ amount: '', method: 'cash', upi_reference: '', upi_account: '' });
+    const [paymentForm, setPaymentForm] = useState({ amount: '', method: '', upi_reference: '', upi_account: '' });
     const [upiAccounts, setUpiAccounts] = useState([]);
+    const [availablePaymentMethods, setAvailablePaymentMethods] = useState([]);
     const [paymentSubmitting, setPaymentSubmitting] = useState(false);
     const [paymentError, setPaymentError] = useState('');
     const [showHistory, setShowHistory] = useState(false);
@@ -69,6 +70,19 @@ export default function OrderDetails() {
             }
         };
         fetchUpiAccounts();
+
+        const fetchPaymentMethods = async () => {
+            try {
+                const response = await fetchWithAuth(ENDPOINTS.SETTINGS_PAYMENT_METHODS);
+                if (response.ok) {
+                    const data = await response.json();
+                    setAvailablePaymentMethods((data.results || data).filter(m => m.is_enabled));
+                }
+            } catch (err) {
+                console.error('Failed to fetch payment methods:', err);
+            }
+        };
+        fetchPaymentMethods();
     }, [fetchOrderDetails, fetchWithAuth]);
 
     const handleAddNote = async (e) => {
@@ -200,10 +214,16 @@ export default function OrderDetails() {
         setShowStatusModal(true);
     };
 
+    const isUpiMethod = (method) => {
+        if (!method) return false;
+        const lower = method.toLowerCase();
+        return lower.includes('upi') || lower.includes('gpay') || lower.includes('phonepe') || lower.includes('paytm');
+    };
+
     const openPaymentModal = () => {
         setPaymentForm({
             amount: order.balance_due > 0 ? Number(order.balance_due).toFixed(2) : '',
-            method: 'cash',
+            method: '',
             upi_reference: '',
             upi_account: upiAccounts.length > 0 ? upiAccounts[0].upi_id : ''
         });
@@ -216,7 +236,7 @@ export default function OrderDetails() {
         setPaymentSubmitting(true);
         setPaymentError('');
         try {
-            const finalUpiReference = paymentForm.method === 'upi' 
+            const finalUpiReference = isUpiMethod(paymentForm.method)
                 ? (paymentForm.upi_account ? `[${paymentForm.upi_account}] ${paymentForm.upi_reference}`.trim() : paymentForm.upi_reference) 
                 : '';
 
@@ -761,24 +781,26 @@ export default function OrderDetails() {
                             </div>
                             <div className="form-group">
                                 <label>Payment Method</label>
-                                <div className="payment-method-selector">
-                                    <button
-                                        type="button"
-                                        className={`method-btn ${paymentForm.method === 'cash' ? 'active' : ''}`}
-                                        onClick={() => setPaymentForm({ ...paymentForm, method: 'cash', upi_reference: '' })}
-                                    >
-                                        💵 Cash
-                                    </button>
-                                    <button
-                                        type="button"
-                                        className={`method-btn ${paymentForm.method === 'upi' ? 'active' : ''}`}
-                                        onClick={() => setPaymentForm({ ...paymentForm, method: 'upi' })}
-                                    >
-                                        📱 UPI
-                                    </button>
-                                </div>
+                                <select
+                                    className="form-control"
+                                    value={paymentForm.method}
+                                    onChange={(e) => setPaymentForm({ ...paymentForm, method: e.target.value, upi_reference: '' })}
+                                    required
+                                >
+                                    <option value="">-- Select Method --</option>
+                                    {availablePaymentMethods.length > 0 ? (
+                                        availablePaymentMethods.map(method => (
+                                            <option key={method.id} value={method.type}>{method.type}</option>
+                                        ))
+                                    ) : (
+                                        <>
+                                            <option value="Cash">Cash</option>
+                                            <option value="UPI">UPI</option>
+                                        </>
+                                    )}
+                                </select>
                             </div>
-                            {paymentForm.method === 'upi' && (
+                            {isUpiMethod(paymentForm.method) && (
                                 <>
                                     <div className="form-group">
                                         <label>Credited To (UPI Account)</label>
