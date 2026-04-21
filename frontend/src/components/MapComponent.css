@@ -8,3 +8,44 @@
 .satellite-labels-overlay img {
     filter: invert(1) drop-shadow(0 0 1px rgba(0, 0, 0, 0.8)) drop-shadow(0 0 1px rgba(0, 0, 0, 0.8)) !important;
 }
+
+/* ── Fullscreen overlay (portaled to body) ── */
+.map-fullscreen-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    z-index: 99999;
+    background: #000;
+}
+
+/* ── Fullscreen toggle button ── */
+.map-fullscreen-btn {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    z-index: 1000;
+    background: white;
+    border: 2px solid rgba(0, 0, 0, 0.2);
+    border-radius: 4px;
+    padding: 5px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 1px 5px rgba(0,0,0,0.3);
+    transition: background 0.15s;
+}
+
+.map-fullscreen-btn:hover {
+    background: #f0f0f0;
+}
+
+.map-fullscreen-overlay .map-fullscreen-btn {
+    top: 14px;
+    right: 14px;
+    z-index: 100000;
+    padding: 8px;
+    border-radius: 6px;
+}

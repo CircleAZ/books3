@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import './MapComponent.css';
 import { MapContainer, TileLayer, Marker, useMap, useMapEvents, LayersControl } from 'react-leaflet';
 import L from 'leaflet';
@@ -45,11 +46,56 @@ function MapResizer({ isFullscreen }) {
     useEffect(() => {
         const timer = setTimeout(() => {
             map.invalidateSize();
-        }, 100);
+        }, 150);
         return () => clearTimeout(timer);
     }, [map, isFullscreen]);
     return null;
 }
+
+const FullscreenButton = ({ isFullscreen, onClick }) => (
+    <button 
+        type="button"
+        onClick={onClick}
+        className="map-fullscreen-btn"
+        title={isFullscreen ? "Exit Full Screen" : "Full Screen"}
+    >
+        {isFullscreen ? <Minimize size={18} /> : <Maximize size={18} />}
+    </button>
+);
+
+const MapContent = ({ center, isFullscreen, position, onLocationSelect, readonly }) => (
+    <MapContainer
+        center={center}
+        zoom={11}
+        maxZoom={22}
+        style={{ height: '100%', width: '100%', borderRadius: isFullscreen ? '0' : '8px', zIndex: 0 }}
+    >
+        <MapResizer isFullscreen={isFullscreen} />
+        <LayersControl position="bottomright">
+            <LayersControl.BaseLayer checked name="Satellite View">
+                <TileLayer
+                    attribution="&copy; Google"
+                    url="https://{s}.google.com/vt/lyrs=y&x={x}&y={y}&z={z}"
+                    maxZoom={22}
+                    maxNativeZoom={20}
+                    subdomains={['mt0', 'mt1', 'mt2', 'mt3']}
+                />
+            </LayersControl.BaseLayer>
+            <LayersControl.BaseLayer name="Street View">
+                <TileLayer
+                    attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+                    url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                    maxZoom={19}
+                />
+            </LayersControl.BaseLayer>
+        </LayersControl>
+        <LocationMarker
+            position={position}
+            onLocationSelect={onLocationSelect}
+            readonly={readonly}
+        />
+    </MapContainer>
+);
 
 const MapComponent = ({ position, onLocationSelect, height = '300px', readonly = false }) => {
     const [isFullscreen, setIsFullscreen] = useState(false);
@@ -58,67 +104,59 @@ const MapComponent = ({ position, onLocationSelect, height = '300px', readonly =
     const defaultCenter = [20.81746, 72.88007];
     const center = position || defaultCenter;
 
-    const containerStyle = isFullscreen 
-        ? { position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', zIndex: 9999, backgroundColor: '#000' }
-        : { height: height, width: '100%', position: 'relative' };
+    // Lock body scroll when fullscreen
+    useEffect(() => {
+        if (isFullscreen) {
+            document.body.style.overflow = 'hidden';
+        } else {
+            document.body.style.overflow = '';
+        }
+        return () => { document.body.style.overflow = ''; };
+    }, [isFullscreen]);
 
-    const mapStyle = { height: '100%', width: '100%', borderRadius: isFullscreen ? '0' : '8px', zIndex: 0 };
+    // Escape key to exit fullscreen
+    useEffect(() => {
+        if (!isFullscreen) return;
+        const handler = (e) => { if (e.key === 'Escape') setIsFullscreen(false); };
+        window.addEventListener('keydown', handler);
+        return () => window.removeEventListener('keydown', handler);
+    }, [isFullscreen]);
 
+    // Normal (inline) view
+    if (!isFullscreen) {
+        return (
+            <div style={{ height, width: '100%', position: 'relative' }}>
+                <FullscreenButton isFullscreen={false} onClick={() => setIsFullscreen(true)} />
+                <MapContent
+                    center={center}
+                    isFullscreen={false}
+                    position={position}
+                    onLocationSelect={onLocationSelect}
+                    readonly={readonly}
+                />
+            </div>
+        );
+    }
+
+    // Fullscreen view — portaled to document.body to escape all stacking contexts
     return (
-        <div style={containerStyle}>
-            <button 
-                type="button"
-                onClick={() => setIsFullscreen(!isFullscreen)}
-                style={{
-                    position: 'absolute',
-                    top: '10px',
-                    right: '10px',
-                    zIndex: 1000,
-                    background: 'white',
-                    border: '2px solid rgba(0,0,0,0.2)',
-                    borderRadius: '4px',
-                    padding: '4px',
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center'
-                }}
-                title={isFullscreen ? "Minimize" : "Full Screen"}
-            >
-                {isFullscreen ? <Minimize size={18} /> : <Maximize size={18} />}
-            </button>
-            <MapContainer
-                center={center}
-                zoom={11}
-                maxZoom={22}
-                style={mapStyle}
-            >
-                <MapResizer isFullscreen={isFullscreen} />
-            <LayersControl position="bottomright">
-                <LayersControl.BaseLayer checked name="Satellite View">
-                    <TileLayer
-                        attribution="&copy; Google"
-                        url="https://{s}.google.com/vt/lyrs=y&x={x}&y={y}&z={z}"
-                        maxZoom={22}
-                        maxNativeZoom={20}
-                        subdomains={['mt0', 'mt1', 'mt2', 'mt3']}
+        <>
+            {/* Keep a placeholder so layout doesn't collapse */}
+            <div style={{ height, width: '100%' }} />
+            {createPortal(
+                <div className="map-fullscreen-overlay">
+                    <FullscreenButton isFullscreen={true} onClick={() => setIsFullscreen(false)} />
+                    <MapContent
+                        center={center}
+                        isFullscreen={true}
+                        position={position}
+                        onLocationSelect={onLocationSelect}
+                        readonly={readonly}
                     />
-                </LayersControl.BaseLayer>
-                <LayersControl.BaseLayer name="Street View">
-                    <TileLayer
-                        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-                        url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                        maxZoom={19}
-                    />
-                </LayersControl.BaseLayer>
-            </LayersControl>
-            <LocationMarker
-                position={position}
-                onLocationSelect={onLocationSelect}
-                readonly={readonly}
-            />
-            </MapContainer>
-        </div>
+                </div>,
+                document.body
+            )}
+        </>
     );
 };
 
