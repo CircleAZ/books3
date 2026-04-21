@@ -135,7 +135,10 @@ class TaxSettingsAdmin(admin.ModelAdmin):
 
 @admin.register(PaymentMethod)
 class PaymentMethodAdmin(admin.ModelAdmin):
-    list_display = ('name', 'method_type', 'is_enabled')
+    list_display = ('type', 'is_enabled', 'display_order', 'linked_bank_account')
+    list_filter = ('is_enabled',)
+    search_fields = ('type',)
+    ordering = ('display_order', 'type')
 
 @admin.register(NotificationPreference)
 class NotificationPreferenceAdmin(admin.ModelAdmin):

@@ -14,7 +14,7 @@ const PaymentSettings = () => {
     const [loading, setLoading] = useState(true);
     const [showMethodModal, setShowMethodModal] = useState(false);
     const [showUpiModal, setShowUpiModal] = useState(false);
-    const [newMethod, setNewMethod] = useState({ name: '', method_type: 'cash', is_enabled: true, display_order: 0, linked_bank_account: '' });
+    const [newMethod, setNewMethod] = useState({ type: '', is_enabled: true, display_order: 0, linked_bank_account: '' });
     const [newUpi, setNewUpi] = useState({ upi_id: '', display_name: '', is_active: true, linked_bank_account: '' });
     const [message, setMessage] = useState(null);
     const [confirmDialog, setConfirmDialog] = useState({ show: false, title: '', message: '', onConfirm: null });
@@ -72,13 +72,13 @@ const PaymentSettings = () => {
                 method: 'POST',
                 body: JSON.stringify({
                     ...newMethod,
-                    linked_bank_account: newMethod.method_type === 'cash' ? null : newMethod.linked_bank_account
+                    linked_bank_account: newMethod.linked_bank_account || null
                 })
             });
             if (response.ok) {
                 fetchMethods();
                 setShowMethodModal(false);
-                setNewMethod({ name: '', method_type: 'cash', is_enabled: true, display_order: 0, linked_bank_account: '' });
+                setNewMethod({ type: '', is_enabled: true, display_order: 0, linked_bank_account: '' });
                 setMessage({ type: 'success', text: 'Payment method added' });
             } else {
                 const err = await response.json();
@@ -223,8 +223,6 @@ const PaymentSettings = () => {
                         <table className="settings-table">
                             <thead>
                                 <tr>
-                                    <th></th>
-                                    <th>Name</th>
                                     <th>Type</th>
                                     <th>Linked Bank</th>
                                     <th>Enabled</th>
@@ -234,10 +232,8 @@ const PaymentSettings = () => {
                             <tbody>
                                 {methods.map(method => (
                                     <tr key={method.id} className={!method.is_enabled ? 'disabled-row' : ''}>
-                                        <td>{getMethodIcon(method.method_type)}</td>
-                                        <td>{method.name}</td>
-                                        <td><span className="badge">{method.method_type}</span></td>
-                                        <td>{getMethodIcon(method.method_type) !== '💵' ? getBankName(method.linked_bank_account) : <span className="badge">Cash Wallet</span>}</td>
+                                        <td>{method.type}</td>
+                                        <td>{getBankName(method.linked_bank_account)}</td>
                                         <td>
                                             <label className="toggle-switch">
                                                 <input
@@ -320,45 +316,29 @@ const PaymentSettings = () => {
                         <h3>Add Payment Method</h3>
                         <form onSubmit={handleAddMethod}>
                             <div className="form-group">
-                                <label>Method Name</label>
+                                <label>Method Type</label>
                                 <input
-                                    value={newMethod.name}
-                                    onChange={(e) => setNewMethod({ ...newMethod, name: e.target.value })}
+                                    value={newMethod.type}
+                                    onChange={(e) => setNewMethod({ ...newMethod, type: e.target.value })}
                                     placeholder="e.g., Cash, Google Pay, PhonePe"
                                     required
                                 />
                             </div>
+
                             <div className="form-group">
-                                <label>Type</label>
+                                <label>Linked Bank Account (Optional)</label>
                                 <select
                                     className="form-select"
-                                    value={newMethod.method_type}
-                                    onChange={(e) => setNewMethod({ ...newMethod, method_type: e.target.value })}
+                                    value={newMethod.linked_bank_account}
+                                    onChange={(e) => setNewMethod({ ...newMethod, linked_bank_account: e.target.value })}
                                 >
-                                    <option value="cash">Cash</option>
-                                    <option value="upi">UPI</option>
-                                    <option value="card">Card</option>
-                                    <option value="bank">Bank Transfer</option>
+                                    <option value="">Select a Bank Account (Leave blank for Cash)</option>
+                                    {bankAccounts.map(bank => (
+                                        <option key={bank.id} value={bank.id}>{bank.name} ({bank.bank_name})</option>
+                                    ))}
                                 </select>
+                                <small className="helper-text" style={{display: 'block', marginTop: '4px'}}>All funds from this method will be routed here.</small>
                             </div>
-
-                            {newMethod.method_type !== 'cash' && (
-                                <div className="form-group">
-                                    <label>Linked Bank Account</label>
-                                    <select
-                                        className="form-select"
-                                        value={newMethod.linked_bank_account}
-                                        onChange={(e) => setNewMethod({ ...newMethod, linked_bank_account: e.target.value })}
-                                        required
-                                    >
-                                        <option value="">Select a Bank Account</option>
-                                        {bankAccounts.map(bank => (
-                                            <option key={bank.id} value={bank.id}>{bank.name} ({bank.bank_name})</option>
-                                        ))}
-                                    </select>
-                                    <small className="helper-text" style={{display: 'block', marginTop: '4px'}}>All funds from this method will be routed here.</small>
-                                </div>
-                            )}
 
                             <div className="form-group">
                                 <label>Display Order</label>

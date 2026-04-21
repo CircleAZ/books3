@@ -288,24 +288,16 @@ class TaxSettings(UUIDPrimaryKeyModel):
 
 class PaymentMethod(UUIDPrimaryKeyModel):
     """Payment method configuration."""
-    METHOD_TYPES = [
-        ('cash', 'Cash'),
-        ('upi', 'UPI'),
-        ('card', 'Card'),
-        ('bank', 'Bank Transfer'),
-    ]
-    
-    name = models.CharField(max_length=100)
-    method_type = models.CharField(max_length=20, choices=METHOD_TYPES)
+    type = models.CharField(max_length=100, unique=True)
     is_enabled = models.BooleanField(default=True)
     display_order = models.PositiveIntegerField(default=0)
-    linked_bank_account = models.ForeignKey('finance.BankAccount', on_delete=models.PROTECT, null=True, blank=True, help_text="Required for Card and Bank Transfer methods")
+    linked_bank_account = models.ForeignKey('finance.BankAccount', on_delete=models.PROTECT, null=True, blank=True, help_text="All funds from this method will be routed here.")
     
     class Meta:
-        ordering = ['display_order', 'name']
+        ordering = ['display_order', 'type']
     
     def __str__(self):
-        return self.name
+        return self.type
 
 
 class UPIAccount(UUIDPrimaryKeyModel):
