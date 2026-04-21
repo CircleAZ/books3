@@ -328,17 +328,22 @@ class LenderSerializer(serializers.ModelSerializer):
     total_loans = serializers.IntegerField(read_only=True)
     total_outstanding = serializers.DecimalField(max_digits=14, decimal_places=2, read_only=True)
     active_loans = serializers.SerializerMethodField()
+    loans = serializers.SerializerMethodField()
     
     class Meta:
         model = Lender
         fields = ['id', 'name', 'contact_person', 'phone', 'email', 'address',
-                  'notes', 'total_loans', 'total_outstanding', 'active_loans',
+                  'notes', 'total_loans', 'total_outstanding', 'active_loans', 'loans',
                   'created_at', 'updated_at']
         read_only_fields = ['id', 'created_at', 'updated_at']
     
     def get_active_loans(self, obj):
         loans = obj.loans.filter(is_active=True)[:5]
         return LoanSerializer(loans, many=True).data
+
+    def get_loans(self, obj):
+        """Return ALL loans for the lender (for Loans History table)."""
+        return LoanSerializer(obj.loans.all(), many=True).data
 
     def validate_name(self, value):
         return _sanitize(value)

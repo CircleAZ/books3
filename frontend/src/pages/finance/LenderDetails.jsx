@@ -14,12 +14,16 @@ export default function LenderDetails() {
     const [lender, setLender] = useState(null);
     const [loading, setLoading] = useState(true);
     const [showAddLoanModal, setShowAddLoanModal] = useState(false);
+    const [showEditLenderModal, setShowEditLenderModal] = useState(false);
     const [loanFormData, setLoanFormData] = useState({
         principal_amount: '',
         interest_rate: '',
         term_months: '',
         start_date: new Date().toISOString().split('T')[0],
         notes: ''
+    });
+    const [editLenderData, setEditLenderData] = useState({
+        name: '', contact_person: '', phone: '', email: '', address: '', notes: ''
     });
     const [submitting, setSubmitting] = useState(false);
 
@@ -85,6 +89,41 @@ export default function LenderDetails() {
         }
     };
 
+    const openEditLender = () => {
+        setEditLenderData({
+            name: lender.name || '',
+            contact_person: lender.contact_person || '',
+            phone: lender.phone || '',
+            email: lender.email || '',
+            address: lender.address || '',
+            notes: lender.notes || ''
+        });
+        setShowEditLenderModal(true);
+    };
+
+    const handleEditLender = async (e) => {
+        e.preventDefault();
+        setSubmitting(true);
+        try {
+            const response = await fetchWithAuth(`${ENDPOINTS.FINANCE_LENDERS}${id}/`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(editLenderData)
+            });
+            if (response.ok) {
+                setShowEditLenderModal(false);
+                fetchLenderDetails();
+            } else {
+                const errorData = await response.json();
+                alert(`Error: ${JSON.stringify(errorData)}`);
+            }
+        } catch (error) {
+            console.error('Error updating lender:', error);
+        } finally {
+            setSubmitting(false);
+        }
+    };
+
     if (loading) {
         return (
             <div className="loading-container">
@@ -111,7 +150,7 @@ export default function LenderDetails() {
                     </div>
                 </div>
                 <div className="header-actions">
-                    <button className="btn btn-ghost">Edit Lender</button>
+                    <button className="btn btn-ghost" onClick={openEditLender}>Edit Lender</button>
                     <button className="btn btn-primary" onClick={() => setShowAddLoanModal(true)}>+ New Loan</button>
                 </div>
             </div>
@@ -119,11 +158,11 @@ export default function LenderDetails() {
             <div className="summary-cards">
                 <div className="summary-card glass-card">
                     <span className="summary-label">Total Loans</span>
-                    <span className="summary-value">{lender.total_loans_count || 0}</span>
+                    <span className="summary-value">{lender.total_loans || 0}</span>
                 </div>
                 <div className="summary-card glass-card">
                     <span className="summary-label">Active Loans</span>
-                    <span className="summary-value">{lender.active_loans_count || 0}</span>
+                    <span className="summary-value">{lender.active_loans?.length || 0}</span>
                 </div>
                 <div className="summary-card glass-card highlighted">
                     <span className="summary-label">Total Outstanding</span>
@@ -253,6 +292,75 @@ export default function LenderDetails() {
                                 <button type="button" className="btn btn-ghost" onClick={() => setShowAddLoanModal(false)}>Cancel</button>
                                 <button type="submit" className="btn btn-primary" disabled={submitting}>
                                     {submitting ? 'Creating...' : 'Create Loan'}
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
+            {showEditLenderModal && (
+                <div className="modal-overlay">
+                    <div className="modal-content glass-card fade-in">
+                        <div className="modal-header">
+                            <h2>Edit Lender</h2>
+                            <button className="close-btn" onClick={() => setShowEditLenderModal(false)}>&times;</button>
+                        </div>
+                        <form onSubmit={handleEditLender}>
+                            <div className="form-grid">
+                                <div className="form-group">
+                                    <label>Name *</label>
+                                    <input
+                                        type="text"
+                                        value={editLenderData.name}
+                                        onChange={e => setEditLenderData(prev => ({ ...prev, name: e.target.value }))}
+                                        required
+                                    />
+                                </div>
+                                <div className="form-group">
+                                    <label>Contact Person</label>
+                                    <input
+                                        type="text"
+                                        value={editLenderData.contact_person}
+                                        onChange={e => setEditLenderData(prev => ({ ...prev, contact_person: e.target.value }))}
+                                    />
+                                </div>
+                                <div className="form-group">
+                                    <label>Phone</label>
+                                    <input
+                                        type="text"
+                                        value={editLenderData.phone}
+                                        onChange={e => setEditLenderData(prev => ({ ...prev, phone: e.target.value }))}
+                                    />
+                                </div>
+                                <div className="form-group">
+                                    <label>Email</label>
+                                    <input
+                                        type="email"
+                                        value={editLenderData.email}
+                                        onChange={e => setEditLenderData(prev => ({ ...prev, email: e.target.value }))}
+                                    />
+                                </div>
+                                <div className="form-group full-width">
+                                    <label>Address</label>
+                                    <textarea
+                                        value={editLenderData.address}
+                                        onChange={e => setEditLenderData(prev => ({ ...prev, address: e.target.value }))}
+                                        rows="2"
+                                    ></textarea>
+                                </div>
+                                <div className="form-group full-width">
+                                    <label>Notes</label>
+                                    <textarea
+                                        value={editLenderData.notes}
+                                        onChange={e => setEditLenderData(prev => ({ ...prev, notes: e.target.value }))}
+                                        rows="2"
+                                    ></textarea>
+                                </div>
+                            </div>
+                            <div className="modal-actions">
+                                <button type="button" className="btn btn-ghost" onClick={() => setShowEditLenderModal(false)}>Cancel</button>
+                                <button type="submit" className="btn btn-primary" disabled={submitting}>
+                                    {submitting ? 'Saving...' : 'Save Changes'}
                                 </button>
                             </div>
                         </form>
