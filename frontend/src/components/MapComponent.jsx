@@ -1,7 +1,8 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import './MapComponent.css';
 import { MapContainer, TileLayer, Marker, useMap, useMapEvents, LayersControl } from 'react-leaflet';
 import L from 'leaflet';
+import { Maximize, Minimize } from 'lucide-react';
 
 // Fix for default marker icons in React Leaflet
 import icon from 'leaflet/dist/images/marker-icon.png';
@@ -39,18 +40,60 @@ function LocationMarker({ position, onLocationSelect, readonly }) {
     );
 }
 
+function MapResizer({ isFullscreen }) {
+    const map = useMap();
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            map.invalidateSize();
+        }, 100);
+        return () => clearTimeout(timer);
+    }, [map, isFullscreen]);
+    return null;
+}
+
 const MapComponent = ({ position, onLocationSelect, height = '300px', readonly = false }) => {
+    const [isFullscreen, setIsFullscreen] = useState(false);
+    
     // Default center (Navsari/South Gujarat)
     const defaultCenter = [20.81746, 72.88007];
     const center = position || defaultCenter;
 
+    const containerStyle = isFullscreen 
+        ? { position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', zIndex: 9999, backgroundColor: '#000' }
+        : { height: height, width: '100%', position: 'relative' };
+
+    const mapStyle = { height: '100%', width: '100%', borderRadius: isFullscreen ? '0' : '8px', zIndex: 0 };
+
     return (
-        <MapContainer
-            center={center}
-            zoom={11}
-            maxZoom={22}
-            style={{ height: height, width: '100%', borderRadius: '8px', zIndex: 0 }}
-        >
+        <div style={containerStyle}>
+            <button 
+                type="button"
+                onClick={() => setIsFullscreen(!isFullscreen)}
+                style={{
+                    position: 'absolute',
+                    top: '10px',
+                    right: '10px',
+                    zIndex: 1000,
+                    background: 'white',
+                    border: '2px solid rgba(0,0,0,0.2)',
+                    borderRadius: '4px',
+                    padding: '4px',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center'
+                }}
+                title={isFullscreen ? "Minimize" : "Full Screen"}
+            >
+                {isFullscreen ? <Minimize size={18} /> : <Maximize size={18} />}
+            </button>
+            <MapContainer
+                center={center}
+                zoom={11}
+                maxZoom={22}
+                style={mapStyle}
+            >
+                <MapResizer isFullscreen={isFullscreen} />
             <LayersControl position="bottomright">
                 <LayersControl.BaseLayer checked name="Satellite View">
                     <TileLayer
@@ -74,7 +117,8 @@ const MapComponent = ({ position, onLocationSelect, height = '300px', readonly =
                 onLocationSelect={onLocationSelect}
                 readonly={readonly}
             />
-        </MapContainer>
+            </MapContainer>
+        </div>
     );
 };
 
