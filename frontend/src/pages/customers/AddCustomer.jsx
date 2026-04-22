@@ -806,8 +806,37 @@ export default function AddCustomer({ onSuccess, onCancel, isEmbedded = false })
                                         position={formData.latitude !== null && formData.longitude !== null ? [formData.latitude, formData.longitude] : null}
                                         onLocationSelect={handleLocationSelect}
                                     />
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '5px' }}>
-                                        {formData.latitude !== null ? <p className="text-muted text-sm" style={{ margin: 0 }}>Selected: {formData.latitude.toFixed(6)}, {formData.longitude.toFixed(6)}</p> : <div/>}
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '5px', flexWrap: 'wrap', gap: '6px' }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                            {formData.latitude !== null ? (
+                                                <>
+                                                    <p className="text-muted text-sm" style={{ margin: 0 }}>Selected: {formData.latitude.toFixed(6)}, {formData.longitude.toFixed(6)}</p>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setFormData(prev => ({
+                                                            ...prev,
+                                                            latitude: null,
+                                                            longitude: null,
+                                                            ...(overrideAddress ? {} : { village: '', faliya: '', address_line: '', landmark: '', pincode: '' })
+                                                        }))}
+                                                        style={{
+                                                            background: 'none',
+                                                            border: '1px solid var(--color-danger, #ef4444)',
+                                                            color: 'var(--color-danger, #ef4444)',
+                                                            borderRadius: '4px',
+                                                            padding: '2px 8px',
+                                                            fontSize: '0.75rem',
+                                                            cursor: 'pointer',
+                                                            fontWeight: 600,
+                                                            whiteSpace: 'nowrap'
+                                                        }}
+                                                        title="Remove pin from map"
+                                                    >
+                                                        ✕ Remove Pin
+                                                    </button>
+                                                </>
+                                            ) : <div/>}
+                                        </div>
                                         <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem', color: 'var(--color-primary)', cursor: 'pointer', margin: 0, fontWeight: 600 }}>
                                             <input 
                                                 type="checkbox" 
