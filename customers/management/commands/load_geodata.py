@@ -57,18 +57,39 @@ class Command(BaseCommand):
                 except Exception as e:
                     self.stderr.write(f"Error parsing geometry for {name}: {e}")
 
-            # Update or create
-            region, created = GeographicRegion.objects.update_or_create(
-                name=name,
-                layer=layer,
-                defaults={
-                    'label': label,
-                    'pincode': pincode,
-                    'color': color,
-                    'center': center_point,
-                    'boundary': boundary_geom,
-                }
-            )
+            # Robust Update or Create (handles duplicates from concurrent boots)
+            try:
+                # Try standard update_or_create
+                region, created = GeographicRegion.objects.update_or_create(
+                    name=name,
+                    layer=layer,
+                    defaults={
+                        'label': label,
+                        'pincode': pincode,
+                        'color': color,
+                        'center': center_point,
+                        'boundary': boundary_geom,
+                    }
+                )
+            except GeographicRegion.MultipleObjectsReturned:
+                # Concurrency race condition caused duplicates in the past.
+                # Find all matching duplicates
+                duplicates = list(GeographicRegion.objects.filter(name=name, layer=layer).order_by('id'))
+                # Keep the first one, update it
+                region = duplicates[0]
+                region.label = label
+                region.pincode = pincode
+                region.color = color
+                region.center = center_point
+                region.boundary = boundary_geom
+                region.save()
+                
+                # Delete the rest
+                for dup in duplicates[1:]:
+                    dup.delete()
+                    
+                created = False
+                self.stdout.write(self.style.WARNING(f"Cleaned up {len(duplicates)-1} duplicates for {name}"))
 
             if created:
                 created_count += 1
