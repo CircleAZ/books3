@@ -212,19 +212,21 @@ const CustomerDetails = () => {
                     <div className="customer-section-content">
                         <div className="info-row">
                             <span className="info-label">School</span>
-                            <span className="info-value">{customer.school?.name || <span className="text-muted">-</span>}</span>
+                            <span className="info-value">
+                                {customer.school?.name || (customer.class_name ? <span className="text-muted" style={{ fontStyle: 'italic' }}>Independent</span> : <span className="text-muted">-</span>)}
+                            </span>
                         </div>
                         <div className="info-row">
                             <span className="info-label">Class</span>
-                            <span className="info-value">{customer.class_obj?.name || <span className="text-muted">-</span>}</span>
+                            <span className="info-value">{customer.class_obj?.name || customer.class_name || <span className="text-muted">-</span>}</span>
                         </div>
                         <div className="info-row">
                             <span className="info-label">Division</span>
-                            <span className="info-value">{customer.division?.name || <span className="text-muted">-</span>}</span>
+                            <span className="info-value">{customer.division?.name || customer.division_name || <span className="text-muted">-</span>}</span>
                         </div>
                         <div className="info-row">
                             <span className="info-label">Subdivision</span>
-                            <span className="info-value">{customer.subdivision?.name || <span className="text-muted">-</span>}</span>
+                            <span className="info-value">{customer.subdivision?.name || customer.subdivision_name || <span className="text-muted">-</span>}</span>
                         </div>
                     </div>
                 </div>
