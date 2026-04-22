@@ -91,7 +91,7 @@ class Customer(DisplayIDMixin, SoftDeleteModel):
     )
     
     class Meta:
-        ordering = ['-created_at']
+        ordering = ['-created_at', '-id']
     
     def __str__(self):
         return self.full_name
@@ -283,9 +283,8 @@ class TargetVillage(UUIDPrimaryKeyModel):
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        ordering = ['-created_at']
+        ordering = ['-created_at', '-id']
         unique_together = ['name', 'target_season']
 
     def __str__(self):
         return f"{self.name} (Target: Dec {self.target_season})"
-

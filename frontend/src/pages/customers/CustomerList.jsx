@@ -125,9 +125,9 @@ const CustomerList = () => {
                 >
                     Previous
                 </button>
-                <span>Page {page} of {totalPages}</span>
+                <span>Page {page} of {Math.max(1, totalPages)}</span>
                 <button
-                    disabled={page === totalPages}
+                    disabled={page >= totalPages}
                     onClick={() => setPage(page + 1)}
                     className="btn btn-secondary"
                 >
