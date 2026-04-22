@@ -499,10 +499,11 @@ export default function NewOrder() {
         let destination_wallet = null;
         
         const methodObj = availablePaymentMethods.find(m => m.id === paymentMethod);
-        const currentType = methodObj ? methodObj.method_type : paymentMethod;
-        const methodDesc = methodObj ? methodObj.name : (currentType === 'cash' ? 'Cash' : 'UPI');
+        const typeStr = methodObj ? methodObj.type : paymentMethod;
+        const currentType = (typeStr || '').toLowerCase();
+        const methodDesc = methodObj ? methodObj.type : (currentType === 'cash' ? 'Cash' : 'UPI');
 
-        if (currentType === 'cash') {
+        if (currentType.includes('cash') || currentType.includes('legacy')) {
             destination_wallet = selectedDestination || (availableCashWallets.length > 0 ? availableCashWallets[0].id : null);
             if (!destination_wallet) {
                 showToast('Error: No active Cash Wallet found. Contact Admin.', 'error');
