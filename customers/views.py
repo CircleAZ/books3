@@ -915,6 +915,32 @@ class SchoolViewSet(viewsets.ModelViewSet):
     filter_backends = [filters.SearchFilter]
     search_fields = ['name']
 
+    def perform_destroy(self, instance):
+        """
+        Standard DRF delete: migrate customers to independent class names
+        before cascading the school delete, same as delete_with_structure.
+        """
+        affected = Customer.objects.filter(school=instance).select_related(
+            'class_obj', 'division', 'subdivision'
+        )
+        for customer in affected:
+            if customer.class_obj and not customer.class_name:
+                customer.class_name = customer.class_obj.name
+            if customer.division and not customer.division_name:
+                customer.division_name = customer.division.name
+            if customer.subdivision and not customer.subdivision_name:
+                customer.subdivision_name = customer.subdivision.name
+            customer.school = None
+            customer.class_obj = None
+            customer.division = None
+            customer.subdivision = None
+            customer.save(update_fields=[
+                'school', 'class_obj', 'division', 'subdivision',
+                'class_name', 'division_name', 'subdivision_name',
+                'updated_at'
+            ])
+        instance.delete()
+
     def list(self, request, *args, **kwargs):
         """Override list to include structure counts on each school."""
         qs = self.filter_queryset(self.get_queryset()).annotate(
@@ -1018,12 +1044,48 @@ class SchoolViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=['delete'], url_path='delete-with-structure')
     def delete_with_structure(self, request, pk=None):
-        """Delete school and all its classes/divisions/subdivisions (CASCADE)."""
+        """
+        Delete school and all its classes/divisions/subdivisions (CASCADE).
+        Before deletion, migrate all customers assigned to this school to
+        independent class/division/subdivision name fields so their
+        education data is preserved.
+        """
         school = self.get_object()
         name = school.name
+
         with transaction.atomic():
+            # Migrate customers to independent class names before cascade
+            affected_customers = Customer.objects.filter(school=school)
+            migrated_count = 0
+
+            for customer in affected_customers.select_related('class_obj', 'division', 'subdivision'):
+                # Copy FK names to independent text fields
+                if customer.class_obj and not customer.class_name:
+                    customer.class_name = customer.class_obj.name
+                if customer.division and not customer.division_name:
+                    customer.division_name = customer.division.name
+                if customer.subdivision and not customer.subdivision_name:
+                    customer.subdivision_name = customer.subdivision.name
+
+                # Clear FKs (they'd become invalid after cascade anyway)
+                customer.school = None
+                customer.class_obj = None
+                customer.division = None
+                customer.subdivision = None
+                customer.save(update_fields=[
+                    'school', 'class_obj', 'division', 'subdivision',
+                    'class_name', 'division_name', 'subdivision_name',
+                    'updated_at'
+                ])
+                migrated_count += 1
+
+            # Now safe to delete — no customer data will be lost
             school.delete()
-        return Response({'message': f"Deleted '{name}' and all its structure"})
+
+        return Response({
+            'message': f"Deleted '{name}' and all its structure",
+            'migrated_customers': migrated_count
+        })
 
 
 class ClassViewSet(viewsets.ModelViewSet):
