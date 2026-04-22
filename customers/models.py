@@ -2,8 +2,38 @@
 Customer models for CRM functionality.
 """
 from django.db import models
+from django.contrib.gis.db import models as gis_models
 from django.conf import settings
 from core.models import SoftDeleteModel, UUIDPrimaryKeyModel, DisplayIDMixin
+
+class GeographicRegion(UUIDPrimaryKeyModel):
+    """
+    Strict mapping layer from geocoding data.
+    Provides polygon boundaries for District, Taluka, and Village.
+    """
+    LAYER_CHOICES = [
+        ('district', 'District'),
+        ('taluka', 'Taluka'),
+        ('village', 'Village'),
+    ]
+    name = models.CharField(max_length=200)
+    label = models.CharField(max_length=200)
+    layer = models.CharField(max_length=20, choices=LAYER_CHOICES)
+    pincode = models.CharField(max_length=10, blank=True)
+    color = models.CharField(max_length=10, blank=True)
+    
+    # PostGIS fields
+    boundary = gis_models.MultiPolygonField(srid=4326, null=True, blank=True)
+    center = gis_models.PointField(srid=4326, null=True, blank=True)
+    parent = models.ForeignKey(
+        'self', on_delete=models.SET_NULL, null=True, blank=True, related_name='children'
+    )
+    
+    class Meta:
+        ordering = ['layer', 'name']
+    
+    def __str__(self):
+        return f"{self.name} ({self.get_layer_display()})"
 
 
 class Customer(DisplayIDMixin, SoftDeleteModel):
@@ -118,10 +148,13 @@ class Address(UUIDPrimaryKeyModel):
     """
     customer = models.ForeignKey(Customer, on_delete=models.CASCADE, related_name='addresses')
     
-    # Location hierarchy (specific to Gujarat/India context)
-    village = models.CharField(max_length=200, blank=True)
+    # Location hierarchy (Strict Geocoding)
+    region = models.ForeignKey(
+        GeographicRegion, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='addresses', help_text="Strictly normalized village/taluka layer"
+    )
     faliya = models.CharField(max_length=200, blank=True, 
-        help_text="Sub-locality within a village")
+        help_text="Sub-locality within a village (manual entry)")
     
     # Full address
     address_line = models.TextField(blank=True, help_text="Full street address")
@@ -133,9 +166,8 @@ class Address(UUIDPrimaryKeyModel):
         'settings_app.LocationTag', blank=True, related_name='addresses'
     )
     
-    # Map coordinates
-    latitude = models.DecimalField(max_digits=10, decimal_places=7, null=True, blank=True)
-    longitude = models.DecimalField(max_digits=10, decimal_places=7, null=True, blank=True)
+    # Map coordinates (PostGIS)
+    location = gis_models.PointField(srid=4326, null=True, blank=True)
     pincode = models.CharField(max_length=10, blank=True)
     
     # Flags
@@ -146,8 +178,8 @@ class Address(UUIDPrimaryKeyModel):
     
     def __str__(self):
         parts = []
-        if self.village:
-            parts.append(self.village)
+        if self.region:
+            parts.append(self.region.name)
         if self.faliya:
             parts.append(self.faliya)
         if self.pincode:
@@ -272,8 +304,7 @@ class WalletTransaction(UUIDPrimaryKeyModel):
 class TargetVillage(UUIDPrimaryKeyModel):
     """Manager-placed pin marking a village targeted for expansion."""
     name = models.CharField(max_length=200)
-    latitude = models.DecimalField(max_digits=10, decimal_places=7)
-    longitude = models.DecimalField(max_digits=10, decimal_places=7)
+    location = gis_models.PointField(srid=4326, null=True, blank=True)
     target_season = models.CharField(max_length=20)  # e.g., "2026" → Dec 2026–Nov 2027
     notes = models.TextField(blank=True)
     created_by = models.ForeignKey(

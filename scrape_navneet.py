@@ -111,7 +111,7 @@ def scrape_navneet():
             print(f" Error processing {prod['ProductURL']}: {e}")
             
     # Save structured json
-    with open(os.path.join(output_dir, 'products.json'), 'w', encoding='utf-8') as f:
+    with open(os.path.join(output_dir, 'products.json'), 'w', encoding='utf-8-sig') as f:
         json.dump(final_products, f, indent=4, ensure_ascii=False)
         
     print("Scraping completed!")

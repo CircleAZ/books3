@@ -788,3 +788,110 @@
         padding: 8px 14px;
     }
 }
+
+/* ============ Phase 4: Boundary Overlays ============ */
+
+/* Legend boundary section */
+.legend-boundary-section {
+    margin-top: 10px;
+    padding-top: 10px;
+    border-top: 1px solid var(--border-color, #334155);
+}
+
+.legend-boundary-header {
+    margin-bottom: 6px;
+}
+
+.boundary-toggle {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+    font-size: 12px;
+    color: var(--text-secondary, #cbd5e1);
+    font-weight: 600;
+}
+
+.boundary-toggle input[type="checkbox"] {
+    width: 14px;
+    height: 14px;
+    accent-color: var(--primary, #818cf8);
+    cursor: pointer;
+    margin: 0;
+}
+
+/* Layer selector tabs */
+.boundary-layer-tabs {
+    display: flex;
+    gap: 4px;
+}
+
+.boundary-tab {
+    flex: 1;
+    padding: 4px 6px;
+    background: var(--surface-base, #0f172a);
+    border: 1.5px solid var(--border-color, #334155);
+    border-radius: 6px;
+    color: var(--text-tertiary, #64748b);
+    font-size: 10px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    text-align: center;
+    line-height: 1.3;
+}
+
+.boundary-tab:hover {
+    background: var(--surface-hover, #334155);
+    color: var(--text-secondary, #cbd5e1);
+}
+
+.boundary-tab.active {
+    background: var(--surface-hover, #334155);
+    font-weight: 700;
+}
+
+/* Boundary tooltips */
+.boundary-tooltip-container {
+    background: var(--surface-card, #1e293b) !important;
+    border: 1px solid var(--border-color, #334155) !important;
+    border-radius: 8px !important;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4) !important;
+    padding: 0 !important;
+}
+
+.boundary-tooltip-container .leaflet-tooltip-content {
+    margin: 0 !important;
+}
+
+.boundary-tooltip-container::before {
+    border-top-color: var(--surface-card, #1e293b) !important;
+}
+
+.boundary-tooltip {
+    padding: 6px 10px;
+    font-size: 12px;
+    color: var(--text-primary, #f1f5f9);
+    line-height: 1.4;
+}
+
+.boundary-tooltip strong {
+    font-weight: 700;
+    font-size: 13px;
+}
+
+.boundary-tooltip-parent {
+    font-size: 11px;
+    color: var(--text-tertiary, #64748b);
+}
+
+@media (max-width: 768px) {
+    .boundary-layer-tabs {
+        gap: 3px;
+    }
+    
+    .boundary-tab {
+        font-size: 9px;
+        padding: 3px 4px;
+    }
+}

@@ -68,6 +68,7 @@ INSTALLED_APPS = [
     'django.contrib.auth',
     'django.contrib.contenttypes',
     'django.contrib.sessions',
+    'django.contrib.gis',
     'django.contrib.messages',
     'django.contrib.staticfiles',
     
@@ -129,32 +130,28 @@ WSGI_APPLICATION = 'azbooks.wsgi.application'
 # https://docs.djangoproject.com/en/6.0/ref/settings/#databases
 #
 # Uses DATABASE_URL env var (Neon pooled connection string in production).
-# Falls back to SQLite for local development when DATABASE_URL is not set.
-# Format: postgres://user:password@host:port/dbname?sslmode=require
+# Defaults to local PostGIS Docker container. SQLite is no longer supported due to spatial requirements.
+# Format: postgis://user:password@host:port/dbname?sslmode=require
 
-DATABASE_URL = os.getenv('DATABASE_URL', '')
+DATABASE_URL = os.getenv('DATABASE_URL', 'postgis://postgres:postgres@localhost:5432/azbooks')
 
-if DATABASE_URL:
-    DATABASES = {
-        'default': dj_database_url.config(
-            default=DATABASE_URL,
-            conn_max_age=600,              # Keep connections alive 10 min
-            conn_health_checks=True,       # Auto-reconnect stale connections
-            ssl_require=True,              # Neon requires SSL
-        )
-    }
-    # Neon uses PgBouncer in transaction mode — server-side cursors
-    # (used by Django's .iterator()) are incompatible with transaction pooling.
-    # Without this, finance/views.py CSV export will crash.
-    DATABASES['default']['DISABLE_SERVER_SIDE_CURSORS'] = True
-else:
-    # Default to SQLite for local development
-    DATABASES = {
-        'default': {
-            'ENGINE': 'django.db.backends.sqlite3',
-            'NAME': BASE_DIR / 'db.sqlite3',
-        }
-    }
+DATABASES = {
+    'default': dj_database_url.config(
+        default=DATABASE_URL,
+        engine='django.contrib.gis.db.backends.postgis',
+        conn_max_age=600,              # Keep connections alive 10 min
+        conn_health_checks=True,       # Auto-reconnect stale connections
+    )
+}
+
+# Neon requires SSL in production
+if 'neon.tech' in DATABASE_URL:
+    DATABASES['default']['OPTIONS'] = {'sslmode': 'require'}
+
+# Neon uses PgBouncer in transaction mode — server-side cursors
+# (used by Django's .iterator()) are incompatible with transaction pooling.
+# Without this, finance/views.py CSV export will crash.
+DATABASES['default']['DISABLE_SERVER_SIDE_CURSORS'] = True
 
 
 # Cache configuration

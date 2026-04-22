@@ -141,11 +141,18 @@ class AddressSerializer(serializers.ModelSerializer):
         source='location_tags',
         required=False
     )
+    # Expose region as writable FK + read-only name
+    region_name = serializers.CharField(source='region.name', read_only=True, default=None)
+    # Backward compat: accept 'village' text from frontend, auto-resolve to region FK
+    village = serializers.CharField(write_only=True, required=False, allow_blank=True)
+    # Accept lat/lng from frontend, convert to PointField internally
+    latitude = serializers.FloatField(write_only=True, required=False, allow_null=True)
+    longitude = serializers.FloatField(write_only=True, required=False, allow_null=True)
     
     class Meta:
         model = Address
         fields = [
-            'id', 'village', 'faliya', 'address_line', 'landmark',
+            'id', 'region', 'region_name', 'village', 'faliya', 'address_line', 'landmark',
             'location_tags', 'location_tag_ids',
             'latitude', 'longitude', 'pincode', 'is_primary'
         ]
@@ -161,6 +168,48 @@ class AddressSerializer(serializers.ModelSerializer):
         if value is not None and (value < -180 or value > 180):
             raise serializers.ValidationError("Longitude must be between -180 and 180")
         return value
+    
+    def _resolve_village_to_region(self, validated_data):
+        """Bridge: convert 'village' text to 'region' FK if no explicit region was provided."""
+        village_name = validated_data.pop('village', None)
+        if village_name and not validated_data.get('region'):
+            from customers.models import GeographicRegion
+            region = GeographicRegion.objects.filter(
+                name__iexact=village_name.strip()
+            ).first()
+            if region:
+                validated_data['region'] = region
+
+    def _resolve_location(self, validated_data):
+        """Convert lat/lng to PostGIS PointField."""
+        lat = validated_data.pop('latitude', None)
+        lng = validated_data.pop('longitude', None)
+        if lat is not None and lng is not None:
+            from django.contrib.gis.geos import Point
+            validated_data['location'] = Point(lng, lat, srid=4326)
+
+    def create(self, validated_data):
+        self._resolve_village_to_region(validated_data)
+        self._resolve_location(validated_data)
+        return super().create(validated_data)
+
+    def update(self, instance, validated_data):
+        self._resolve_village_to_region(validated_data)
+        self._resolve_location(validated_data)
+        return super().update(instance, validated_data)
+
+    def to_representation(self, instance):
+        rep = super().to_representation(instance)
+        # Expose lat/lng from the PointField for frontend consumption
+        if instance.location:
+            rep['latitude'] = str(instance.location.y)
+            rep['longitude'] = str(instance.location.x)
+        else:
+            rep['latitude'] = None
+            rep['longitude'] = None
+        # Expose village name for backward compat with frontend
+        rep['village'] = instance.region.name if instance.region else ''
+        return rep
 
 
 # ============ Customer Serializers ============

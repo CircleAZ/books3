@@ -668,16 +668,15 @@ class CustomerReportViewSet(ReportBaseViewSet):
         village = request.query_params.get('village')
         
         addresses = Address.objects.filter(
-            latitude__isnull=False, 
-            longitude__isnull=False
-        ).select_related('customer').prefetch_related('location_tags')
+            location__isnull=False,
+        ).select_related('customer', 'region').prefetch_related('location_tags')
         
         if tag:
             addresses = addresses.filter(location_tags__name=tag)
         if pincode:
             addresses = addresses.filter(pincode=pincode)
         if village:
-            addresses = addresses.filter(village__icontains=village)
+            addresses = addresses.filter(region__name__icontains=village)
         
         data = []
         for addr in addresses.distinct()[:500]:  # Limit for performance
@@ -687,18 +686,18 @@ class CustomerReportViewSet(ReportBaseViewSet):
                 'id': str(addr.id),
                 'customer_id': str(addr.customer_id),
                 'customer_name': addr.customer.full_name if addr.customer else '',
-                'latitude': float(addr.latitude),
-                'longitude': float(addr.longitude),
+                'latitude': float(addr.location.y),
+                'longitude': float(addr.location.x),
                 'address': str(addr),
                 'pincode': addr.pincode or '',
-                'village': addr.village or '',
+                'village': addr.region.name if addr.region else '',
                 'tag': first_tag.name if first_tag else '',
                 'tag_color': first_tag.color if first_tag else ''
             })
         
         # Summary by location tag
         tag_summary = Address.objects.filter(
-            latitude__isnull=False
+            location__isnull=False
         ).values(
             'location_tags__name', 'location_tags__color'
         ).annotate(count=Count('id')).order_by('-count')

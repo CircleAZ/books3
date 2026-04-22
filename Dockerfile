@@ -10,9 +10,10 @@ ENV NEW_RELIC_CONFIG_FILE=newrelic.ini
 
 WORKDIR /app
 
-# System deps for psycopg2-binary, Pillow, and pycairo
+# System deps for psycopg2-binary, Pillow, pycairo, and GDAL (PostGIS)
 RUN apt-get update && apt-get install -y --no-install-recommends \
     gcc libjpeg62-turbo-dev zlib1g-dev pkg-config libcairo2-dev \
+    gdal-bin libgdal-dev \
     && rm -rf /var/lib/apt/lists/*
 
 # Install Python dependencies

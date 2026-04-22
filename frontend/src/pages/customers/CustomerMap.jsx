@@ -121,6 +121,7 @@ export default function CustomerMap() {
     const mapInstanceRef = useRef(null);
     const clusterGroupRef = useRef(null);
     const targetLayerRef = useRef(null);
+    const boundaryLayerRef = useRef(null);
 
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
@@ -132,6 +133,11 @@ export default function CustomerMap() {
     const [placingPin, setPlacingPin] = useState(false);
     const [targetForm, setTargetForm] = useState({ name: '', latitude: '', longitude: '', target_season: '', notes: '' });
     const [canManageTargets, setCanManageTargets] = useState(false);
+
+    // Phase 4: Boundary overlay state
+    const [boundaryLayer, setBoundaryLayer] = useState('district');
+    const [showBoundaries, setShowBoundaries] = useState(true);
+    const [boundaryCache, setBoundaryCache] = useState({});
 
     // Filter state
     const savedFilters = loadFilters();
@@ -373,6 +379,93 @@ export default function CustomerMap() {
         targetLayer.addTo(map);
         targetLayerRef.current = targetLayer;
     }, [mapData, canManageTargets, fetchWithAuth, filters]);
+
+    // ── Phase 4: Render boundary polygons ──
+    useEffect(() => {
+        const map = mapInstanceRef.current;
+        if (!map || !showBoundaries) {
+            // Remove boundaries if toggled off
+            if (boundaryLayerRef.current && map) {
+                map.removeLayer(boundaryLayerRef.current);
+                boundaryLayerRef.current = null;
+            }
+            return;
+        }
+
+        const layerKey = boundaryLayer; // 'district' | 'taluka' | 'village'
+
+        const renderBoundaries = (geojsonData) => {
+            // Remove previous boundary layer
+            if (boundaryLayerRef.current) {
+                map.removeLayer(boundaryLayerRef.current);
+                boundaryLayerRef.current = null;
+            }
+
+            if (!geojsonData || !geojsonData.features || geojsonData.features.length === 0) return;
+
+            const LAYER_STYLES = {
+                district: { color: '#a78bfa', weight: 2.5, fillOpacity: 0.06, dashArray: null },
+                taluka:   { color: '#38bdf8', weight: 2,   fillOpacity: 0.05, dashArray: '8 4' },
+                village:  { color: '#34d399', weight: 1.5, fillOpacity: 0.04, dashArray: '4 4' },
+            };
+            const style = LAYER_STYLES[layerKey] || LAYER_STYLES.district;
+
+            const geoLayer = L.geoJSON(geojsonData, {
+                style: () => ({
+                    color: style.color,
+                    weight: style.weight,
+                    fillColor: style.color,
+                    fillOpacity: style.fillOpacity,
+                    dashArray: style.dashArray,
+                }),
+                onEachFeature: (feature, layer) => {
+                    const props = feature.properties || {};
+                    const tooltipHtml = `<div class="boundary-tooltip">
+                        <strong>${props.name || 'Unknown'}</strong>
+                        ${props.parent_name ? `<br/><span class="boundary-tooltip-parent">${props.parent_name}</span>` : ''}
+                    </div>`;
+                    layer.bindTooltip(tooltipHtml, {
+                        sticky: true,
+                        className: 'boundary-tooltip-container',
+                        direction: 'top',
+                        offset: [0, -8],
+                    });
+                    // Hover highlight
+                    layer.on('mouseover', () => {
+                        layer.setStyle({ fillOpacity: style.fillOpacity + 0.12, weight: style.weight + 1.5 });
+                    });
+                    layer.on('mouseout', () => {
+                        geoLayer.resetStyle(layer);
+                    });
+                },
+            });
+
+            geoLayer.addTo(map);
+            // Ensure boundaries sit behind markers
+            geoLayer.bringToBack();
+            boundaryLayerRef.current = geoLayer;
+        };
+
+        // Use cache if available
+        if (boundaryCache[layerKey]) {
+            renderBoundaries(boundaryCache[layerKey]);
+            return;
+        }
+
+        // Fetch from API
+        (async () => {
+            try {
+                const res = await fetchWithAuth(`${ENDPOINTS.GEO_BOUNDARIES}?layer=${layerKey}`);
+                if (res.ok) {
+                    const data = await res.json();
+                    setBoundaryCache(prev => ({ ...prev, [layerKey]: data }));
+                    renderBoundaries(data);
+                }
+            } catch (err) {
+                console.error('Failed to fetch boundaries:', err);
+            }
+        })();
+    }, [mapData, boundaryLayer, showBoundaries, fetchWithAuth, boundaryCache]);
 
     // ── Filter handlers ──
     const handleApplyFilters = () => {
@@ -650,6 +743,34 @@ export default function CustomerMap() {
                 <div className="legend-item">
                     <span className="legend-dot" style={{background: '#f97316', borderStyle: 'dashed'}}>📌</span>
                     <span className="legend-label">Target Village</span>
+                </div>
+
+                {/* Phase 4: Boundary Layer Toggle */}
+                <div className="legend-boundary-section">
+                    <div className="legend-boundary-header">
+                        <label className="boundary-toggle">
+                            <input
+                                type="checkbox"
+                                checked={showBoundaries}
+                                onChange={(e) => setShowBoundaries(e.target.checked)}
+                            />
+                            <span>Boundaries</span>
+                        </label>
+                    </div>
+                    {showBoundaries && (
+                        <div className="boundary-layer-tabs">
+                            {[['district', '🏛️', '#a78bfa'], ['taluka', '🗺️', '#38bdf8'], ['village', '🏘️', '#34d399']].map(([key, icon, color]) => (
+                                <button
+                                    key={key}
+                                    className={`boundary-tab ${boundaryLayer === key ? 'active' : ''}`}
+                                    style={boundaryLayer === key ? { borderColor: color, color } : {}}
+                                    onClick={() => setBoundaryLayer(key)}
+                                >
+                                    {icon} {key.charAt(0).toUpperCase() + key.slice(1)}
+                                </button>
+                            ))}
+                        </div>
+                    )}
                 </div>
             </div>
 

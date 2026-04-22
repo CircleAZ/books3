@@ -12,7 +12,7 @@ def drop_maps_columns(apps, schema_editor):
         for col in columns_to_drop:
             try:
                 # PostgreSQL / SQLite 3.35+ supports DROP COLUMN
-                cursor.execute(f"ALTER TABLE account_user DROP COLUMN {col}")
+                cursor.execute(f"ALTER TABLE account_user DROP COLUMN IF EXISTS {col}")
             except Exception as e:
                 # Ignore if column doesn't exist
                 pass

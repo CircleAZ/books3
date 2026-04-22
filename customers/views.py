@@ -195,10 +195,7 @@ class CustomerViewSet(viewsets.ModelViewSet):
         # Query: customers with valid primary address coordinates
         customers = Customer.objects.filter(
             addresses__is_primary=True,
-            addresses__latitude__isnull=False,
-            addresses__longitude__isnull=False,
-        ).exclude(
-            addresses__latitude=0, addresses__longitude=0
+            addresses__location__isnull=False,
         )
 
         # ORM-level group filter
@@ -250,17 +247,16 @@ class CustomerViewSet(viewsets.ModelViewSet):
             # Get primary address
             primary_addr = None
             for addr in c.addresses.all():
-                if addr.is_primary and addr.latitude and addr.longitude:
-                    if float(addr.latitude) != 0.0 or float(addr.longitude) != 0.0:
-                        primary_addr = addr
-                        break
+                if addr.is_primary and addr.location:
+                    primary_addr = addr
+                    break
 
             if not primary_addr:
                 continue
 
-            # Phase 2: village filter (post-query, case-insensitive)
-            addr_village_key = (primary_addr.village or '').strip().lower()
-            if filter_village and addr_village_key != filter_village.lower():
+            # Phase 2: village filter (post-query, region name match)
+            addr_region_name = (primary_addr.region.name if primary_addr.region else '').strip().lower()
+            if filter_village and addr_region_name != filter_village.lower():
                 continue
 
             # Marker status
@@ -284,12 +280,12 @@ class CustomerViewSet(viewsets.ModelViewSet):
 
             stats['total_mapped'] += 1
 
-            # Village tracking (case-insensitive)
-            village_key = (primary_addr.village or '').strip().lower()
+            # Village tracking (region-based)
+            village_key = (primary_addr.region.name if primary_addr.region else '').strip().lower()
             if village_key:
                 if village_key not in villages:
                     villages[village_key] = {
-                        'name': primary_addr.village.strip(),
+                        'name': primary_addr.region.name.strip(),
                         'total': 0, 'active': 0
                     }
                 villages[village_key]['total'] += 1
@@ -311,11 +307,11 @@ class CustomerViewSet(viewsets.ModelViewSet):
                 'display_id': c.display_id,
                 'full_name': strip_tags(c.full_name),
                 'phone': c.phone,
-                'village': strip_tags(primary_addr.village or ''),
+                'village': strip_tags(primary_addr.region.name if primary_addr.region else ''),
                 'faliya': strip_tags(primary_addr.faliya or ''),
                 'landmark': strip_tags(primary_addr.landmark or ''),
-                'latitude': str(primary_addr.latitude),
-                'longitude': str(primary_addr.longitude),
+                'latitude': str(primary_addr.location.y),
+                'longitude': str(primary_addr.location.x),
                 'customer_group': strip_tags(c.customer_group.name) if c.customer_group else None,
                 'location_tags': loc_tags,
                 'total_orders': c.total_order_count,
@@ -341,14 +337,9 @@ class CustomerViewSet(viewsets.ModelViewSet):
         all_village_names = sorted(set(
             Address.objects.filter(
                 is_primary=True, customer__isnull=False,
-                latitude__isnull=False, longitude__isnull=False
-            ).exclude(
-                latitude=0, longitude=0
-            ).exclude(
-                village__isnull=True
-            ).exclude(
-                village=''
-            ).values_list('village', flat=True)
+                location__isnull=False,
+                region__isnull=False,
+            ).values_list('region__name', flat=True)
         ), key=str.lower)
 
         all_groups = list(
@@ -376,8 +367,8 @@ class CustomerViewSet(viewsets.ModelViewSet):
             {
                 'id': str(tv.id),
                 'name': tv.name,
-                'latitude': str(tv.latitude),
-                'longitude': str(tv.longitude),
+                'latitude': str(tv.location.y),
+                'longitude': str(tv.location.x),
                 'target_season': tv.target_season,
                 'season_label': f"Dec {tv.target_season} \u2013 Nov {int(tv.target_season) + 1}",
                 'notes': tv.notes,
@@ -456,11 +447,8 @@ class CustomerViewSet(viewsets.ModelViewSet):
             """Compute coverage stats for a given season."""
             customers = Customer.objects.filter(
                 addresses__is_primary=True,
-                addresses__latitude__isnull=False,
-                addresses__longitude__isnull=False,
-            ).exclude(
-                addresses__latitude=0, addresses__longitude=0
-            ).prefetch_related('addresses').annotate(
+                addresses__location__isnull=False,
+            ).prefetch_related('addresses', 'addresses__region').annotate(
                 season_orders=Count(
                     'orders',
                     filter=Q(
@@ -488,10 +476,9 @@ class CustomerViewSet(viewsets.ModelViewSet):
             for c in customers:
                 primary_addr = None
                 for addr in c.addresses.all():
-                    if addr.is_primary and addr.latitude and addr.longitude:
-                        if float(addr.latitude) != 0.0 or float(addr.longitude) != 0.0:
-                            primary_addr = addr
-                            break
+                    if addr.is_primary and addr.location:
+                        primary_addr = addr
+                        break
                 if not primary_addr:
                     continue
 
@@ -501,10 +488,10 @@ class CustomerViewSet(viewsets.ModelViewSet):
                     covered += 1
                 total_revenue += float(c.season_revenue or 0)
 
-                vk = (primary_addr.village or '').strip().lower()
+                vk = (primary_addr.region.name if primary_addr.region else '').strip().lower()
                 if vk:
                     if vk not in villages:
-                        villages[vk] = {'name': primary_addr.village.strip(), 'total': 0, 'covered': 0, 'revenue': 0}
+                        villages[vk] = {'name': primary_addr.region.name.strip(), 'total': 0, 'covered': 0, 'revenue': 0}
                     villages[vk]['total'] += 1
                     if is_covered:
                         villages[vk]['covered'] += 1
@@ -604,11 +591,8 @@ class CustomerViewSet(viewsets.ModelViewSet):
 
         customers = Customer.objects.filter(
             addresses__is_primary=True,
-            addresses__latitude__isnull=False,
-            addresses__longitude__isnull=False,
-        ).exclude(
-            addresses__latitude=0, addresses__longitude=0
-        ).prefetch_related('addresses').annotate(
+            addresses__location__isnull=False,
+        ).prefetch_related('addresses', 'addresses__region').annotate(
             season_orders=Count(
                 'orders',
                 filter=Q(
@@ -623,14 +607,13 @@ class CustomerViewSet(viewsets.ModelViewSet):
         for c in customers:
             primary_addr = None
             for addr in c.addresses.all():
-                if addr.is_primary and addr.latitude and addr.longitude:
-                    if float(addr.latitude) != 0.0 or float(addr.longitude) != 0.0:
-                        primary_addr = addr
-                        break
+                if addr.is_primary and addr.location:
+                    primary_addr = addr
+                    break
             if not primary_addr:
                 continue
 
-            v = (primary_addr.village or '').strip()
+            v = (primary_addr.region.name if primary_addr.region else '').strip()
             if village_filter and v.lower() != village_filter.lower():
                 continue
 
@@ -733,8 +716,8 @@ class CustomerViewSet(viewsets.ModelViewSet):
                 {
                     'id': str(t.id),
                     'name': t.name,
-                    'latitude': str(t.latitude),
-                    'longitude': str(t.longitude),
+                    'latitude': str(t.location.y),
+                    'longitude': str(t.location.x),
                     'target_season': t.target_season,
                     'season_label': f"Dec {t.target_season} \u2013 Nov {int(t.target_season) + 1}",
                     'notes': t.notes,
@@ -766,10 +749,10 @@ class CustomerViewSet(viewsets.ModelViewSet):
                             status=status.HTTP_400_BAD_REQUEST)
 
         try:
+            from django.contrib.gis.geos import Point
             tv = TargetVillage.objects.create(
                 name=name,
-                latitude=lat,
-                longitude=lng,
+                location=Point(float(lng), float(lat), srid=4326),
                 target_season=target_season,
                 notes=notes,
                 created_by=request.user,
@@ -777,8 +760,8 @@ class CustomerViewSet(viewsets.ModelViewSet):
             return Response({
                 'id': str(tv.id),
                 'name': tv.name,
-                'latitude': str(tv.latitude),
-                'longitude': str(tv.longitude),
+                'latitude': str(tv.location.y),
+                'longitude': str(tv.location.x),
                 'target_season': tv.target_season,
                 'season_label': f"Dec {tv.target_season} \u2013 Nov {int(tv.target_season) + 1}",
                 'notes': tv.notes,
@@ -1240,3 +1223,72 @@ class LocationTagViewSet(viewsets.ModelViewSet):
             'status': f'Tag "{source_name}" merged into "{target_tag.name}"',
             'target_tag': LocationTagSerializer(target_tag).data
         })
+
+
+# ═══════════════════════════════════════════════════════
+# Phase 4: GeoJSON Boundary API
+# ═══════════════════════════════════════════════════════
+
+class GeoBoundaryView(APIView):
+    """
+    Serves GeographicRegion boundaries as GeoJSON FeatureCollection.
+    
+    GET /api/customers/geo/boundaries/?layer=district
+    GET /api/customers/geo/boundaries/?layer=taluka
+    GET /api/customers/geo/boundaries/?layer=village
+    GET /api/customers/geo/boundaries/  (all layers)
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        from customers.models import GeographicRegion
+        import json
+
+        layer = request.query_params.get('layer', '').strip().lower()
+        qs = GeographicRegion.objects.all()
+        if layer in ('district', 'taluka', 'village'):
+            qs = qs.filter(layer=layer)
+
+        features = []
+        for region in qs.select_related('parent'):
+            if not region.boundary:
+                continue
+            feature = {
+                'type': 'Feature',
+                'geometry': json.loads(region.boundary.geojson),
+                'properties': {
+                    'id': str(region.id),
+                    'name': region.name,
+                    'layer': region.layer,
+                    'parent_name': region.parent.name if region.parent else None,
+                    'center_lat': region.center.y if region.center else None,
+                    'center_lng': region.center.x if region.center else None,
+                }
+            }
+            features.append(feature)
+
+        return Response({
+            'type': 'FeatureCollection',
+            'features': features,
+        })
+
+
+class GeoRegionListView(APIView):
+    """
+    Lightweight list of regions for dropdowns / autocomplete.
+    
+    GET /api/customers/geo/regions/?layer=village
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        from customers.models import GeographicRegion
+
+        layer = request.query_params.get('layer', '').strip().lower()
+        qs = GeographicRegion.objects.all()
+        if layer in ('district', 'taluka', 'village'):
+            qs = qs.filter(layer=layer)
+
+        data = list(qs.values('id', 'name', 'layer').order_by('name'))
+        return Response(data)
+

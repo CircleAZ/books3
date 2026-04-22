@@ -3,6 +3,19 @@
 # Login: admin / admin
 
 services:
+  db:
+    image: postgis/postgis:15-3.3-alpine
+    container_name: azbooks-db
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=azbooks
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    restart: unless-stopped
+
   backend:
     build: .
     container_name: azbooks-backend
@@ -11,12 +24,14 @@ services:
     volumes:
       - .:/app                    # Live reload — edit files on host, see changes instantly
       - /app/venv                 # Exclude host venv
-      - sqlite-data:/app/data     # Persist SQLite DB across rebuilds
     environment:
       - DEBUG=True
       - SECRET_KEY=docker-dev-key-change-in-production
       - ALLOWED_HOSTS=localhost,127.0.0.1,0.0.0.0,backend
       - CORS_ALLOWED_ORIGINS=http://localhost:5173,http://127.0.0.1:5173,http://localhost:3000
+      - DATABASE_URL=postgis://postgres:postgres@db:5432/azbooks
+    depends_on:
+      - db
     restart: unless-stopped
 
   frontend:
@@ -34,4 +49,4 @@ services:
     restart: unless-stopped
 
 volumes:
-  sqlite-data:
+  postgres-data:
