@@ -12,27 +12,35 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        # ── Remove legacy Address fields ──
-        migrations.RemoveField(
-            model_name='address',
-            name='latitude',
-        ),
-        migrations.RemoveField(
-            model_name='address',
-            name='longitude',
-        ),
-        migrations.RemoveField(
-            model_name='address',
-            name='village',
-        ),
-
-        # ── Remove legacy TargetVillage fields ──
-        migrations.RemoveField(
-            model_name='targetvillage',
-            name='latitude',
-        ),
-        migrations.RemoveField(
-            model_name='targetvillage',
-            name='longitude',
-        ),
+        migrations.SeparateDatabaseAndState(
+            database_operations=[
+                migrations.RunSQL(
+                    "ALTER TABLE customers_address DROP COLUMN IF EXISTS latitude;",
+                    reverse_sql=migrations.RunSQL.noop
+                ),
+                migrations.RunSQL(
+                    "ALTER TABLE customers_address DROP COLUMN IF EXISTS longitude;",
+                    reverse_sql=migrations.RunSQL.noop
+                ),
+                migrations.RunSQL(
+                    "ALTER TABLE customers_address DROP COLUMN IF EXISTS village;",
+                    reverse_sql=migrations.RunSQL.noop
+                ),
+                migrations.RunSQL(
+                    "ALTER TABLE customers_targetvillage DROP COLUMN IF EXISTS latitude;",
+                    reverse_sql=migrations.RunSQL.noop
+                ),
+                migrations.RunSQL(
+                    "ALTER TABLE customers_targetvillage DROP COLUMN IF EXISTS longitude;",
+                    reverse_sql=migrations.RunSQL.noop
+                ),
+            ],
+            state_operations=[
+                migrations.RemoveField(model_name='address', name='latitude'),
+                migrations.RemoveField(model_name='address', name='longitude'),
+                migrations.RemoveField(model_name='address', name='village'),
+                migrations.RemoveField(model_name='targetvillage', name='latitude'),
+                migrations.RemoveField(model_name='targetvillage', name='longitude'),
+            ]
+        )
     ]
