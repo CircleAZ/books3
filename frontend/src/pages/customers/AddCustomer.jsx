@@ -163,6 +163,9 @@ export default function AddCustomer({ onSuccess, onCancel, isEmbedded = false })
                             subdivision: data.subdivision?.id || '',
                             customer_group: data.customer_group?.id || '',
                             notes: data.notes || '',
+                            class_name: data.class_name || '',
+                            division_name: data.division_name || '',
+                            subdivision_name: data.subdivision_name || '',
                             village: primaryAddr.village || '',
                             faliya: primaryAddr.faliya || '',
                             address_line: primaryAddr.address_line || '',
@@ -175,6 +178,11 @@ export default function AddCustomer({ onSuccess, onCancel, isEmbedded = false })
                         setAddressId(primaryAddr.id || null);
                         setFormData(customerData);
                         setInitialFormData(customerData);
+
+                        // Restore independent class toggle from server data
+                        if (!data.school && (data.class_name || data.division_name || data.subdivision_name)) {
+                            setIndependentClass(true);
+                        }
 
                         // Load existing links for edit mode
                         if (data.links && data.links.length > 0) {
@@ -655,7 +663,7 @@ export default function AddCustomer({ onSuccess, onCancel, isEmbedded = false })
                                         if (e.target.checked) {
                                             setFormData(prev => ({ ...prev, school: '', class_obj: '', division: '', subdivision: '' }));
                                         } else {
-                                            setFormData(prev => ({ ...prev, class_name: '' }));
+                                            setFormData(prev => ({ ...prev, class_name: '', division_name: '', subdivision_name: '' }));
                                         }
                                     }}
                                 />
