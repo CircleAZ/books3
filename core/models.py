@@ -144,20 +144,24 @@ class DisplayIDMixin(models.Model):
     def generate_display_id(self):
         """
         Generate the next display ID for this model.
-        Uses SELECT FOR UPDATE to handle race conditions.
+        Uses explicit table lock on PostgreSQL to handle race conditions.
         Should be called in save() method of consuming model.
         """
         if self.display_id is not None:
             return  # Already has a display ID
         
-        from django.db import transaction
+        from django.db import transaction, connection
         
         with transaction.atomic():
-            # Get the model class
             model_class = self.__class__
             
-            # Lock and get max display_id
-            max_id = model_class.objects.select_for_update().aggregate(
+            # Lock the table exclusively on PostgreSQL to prevent concurrent max() aggregation
+            if connection.vendor == 'postgresql':
+                with connection.cursor() as cursor:
+                    cursor.execute(f'LOCK TABLE "{model_class._meta.db_table}" IN EXCLUSIVE MODE')
+            
+            # Now safely calculate max
+            max_id = model_class.objects.aggregate(
                 max_id=models.Max('display_id')
             )['max_id']
             
