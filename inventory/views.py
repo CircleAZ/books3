@@ -204,6 +204,8 @@ class ProductViewSet(viewsets.ModelViewSet):
         return Response({
             "message": f"Purge complete. Mutilated {success} images. Skipped {skipped} already-optimized images. Total: {total}"
         })
+
+
 class StockAdjustmentViewSet(viewsets.ModelViewSet):
     queryset = StockAdjustment.objects.all().order_by('-created_at')
     serializer_class = StockAdjustmentSerializer
