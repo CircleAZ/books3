@@ -93,10 +93,40 @@ class ProductImage(UUIDPrimaryKeyModel):
     is_primary = models.BooleanField(default=False)
 
     def save(self, *args, **kwargs):
-        # Only process if image exists and thumbnail is missing (meaning it's a new upload or unprocessed)
-        if self.image and not self.thumbnail:
-            self._process_images()
+        # Determine if this is a new upload that needs optimization
+        # Skip when update_fields is specified (targeted DB writes from background thread or migrations)
+        update_fields = kwargs.get('update_fields')
+        needs_processing = bool(
+            self.image
+            and not self.thumbnail
+            and update_fields is None
+        )
+
+        # Save the original immediately — user gets instant response
         super().save(*args, **kwargs)
+
+        # Process in background thread — no blocking the HTTP response
+        if needs_processing and self.pk:
+            import threading
+
+            pk = self.pk
+
+            def _background_optimize():
+                from django.db import connection
+                try:
+                    instance = ProductImage.objects.get(pk=pk)
+                    instance._process_images()
+                    # Use .update() to avoid re-triggering save()
+                    ProductImage.objects.filter(pk=pk).update(
+                        image=instance.image.name,
+                        thumbnail=instance.thumbnail.name,
+                    )
+                except Exception as e:
+                    print(f"[BG] Image optimization failed for {pk}: {e}")
+                finally:
+                    connection.close()
+
+            threading.Thread(target=_background_optimize, daemon=True).start()
 
     def _process_images(self):
         try:
