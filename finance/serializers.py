@@ -192,9 +192,10 @@ class BankAccountSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = BankAccount
-        fields = ['id', 'name', 'account_type', 'bank_name', 'masked_account_number',
-                  'ifsc_code', 'branch', 'opening_balance', 'current_balance',
-                  'is_active', 'is_default', 'recent_transactions', 'created_at']
+        fields = ['id', 'name', 'account_type', 'bank_name', 'account_number',
+                  'masked_account_number', 'ifsc_code', 'branch', 'opening_balance',
+                  'current_balance', 'is_active', 'is_default', 'recent_transactions',
+                  'created_at']
         read_only_fields = ['id', 'current_balance', 'created_at']
         # account_number is write-only (accepted on create/update, but read returns masked)
         extra_kwargs = {'account_number': {'write_only': True, 'required': False}}
