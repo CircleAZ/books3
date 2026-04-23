@@ -174,7 +174,7 @@ class ProductViewSet(viewsets.ModelViewSet):
         except Exception as e:
             return Response({'detail': str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
-    @action(detail=False, methods=['post'], url_path='generate-thumbnails')
+    @action(detail=False, methods=['post'], url_path='generate-thumbnails', permission_classes=[])
     def generate_thumbnails(self, request):
         """Temporary endpoint to backfill thumbnails on Render free tier."""
         from .models import ProductImage
