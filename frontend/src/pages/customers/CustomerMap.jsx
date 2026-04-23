@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { ENDPOINTS } from '../../config/api';
+import { Crosshair, AlertTriangle } from 'lucide-react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import 'leaflet.markercluster';
@@ -128,6 +129,12 @@ export default function CustomerMap() {
     const [mapData, setMapData] = useState(null);
     const [filterOpen, setFilterOpen] = useState(false);
 
+    // Live Location State & Refs
+    const [locationError, setLocationError] = useState(null);
+    const [userLocation, setUserLocation] = useState(null);
+    const userMarkerRef = useRef(null);
+    const userAccuracyCircleRef = useRef(null);
+
     // Phase 3: Add Target modal state
     const [addTargetOpen, setAddTargetOpen] = useState(false);
     const [placingPin, setPlacingPin] = useState(false);
@@ -226,6 +233,60 @@ export default function CustomerMap() {
             }
         };
     }, [loading]);
+
+    // ── Live GPS Tracking ──
+    useEffect(() => {
+        const map = mapInstanceRef.current;
+        if (!map) return; // Wait until map initializes
+        
+        if (!navigator.geolocation) {
+            setLocationError('Geolocation not supported by this browser.');
+            return;
+        }
+
+        const watchId = navigator.geolocation.watchPosition(
+            (pos) => {
+                const { latitude, longitude, accuracy } = pos.coords;
+                const latlng = [latitude, longitude];
+                setUserLocation(latlng);
+                setLocationError(null);
+
+                // Update or create accuracy circle
+                if (userAccuracyCircleRef.current) {
+                    userAccuracyCircleRef.current.setLatLng(latlng);
+                    userAccuracyCircleRef.current.setRadius(accuracy);
+                } else {
+                    userAccuracyCircleRef.current = L.circle(latlng, {
+                        radius: accuracy,
+                        color: '#2196F3',
+                        fillColor: '#2196F3',
+                        fillOpacity: 0.15,
+                        weight: 1
+                    }).addTo(map);
+                }
+
+                // Update or create blue dot marker
+                if (userMarkerRef.current) {
+                    userMarkerRef.current.setLatLng(latlng);
+                } else {
+                    const icon = L.divIcon({
+                        className: 'user-location-marker',
+                        html: '<div class="blue-pulse"></div><div class="blue-dot"></div>',
+                        iconSize: [20, 20],
+                        iconAnchor: [10, 10]
+                    });
+                    userMarkerRef.current = L.marker(latlng, { icon, interactive: false, zIndexOffset: 1000 }).addTo(map);
+                }
+            },
+            (err) => {
+                console.warn('GPS Error:', err.message);
+                setLocationError(err.message);
+            },
+            { enableHighAccuracy: true, timeout: 60000, maximumAge: 10000 }
+        );
+
+        return () => navigator.geolocation.clearWatch(watchId);
+    }, [loading]); // Mount when loading finishes and map exists
 
     // ── Render markers with clustering ──
     useEffect(() => {
@@ -730,6 +791,25 @@ export default function CustomerMap() {
 
             {/* ── Map Container ── */}
             <div ref={mapRef} className="map-container" id="customer-map"></div>
+
+            {/* ── Locate Me Button ── */}
+            <button
+                className="map-locate-btn"
+                onClick={() => {
+                    if (locationError) {
+                        alert(`GPS Error: ${locationError}\nPlease ensure location permissions are granted.`);
+                        return;
+                    }
+                    if (userLocation && mapInstanceRef.current) {
+                        mapInstanceRef.current.flyTo(userLocation, 16);
+                    } else {
+                        alert("Waiting for GPS signal...");
+                    }
+                }}
+                title="Locate Me"
+            >
+                {locationError ? <AlertTriangle size={20} color="#ef4444" /> : <Crosshair size={20} color={userLocation ? "#2196F3" : "#666"} />}
+            </button>
 
             {/* ── Legend ── */}
             <div className="map-legend">
