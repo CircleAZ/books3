@@ -33,7 +33,7 @@ export default function StockControl() {
             const response = await fetchWithAuth(`${ENDPOINTS.INVENTORY_PRODUCTS}low_stock/`);
             if (response.ok) {
                 const data = await response.json();
-                setLowStockItems(data.results || []);
+                setLowStockItems(data.results || data || []);
             }
         } catch (error) {
             console.error('Error fetching low stock:', error);
@@ -63,7 +63,7 @@ export default function StockControl() {
             const response = await fetchWithAuth(ENDPOINTS.INVENTORY_STOCK_HISTORY);
             if (response.ok) {
                 const data = await response.json();
-                setHistoryItems(data.results || []);
+                setHistoryItems(data.results || data || []);
             }
         } catch (error) {
             console.error('Error fetching history:', error);
@@ -77,7 +77,7 @@ export default function StockControl() {
             const response = await fetchWithAuth(ENDPOINTS.INVENTORY_PRODUCTS);
             if (response.ok) {
                 const data = await response.json();
-                setProducts(data.results || []);
+                setProducts(data.results || data || []);
             }
         } catch (error) {
             console.error('Error fetching products:', error);

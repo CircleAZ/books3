@@ -176,7 +176,7 @@ class ProductViewSet(viewsets.ModelViewSet):
 
 
 class StockAdjustmentViewSet(viewsets.ModelViewSet):
-    queryset = StockAdjustment.objects.all().order_by('-created_at')
+    queryset = StockAdjustment.objects.all().select_related('product', 'created_by').order_by('-created_at')
     serializer_class = StockAdjustmentSerializer
     permission_classes = [HasRequiredPermission]
     required_permission = 'inventory.manage_stock'
@@ -202,7 +202,7 @@ class StockAdjustmentViewSet(viewsets.ModelViewSet):
         )
 
 class StockHistoryViewSet(viewsets.ModelViewSet):
-    queryset = StockHistory.objects.all()
+    queryset = StockHistory.objects.all().select_related('product', 'created_by')
     serializer_class = StockHistorySerializer
     permission_classes = [HasRequiredPermission]
     required_permission = 'inventory.view_products'
