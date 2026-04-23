@@ -344,16 +344,16 @@ class CustomerCreateUpdateSerializer(serializers.ModelSerializer):
         return strip_tags(value) if value else value
     
     def validate(self, data):
-        """Check for duplicate phone numbers."""
+        """Check for duplicate phone numbers (allow up to 5 per family)."""
         phone = data.get('phone')
         if phone:
             qs = Customer.objects.filter(phone=phone)
             if self.instance:
                 qs = qs.exclude(pk=self.instance.pk)
-            existing = qs.first()
-            if existing:
+            
+            if qs.count() >= 5:
                 raise serializers.ValidationError({
-                    'phone': f'A customer with this phone already exists: {existing.full_name} (#{existing.display_id})'
+                    'phone': 'Maximum limit reached: 5 customers already share this phone number.'
                 })
         return data
     
