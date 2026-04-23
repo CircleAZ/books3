@@ -214,22 +214,19 @@ class ProductCreateUpdateSerializer(serializers.ModelSerializer):
                 tag, _ = Tag.objects.get_or_create(name=tag_name)
                 instance.tags.add(tag)
 
-        # Update images if provided (replace all)
+        # Append new images (don't destroy existing ones — use remove_image endpoint for individual deletion)
         if images_data is not None:
-            instance.images.all().delete()
+            existing_count = instance.images.count()
             try:
                 for i, image_data in enumerate(images_data):
                     ProductImage.objects.create(
                         product=instance,
                         image=image_data,
-                        is_primary=(i == 0)
+                        is_primary=(existing_count == 0 and i == 0)
                     )
             except Exception as e:
                 import traceback
                 print(f"S3 Upload Error: {str(e)}")
-                # Return the explicit Cloudflare API error to the client instead of a blind 500 error
-                from rest_framework.response import Response
-                from rest_framework import status
                 from rest_framework.serializers import ValidationError
                 raise ValidationError({"images": f"Storage Error: {str(e)}"})
 
