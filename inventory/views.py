@@ -174,9 +174,36 @@ class ProductViewSet(viewsets.ModelViewSet):
         except Exception as e:
             return Response({'detail': str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
-
-
-
+    @action(detail=False, methods=['post'], url_path='retroactive-purge')
+    def retroactive_purge(self, request):
+        """Irreversible purge: compresses all original images to 1500x1500 WebP and destroys the originals."""
+        # Enforce superuser or strict permissions to prevent accidental destruction
+        if not request.user.is_superuser:
+            return Response({'detail': 'Only superusers can trigger a destructive purge.'}, status=status.HTTP_403_FORBIDDEN)
+            
+        from .models import ProductImage
+        images = ProductImage.objects.all()
+        total = images.count()
+        success = 0
+        skipped = 0
+        
+        for img in images:
+            try:
+                # If image ends with _opt.webp, it's already purged
+                if img.image and img.image.name and not img.image.name.endswith('_opt.webp'):
+                    img._process_images()
+                    # _process_images saves the files to disk but doesn't call model.save()
+                    # so we must save the model fields.
+                    img.save(update_fields=['image', 'thumbnail'])
+                    success += 1
+                else:
+                    skipped += 1
+            except Exception as e:
+                pass
+                
+        return Response({
+            "message": f"Purge complete. Mutilated {success} images. Skipped {skipped} already-optimized images. Total: {total}"
+        })
 class StockAdjustmentViewSet(viewsets.ModelViewSet):
     queryset = StockAdjustment.objects.all().order_by('-created_at')
     serializer_class = StockAdjustmentSerializer

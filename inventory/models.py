@@ -2,7 +2,7 @@ from django.db import models, transaction
 from django.conf import settings
 from core.models import SoftDeleteModel, UUIDPrimaryKeyModel, DisplayIDMixin
 from io import BytesIO
-from PIL import Image
+from PIL import Image, ImageOps
 from django.core.files.base import ContentFile
 import os
 
@@ -93,31 +93,57 @@ class ProductImage(UUIDPrimaryKeyModel):
     is_primary = models.BooleanField(default=False)
 
     def save(self, *args, **kwargs):
+        # Only process if image exists and thumbnail is missing (meaning it's a new upload or unprocessed)
         if self.image and not self.thumbnail:
-            self._generate_thumbnail()
+            self._process_images()
         super().save(*args, **kwargs)
 
-    def _generate_thumbnail(self):
+    def _process_images(self):
         try:
             # S3/Boto3 compatible way to read the image file
             self.image.file.seek(0)
             img = Image.open(self.image.file)
             
+            # 1. Destructive EXIF extraction & rotation (Frontera Requirement 1)
+            img = ImageOps.exif_transpose(img)
+            
             if img.mode not in ('L', 'RGB', 'RGBA'):
                 img = img.convert('RGBA')
-            img.thumbnail((150, 150), Image.Resampling.LANCZOS)
             
+            # 2. Force WebP format (Frontera Requirement 2)
+            img_format = 'WebP'
+            
+            # Generate max 1500x1500 main image
+            main_img = img.copy()
+            main_img.thumbnail((1500, 1500), Image.Resampling.LANCZOS)
+            main_io = BytesIO()
+            main_img.save(main_io, format=img_format, quality=85)
+            
+            # Generate max 150x150 thumbnail
+            thumb_img = img.copy()
+            thumb_img.thumbnail((150, 150), Image.Resampling.LANCZOS)
             thumb_io = BytesIO()
-            img_format = 'WebP' if img.mode == 'RGBA' else 'JPEG'
-            img.save(thumb_io, format=img_format, quality=85)
+            thumb_img.save(thumb_io, format=img_format, quality=85)
             
             filename = os.path.basename(self.image.name)
             name, _ = os.path.splitext(filename)
-            thumb_filename = f"{name}_thumb.{img_format.lower()}"
+            main_filename = f"{name}_opt.webp"
+            thumb_filename = f"{name}_thumb.webp"
             
+            # 3. Destructive deletion of original (Frontera Requirement 4)
+            is_existing = self.pk is not None
+            old_name = self.image.name if is_existing else None
+            
+            # This immediately writes the new files to storage
+            self.image.save(main_filename, ContentFile(main_io.getvalue()), save=False)
             self.thumbnail.save(thumb_filename, ContentFile(thumb_io.getvalue()), save=False)
+            
+            # Obliterate the old high-res file from disk if we replaced it
+            if is_existing and old_name and old_name != self.image.name:
+                 self.image.storage.delete(old_name)
+                 
         except Exception as e:
-            print(f"Thumbnail generation error: {e}")
+            print(f"Image processing error: {e}")
 
     def __str__(self):
         return f"Image for {self.product.name}"
