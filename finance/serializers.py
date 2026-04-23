@@ -215,6 +215,13 @@ class BankAccountSerializer(serializers.ModelSerializer):
     def validate_bank_name(self, value):
         return _sanitize(value)
 
+    def update(self, instance, validated_data):
+        # If account_number is blank on edit, keep the existing value
+        # (frontend can't pre-fill it since it's write-only)
+        if 'account_number' in validated_data and not validated_data['account_number']:
+            validated_data.pop('account_number')
+        return super().update(instance, validated_data)
+
     def to_representation(self, instance):
         data = super().to_representation(instance)
         request = self.context.get('request')

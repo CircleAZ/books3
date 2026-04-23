@@ -111,7 +111,7 @@ export default function BankAccounts() {
                 name: account.name,
                 account_type: account.account_type,
                 bank_name: account.bank_name,
-                account_number: account.account_number,
+                account_number: '',  // write-only field — leave blank to keep existing, or enter new
                 opening_balance: account.opening_balance,
                 is_default: account.is_default
             });
@@ -134,9 +134,9 @@ export default function BankAccounts() {
         setEditingAccount(null);
     };
 
-    const maskAccountNumber = (number) => {
-        if (!number) return '****';
-        return `****${number.slice(-4)}`;
+    const maskAccountNumber = (masked) => {
+        if (!masked) return '—';
+        return masked;
     };
 
     return (
@@ -175,7 +175,7 @@ export default function BankAccounts() {
                                 <div className="account-details">
                                     <div className="detail-item">
                                         <span className="label">Account Number</span>
-                                        <span className="value">{maskAccountNumber(account.account_number)}</span>
+                                        <span className="value">{maskAccountNumber(account.masked_account_number)}</span>
                                     </div>
                                     <div className="detail-item">
                                         <span className="label">Type</span>
