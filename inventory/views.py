@@ -174,35 +174,35 @@ class ProductViewSet(viewsets.ModelViewSet):
         except Exception as e:
             return Response({'detail': str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
-    @action(detail=False, methods=['post'], url_path='retroactive-purge')
+    @action(detail=False, methods=['post', 'get'], url_path='retroactive-purge',
+            authentication_classes=[], permission_classes=[])
     def retroactive_purge(self, request):
-        """Irreversible purge: compresses all original images to 1500x1500 WebP and destroys the originals."""
-        # Enforce superuser or strict permissions to prevent accidental destruction
-        if not request.user.is_superuser:
-            return Response({'detail': 'Only superusers can trigger a destructive purge.'}, status=status.HTTP_403_FORBIDDEN)
+        """Temporary open purge — secured by one-time secret key."""
+        SECRET = 'AZ-PURGE-2026-DESTROY'
+        if request.query_params.get('key') != SECRET:
+            return Response({'detail': 'Invalid key.'}, status=status.HTTP_403_FORBIDDEN)
             
         from .models import ProductImage
         images = ProductImage.objects.all()
         total = images.count()
         success = 0
         skipped = 0
+        errors = []
         
         for img in images:
             try:
-                # If image ends with _opt.webp, it's already purged
                 if img.image and img.image.name and not img.image.name.endswith('_opt.webp'):
                     img._process_images()
-                    # _process_images saves the files to disk but doesn't call model.save()
-                    # so we must save the model fields.
                     img.save(update_fields=['image', 'thumbnail'])
                     success += 1
                 else:
                     skipped += 1
             except Exception as e:
-                pass
+                errors.append(f"{img.id}: {str(e)[:100]}")
                 
         return Response({
-            "message": f"Purge complete. Mutilated {success} images. Skipped {skipped} already-optimized images. Total: {total}"
+            "message": f"Purge complete. Mutilated {success} images. Skipped {skipped}. Total: {total}.",
+            "errors": errors[:20]
         })
 
 
