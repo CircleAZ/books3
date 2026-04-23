@@ -177,8 +177,8 @@ const MapComponent = ({ position, onLocationSelect, height = '300px', readonly =
             },
             {
                 enableHighAccuracy: true,
-                timeout: 10000,
-                maximumAge: 5000
+                timeout: 60000, // 60 seconds to allow mobile GPS cold start
+                maximumAge: 10000 // 10 seconds cache to speed up initial lock
             }
         );
 
