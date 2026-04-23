@@ -1,6 +1,10 @@
 from django.db import models, transaction
 from django.conf import settings
 from core.models import SoftDeleteModel, UUIDPrimaryKeyModel, DisplayIDMixin
+from io import BytesIO
+from PIL import Image
+from django.core.files.base import ContentFile
+import os
 
 
 class Category(DisplayIDMixin, SoftDeleteModel):
@@ -85,7 +89,35 @@ class Product(DisplayIDMixin, SoftDeleteModel):
 class ProductImage(UUIDPrimaryKeyModel):
     product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name='images')
     image = models.ImageField(upload_to='products/')
+    thumbnail = models.ImageField(upload_to='products/thumbnails/', blank=True, null=True)
     is_primary = models.BooleanField(default=False)
+
+    def save(self, *args, **kwargs):
+        if self.image and not self.thumbnail:
+            self._generate_thumbnail()
+        super().save(*args, **kwargs)
+
+    def _generate_thumbnail(self):
+        try:
+            # S3/Boto3 compatible way to read the image file
+            self.image.file.seek(0)
+            img = Image.open(self.image.file)
+            
+            if img.mode not in ('L', 'RGB', 'RGBA'):
+                img = img.convert('RGBA')
+            img.thumbnail((150, 150), Image.Resampling.LANCZOS)
+            
+            thumb_io = BytesIO()
+            img_format = 'WebP' if img.mode == 'RGBA' else 'JPEG'
+            img.save(thumb_io, format=img_format, quality=85)
+            
+            filename = os.path.basename(self.image.name)
+            name, _ = os.path.splitext(filename)
+            thumb_filename = f"{name}_thumb.{img_format.lower()}"
+            
+            self.thumbnail.save(thumb_filename, ContentFile(thumb_io.getvalue()), save=False)
+        except Exception as e:
+            print(f"Thumbnail generation error: {e}")
 
     def __str__(self):
         return f"Image for {self.product.name}"

@@ -109,6 +109,8 @@ class ProductListSerializer(serializers.ModelSerializer):
         target_image = primary if primary else images[0]
         
         try:
+            if target_image.thumbnail:
+                return target_image.thumbnail.url
             return target_image.image.url
         except ValueError:
             return None
