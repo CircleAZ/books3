@@ -174,6 +174,26 @@ class ProductViewSet(viewsets.ModelViewSet):
         except Exception as e:
             return Response({'detail': str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
+    @action(detail=False, methods=['post'], url_path='generate-thumbnails')
+    def generate_thumbnails(self, request):
+        """Temporary endpoint to backfill thumbnails on Render free tier."""
+        from .models import ProductImage
+        images = ProductImage.objects.filter(thumbnail='') | ProductImage.objects.filter(thumbnail__isnull=True)
+        total = images.count()
+        success = 0
+        
+        for img in images:
+            try:
+                img._generate_thumbnail()
+                img.save(update_fields=['thumbnail'])
+                success += 1
+            except Exception as e:
+                pass
+                
+        return Response({
+            "message": f"Generated {success}/{total} thumbnails successfully."
+        })
+
 
 
 class StockAdjustmentViewSet(viewsets.ModelViewSet):
