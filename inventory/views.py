@@ -174,37 +174,6 @@ class ProductViewSet(viewsets.ModelViewSet):
         except Exception as e:
             return Response({'detail': str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
-    @action(detail=False, methods=['post', 'get'], url_path='retroactive-purge',
-            authentication_classes=[], permission_classes=[])
-    def retroactive_purge(self, request):
-        """Temporary open purge — secured by one-time secret key."""
-        SECRET = 'AZ-PURGE-2026-DESTROY'
-        if request.query_params.get('key') != SECRET:
-            return Response({'detail': 'Invalid key.'}, status=status.HTTP_403_FORBIDDEN)
-            
-        from .models import ProductImage
-        images = ProductImage.objects.all()
-        total = images.count()
-        success = 0
-        skipped = 0
-        errors = []
-        
-        for img in images:
-            try:
-                if img.image and img.image.name and not img.image.name.endswith('_opt.webp'):
-                    img._process_images()
-                    img.save(update_fields=['image', 'thumbnail'])
-                    success += 1
-                else:
-                    skipped += 1
-            except Exception as e:
-                errors.append(f"{img.id}: {str(e)[:100]}")
-                
-        return Response({
-            "message": f"Purge complete. Mutilated {success} images. Skipped {skipped}. Total: {total}.",
-            "errors": errors[:20]
-        })
-
 
 class StockAdjustmentViewSet(viewsets.ModelViewSet):
     queryset = StockAdjustment.objects.all().order_by('-created_at')
