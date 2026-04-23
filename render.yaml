@@ -16,7 +16,7 @@ services:
     envVars:
       # ── Core Django ──
       - key: SECRET_KEY
-        generateValue: true    # Each Render instance gets a unique key
+        sync: false  # MUST be set manually and stay stable — generateValue rotates on every deploy, killing all JWT tokens
       - key: DEBUG
         value: "False"
       - key: ALLOWED_HOSTS
