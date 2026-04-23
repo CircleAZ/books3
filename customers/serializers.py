@@ -362,7 +362,10 @@ class CustomerCreateUpdateSerializer(serializers.ModelSerializer):
         customer = Customer.objects.create(**validated_data)
         
         # Create addresses
+        addr_serializer = AddressSerializer()
         for i, addr_data in enumerate(addresses_data):
+            addr_serializer._resolve_village_to_region(addr_data)
+            addr_serializer._resolve_location(addr_data)
             location_tags = addr_data.pop('location_tags', [])
             address = Address.objects.create(customer=customer, is_primary=(i == 0), **addr_data)
             address.location_tags.set(location_tags)
@@ -384,8 +387,11 @@ class CustomerCreateUpdateSerializer(serializers.ModelSerializer):
         if addresses_data is not None:
             existing_ids = set(instance.addresses.values_list('id', flat=True))
             incoming_ids = set()
+            addr_serializer = AddressSerializer()
             
             for i, addr_data in enumerate(addresses_data):
+                addr_serializer._resolve_village_to_region(addr_data)
+                addr_serializer._resolve_location(addr_data)
                 location_tags = addr_data.pop('location_tags', [])
                 addr_id = addr_data.pop('id', None)
                 
