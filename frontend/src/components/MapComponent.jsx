@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import './MapComponent.css';
-import { MapContainer, TileLayer, Marker, useMap, useMapEvents, LayersControl } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Circle, useMap, useMapEvents, LayersControl } from 'react-leaflet';
 import L from 'leaflet';
-import { Maximize, Minimize } from 'lucide-react';
+import { Maximize, Minimize, Crosshair, AlertTriangle } from 'lucide-react';
 
 // Fix for default marker icons in React Leaflet
 import icon from 'leaflet/dist/images/marker-icon.png';
@@ -17,6 +17,14 @@ let DefaultIcon = L.icon({
 });
 
 L.Marker.prototype.options.icon = DefaultIcon;
+
+// Custom DivIcon for the pulsating blue dot (User's live location)
+const userLocationIcon = L.divIcon({
+    className: 'user-location-marker',
+    html: '<div class="blue-dot"></div><div class="blue-pulse"></div>',
+    iconSize: [20, 20],
+    iconAnchor: [10, 10]
+});
 
 // Component to handle map clicks
 function LocationMarker({ position, onLocationSelect, readonly }) {
@@ -41,6 +49,17 @@ function LocationMarker({ position, onLocationSelect, readonly }) {
     );
 }
 
+// Component to handle auto-centering when "Locate Me" is clicked
+function MapCenterer({ userLocation, triggerCenter }) {
+    const map = useMap();
+    useEffect(() => {
+        if (userLocation && triggerCenter > 0) {
+            map.flyTo(userLocation, Math.max(map.getZoom(), 15));
+        }
+    }, [triggerCenter, userLocation, map]); 
+    return null;
+}
+
 function MapResizer({ isFullscreen }) {
     const map = useMap();
     useEffect(() => {
@@ -52,18 +71,28 @@ function MapResizer({ isFullscreen }) {
     return null;
 }
 
-const FullscreenButton = ({ isFullscreen, onClick }) => (
-    <button 
-        type="button"
-        onClick={onClick}
-        className="map-fullscreen-btn"
-        title={isFullscreen ? "Exit Full Screen" : "Full Screen"}
-    >
-        {isFullscreen ? <Minimize size={18} /> : <Maximize size={18} />}
-    </button>
+const MapOverlayButtons = ({ isFullscreen, onToggleFullscreen, onLocateMe, locationError, hasLocation }) => (
+    <>
+        <button 
+            type="button"
+            onClick={onToggleFullscreen}
+            className="map-fullscreen-btn"
+            title={isFullscreen ? "Exit Full Screen" : "Full Screen"}
+        >
+            {isFullscreen ? <Minimize size={18} /> : <Maximize size={18} />}
+        </button>
+        <button 
+            type="button"
+            onClick={onLocateMe}
+            className={`map-locate-btn ${locationError ? 'error' : (hasLocation ? 'tracking' : '')}`}
+            title={locationError ? `GPS Error: ${locationError}` : "Locate Me"}
+        >
+            {locationError ? <AlertTriangle size={18} /> : <Crosshair size={18} />}
+        </button>
+    </>
 );
 
-const MapContent = ({ center, isFullscreen, position, onLocationSelect, readonly }) => (
+const MapContent = ({ center, isFullscreen, position, onLocationSelect, readonly, userLocation, accuracy, centerTrigger }) => (
     <MapContainer
         center={center}
         zoom={11}
@@ -71,6 +100,7 @@ const MapContent = ({ center, isFullscreen, position, onLocationSelect, readonly
         style={{ height: '100%', width: '100%', borderRadius: isFullscreen ? '0' : '8px', zIndex: 0 }}
     >
         <MapResizer isFullscreen={isFullscreen} />
+        <MapCenterer userLocation={userLocation} triggerCenter={centerTrigger} />
         <LayersControl position="bottomright">
             <LayersControl.BaseLayer checked name="Satellite View">
                 <TileLayer
@@ -94,15 +124,78 @@ const MapContent = ({ center, isFullscreen, position, onLocationSelect, readonly
             onLocationSelect={onLocationSelect}
             readonly={readonly}
         />
+        
+        {/* Live User Location Overlay */}
+        {userLocation && (
+            <>
+                <Circle 
+                    center={userLocation} 
+                    radius={accuracy} 
+                    pathOptions={{ color: '#2196F3', fillColor: '#2196F3', fillOpacity: 0.15, weight: 1 }} 
+                />
+                <Marker position={userLocation} icon={userLocationIcon} interactive={false} />
+            </>
+        )}
     </MapContainer>
 );
 
 const MapComponent = ({ position, onLocationSelect, height = '300px', readonly = false }) => {
     const [isFullscreen, setIsFullscreen] = useState(false);
     
+    // Live Location State
+    const [userLocation, setUserLocation] = useState(null);
+    const [accuracy, setAccuracy] = useState(0);
+    const [locationError, setLocationError] = useState(null);
+    const [centerTrigger, setCenterTrigger] = useState(0); // Incremented to trigger flyTo
+    
     // Default center (Navsari/South Gujarat)
     const defaultCenter = [20.81746, 72.88007];
     const center = position || defaultCenter;
+
+    // Watch user's live location
+    useEffect(() => {
+        if (!navigator.geolocation) {
+            // eslint-disable-next-line react-hooks/set-state-in-effect
+            setLocationError('Geolocation not supported by this browser.');
+            return;
+        }
+
+        // UNMOUNTING EXPLANATION:
+        // When the map is closed/removed from screen, the return function below 
+        // calls `clearWatch`. This stops the GPS hardware from actively tracking, 
+        // saving the salesman's battery life.
+        const watchId = navigator.geolocation.watchPosition(
+            (pos) => {
+                const { latitude, longitude, accuracy } = pos.coords;
+                setUserLocation([latitude, longitude]);
+                setAccuracy(accuracy);
+                setLocationError(null);
+            },
+            (err) => {
+                console.warn('GPS Error:', err.message);
+                setLocationError(err.message);
+            },
+            {
+                enableHighAccuracy: true,
+                timeout: 10000,
+                maximumAge: 5000
+            }
+        );
+
+        return () => navigator.geolocation.clearWatch(watchId);
+    }, []);
+
+    const handleLocateMe = () => {
+        if (locationError) {
+            alert(`GPS Error: ${locationError}\nPlease ensure location permissions are granted.`);
+            return;
+        }
+        if (userLocation) {
+            setCenterTrigger(prev => prev + 1);
+        } else {
+            alert("Waiting for GPS signal...");
+        }
+    };
 
     // Lock body scroll when fullscreen
     useEffect(() => {
@@ -126,13 +219,22 @@ const MapComponent = ({ position, onLocationSelect, height = '300px', readonly =
     if (!isFullscreen) {
         return (
             <div style={{ height, width: '100%', position: 'relative' }}>
-                <FullscreenButton isFullscreen={false} onClick={() => setIsFullscreen(true)} />
+                <MapOverlayButtons 
+                    isFullscreen={false} 
+                    onToggleFullscreen={() => setIsFullscreen(true)}
+                    onLocateMe={handleLocateMe}
+                    locationError={locationError}
+                    hasLocation={!!userLocation}
+                />
                 <MapContent
                     center={center}
                     isFullscreen={false}
                     position={position}
                     onLocationSelect={onLocationSelect}
                     readonly={readonly}
+                    userLocation={userLocation}
+                    accuracy={accuracy}
+                    centerTrigger={centerTrigger}
                 />
             </div>
         );
@@ -145,13 +247,22 @@ const MapComponent = ({ position, onLocationSelect, height = '300px', readonly =
             <div style={{ height, width: '100%' }} />
             {createPortal(
                 <div className="map-fullscreen-overlay">
-                    <FullscreenButton isFullscreen={true} onClick={() => setIsFullscreen(false)} />
+                    <MapOverlayButtons 
+                        isFullscreen={true} 
+                        onToggleFullscreen={() => setIsFullscreen(false)}
+                        onLocateMe={handleLocateMe}
+                        locationError={locationError}
+                        hasLocation={!!userLocation}
+                    />
                     <MapContent
                         center={center}
                         isFullscreen={true}
                         position={position}
                         onLocationSelect={onLocationSelect}
                         readonly={readonly}
+                        userLocation={userLocation}
+                        accuracy={accuracy}
+                        centerTrigger={centerTrigger}
                     />
                 </div>,
                 document.body

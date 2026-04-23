@@ -49,3 +49,87 @@
     padding: 8px;
     border-radius: 6px;
 }
+
+/* ── Live GPS Marker ── */
+.user-location-marker {
+    position: relative;
+    width: 20px;
+    height: 20px;
+}
+
+.blue-dot {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 14px;
+    height: 14px;
+    background-color: #2196F3;
+    border-radius: 50%;
+    border: 2px solid white;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.4);
+    z-index: 2;
+}
+
+.blue-pulse {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 14px;
+    height: 14px;
+    background-color: rgba(33, 150, 243, 0.5);
+    border-radius: 50%;
+    z-index: 1;
+    animation: pulse 2s infinite ease-out;
+}
+
+@keyframes pulse {
+    0% {
+        transform: translate(-50%, -50%) scale(1);
+        opacity: 1;
+    }
+    100% {
+        transform: translate(-50%, -50%) scale(4);
+        opacity: 0;
+    }
+}
+
+/* ── Locate Me Button ── */
+.map-locate-btn {
+    position: absolute;
+    top: 50px;
+    right: 10px;
+    z-index: 1000;
+    background: white;
+    border: 2px solid rgba(0, 0, 0, 0.2);
+    border-radius: 4px;
+    padding: 5px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 1px 5px rgba(0,0,0,0.3);
+    transition: background 0.15s;
+    color: #333;
+}
+
+.map-locate-btn:hover {
+    background: #f0f0f0;
+}
+
+.map-locate-btn.tracking {
+    color: #2196F3;
+}
+
+.map-locate-btn.error {
+    color: #f44336;
+}
+
+.map-fullscreen-overlay .map-locate-btn {
+    top: 60px;
+    right: 14px;
+    z-index: 100000;
+    padding: 8px;
+    border-radius: 6px;
+}
