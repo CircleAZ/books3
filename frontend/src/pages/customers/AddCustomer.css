@@ -194,17 +194,24 @@
     background: var(--color-bg-primary);
     /* Slightly darker for content area */
     padding: 0 1.5rem;
-    max-height: 0;
-    overflow: hidden;
-    transition: max-height 0.3s ease-out, padding 0.3s ease;
     opacity: 0;
 }
 
 .section-content.open {
     padding: 1.5rem;
-    max-height: 3000px;
     opacity: 1;
-    overflow: visible;
+    animation: fadeInSection 0.2s ease-out forwards;
+}
+
+@keyframes fadeInSection {
+    from {
+        opacity: 0;
+        transform: translateY(-5px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
 }
 
 .form-grid {
