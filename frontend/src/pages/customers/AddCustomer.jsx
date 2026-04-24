@@ -846,7 +846,18 @@ export default function AddCustomer({ onSuccess, onCancel, isEmbedded = false })
                         <div className="section-content open">
                             <div className="form-grid">
                                 <div className="form-group full-width map-container" style={{ marginBottom: '20px' }}>
-                                    <label>Select Location on Map</label>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                                        <label style={{ margin: 0 }}>Select Location on Map</label>
+                                        <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem', color: 'var(--color-primary)', cursor: 'pointer', margin: 0, fontWeight: 600 }}>
+                                            <input 
+                                                type="checkbox" 
+                                                checked={overrideAddress} 
+                                                onChange={(e) => setOverrideAddress(e.target.checked)} 
+                                                style={{ cursor: 'pointer' }}
+                                            />
+                                            Manual Override (Disable Auto-Fill)
+                                        </label>
+                                    </div>
                                     <MapComponent
                                         position={formData.latitude !== null && formData.longitude !== null ? [formData.latitude, formData.longitude] : null}
                                         onLocationSelect={handleLocationSelect}
@@ -879,18 +890,9 @@ export default function AddCustomer({ onSuccess, onCancel, isEmbedded = false })
                                                     >
                                                         ✕ Remove Pin
                                                     </button>
-                                                </>
+                                                 </>
                                             ) : <div/>}
                                         </div>
-                                        <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem', color: 'var(--color-primary)', cursor: 'pointer', margin: 0, fontWeight: 600 }}>
-                                            <input 
-                                                type="checkbox" 
-                                                checked={overrideAddress} 
-                                                onChange={(e) => setOverrideAddress(e.target.checked)} 
-                                                style={{ cursor: 'pointer' }}
-                                            />
-                                            Manual Override (Disable Auto-Fill)
-                                        </label>
                                     </div>
                                 </div>
 
@@ -914,7 +916,7 @@ export default function AddCustomer({ onSuccess, onCancel, isEmbedded = false })
                                     <label>Pincode</label>
                                     <input type="text" name="pincode" value={formData.pincode} onChange={handleInputChange} disabled={!overrideAddress} style={!overrideAddress ? { backgroundColor: 'var(--color-bg-hover)' } : {}} />
                                 </div>
-                                <div className="form-group full-width">
+                                <div className="form-group">
                                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                                         <label style={{ margin: 0 }}>Location Tags</label>
                                         {!showNewTagInput && (
@@ -961,14 +963,14 @@ export default function AddCustomer({ onSuccess, onCancel, isEmbedded = false })
                                         {locationTags.length === 0 && <small className="text-muted">No tags yet</small>}
                                     </div>
                                 </div>
-                                <div className="form-group full-width">
+                                <div className="form-group">
                                     <label>Home Photo <span className="info-tooltip" title="Visual confirmation for delivery driver">ⓘ</span></label>
                                     {!homePhotoPreview ? (
                                         <div 
                                             style={{
                                                 border: '2px dashed var(--color-border)', 
                                                 borderRadius: '8px', 
-                                                padding: '2rem', 
+                                                padding: '1rem', 
                                                 textAlign: 'center',
                                                 cursor: 'pointer',
                                                 background: 'var(--color-bg-tertiary)'
