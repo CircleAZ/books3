@@ -109,9 +109,11 @@ class ProductListSerializer(serializers.ModelSerializer):
         target_image = primary if primary else images[0]
         
         try:
-            if target_image.thumbnail:
-                return target_image.thumbnail.url
-            return target_image.image.url
+            url = target_image.thumbnail.url if target_image.thumbnail else target_image.image.url
+            request = self.context.get('request')
+            if request:
+                return request.build_absolute_uri(url)
+            return url
         except ValueError:
             return None
 

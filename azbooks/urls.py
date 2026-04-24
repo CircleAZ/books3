@@ -50,7 +50,14 @@ urlpatterns = [
     path('api/core/', include('core.urls')),
 ]
 
-# Serve media files in development
+# Serve media files in development AND fallback for production if R2 is not configured
+# WARNING: Serving media through Django in production is inefficient but required if no R2/S3 is set up.
+from django.urls import re_path
+from django.views.static import serve
+
+urlpatterns += [
+    re_path(r'^media/(?P<path>.*)$', serve, {'document_root': settings.MEDIA_ROOT}),
+]
+
 if settings.DEBUG:
-    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
     urlpatterns += static(settings.STATIC_URL, document_root=settings.STATICFILES_DIRS[0] if settings.STATICFILES_DIRS else settings.STATIC_ROOT)
