@@ -97,6 +97,14 @@ class ProductImage(UUIDPrimaryKeyModel):
         # We simply save the optimized image directly to storage (S3/R2).
         super().save(*args, **kwargs)
 
+    def delete(self, *args, **kwargs):
+        # Explicitly delete the physical files from R2/S3 storage when the database row is deleted
+        if self.image:
+            self.image.delete(save=False)
+        if self.thumbnail:
+            self.thumbnail.delete(save=False)
+        super().delete(*args, **kwargs)
+
     def __str__(self):
         return f"Image for {self.product.name}"
 
