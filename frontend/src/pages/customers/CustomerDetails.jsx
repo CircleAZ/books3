@@ -150,7 +150,7 @@ const CustomerDetails = () => {
         setWithdrawError('');
         setWithdrawForm({ amount: '', destination_wallet: '' });
         try {
-            const res = await fetchWithAuth(ENDPOINTS.FINANCE_WALLETS);
+            const res = await fetchWithAuth(ENDPOINTS.FINANCE_CASH_WALLETS);
             if (res.ok) {
                 const data = await res.json();
                 const active = data.filter(w => w.is_active);
