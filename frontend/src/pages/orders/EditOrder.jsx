@@ -5,6 +5,7 @@ import { useCurrency } from '../../context/CurrencyContext';
 import { ENDPOINTS } from '../../config/api';
 import AddCustomer from '../customers/AddCustomer';
 import { useToast } from '../../context/ToastContext';
+import { useCart } from '../../context/CartContext';
 import '../NewOrder.css'; // Reusing POS styles
 import LoadingSpinner from '../../components/common/LoadingSpinner';
 
@@ -14,6 +15,7 @@ export default function EditOrder() {
     const { fetchWithAuth } = useAuth();
     const { currency } = useCurrency();
     const { showToast } = useToast();
+    const { isDrawerOpen, setIsDrawerOpen, setCartData } = useCart();
 
     // State
     const [originalOrder, setOriginalOrder] = useState(null);
@@ -42,6 +44,41 @@ export default function EditOrder() {
         is_additional: true
     });
     const [isCreatingProduct, setIsCreatingProduct] = useState(false);
+
+    // Drawer panel ref
+    const drawerRef = useRef(null);
+    const isDrawerOpenRef = useRef(isDrawerOpen);
+    isDrawerOpenRef.current = isDrawerOpen;
+
+    const cartLengthRef = useRef(cartItems.length);
+    cartLengthRef.current = cartItems.length;
+
+    // Mobile back-button drawer guard
+    useEffect(() => {
+        const needsGuard = isDrawerOpen;
+        if (!needsGuard) return;
+
+        window.history.pushState({ posGuard: true }, '');
+
+        const onPopState = () => {
+            if (isDrawerOpenRef.current) {
+                setIsDrawerOpen(false);
+                if (drawerRef.current) drawerRef.current.style.transform = '';
+            } else {
+                window.history.back();
+            }
+        };
+
+        window.addEventListener('popstate', onPopState);
+        return () => window.removeEventListener('popstate', onPopState);
+    }, [isDrawerOpen]);
+
+    // Sync cart to BottomNavBar
+    useEffect(() => {
+        // We calculate total inside the render, but we need it here for the effect.
+        // It's safe to just re-calculate or rely on the grandTotal variable below.
+        // To avoid circular dependencies, we'll sync it after grandTotal is computed.
+    }, []); // Handled below
 
     // Fetch Order Data
     useEffect(() => {
@@ -174,6 +211,11 @@ export default function EditOrder() {
 
     const grandTotal = Math.max(0, subtotal - totalDiscount);
 
+    // Sync to global CartContext for BottomNavBar
+    useEffect(() => {
+        setCartData(cartItems, grandTotal);
+    }, [cartItems, grandTotal, setCartData]);
+
     // I-04 fix: Submission lock to prevent duplicate PUT requests
     const isSubmittingRef = useRef(false);
 
@@ -204,6 +246,8 @@ export default function EditOrder() {
 
             if (response.ok) {
                 showToast('Order updated successfully', 'success');
+                setIsDrawerOpen(false);
+                setCartData([], 0); // Clear global cart
                 navigate(`/orders/${id}`);
             } else if (response.status === 409) {
                 showToast('This order was modified by someone else. Please reload and try again.', 'warning');
@@ -305,8 +349,11 @@ export default function EditOrder() {
                 </section>
             </div>
 
+            {/* Cart Drawer Overlay (mobile) */}
+            {isDrawerOpen && <div className="cart-drawer-overlay" onClick={() => setIsDrawerOpen(false)} />}
+
             {/* Right Panel: Cart */}
-            <div className="pos-right-panel">
+            <div className={`pos-right-panel ${isDrawerOpen ? 'drawer-open' : ''}`} ref={drawerRef}>
                 <div className="cart-header">
                     <span>Editing Items ({cartItems.length})</span>
                 </div>
@@ -350,7 +397,18 @@ export default function EditOrder() {
                 </div>
 
                 <div className="pos-actions">
-                    <button className="btn btn-primary btn-full" onClick={handleUpdateOrder} disabled={processing}>
+                    {isDrawerOpen && (
+                        <button
+                            className="btn btn-ghost btn-full"
+                            onClick={() => {
+                                if (drawerRef.current) drawerRef.current.style.transform = '';
+                                setIsDrawerOpen(false);
+                            }}
+                        >
+                            ← Back
+                        </button>
+                    )}
+                    <button className="btn btn-primary btn-full complete-btn" onClick={handleUpdateOrder} disabled={processing}>
                         {processing ? 'Saving...' : 'Save Changes'}
                     </button>
                 </div>
