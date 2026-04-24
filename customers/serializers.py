@@ -388,6 +388,9 @@ class CustomerCreateUpdateSerializer(serializers.ModelSerializer):
         return data
     
     def create(self, validated_data):
+        import logging
+        logger = logging.getLogger(__name__)
+        
         addresses_data = validated_data.pop('addresses', [])
         home_photo = validated_data.pop('home_photo', None)
         customer = Customer.objects.create(**validated_data)
@@ -399,11 +402,30 @@ class CustomerCreateUpdateSerializer(serializers.ModelSerializer):
             addr_serializer._resolve_location(addr_data)
             location_tags = addr_data.pop('location_tags', [])
             
-            # Attach home_photo to the primary (first) address
-            photo_kwargs = {'home_photo': home_photo} if i == 0 and home_photo else {}
-            
-            address = Address.objects.create(customer=customer, is_primary=(i == 0), **addr_data, **photo_kwargs)
+            address = Address.objects.create(
+                customer=customer, is_primary=(i == 0), **addr_data
+            )
             address.location_tags.set(location_tags)
+            
+            # Attach home_photo to the primary (first) address via explicit
+            # field.save() to guarantee the storage backend (R2/S3) is used.
+            # Using objects.create(home_photo=file) can silently fall back to
+            # local FileSystemStorage if the file stream is in an unexpected state.
+            if i == 0 and home_photo:
+                try:
+                    # Ensure file pointer is at start
+                    if hasattr(home_photo, 'seek'):
+                        home_photo.seek(0)
+                    fname = getattr(home_photo, 'name', 'home.webp')
+                    address.home_photo.save(fname, home_photo, save=True)
+                    logger.info(
+                        "Home photo saved: name=%s, storage=%s, url=%s",
+                        fname,
+                        type(address.home_photo.storage).__name__,
+                        address.home_photo.url if address.home_photo else 'N/A'
+                    )
+                except Exception as e:
+                    logger.error("Home photo upload FAILED: %s", e, exc_info=True)
         
         # Create empty wallet
         Wallet.objects.create(customer=customer)
@@ -411,6 +433,9 @@ class CustomerCreateUpdateSerializer(serializers.ModelSerializer):
         return customer
     
     def update(self, instance, validated_data):
+        import logging
+        logger = logging.getLogger(__name__)
+        
         addresses_data = validated_data.pop('addresses', None)
         home_photo = validated_data.pop('home_photo', None)
         
@@ -431,13 +456,10 @@ class CustomerCreateUpdateSerializer(serializers.ModelSerializer):
                 location_tags = addr_data.pop('location_tags', [])
                 addr_id = addr_data.pop('id', None)
                 
-                # Update home_photo only on the primary address, and only if a new photo is provided
-                photo_kwargs = {'home_photo': home_photo} if i == 0 and home_photo else {}
-                
                 if addr_id and addr_id in existing_ids:
                     # Update existing address in place
                     Address.objects.filter(pk=addr_id).update(
-                        is_primary=(i == 0), **addr_data, **photo_kwargs
+                        is_primary=(i == 0), **addr_data
                     )
                     address = Address.objects.get(pk=addr_id)
                     address.location_tags.set(location_tags)
@@ -445,10 +467,26 @@ class CustomerCreateUpdateSerializer(serializers.ModelSerializer):
                 else:
                     # Create new address
                     address = Address.objects.create(
-                        customer=instance, is_primary=(i == 0), **addr_data, **photo_kwargs
+                        customer=instance, is_primary=(i == 0), **addr_data
                     )
                     address.location_tags.set(location_tags)
                     incoming_ids.add(address.pk)
+                
+                # Attach home_photo to the primary (first) address via explicit
+                # field.save() — QuerySet.update() bypasses the storage backend
+                # entirely, writing only the filename without uploading to R2/S3.
+                if i == 0 and home_photo:
+                    try:
+                        if hasattr(home_photo, 'seek'):
+                            home_photo.seek(0)
+                        fname = getattr(home_photo, 'name', 'home.webp')
+                        address.home_photo.save(fname, home_photo, save=True)
+                        logger.info(
+                            "Home photo updated: name=%s, storage=%s",
+                            fname, type(address.home_photo.storage).__name__
+                        )
+                    except Exception as e:
+                        logger.error("Home photo upload FAILED: %s", e, exc_info=True)
             
             # Delete addresses that were removed
             removed = existing_ids - incoming_ids
@@ -458,8 +496,17 @@ class CustomerCreateUpdateSerializer(serializers.ModelSerializer):
             # If no addresses_data was sent but a home_photo was, attach it to the primary address
             primary_addr = instance.addresses.filter(is_primary=True).first()
             if primary_addr:
-                primary_addr.home_photo = home_photo
-                primary_addr.save()
+                try:
+                    if hasattr(home_photo, 'seek'):
+                        home_photo.seek(0)
+                    fname = getattr(home_photo, 'name', 'home.webp')
+                    primary_addr.home_photo.save(fname, home_photo, save=True)
+                    logger.info(
+                        "Home photo updated (standalone): name=%s, storage=%s",
+                        fname, type(primary_addr.home_photo.storage).__name__
+                    )
+                except Exception as e:
+                    logger.error("Home photo upload FAILED: %s", e, exc_info=True)
         
         return instance
 
