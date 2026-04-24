@@ -18,6 +18,11 @@ class PaymentSerializer(serializers.ModelSerializer):
         fields = ['id', 'order', 'method', 'destination_bank', 'destination_wallet', 'amount', 'upi_reference', 'created_at', 'created_by_name']
         read_only_fields = ['id', 'created_at', 'created_by_name']
     
+    def validate_amount(self, value):
+        if value <= 0:
+            raise serializers.ValidationError("Payment amount must be strictly greater than zero.")
+        return value
+    
     def validate(self, data):
         """Prevent overpayment and payment on fully paid orders."""
         order = data.get('order')
