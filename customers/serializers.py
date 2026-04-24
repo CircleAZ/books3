@@ -325,7 +325,11 @@ class CustomerCreateUpdateSerializer(serializers.ModelSerializer):
         if 'addresses' in mutable_data and isinstance(mutable_data['addresses'], str):
             import json
             try:
-                mutable_data['addresses'] = json.loads(mutable_data['addresses'])
+                parsed_addresses = json.loads(mutable_data['addresses'])
+                if hasattr(mutable_data, 'setlist') and isinstance(parsed_addresses, list):
+                    mutable_data.setlist('addresses', parsed_addresses)
+                else:
+                    mutable_data['addresses'] = parsed_addresses
             except json.JSONDecodeError:
                 pass
         return super().to_internal_value(mutable_data)
