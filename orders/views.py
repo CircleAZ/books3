@@ -357,7 +357,17 @@ class OrderViewSet(viewsets.ModelViewSet):
         })
         
         if serializer.is_valid():
-            serializer.save(created_by=request.user)
+            with transaction.atomic():
+                payment = serializer.save(created_by=request.user)
+                from finance.services import LedgerService
+                LedgerService.process_deposit(
+                    amount=payment.amount,
+                    destination_bank=payment.destination_bank,
+                    destination_wallet=payment.destination_wallet,
+                    reference=f"order_{order.display_id}",
+                    description=f"Payment for Order #{order.display_id}",
+                    user=request.user
+                )
             order.refresh_from_db()
             return Response({
                 'payment': serializer.data,
@@ -665,11 +675,23 @@ class ReturnViewSet(viewsets.ModelViewSet):
         
         serializer = RefundSerializer(data=data)
         if serializer.is_valid():
-            refund = serializer.save(created_by=request.user)
-            
-            # Create credit note
-            CreditNote.objects.create(refund=refund)
-            
+            with transaction.atomic():
+                refund = serializer.save(created_by=request.user)
+                
+                # Create credit note
+                CreditNote.objects.create(refund=refund)
+
+                # Process withdrawal
+                from finance.services import LedgerService
+                LedgerService.process_withdrawal(
+                    amount=refund.amount,
+                    source_bank=refund.source_bank,
+                    source_wallet=refund.source_wallet,
+                    reference=f"refund_{return_request.display_id}",
+                    description=f"Refund for Return #{return_request.display_id}",
+                    user=request.user
+                )
+                
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
@@ -684,6 +706,18 @@ class RefundViewSet(viewsets.ModelViewSet):
     filterset_fields = ['order', 'return_request', 'status', 'method']
     
     def perform_create(self, serializer):
-        refund = serializer.save(created_by=self.request.user)
-        # Auto-create credit note
-        CreditNote.objects.create(refund=refund)
+        with transaction.atomic():
+            refund = serializer.save(created_by=self.request.user)
+            # Auto-create credit note
+            CreditNote.objects.create(refund=refund)
+            
+            # Process withdrawal
+            from finance.services import LedgerService
+            LedgerService.process_withdrawal(
+                amount=refund.amount,
+                source_bank=refund.source_bank,
+                source_wallet=refund.source_wallet,
+                reference=f"refund_{refund.order.display_id}",
+                description=f"Refund for Order #{refund.order.display_id}",
+                user=self.request.user
+            )
