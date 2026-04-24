@@ -125,20 +125,20 @@
 
 /* CSS columns masonry — images flow naturally like Scrolller */
 .masonry-gallery {
-    columns: 3;
+    columns: 5;
     column-gap: 10px;
 }
 
 @media (max-width: 768px) {
     .masonry-gallery {
-        columns: 2;
+        columns: 3;
         column-gap: 8px;
     }
 }
 
 @media (max-width: 480px) {
     .masonry-gallery {
-        columns: 1;
+        columns: 2;
     }
 }
 
