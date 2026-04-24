@@ -509,8 +509,8 @@ export default function AddCustomer({ onSuccess, onCancel, isEmbedded = false })
             addresses: []
         };
 
-        // Add address if relevant fields are present
-        if (formData.village || formData.address_line || formData.pincode || formData.latitude !== null || formData.location_tags.length > 0) {
+        // Add address if relevant fields are present, OR if a home photo was captured
+        if (formData.village || formData.address_line || formData.pincode || formData.latitude !== null || formData.location_tags.length > 0 || homePhoto) {
             const addrPayload = {
                 village: formData.village,
                 faliya: formData.faliya,

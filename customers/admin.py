@@ -5,7 +5,7 @@ from .models import Customer, Address, CustomerLink, Wallet, WalletTransaction, 
 class AddressInline(admin.TabularInline):
     model = Address
     extra = 0
-    fields = ('region', 'faliya', 'address_line', 'pincode', 'is_primary')
+    fields = ('region', 'faliya', 'address_line', 'pincode', 'is_primary', 'home_photo')
 
 class WalletInline(admin.StackedInline):
     model = Wallet
