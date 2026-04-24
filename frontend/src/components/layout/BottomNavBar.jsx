@@ -63,13 +63,13 @@ export default function BottomNavBar({ hidden = false }) {
 
     if (hidden) return null;
 
-    const isOnNewOrder = location.pathname === '/orders/new';
+    const isCartPage = location.pathname === '/orders/new' || (location.pathname.startsWith('/orders/') && location.pathname.endsWith('/edit'));
 
     return (
         <nav className="bottom-nav" role="navigation" aria-label="Bottom navigation">
             {navItems.map(item => {
-                // When on New Order page, replace center button with cart button
-                if (item.isMain && isOnNewOrder) {
+                // When on New/Edit Order page, replace center button with cart button
+                if (item.isMain && isCartPage) {
                     return (
                         <button
                             key={item.path}
