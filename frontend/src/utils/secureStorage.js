@@ -19,6 +19,11 @@ export const secureStorage = {
             // Obfuscate: btoa(SALT + value)
             const obfsValue = btoa(unescape(encodeURIComponent(SALT + strValue)));
             localStorage.setItem(actualKey, obfsValue);
+            
+            // Wipe legacy un-obfuscated key if it still exists
+            if (actualKey !== key) {
+                localStorage.removeItem(key);
+            }
         } catch (e) {
             console.error('Storage set error', e);
         }
