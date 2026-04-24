@@ -266,8 +266,29 @@ export default function OrderDetails() {
                 const upiObj = upiAccounts.find(u => u.upi_id === paymentForm.upi_account);
                 resolved_destination_bank = upiObj ? upiObj.linked_bank_account : null;
             } else if (!isCash) {
-                const methodObj = availablePaymentMethods.find(m => m.type === paymentForm.method);
-                resolved_destination_bank = methodObj ? methodObj.linked_bank_account : null;
+                if (paymentForm.method !== 'Customer Wallet') {
+                    const methodObj = availablePaymentMethods.find(m => m.type === paymentForm.method);
+                    resolved_destination_bank = methodObj ? methodObj.linked_bank_account : null;
+                    
+                    if (isUpiMethod(paymentForm.method)) {
+                        if (!paymentForm.upi_account) {
+                            setPaymentError('Please select a Store UPI Account to receive the payment.');
+                            return;
+                        }
+                    } else if (paymentForm.method.toLowerCase().includes('cash')) {
+                        if (!paymentForm.destination_wallet) {
+                            setPaymentError('Please select a destination cash wallet.');
+                            return;
+                        }
+                    }
+                } else {
+                    // Customer Wallet Payment
+                    const amount = parseFloat(paymentForm.amount);
+                    if (amount > parseFloat(order.customer_wallet_balance)) {
+                        setPaymentError(`Insufficient Wallet Balance (${currency}${Number(order.customer_wallet_balance).toFixed(2)})`);
+                        return;
+                    }
+                }
             }
 
             const response = await fetchWithAuth(`${ENDPOINTS.ORDERS}${id}/add_payment/`, {
@@ -292,6 +313,25 @@ export default function OrderDetails() {
             console.error('Error recording payment:', err);
         } finally {
             setPaymentSubmitting(false);
+        }
+    };
+
+    const handleSweepChangeToWallet = async () => {
+        if (!window.confirm(`Are you sure you want to sweep ₹${order.change_due} into the customer's wallet instead of returning physical cash?`)) return;
+        
+        try {
+            const response = await fetchWithAuth(`${ENDPOINTS.ORDERS}${id}/add_change_to_wallet/`, {
+                method: 'POST'
+            });
+            if (response.ok) {
+                fetchOrderDetails(); 
+            } else {
+                const err = await response.json();
+                alert(`Error: ${err.error || 'Failed to sweep change to wallet'}`);
+            }
+        } catch (error) {
+            console.error("Error sweeping change to wallet:", error);
+            alert("Failed to sweep change to wallet");
         }
     };
 
@@ -712,9 +752,18 @@ export default function OrderDetails() {
                             </span>
                         </div>
                         {order.change_due > 0 && (
-                            <div className="summary-row" style={{ color: 'var(--color-primary-light)', fontWeight: 600 }}>
-                                <span>Change Due</span>
-                                <span>{currency}{Number(order.change_due).toFixed(2)}</span>
+                            <div className="summary-row" style={{ color: 'var(--color-primary-light)', fontWeight: 600, flexDirection: 'column', alignItems: 'flex-start', gap: '8px' }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%' }}>
+                                    <span>Change Due</span>
+                                    <span>{currency}{Number(order.change_due).toFixed(2)}</span>
+                                </div>
+                                <button 
+                                    className="btn btn-secondary btn-sm" 
+                                    style={{ width: '100%', padding: '4px' }}
+                                    onClick={handleSweepChangeToWallet}
+                                >
+                                    Add Change to Wallet
+                                </button>
                             </div>
                         )}
                     </div>
@@ -821,19 +870,31 @@ export default function OrderDetails() {
                                 >
                                     <option value="">-- Select Method --</option>
                                     {availablePaymentMethods.length > 0 ? (
-                                        availablePaymentMethods.map(method => (
-                                            <option key={method.id} value={method.type}>{method.type}</option>
-                                        ))
+                                        <>
+                                            {availablePaymentMethods.map(method => (
+                                                <option key={method.id} value={method.type}>{method.type}</option>
+                                            ))}
+                                            {order.customer_wallet_balance > 0 && (
+                                                <option value="Customer Wallet">
+                                                    Customer Wallet (Bal: {currency}{Number(order.customer_wallet_balance).toFixed(2)})
+                                                </option>
+                                            )}
+                                        </>
                                     ) : (
                                         <>
                                             <option value="Cash">Cash</option>
                                             <option value="UPI">UPI</option>
+                                            {order.customer_wallet_balance > 0 && (
+                                                <option value="Customer Wallet">
+                                                    Customer Wallet (Bal: {currency}{Number(order.customer_wallet_balance).toFixed(2)})
+                                                </option>
+                                            )}
                                         </>
                                     )}
                                 </select>
                             </div>
 
-                            {(!isUpiMethod(paymentForm.method) && paymentForm.method && paymentForm.method.toLowerCase().includes('cash')) && (
+                            {(!isUpiMethod(paymentForm.method) && paymentForm.method && paymentForm.method.toLowerCase().includes('cash') && paymentForm.method !== 'Customer Wallet') && (
                                 <div className="form-group">
                                     <label>Destination Wallet</label>
                                     <select

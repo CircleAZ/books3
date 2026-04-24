@@ -520,31 +520,41 @@ export default function NewOrder() {
         let destination_bank = null;
         let destination_wallet = null;
         
-        const methodObj = availablePaymentMethods.find(m => m.id === paymentMethod);
-        const typeStr = methodObj ? methodObj.type : paymentMethod;
-        const currentType = (typeStr || '').toLowerCase();
-        const methodDesc = methodObj ? methodObj.type : (currentType === 'cash' ? 'Cash' : 'UPI');
+        let methodDesc = paymentMethod;
 
-        if (currentType.includes('cash') || currentType.includes('legacy')) {
-            destination_wallet = selectedDestination || (availableCashWallets.length > 0 ? availableCashWallets[0].id : null);
-            if (!destination_wallet) {
-                showToast('Error: No active Cash Wallet found. Contact Admin.', 'error');
+        if (paymentMethod === 'Customer Wallet') {
+            const wBal = selectedCustomer ? parseFloat(selectedCustomer.wallet_balance) : 0;
+            if (!selectedCustomer || isNaN(wBal) || wBal < amt) {
+                showToast(`Error: Insufficient wallet balance (₹${wBal.toFixed(2)}).`, 'error');
                 return;
             }
-        } else if (currentType === 'upi') {
-            const upiObj = availableUpiAccounts.find(u => u.upi_id === selectedUpiAccount);
-            if (!upiObj || !upiObj.linked_bank_account) {
-                showToast('Error: Selected UPI Account has no linked bank account. Contact Admin.', 'error');
-                return;
-            }
-            destination_bank = upiObj.linked_bank_account;
         } else {
-            // Card or Bank
-            if (!methodObj || !methodObj.linked_bank_account) {
-                showToast('Error: Selected Payment Method has no linked bank account. Contact Admin.', 'error');
-                return;
+            const methodObj = availablePaymentMethods.find(m => m.id === paymentMethod);
+            const typeStr = methodObj ? methodObj.type : paymentMethod;
+            const currentType = (typeStr || '').toLowerCase();
+            methodDesc = methodObj ? methodObj.type : (currentType === 'cash' ? 'Cash' : 'UPI');
+
+            if (currentType.includes('cash') || currentType.includes('legacy')) {
+                destination_wallet = selectedDestination || (availableCashWallets.length > 0 ? availableCashWallets[0].id : null);
+                if (!destination_wallet) {
+                    showToast('Error: No active Cash Wallet found. Contact Admin.', 'error');
+                    return;
+                }
+            } else if (currentType === 'upi') {
+                const upiObj = availableUpiAccounts.find(u => u.upi_id === selectedUpiAccount);
+                if (!upiObj || !upiObj.linked_bank_account) {
+                    showToast('Error: Selected UPI Account has no linked bank account. Contact Admin.', 'error');
+                    return;
+                }
+                destination_bank = upiObj.linked_bank_account;
+            } else {
+                // Card or Bank
+                if (!methodObj || !methodObj.linked_bank_account) {
+                    showToast('Error: Selected Payment Method has no linked bank account. Contact Admin.', 'error');
+                    return;
+                }
+                destination_bank = methodObj.linked_bank_account;
             }
-            destination_bank = methodObj.linked_bank_account;
         }
 
         setPayments(prev => [...prev, {
@@ -552,7 +562,7 @@ export default function NewOrder() {
             amount: amt,
             destination_bank,
             destination_wallet,
-            upi_reference: currentType === 'upi' ? `QR-PAY-${Date.now()}` : '',
+            upi_reference: paymentMethod === 'Customer Wallet' ? '' : (methodDesc.toLowerCase() === 'upi' ? `QR-PAY-${Date.now()}` : ''),
             timestamp: new Date().toISOString()
         }]);
         setPaymentAmount('');
@@ -1121,15 +1131,27 @@ export default function NewOrder() {
                             onChange={e => setPaymentMethod(e.target.value)}
                         >
                             {availablePaymentMethods.length > 0 ? (
-                                availablePaymentMethods.map(method => (
-                                    <option key={method.id} value={method.id}>
-                                        {method.type}
-                                    </option>
-                                ))
+                                <>
+                                    {availablePaymentMethods.map(method => (
+                                        <option key={method.id} value={method.id}>
+                                            {method.type}
+                                        </option>
+                                    ))}
+                                    {selectedCustomer && parseFloat(selectedCustomer.wallet_balance) > 0 && (
+                                        <option value="Customer Wallet">
+                                            Customer Wallet (Bal: {currency}{parseFloat(selectedCustomer.wallet_balance).toFixed(2)})
+                                        </option>
+                                    )}
+                                </>
                             ) : (
                                 <>
                                     <option value="cash">Cash</option>
                                     <option value="upi">UPI</option>
+                                    {selectedCustomer && parseFloat(selectedCustomer.wallet_balance) > 0 && (
+                                        <option value="Customer Wallet">
+                                            Customer Wallet (Bal: {currency}{parseFloat(selectedCustomer.wallet_balance).toFixed(2)})
+                                        </option>
+                                    )}
                                 </>
                             )}
                         </select>

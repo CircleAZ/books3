@@ -111,12 +111,13 @@ class OrderDetailSerializer(serializers.ModelSerializer):
     can_edit = serializers.BooleanField(read_only=True)
     can_cancel = serializers.BooleanField(read_only=True)
     receipt_uuid = serializers.SerializerMethodField()
+    customer_wallet_balance = serializers.SerializerMethodField()
     
     class Meta:
         model = Order
         fields = [
             'id', 'display_id', 
-            'customer', 'customer_name', 'customer_phone', 'is_guest', 
+            'customer', 'customer_name', 'customer_phone', 'customer_wallet_balance', 'is_guest', 
             'guest_name', 'guest_phone', 'guest_email',
             'order_status', 'payment_status', 'delivery_status',
             'return_status', 'refund_status', 'cancellation_status',
@@ -137,6 +138,11 @@ class OrderDetailSerializer(serializers.ModelSerializer):
         if obj.is_guest:
             return obj.guest_phone or ''
         return obj.customer.phone if obj.customer else ''
+        
+    def get_customer_wallet_balance(self, obj):
+        if obj.customer and hasattr(obj.customer, 'wallet'):
+            return obj.customer.wallet.balance
+        return 0
     
     def get_receipt_uuid(self, obj):
         """Get the order's receipt_uuid."""
@@ -210,15 +216,23 @@ class OrderCreateSerializer(serializers.ModelSerializer):
                 upi_reference=payment_data.get('upi_reference', ''),
                 created_by=validated_data.get('created_by')
             )
-            from finance.services import LedgerService
-            LedgerService.process_deposit(
-                amount=payment.amount,
-                destination_bank=payment.destination_bank,
-                destination_wallet=payment.destination_wallet,
-                reference=f"order_{order.display_id}",
-                description=f"Initial Payment for Order #{order.display_id}",
-                user=validated_data.get('created_by')
-            )
+            if payment.method == 'Customer Wallet':
+                if getattr(order.customer, 'wallet', None):
+                    order.customer.wallet.debit(
+                        payment.amount, 
+                        f"Payment for Order #{order.display_id}", 
+                        user=validated_data.get('created_by')
+                    )
+            else:
+                from finance.services import LedgerService
+                LedgerService.process_deposit(
+                    amount=payment.amount,
+                    destination_bank=payment.destination_bank,
+                    destination_wallet=payment.destination_wallet,
+                    reference=f"order_{order.display_id}",
+                    description=f"Initial Payment for Order #{order.display_id}",
+                    user=validated_data.get('created_by')
+                )
         
         order.calculate_totals()
         order.update_payment_status()

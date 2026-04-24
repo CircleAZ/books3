@@ -26,6 +26,13 @@ const CustomerDetails = () => {
     const [customerSearchResults, setCustomerSearchResults] = useState([]);
     const [linkSearch, setLinkSearch] = useState('');
 
+    // Withdrawal State
+    const [showWithdrawModal, setShowWithdrawModal] = useState(false);
+    const [cashWallets, setCashWallets] = useState([]);
+    const [withdrawForm, setWithdrawForm] = useState({ amount: '', destination_wallet: '' });
+    const [withdrawError, setWithdrawError] = useState('');
+    const [isWithdrawing, setIsWithdrawing] = useState(false);
+
     const fetchData = React.useCallback(async () => {
         setLoading(true);
         try {
@@ -136,6 +143,48 @@ const CustomerDetails = () => {
             await fetchWithAuth(`${ENDPOINTS.CUSTOMERS_LINKS}${linkId}/`, { method: 'DELETE' });
             fetchData(); // Refresh data
         } catch (e) { alert("Error removing link"); }
+    };
+
+    const handleOpenWithdraw = async () => {
+        setShowWithdrawModal(true);
+        setWithdrawError('');
+        setWithdrawForm({ amount: '', destination_wallet: '' });
+        try {
+            const res = await fetchWithAuth(ENDPOINTS.FINANCE_WALLETS);
+            if (res.ok) {
+                const data = await res.json();
+                const active = data.filter(w => w.is_active);
+                setCashWallets(active);
+                if (active.length > 0) {
+                    setWithdrawForm(prev => ({ ...prev, destination_wallet: active[0].id }));
+                }
+            }
+        } catch (e) { console.error("Error fetching cash wallets", e); }
+    };
+
+    const handleWithdraw = async (e) => {
+        e.preventDefault();
+        setIsWithdrawing(true);
+        setWithdrawError('');
+        try {
+            const res = await fetchWithAuth(`${ENDPOINTS.CUSTOMERS}${id}/withdraw_wallet/`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(withdrawForm)
+            });
+            if (res.ok) {
+                setShowWithdrawModal(false);
+                fetchData();
+                alert("Withdrawal successful.");
+            } else {
+                const err = await res.json();
+                setWithdrawError(err.error || 'Withdrawal failed');
+            }
+        } catch (error) {
+            setWithdrawError("Network error occurred.");
+        } finally {
+            setIsWithdrawing(false);
+        }
     };
 
     if (loading && !customer) {
@@ -419,8 +468,13 @@ const CustomerDetails = () => {
 
                 {/* Wallet Section */}
                 <div className="customer-section" style={{ gridColumn: '1 / -1' }}>
-                    <div className="customer-section-header">
+                    <div className="customer-section-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                         <h3>Wallet</h3>
+                        {wallet?.balance > 0 && (
+                            <button className="btn btn-sm btn-outline text-danger" onClick={handleOpenWithdraw} style={{ borderColor: 'var(--color-danger)' }}>
+                                Withdraw Funds
+                            </button>
+                        )}
                     </div>
                     <div className="customer-section-content">
                         <div className="wallet-balance">
@@ -575,6 +629,55 @@ const CustomerDetails = () => {
                         }}
                         onClick={(e) => e.stopPropagation()}
                     />
+                </div>
+            )}
+
+            {/* Withdraw Modal */}
+            {showWithdrawModal && (
+                <div className="modal-overlay" onClick={() => setShowWithdrawModal(false)}>
+                    <div className="modal-content animate-slide-in-up" onClick={e => e.stopPropagation()}>
+                        <h2>Withdraw Funds</h2>
+                        <p className="text-muted" style={{ marginBottom: '1rem' }}>
+                            Current Balance: <strong>{currency}{wallet?.balance}</strong>
+                        </p>
+                        {withdrawError && <div className="payment-error text-danger" style={{ marginBottom: '1rem' }}>{withdrawError}</div>}
+                        <form onSubmit={handleWithdraw}>
+                            <div className="form-group">
+                                <label>Amount to Withdraw ({currency})</label>
+                                <input
+                                    type="number"
+                                    step="0.01"
+                                    min="0.01"
+                                    max={wallet?.balance}
+                                    value={withdrawForm.amount}
+                                    onChange={e => setWithdrawForm({ ...withdrawForm, amount: e.target.value })}
+                                    className="form-control"
+                                    required
+                                    autoFocus
+                                />
+                            </div>
+                            <div className="form-group">
+                                <label>Source Physical Cash Wallet</label>
+                                <select
+                                    className="form-control"
+                                    value={withdrawForm.destination_wallet}
+                                    onChange={e => setWithdrawForm({ ...withdrawForm, destination_wallet: e.target.value })}
+                                    required
+                                >
+                                    <option value="">-- Select Cash Drawer --</option>
+                                    {cashWallets.map(w => (
+                                        <option key={w.id} value={w.id}>{w.name}</option>
+                                    ))}
+                                </select>
+                            </div>
+                            <div className="modal-actions" style={{ marginTop: '1.5rem' }}>
+                                <button type="button" className="btn btn-ghost" onClick={() => setShowWithdrawModal(false)}>Cancel</button>
+                                <button type="submit" className="btn btn-danger" disabled={isWithdrawing || !withdrawForm.amount || !withdrawForm.destination_wallet}>
+                                    {isWithdrawing ? 'Processing...' : 'Confirm Withdrawal'}
+                                </button>
+                            </div>
+                        </form>
+                    </div>
                 </div>
             )}
         </div>

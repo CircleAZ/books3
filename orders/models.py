@@ -190,13 +190,15 @@ class Order(DisplayIDMixin, SoftDeleteModel):
             r.amount for r in self.refunds.filter(status='completed')
         )
         
-        if total_refunded >= total_paid and total_paid > 0:
+        net_paid = total_paid - total_refunded
+        
+        if net_paid <= 0 and total_paid > 0:
             self.payment_status = 'refunded'
-        elif total_paid > self.total:
+        elif net_paid > self.total:
             self.payment_status = 'overpaid'
-        elif total_paid == self.total:
+        elif net_paid == self.total:
             self.payment_status = 'paid'
-        elif total_paid > 0:
+        elif net_paid > 0:
             self.payment_status = 'partial'
         else:
             self.payment_status = 'pending'
@@ -209,17 +211,23 @@ class Order(DisplayIDMixin, SoftDeleteModel):
             self.save(update_fields=['payment_status'])
     
     @property
+    def net_paid(self):
+        total_paid = sum(p.amount for p in self.payments.all())
+        total_refunded = sum(r.amount for r in self.refunds.filter(status='completed'))
+        return total_paid - total_refunded
+
+    @property
     def amount_paid(self):
         return sum(p.amount for p in self.payments.all())
     
     @property
     def balance_due(self):
-        return max(Decimal('0'), self.total - self.amount_paid)
+        return max(Decimal('0'), self.total - self.net_paid)
     
     @property
     def change_due(self):
         """For cash overpayment."""
-        return max(Decimal('0'), self.amount_paid - self.total)
+        return max(Decimal('0'), self.net_paid - self.total)
     
     @property
     def derived_status(self):

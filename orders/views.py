@@ -359,15 +359,23 @@ class OrderViewSet(viewsets.ModelViewSet):
         if serializer.is_valid():
             with transaction.atomic():
                 payment = serializer.save(created_by=request.user)
-                from finance.services import LedgerService
-                LedgerService.process_deposit(
-                    amount=payment.amount,
-                    destination_bank=payment.destination_bank,
-                    destination_wallet=payment.destination_wallet,
-                    reference=f"order_{order.display_id}",
-                    description=f"Payment for Order #{order.display_id}",
-                    user=request.user
-                )
+                if payment.method == 'Customer Wallet':
+                    if getattr(order.customer, 'wallet', None):
+                        order.customer.wallet.debit(
+                            payment.amount, 
+                            f"Payment for Order #{order.display_id}", 
+                            user=request.user
+                        )
+                else:
+                    from finance.services import LedgerService
+                    LedgerService.process_deposit(
+                        amount=payment.amount,
+                        destination_bank=payment.destination_bank,
+                        destination_wallet=payment.destination_wallet,
+                        reference=f"order_{order.display_id}",
+                        description=f"Payment for Order #{order.display_id}",
+                        user=request.user
+                    )
             order.refresh_from_db()
             return Response({
                 'payment': serializer.data,
@@ -378,6 +386,57 @@ class OrderViewSet(viewsets.ModelViewSet):
             })
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
     
+    @action(detail=True, methods=['post'])
+    def add_change_to_wallet(self, request, pk=None):
+        """Sweep overpayment change into the customer's wallet."""
+        from django.db import transaction
+        from customers.models import Customer, Wallet
+        from orders.models import Refund
+        order = self.get_object()
+        
+        if order.change_due <= 0:
+            return Response(
+                {'error': 'No change due on this order.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+            
+        with transaction.atomic():
+            if order.is_guest:
+                # Convert to normal customer
+                cust = Customer.objects.create(
+                    first_name=order.guest_name or f"Guest {order.id}",
+                    phone=order.guest_phone or f"0000000000{order.id}"[:15],
+                    notes="Auto-converted from guest for wallet overpayment"
+                )
+                order.customer = cust
+                order.is_guest = False
+                order.save(update_fields=['customer', 'is_guest'])
+            
+            customer = order.customer
+            wallet, _ = Wallet.objects.get_or_create(customer=customer)
+            change = order.change_due
+            
+            # 1. Credit the customer wallet
+            wallet.credit(change, f"Swept overpayment from Order #{order.display_id}", user=request.user)
+            
+            # 2. Record a Refund on the Order (bypassing LedgerService physical withdrawal)
+            Refund.objects.create(
+                order=order,
+                amount=change,
+                method='Wallet Transfer',
+                status='completed',
+                created_by=request.user
+            )
+            
+            order.update_payment_status()
+            order.refresh_from_db()
+            
+        return Response({
+            'status': 'Change added to wallet',
+            'wallet_balance': wallet.balance,
+            'payment_status': order.payment_status,
+            'change_due': order.change_due
+        })
     @action(detail=True, methods=['post'])
     def recalculate(self, request, pk=None):
         """Force recalculation of order totals."""

@@ -797,6 +797,48 @@ class CustomerViewSet(viewsets.ModelViewSet):
         wallet, _ = Wallet.objects.get_or_create(customer=customer)
         serializer = WalletSerializer(wallet)
         return Response(serializer.data)
+
+    @action(detail=True, methods=['post'], url_path='withdraw_wallet')
+    def withdraw_wallet(self, request, pk=None):
+        """Manually withdraw cash from a customer's wallet (return physical cash)."""
+        from finance.services import LedgerService
+        from decimal import Decimal, InvalidOperation
+        from django.utils import timezone
+
+        customer = self.get_object()
+        wallet, _ = Wallet.objects.get_or_create(customer=customer)
+        
+        amount = request.data.get('amount')
+        destination_wallet = request.data.get('destination_wallet')
+
+        try:
+            amount = Decimal(str(amount))
+            if amount <= 0:
+                return Response({'error': 'Amount must be greater than zero.'}, status=status.HTTP_400_BAD_REQUEST)
+        except (TypeError, ValueError, InvalidOperation):
+            return Response({'error': 'Invalid amount.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        if wallet.balance < amount:
+            return Response({'error': 'Insufficient wallet balance.'}, status=status.HTTP_400_BAD_REQUEST)
+            
+        if not destination_wallet:
+            return Response({'error': 'A source physical cash wallet must be selected.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        with transaction.atomic():
+            # 1. Deduct from customer's logical wallet
+            wallet.debit(amount, reason="Manual withdrawal to physical cash", user=request.user)
+            
+            # 2. Deduct physical cash from business ledger
+            LedgerService.process_withdrawal(
+                amount=amount,
+                source_bank=None,
+                source_wallet=destination_wallet,
+                reference=f"CWWITHDRAW-{customer.display_id}-{timezone.now().timestamp()}",
+                description=f"Wallet withdrawal for customer {customer.full_name}",
+                user=request.user
+            )
+
+        return Response({'message': 'Withdrawal successful', 'new_balance': wallet.balance}, status=status.HTTP_200_OK)
     
     @action(detail=True, methods=['post'])
     def wallet_credit(self, request, pk=None):
