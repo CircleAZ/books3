@@ -243,7 +243,6 @@ export default function OrderDetails() {
             method: availablePaymentMethods.length > 0 ? availablePaymentMethods[0].type : '',
             upi_reference: '',
             upi_account: upiAccounts.length > 0 ? upiAccounts[0].upi_id : '',
-            destination_bank: availableBankAccounts.length > 0 ? availableBankAccounts[0].id : '',
             destination_wallet: availableCashWallets.length > 0 ? availableCashWallets[0].id : ''
         });
         setPaymentError('');
@@ -262,13 +261,22 @@ export default function OrderDetails() {
             const isUpi = isUpiMethod(paymentForm.method);
             const isCash = !isUpi && paymentForm.method && paymentForm.method.toLowerCase().includes('cash');
 
+            let resolved_destination_bank = null;
+            if (isUpi) {
+                const upiObj = upiAccounts.find(u => u.upi_id === paymentForm.upi_account);
+                resolved_destination_bank = upiObj ? upiObj.linked_bank_account : null;
+            } else if (!isCash) {
+                const methodObj = availablePaymentMethods.find(m => m.type === paymentForm.method);
+                resolved_destination_bank = methodObj ? methodObj.linked_bank_account : null;
+            }
+
             const response = await fetchWithAuth(`${ENDPOINTS.ORDERS}${id}/add_payment/`, {
                 method: 'POST',
                 body: JSON.stringify({
                     amount: paymentForm.amount,
                     method: paymentForm.method,
                     upi_reference: finalUpiReference,
-                    destination_bank: isUpi ? paymentForm.destination_bank : null,
+                    destination_bank: resolved_destination_bank,
                     destination_wallet: isCash ? paymentForm.destination_wallet : null
                 })
             });
@@ -856,20 +864,6 @@ export default function OrderDetails() {
                                                 <option key={account.id} value={account.upi_id}>
                                                     {account.display_name} ({account.upi_id})
                                                 </option>
-                                            ))}
-                                        </select>
-                                    </div>
-                                    <div className="form-group">
-                                        <label>Destination Bank</label>
-                                        <select
-                                            className="form-control"
-                                            value={paymentForm.destination_bank}
-                                            onChange={(e) => setPaymentForm({ ...paymentForm, destination_bank: e.target.value })}
-                                            required
-                                        >
-                                            <option value="">-- Select Bank Account --</option>
-                                            {availableBankAccounts.map(b => (
-                                                <option key={b.id} value={b.id}>{b.name}</option>
                                             ))}
                                         </select>
                                     </div>
