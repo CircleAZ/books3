@@ -7,7 +7,7 @@ def migrate_wallets(apps, schema_editor):
     WalletTransaction = apps.get_model('customers', 'WalletTransaction')
     Refund = apps.get_model('orders', 'Refund')
     Payment = apps.get_model('orders', 'Payment')
-    User = apps.get_model('auth', 'User')
+    User = apps.get_model('account', 'User')
 
     from django.db.models import Sum
 
