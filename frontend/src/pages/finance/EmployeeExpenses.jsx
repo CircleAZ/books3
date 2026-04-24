@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useCurrency } from '../../context/CurrencyContext';
 import { ENDPOINTS } from '../../config/api';
+import { secureStorage } from '../../utils/secureStorage';
 import './EmployeeExpenses.css';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
 import GuardedAction from '../../components/GuardedAction';
@@ -42,7 +43,7 @@ export default function EmployeeExpenses() {
         return method.toLowerCase().includes('cash');
     };
 
-    const profileData = localStorage.getItem('profile');
+    const profileData = secureStorage.getItem('profile');
     const profile = profileData ? JSON.parse(profileData) : null;
 
     const fetchExpenses = useCallback(async () => {

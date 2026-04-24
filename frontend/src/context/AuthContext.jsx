@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useEffect, useRef, useCallback } from 'react';
 import { API_BASE } from '../config/api';
+import { secureStorage } from '../utils/secureStorage';
 
 const AuthContext = createContext(null);
 
@@ -73,23 +74,22 @@ export function AuthProvider({ children }) {
     // Backend keepalive timer
     const keepaliveTimerRef = useRef(null);
 
-    // Load auth state from localStorage on mount
     useEffect(() => {
-        const storedToken = localStorage.getItem('access_token');
-        const storedUser = localStorage.getItem('user');
+        const storedToken = secureStorage.getItem('access_token');
+        const storedUserStr = secureStorage.getItem('user');
 
-        if (storedToken && storedUser) {
+        if (storedToken && storedUserStr) {
             try {
                 setToken(storedToken);
-                setUser(JSON.parse(storedUser));
+                setUser(JSON.parse(storedUserStr));
                 setRbac(decodeRbacClaims(storedToken));
             } catch (e) {
-                // BUG-1: Corrupted localStorage — clear and force re-login
-                console.error('Corrupted auth data in localStorage, clearing');
-                localStorage.removeItem('access_token');
-                localStorage.removeItem('refresh_token');
-                localStorage.removeItem('user');
-                localStorage.removeItem('profile');
+                // BUG-1: Corrupted secureStorage — clear and force re-login
+                console.error('Corrupted auth data in secureStorage, clearing');
+                secureStorage.removeItem('access_token');
+                secureStorage.removeItem('refresh_token');
+                secureStorage.removeItem('user');
+                secureStorage.removeItem('profile');
             }
         }
         setLoading(false);
@@ -179,19 +179,22 @@ export function AuthProvider({ children }) {
     // ARCH-4: Multi-tab sync — listen for storage changes
     useEffect(() => {
         const handleStorageChange = (e) => {
-            if (e.key === 'access_token') {
+            // Because we obfuscated keys, we must listen for the obfuscated key name
+            // _az_at = access_token, _az_u = user
+            if (e.key === '_az_at' || e.key === 'access_token') {
                 if (!e.newValue) {
                     // Another tab logged out
                     setToken(null);
                     setUser(null);
                 } else {
-                    setToken(e.newValue);
+                    setToken(secureStorage.getItem('access_token'));
                 }
             }
-            if (e.key === 'user') {
+            if (e.key === '_az_u' || e.key === 'user') {
                 if (e.newValue) {
                     try {
-                        setUser(JSON.parse(e.newValue));
+                        const userStr = secureStorage.getItem('user');
+                        if (userStr) setUser(JSON.parse(userStr));
                     } catch { /* ignore corrupted */ }
                 } else {
                     setUser(null);
@@ -204,18 +207,18 @@ export function AuthProvider({ children }) {
     }, []);
 
     const _processTokenResponse = (data) => {
-        localStorage.setItem('access_token', data.access);
-        localStorage.setItem('refresh_token', data.refresh);
-        localStorage.setItem('user', JSON.stringify(data.user));
+        secureStorage.setItem('access_token', data.access);
+        secureStorage.setItem('refresh_token', data.refresh);
+        secureStorage.setItem('user', JSON.stringify(data.user));
 
         if (data.profile) {
-            localStorage.setItem('profile', JSON.stringify(data.profile));
+            secureStorage.setItem('profile', JSON.stringify(data.profile));
         }
         
-        // DEVICE TOKEN: Store securely in localStorage. 
+        // DEVICE TOKEN: Store securely. 
         // This is explicitly NOT cleared on logout so this device remains trusted.
         if (data.device_token) {
-            localStorage.setItem('device_token', data.device_token);
+            secureStorage.setItem('device_token', data.device_token);
         }
 
         setToken(data.access);
@@ -225,7 +228,7 @@ export function AuthProvider({ children }) {
 
     const login = async (username, password, rememberMe = false) => {
         try {
-            const deviceToken = localStorage.getItem('device_token');
+            const deviceToken = secureStorage.getItem('device_token');
             const response = await fetch(`${API_BASE}/account/login/`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -305,8 +308,8 @@ export function AuthProvider({ children }) {
 
     const logout = async () => {
         try {
-            const refreshTokenStr = localStorage.getItem('refresh_token');
-            let currentToken = token || localStorage.getItem('access_token');
+            const refreshTokenStr = secureStorage.getItem('refresh_token');
+            let currentToken = token || secureStorage.getItem('access_token');
 
             if (currentToken && refreshTokenStr) {
                 // BUG-2: If access token is expired, try refreshing first for a clean logout
@@ -323,7 +326,7 @@ export function AuthProvider({ children }) {
                 if (res.status === 401) {
                     const refreshed = await refreshToken();
                     if (refreshed) {
-                        currentToken = localStorage.getItem('access_token');
+                        currentToken = secureStorage.getItem('access_token');
                         await fetch(`${API_BASE}/account/logout/`, {
                             method: 'POST',
                             headers: {
@@ -346,11 +349,11 @@ export function AuthProvider({ children }) {
                 caches.delete('api-cache').catch(() => {});
             }
 
-            // Clear local storage
-            localStorage.removeItem('access_token');
-            localStorage.removeItem('refresh_token');
-            localStorage.removeItem('user');
-            localStorage.removeItem('profile');
+            // Clear storage
+            secureStorage.removeItem('access_token');
+            secureStorage.removeItem('refresh_token');
+            secureStorage.removeItem('user');
+            secureStorage.removeItem('profile');
 
             setToken(null);
             setUser(null);
@@ -385,9 +388,9 @@ export function AuthProvider({ children }) {
             headers['Content-Type'] = headers['Content-Type'] || 'application/json';
         }
 
-        // Must read directly from localStorage here in case `refreshToken()` just ran
+        // Must read directly from secureStorage here in case `refreshToken()` just ran
         // because React state `tokenRef.current` won't be updated until the next cycle
-        const currentToken = localStorage.getItem('access_token') || tokenRef.current;
+        const currentToken = secureStorage.getItem('access_token') || tokenRef.current;
         if (currentToken) {
             headers['Authorization'] = `Bearer ${currentToken}`;
         }
@@ -400,7 +403,7 @@ export function AuthProvider({ children }) {
             const refreshed = await refreshToken();
             if (refreshed) {
                 // Retry request with new token
-                headers['Authorization'] = `Bearer ${localStorage.getItem('access_token')}`;
+                headers['Authorization'] = `Bearer ${secureStorage.getItem('access_token')}`;
                 return fetch(url, { ...options, headers, cache: 'no-store' });
             } else {
                 logout();
@@ -431,7 +434,7 @@ export function AuthProvider({ children }) {
 
             const refreshed = await refreshToken();
             if (refreshed) {
-                const freshToken = localStorage.getItem('access_token');
+                const freshToken = secureStorage.getItem('access_token');
                 setRbac(decodeRbacClaims(freshToken));
             }
             // Still return the 403 response so the calling code can handle it
@@ -446,7 +449,7 @@ export function AuthProvider({ children }) {
 
         refreshPromiseRef.current = (async () => {
             try {
-                const refresh = localStorage.getItem('refresh_token');
+                const refresh = secureStorage.getItem('refresh_token');
                 if (!refresh) return false;
 
                 const response = await fetch(`${API_BASE}/token/refresh/`, {
@@ -459,9 +462,9 @@ export function AuthProvider({ children }) {
                 if (!response.ok) return false;
 
                 const data = await response.json();
-                localStorage.setItem('access_token', data.access);
+                secureStorage.setItem('access_token', data.access);
                 if (data.refresh) {
-                    localStorage.setItem('refresh_token', data.refresh);
+                    secureStorage.setItem('refresh_token', data.refresh);
                 }
                 setToken(data.access);
                 setRbac(decodeRbacClaims(data.access));

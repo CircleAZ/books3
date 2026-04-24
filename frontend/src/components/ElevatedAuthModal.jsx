@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { API_BASE } from '../config/api';
+import { secureStorage } from '../utils/secureStorage';
 import './ElevatedAuthModal.css';
 
 export default function ElevatedAuthModal() {
@@ -26,7 +27,7 @@ export default function ElevatedAuthModal() {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${localStorage.getItem('access_token')}`
+                    'Authorization': `Bearer ${secureStorage.getItem('access_token')}`
                 }
             });
             if (!response.ok) {
@@ -81,7 +82,7 @@ export default function ElevatedAuthModal() {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${localStorage.getItem('access_token')}`
+                    'Authorization': `Bearer ${secureStorage.getItem('access_token')}`
                 },
                 body: JSON.stringify({ code })
             });
