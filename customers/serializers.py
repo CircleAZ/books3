@@ -319,20 +319,32 @@ class CustomerCreateUpdateSerializer(serializers.ModelSerializer):
         read_only_fields = ['id', 'display_id']
     
     def to_internal_value(self, data):
-        """Parse 'addresses' from JSON string if sent via multipart/form-data."""
-        # Check if data is mutable (QueryDict is not by default, but we can copy it or handle it)
-        mutable_data = data.copy() if hasattr(data, 'copy') else data
-        if 'addresses' in mutable_data and isinstance(mutable_data['addresses'], str):
-            import json
-            try:
-                parsed_addresses = json.loads(mutable_data['addresses'])
-                if hasattr(mutable_data, 'setlist') and isinstance(parsed_addresses, list):
-                    mutable_data.setlist('addresses', parsed_addresses)
-                else:
-                    mutable_data['addresses'] = parsed_addresses
-            except json.JSONDecodeError:
-                pass
-        return super().to_internal_value(mutable_data)
+        """Parse 'addresses' from JSON string if sent via multipart/form-data.
+
+        CRITICAL: When data is a QueryDict (multipart/form-data), DRF's
+        ListSerializer.get_value() detects it via html.is_html_input()
+        (checks hasattr 'getlist') and calls html.parse_html_list(), which
+        scans for bracket-indexed keys like 'addresses[0][village]'. Since
+        we send addresses as a single JSON string, the regex matches nothing
+        and the field is silently treated as empty. The fix is to convert
+        the QueryDict to a plain dict after parsing, so DRF uses the
+        standard dict.get() retrieval path for nested fields.
+        """
+        import json
+        if hasattr(data, 'getlist'):
+            # Convert QueryDict → plain dict, preserving all scalar values
+            plain_data = {}
+            for key in data:
+                values = data.getlist(key)
+                plain_data[key] = values[0] if len(values) == 1 else values
+            # Parse JSON-encoded addresses string into actual list of dicts
+            if 'addresses' in plain_data and isinstance(plain_data['addresses'], str):
+                try:
+                    plain_data['addresses'] = json.loads(plain_data['addresses'])
+                except json.JSONDecodeError:
+                    pass
+            return super().to_internal_value(plain_data)
+        return super().to_internal_value(data)
     
     def _sanitize_text(self, value):
         """Remove XSS and dangerous unicode control characters."""
