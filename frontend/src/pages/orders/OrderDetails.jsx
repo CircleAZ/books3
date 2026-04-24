@@ -24,9 +24,11 @@ export default function OrderDetails() {
     const [statusUpdate, setStatusUpdate] = useState({ field: 'order_status', value: '', note: '' });
     const [showShareMenu, setShowShareMenu] = useState(false);
     const [showPaymentModal, setShowPaymentModal] = useState(false);
-    const [paymentForm, setPaymentForm] = useState({ amount: '', method: '', upi_reference: '', upi_account: '' });
+    const [paymentForm, setPaymentForm] = useState({ amount: '', method: '', upi_reference: '', upi_account: '', destination_bank: '', destination_wallet: '' });
     const [upiAccounts, setUpiAccounts] = useState([]);
     const [availablePaymentMethods, setAvailablePaymentMethods] = useState([]);
+    const [availableBankAccounts, setAvailableBankAccounts] = useState([]);
+    const [availableCashWallets, setAvailableCashWallets] = useState([]);
     const [paymentSubmitting, setPaymentSubmitting] = useState(false);
     const [paymentError, setPaymentError] = useState('');
     const [showHistory, setShowHistory] = useState(false);
@@ -71,18 +73,33 @@ export default function OrderDetails() {
         };
         fetchUpiAccounts();
 
-        const fetchPaymentMethods = async () => {
+        const fetchPaymentSettings = async () => {
             try {
+                // Payment Methods
                 const response = await fetchWithAuth(ENDPOINTS.SETTINGS_PAYMENT_METHODS);
                 if (response.ok) {
                     const data = await response.json();
                     setAvailablePaymentMethods((data.results || data).filter(m => m.is_enabled));
                 }
+
+                // Bank Accounts
+                const bankRes = await fetchWithAuth(ENDPOINTS.FINANCE_BANK_ACCOUNTS + '?active_only=true');
+                if (bankRes.ok) {
+                    const bankData = await bankRes.json();
+                    setAvailableBankAccounts(bankData.results || bankData);
+                }
+
+                // Cash Wallets
+                const walletRes = await fetchWithAuth(ENDPOINTS.FINANCE_CASH_WALLETS + '?active_only=true');
+                if (walletRes.ok) {
+                    const walletData = await walletRes.json();
+                    setAvailableCashWallets(walletData.results || walletData);
+                }
             } catch (err) {
-                console.error('Failed to fetch payment methods:', err);
+                console.error('Failed to fetch payment settings:', err);
             }
         };
-        fetchPaymentMethods();
+        fetchPaymentSettings();
     }, [fetchOrderDetails, fetchWithAuth]);
 
     const handleAddNote = async (e) => {
@@ -223,9 +240,11 @@ export default function OrderDetails() {
     const openPaymentModal = () => {
         setPaymentForm({
             amount: order.balance_due > 0 ? Number(order.balance_due).toFixed(2) : '',
-            method: '',
+            method: availablePaymentMethods.length > 0 ? availablePaymentMethods[0].type : '',
             upi_reference: '',
-            upi_account: upiAccounts.length > 0 ? upiAccounts[0].upi_id : ''
+            upi_account: upiAccounts.length > 0 ? upiAccounts[0].upi_id : '',
+            destination_bank: availableBankAccounts.length > 0 ? availableBankAccounts[0].id : '',
+            destination_wallet: availableCashWallets.length > 0 ? availableCashWallets[0].id : ''
         });
         setPaymentError('');
         setShowPaymentModal(true);
@@ -240,12 +259,17 @@ export default function OrderDetails() {
                 ? (paymentForm.upi_account ? `[${paymentForm.upi_account}] ${paymentForm.upi_reference}`.trim() : paymentForm.upi_reference) 
                 : '';
 
+            const isUpi = isUpiMethod(paymentForm.method);
+            const isCash = !isUpi && paymentForm.method && paymentForm.method.toLowerCase().includes('cash');
+
             const response = await fetchWithAuth(`${ENDPOINTS.ORDERS}${id}/add_payment/`, {
                 method: 'POST',
                 body: JSON.stringify({
                     amount: paymentForm.amount,
                     method: paymentForm.method,
-                    upi_reference: finalUpiReference
+                    upi_reference: finalUpiReference,
+                    destination_bank: isUpi ? paymentForm.destination_bank : null,
+                    destination_wallet: isCash ? paymentForm.destination_wallet : null
                 })
             });
             if (response.ok) {
@@ -800,11 +824,29 @@ export default function OrderDetails() {
                                     )}
                                 </select>
                             </div>
+
+                            {(!isUpiMethod(paymentForm.method) && paymentForm.method && paymentForm.method.toLowerCase().includes('cash')) && (
+                                <div className="form-group">
+                                    <label>Destination Wallet</label>
+                                    <select
+                                        className="form-control"
+                                        value={paymentForm.destination_wallet}
+                                        onChange={(e) => setPaymentForm({ ...paymentForm, destination_wallet: e.target.value })}
+                                        required
+                                    >
+                                        {availableCashWallets.map(w => (
+                                            <option key={w.id} value={w.id}>{w.name}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                            )}
+
                             {isUpiMethod(paymentForm.method) && (
                                 <>
                                     <div className="form-group">
                                         <label>Credited To (UPI Account)</label>
                                         <select
+                                            className="form-control"
                                             value={paymentForm.upi_account}
                                             onChange={(e) => setPaymentForm({ ...paymentForm, upi_account: e.target.value })}
                                             required
@@ -818,14 +860,43 @@ export default function OrderDetails() {
                                         </select>
                                     </div>
                                     <div className="form-group">
+                                        <label>Destination Bank</label>
+                                        <select
+                                            className="form-control"
+                                            value={paymentForm.destination_bank}
+                                            onChange={(e) => setPaymentForm({ ...paymentForm, destination_bank: e.target.value })}
+                                            required
+                                        >
+                                            <option value="">-- Select Bank Account --</option>
+                                            {availableBankAccounts.map(b => (
+                                                <option key={b.id} value={b.id}>{b.name}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                    <div className="form-group">
                                         <label>Transaction ID / Reference (Optional)</label>
                                         <input
                                             type="text"
+                                            className="form-control"
                                             placeholder="e.g. 1234567890"
                                             value={paymentForm.upi_reference}
                                             onChange={(e) => setPaymentForm({ ...paymentForm, upi_reference: e.target.value })}
                                         />
                                     </div>
+                                    {paymentForm.amount > 0 && paymentForm.upi_account && (() => {
+                                        const upiUrl = `upi://pay?pa=${paymentForm.upi_account}&pn=AZBooks&am=${paymentForm.amount}&cu=INR`;
+                                        const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(upiUrl)}`;
+                                        return (
+                                            <div className="upi-qr-code text-center my-3">
+                                                <img
+                                                    src={qrUrl}
+                                                    alt="UPI QR Code"
+                                                    style={{ border: '1px solid #ddd', borderRadius: '8px', maxWidth: '150px' }}
+                                                />
+                                                <div className="small text-muted mt-2">Scan to pay {currency}{paymentForm.amount}</div>
+                                            </div>
+                                        );
+                                    })()}
                                 </>
                             )}
                             <div className="modal-actions">
