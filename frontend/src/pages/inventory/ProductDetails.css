@@ -110,23 +110,103 @@
     font-size: 0.9rem;
 }
 
-.images-card {
-    padding: var(--page-padding);
+/* ═══ Full-width masonry image gallery ═══ */
+.images-card-full {
+    margin-top: var(--space-xl);
+    padding: var(--space-xl);
     background-color: var(--card-bg);
-}
-
-.image-gallery {
-    display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: var(--space-sm);
-}
-
-.gallery-img {
-    width: 100%;
-    aspect-ratio: 1;
-    object-fit: cover;
-    border-radius: var(--radius-md);
     border: 1px solid var(--border-color);
+    border-radius: var(--radius-lg);
+}
+
+.images-card-full h3 {
+    margin: 0 0 var(--space-lg) 0;
+}
+
+/* CSS columns masonry — images flow naturally like Scrolller */
+.masonry-gallery {
+    columns: 3;
+    column-gap: 10px;
+}
+
+@media (max-width: 768px) {
+    .masonry-gallery {
+        columns: 2;
+        column-gap: 8px;
+    }
+}
+
+@media (max-width: 480px) {
+    .masonry-gallery {
+        columns: 1;
+    }
+}
+
+.masonry-item {
+    break-inside: avoid;
+    margin-bottom: 10px;
+    border-radius: var(--radius-md);
+    overflow: hidden;
+    cursor: pointer;
+    position: relative;
+    border: 1px solid var(--border-color);
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.masonry-item:hover {
+    transform: scale(1.02);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
+    z-index: 1;
+}
+
+.masonry-item img {
+    width: 100%;
+    height: auto;
+    display: block;
+}
+
+/* ═══ Image Lightbox ═══ */
+.img-lightbox-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.92);
+    z-index: 9999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    animation: fadeIn 0.15s ease;
+}
+
+.img-lightbox-close {
+    position: absolute;
+    top: 16px;
+    right: 16px;
+    background: rgba(255, 255, 255, 0.12);
+    backdrop-filter: blur(4px);
+    border: none;
+    color: #fff;
+    font-size: 1.4rem;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.15s;
+}
+
+.img-lightbox-close:hover {
+    background: rgba(255, 255, 255, 0.25);
+}
+
+.img-lightbox-content {
+    max-width: 95vw;
+    max-height: 90vh;
+    object-fit: contain;
+    border-radius: 8px;
+    cursor: default;
 }
 
 .no-images {

@@ -12,6 +12,7 @@ export default function ProductDetails() {
     const { currency } = useCurrency();
     const navigate = useNavigate();
     const [product, setProduct] = useState(null);
+    const [lightboxImg, setLightboxImg] = useState(null);
     const [loading, setLoading] = useState(true);
 
     // LENS-06: Custom delete confirmation modal
@@ -186,23 +187,39 @@ export default function ProductDetails() {
                             Adjust Stock
                         </button>
                     </div>
-
-                    <div className="card images-card">
-                        <h3>Images</h3>
-                        <div className="image-gallery">
-                            {product.images && product.images.length > 0 ? (
-                                product.images.map((img, i) => {
-                                    const srcUrl = img.image || img;
-                                    const finalSrc = srcUrl.startsWith('http') ? srcUrl : `${ENDPOINTS.INVENTORY_PRODUCTS.split('/api')[0]}${srcUrl}`;
-                                    return <img key={i} src={finalSrc} alt={product.name} className="gallery-img" />;
-                                })
-                            ) : (
-                                <div className="no-images">No images</div>
-                            )}
-                        </div>
-                    </div>
                 </div>
             </div>
+
+            {/* Masonry Image Gallery — full width, natural aspect ratios */}
+            {product.images && product.images.length > 0 && (
+                <div className="card images-card-full">
+                    <h3>Images ({product.images.length})</h3>
+                    <div className="masonry-gallery">
+                        {product.images.map((img, i) => {
+                            const srcUrl = img.image || img;
+                            const finalSrc = srcUrl.startsWith('http') ? srcUrl : `${ENDPOINTS.INVENTORY_PRODUCTS.split('/api')[0]}${srcUrl}`;
+                            return (
+                                <div key={i} className="masonry-item" onClick={() => setLightboxImg(finalSrc)}>
+                                    <img src={finalSrc} alt={`${product.name} — image ${i + 1}`} loading="lazy" />
+                                </div>
+                            );
+                        })}
+                    </div>
+                </div>
+            )}
+
+            {/* Image Lightbox */}
+            {lightboxImg && (
+                <div className="img-lightbox-overlay" onClick={() => setLightboxImg(null)}>
+                    <button className="img-lightbox-close" onClick={() => setLightboxImg(null)}>✕</button>
+                    <img
+                        src={lightboxImg}
+                        alt={product.name}
+                        className="img-lightbox-content"
+                        onClick={(e) => e.stopPropagation()}
+                    />
+                </div>
+            )}
 
             {/* LENS-06: Custom delete confirmation modal */}
             {showDeleteModal && (
