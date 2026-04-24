@@ -166,6 +166,12 @@ class Address(UUIDPrimaryKeyModel):
         'settings_app.LocationTag', blank=True, related_name='addresses'
     )
     
+    # Home Photo (Visual confirmation for delivery)
+    home_photo = models.ImageField(
+        upload_to='customer_homes/', blank=True, null=True,
+        help_text="Visual confirmation of the customer's home"
+    )
+    
     # Map coordinates (PostGIS)
     location = gis_models.PointField(srid=4326, null=True, blank=True)
     pincode = models.CharField(max_length=10, blank=True)

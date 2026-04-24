@@ -154,8 +154,9 @@ class AddressSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'region', 'region_name', 'village', 'faliya', 'address_line', 'landmark',
             'location_tags', 'location_tag_ids',
-            'latitude', 'longitude', 'pincode', 'is_primary'
+            'latitude', 'longitude', 'pincode', 'is_primary', 'home_photo'
         ]
+        read_only_fields = ['home_photo']
     
     def validate_latitude(self, value):
         """Validate latitude is within valid range."""
@@ -305,6 +306,7 @@ class CustomerDetailSerializer(serializers.ModelSerializer):
 class CustomerCreateUpdateSerializer(serializers.ModelSerializer):
     """Serializer for creating/updating customers."""
     addresses = AddressSerializer(many=True, required=False)
+    home_photo = serializers.ImageField(required=False, write_only=True)
     
     class Meta:
         model = Customer
@@ -312,9 +314,21 @@ class CustomerCreateUpdateSerializer(serializers.ModelSerializer):
             'id', 'display_id', 'first_name', 'middle_name', 'last_name',
             'phone', 'email', 'school', 'class_obj', 'division', 'subdivision',
             'class_name', 'division_name', 'subdivision_name',
-            'customer_group', 'notes', 'addresses'
+            'customer_group', 'notes', 'addresses', 'home_photo'
         ]
         read_only_fields = ['id', 'display_id']
+    
+    def to_internal_value(self, data):
+        """Parse 'addresses' from JSON string if sent via multipart/form-data."""
+        # Check if data is mutable (QueryDict is not by default, but we can copy it or handle it)
+        mutable_data = data.copy() if hasattr(data, 'copy') else data
+        if 'addresses' in mutable_data and isinstance(mutable_data['addresses'], str):
+            import json
+            try:
+                mutable_data['addresses'] = json.loads(mutable_data['addresses'])
+            except json.JSONDecodeError:
+                pass
+        return super().to_internal_value(mutable_data)
     
     def _sanitize_text(self, value):
         """Remove XSS and dangerous unicode control characters."""
@@ -359,6 +373,7 @@ class CustomerCreateUpdateSerializer(serializers.ModelSerializer):
     
     def create(self, validated_data):
         addresses_data = validated_data.pop('addresses', [])
+        home_photo = validated_data.pop('home_photo', None)
         customer = Customer.objects.create(**validated_data)
         
         # Create addresses
@@ -367,7 +382,11 @@ class CustomerCreateUpdateSerializer(serializers.ModelSerializer):
             addr_serializer._resolve_village_to_region(addr_data)
             addr_serializer._resolve_location(addr_data)
             location_tags = addr_data.pop('location_tags', [])
-            address = Address.objects.create(customer=customer, is_primary=(i == 0), **addr_data)
+            
+            # Attach home_photo to the primary (first) address
+            photo_kwargs = {'home_photo': home_photo} if i == 0 and home_photo else {}
+            
+            address = Address.objects.create(customer=customer, is_primary=(i == 0), **addr_data, **photo_kwargs)
             address.location_tags.set(location_tags)
         
         # Create empty wallet
@@ -377,6 +396,7 @@ class CustomerCreateUpdateSerializer(serializers.ModelSerializer):
     
     def update(self, instance, validated_data):
         addresses_data = validated_data.pop('addresses', None)
+        home_photo = validated_data.pop('home_photo', None)
         
         # Update customer fields
         for attr, value in validated_data.items():
@@ -395,10 +415,13 @@ class CustomerCreateUpdateSerializer(serializers.ModelSerializer):
                 location_tags = addr_data.pop('location_tags', [])
                 addr_id = addr_data.pop('id', None)
                 
+                # Update home_photo only on the primary address, and only if a new photo is provided
+                photo_kwargs = {'home_photo': home_photo} if i == 0 and home_photo else {}
+                
                 if addr_id and addr_id in existing_ids:
                     # Update existing address in place
                     Address.objects.filter(pk=addr_id).update(
-                        is_primary=(i == 0), **addr_data
+                        is_primary=(i == 0), **addr_data, **photo_kwargs
                     )
                     address = Address.objects.get(pk=addr_id)
                     address.location_tags.set(location_tags)
@@ -406,7 +429,7 @@ class CustomerCreateUpdateSerializer(serializers.ModelSerializer):
                 else:
                     # Create new address
                     address = Address.objects.create(
-                        customer=instance, is_primary=(i == 0), **addr_data
+                        customer=instance, is_primary=(i == 0), **addr_data, **photo_kwargs
                     )
                     address.location_tags.set(location_tags)
                     incoming_ids.add(address.pk)
@@ -415,6 +438,12 @@ class CustomerCreateUpdateSerializer(serializers.ModelSerializer):
             removed = existing_ids - incoming_ids
             if removed:
                 instance.addresses.filter(pk__in=removed).delete()
+        elif home_photo:
+            # If no addresses_data was sent but a home_photo was, attach it to the primary address
+            primary_addr = instance.addresses.filter(is_primary=True).first()
+            if primary_addr:
+                primary_addr.home_photo = home_photo
+                primary_addr.save()
         
         return instance
 

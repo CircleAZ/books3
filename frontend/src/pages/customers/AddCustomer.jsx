@@ -3,6 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { ENDPOINTS } from '../../config/api';
 import MapComponent from '../../components/MapComponent';
+import { compressImage } from '../../utils/imageCompression';
 import './AddCustomer.css';
 
 export default function AddCustomer({ onSuccess, onCancel, isEmbedded = false }) {
@@ -18,6 +19,11 @@ export default function AddCustomer({ onSuccess, onCancel, isEmbedded = false })
     const [initialFormData, setInitialFormData] = useState(null);
     const formTopRef = useRef(null);
     const tagTimeoutRef = useRef(null);
+
+    // Home Photo State
+    const [homePhoto, setHomePhoto] = useState(null);
+    const [homePhotoPreview, setHomePhotoPreview] = useState(null);
+    const [imageError, setImageError] = useState('');
 
     // Form state
     const [formData, setFormData] = useState({
@@ -150,6 +156,7 @@ export default function AddCustomer({ onSuccess, onCancel, isEmbedded = false })
                     if (res.ok) {
                         const data = await res.json();
                         const primaryAddr = data.addresses?.[0] || {};
+                        if (primaryAddr.home_photo) setHomePhotoPreview(primaryAddr.home_photo);
 
                         const customerData = {
                             first_name: data.first_name || '',
@@ -211,6 +218,25 @@ export default function AddCustomer({ onSuccess, onCancel, isEmbedded = false })
         fetchOptions();
     }, [id, fetchWithAuth, isEmbedded]);
 
+    const handleHomePhotoChange = async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        setImageError('');
+        try {
+            const { file: compressedFile, previewUrl } = await compressImage(file, 1500, 0.8, true);
+            setHomePhoto(compressedFile);
+            setHomePhotoPreview(previewUrl);
+        } catch (error) {
+            console.error('Failed to compress home photo', error);
+            setImageError('Failed to process image. Please try another.');
+        }
+    };
+
+    const removeHomePhoto = () => {
+        setHomePhoto(null);
+        setHomePhotoPreview(null);
+    };
 
     // Cascading Dropdowns: School -> Class
     useEffect(() => {
@@ -502,10 +528,28 @@ export default function AddCustomer({ onSuccess, onCancel, isEmbedded = false })
             const url = isEditMode ? `${ENDPOINTS.CUSTOMERS}${id}/` : ENDPOINTS.CUSTOMERS;
             const method = isEditMode ? 'PUT' : 'POST';
 
+            let requestBody;
+            let headers = {};
+
+            if (homePhoto) {
+                requestBody = new FormData();
+                Object.keys(payload).forEach(key => {
+                    if (key === 'addresses' || key === 'location_tags') {
+                        requestBody.append(key, JSON.stringify(payload[key]));
+                    } else if (payload[key] !== null && payload[key] !== undefined && payload[key] !== '') {
+                        requestBody.append(key, payload[key]);
+                    }
+                });
+                requestBody.append('home_photo', homePhoto);
+            } else {
+                requestBody = JSON.stringify(payload);
+                headers['Content-Type'] = 'application/json';
+            }
+
             const res = await fetchWithAuth(url, {
                 method: method,
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
+                headers: headers,
+                body: requestBody
             });
 
             if (res.ok) {
@@ -915,6 +959,45 @@ export default function AddCustomer({ onSuccess, onCancel, isEmbedded = false })
                                         })}
                                         {locationTags.length === 0 && <small className="text-muted">No tags yet</small>}
                                     </div>
+                                </div>
+                                <div className="form-group full-width">
+                                    <label>Home Photo <span className="info-tooltip" title="Visual confirmation for delivery driver">ⓘ</span></label>
+                                    {!homePhotoPreview ? (
+                                        <div 
+                                            style={{
+                                                border: '2px dashed var(--color-border)', 
+                                                borderRadius: '8px', 
+                                                padding: '2rem', 
+                                                textAlign: 'center',
+                                                cursor: 'pointer',
+                                                background: 'var(--color-bg-tertiary)'
+                                            }}
+                                            onClick={() => document.getElementById('homePhotoInput').click()}
+                                        >
+                                            <div style={{ fontSize: '2rem', color: 'var(--color-text-muted)' }}>📷</div>
+                                            <p style={{ margin: '0.5rem 0 0', color: 'var(--color-primary)' }}>Tap to capture or upload</p>
+                                        </div>
+                                    ) : (
+                                        <div style={{ position: 'relative', width: '100%', maxWidth: '300px', borderRadius: '8px', overflow: 'hidden', border: '1px solid var(--color-border)' }}>
+                                            <img src={homePhotoPreview} alt="Customer Home" style={{ width: '100%', height: 'auto', display: 'block' }} />
+                                            <button 
+                                                type="button" 
+                                                onClick={removeHomePhoto}
+                                                style={{ position: 'absolute', top: '8px', right: '8px', background: 'rgba(0,0,0,0.6)', color: 'white', border: 'none', borderRadius: '50%', width: '28px', height: '28px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                                            >
+                                                ✕
+                                            </button>
+                                        </div>
+                                    )}
+                                    <input 
+                                        type="file" 
+                                        id="homePhotoInput" 
+                                        accept="image/*" 
+                                        capture="environment"
+                                        style={{ display: 'none' }} 
+                                        onChange={handleHomePhotoChange}
+                                    />
+                                    {imageError && <small style={{ color: 'var(--color-danger)' }}>{imageError}</small>}
                                 </div>
                             </div>
                         </div>
