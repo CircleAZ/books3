@@ -6,6 +6,7 @@ import usePermissions from '../../utils/usePermissions';
 import { useCurrency } from '../../context/CurrencyContext';
 import CategoryModal from './CategoryModal';
 import VendorModal from './VendorModal';
+import { compressImage } from '../../utils/imageCompression';
 import './ProductForm.css';
 
 export default function ProductForm({ initialData = null, isEdit = false }) {
@@ -139,12 +140,28 @@ export default function ProductForm({ initialData = null, isEdit = false }) {
         setTags(tags.filter(tag => tag !== tagToRemove));
     };
 
-    const handleImageChange = (e) => {
+    const handleImageChange = async (e) => {
         const files = Array.from(e.target.files);
-        setImages(prev => [...prev, ...files]);
-
-        const newPreviews = files.map(file => URL.createObjectURL(file));
-        setImagePreviews(prev => [...prev, ...newPreviews]);
+        if (!files.length) return;
+        
+        // Show loading state while compressing
+        setLoading(true);
+        try {
+            const compressedResults = await Promise.all(
+                files.map(f => compressImage(f))
+            );
+            
+            const optimizedFiles = compressedResults.map(r => r.file);
+            const newPreviews = compressedResults.map(r => r.previewUrl);
+            
+            setImages(prev => [...prev, ...optimizedFiles]);
+            setImagePreviews(prev => [...prev, ...newPreviews]);
+        } catch (error) {
+            console.error('Image compression failed:', error);
+            setSubmitError('Failed to process one or more images. Please try again.');
+        } finally {
+            setLoading(false);
+        }
     };
 
     const handleCategoryAdded = (newCategory) => {
