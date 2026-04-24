@@ -429,6 +429,7 @@ class Payment(UUIDPrimaryKeyModel):
     PAYMENT_METHODS = [
         ('cash', 'Cash'),
         ('upi', 'UPI'),
+        ('Customer Wallet', 'Customer Wallet'),
     ]
     
     order = models.ForeignKey(Order, on_delete=models.CASCADE, related_name='payments')
