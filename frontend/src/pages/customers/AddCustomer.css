@@ -202,7 +202,7 @@
 
 .section-content.open {
     padding: 1.5rem;
-    max-height: 1000px;
+    max-height: 3000px;
     opacity: 1;
     overflow: visible;
 }
