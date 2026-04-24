@@ -224,8 +224,8 @@ export default function AddCustomer({ onSuccess, onCancel, isEmbedded = false })
 
         setImageError('');
         try {
-            // Use 2000px resolution for home photos as per new requirement
-            const { file: compressedFile, previewUrl } = await compressImage(file, 2000, 0.8, true);
+            // Use 2000px resolution for home photos as per requirement
+            const { file: compressedFile, previewUrl } = await compressImage(file, 2000, 2000, 0.8);
             setHomePhoto(compressedFile);
             setHomePhotoPreview(previewUrl);
         } catch (error) {

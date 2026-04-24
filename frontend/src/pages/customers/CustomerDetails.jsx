@@ -17,6 +17,7 @@ const CustomerDetails = () => {
     const [orders, setOrders] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
+    const [lightboxPhoto, setLightboxPhoto] = useState(null);
 
     // Link Management State
     const [isLinkModalOpen, setIsLinkModalOpen] = useState(false);
@@ -270,6 +271,45 @@ const CustomerDetails = () => {
                                         {addr.landmark && <div className="text-muted" style={{ fontSize: '0.85em', marginTop: '0.25rem' }}>Near {addr.landmark}</div>}
                                         {addr.pincode && <div style={{ marginTop: '0.25rem' }}>PIN: {addr.pincode}</div>}
                                     </div>
+                                    {addr.home_photo && (
+                                        <div
+                                            style={{
+                                                marginTop: '0.75rem',
+                                                cursor: 'pointer',
+                                                borderRadius: 'var(--radius-md, 8px)',
+                                                overflow: 'hidden',
+                                                border: '1px solid var(--color-border-light, #e0e0e0)',
+                                                position: 'relative',
+                                                maxHeight: '180px',
+                                            }}
+                                            onClick={() => setLightboxPhoto(addr.home_photo)}
+                                            title="Click to view full size"
+                                        >
+                                            <img
+                                                src={addr.home_photo}
+                                                alt="Customer Home"
+                                                style={{
+                                                    width: '100%',
+                                                    height: '180px',
+                                                    objectFit: 'cover',
+                                                    display: 'block',
+                                                }}
+                                            />
+                                            <div style={{
+                                                position: 'absolute',
+                                                bottom: 0,
+                                                left: 0,
+                                                right: 0,
+                                                background: 'linear-gradient(transparent, rgba(0,0,0,0.6))',
+                                                color: '#fff',
+                                                fontSize: '0.75rem',
+                                                padding: '12px 8px 6px',
+                                                textAlign: 'center',
+                                            }}>
+                                                📷 Home Photo — Tap to enlarge
+                                            </div>
+                                        </div>
+                                    )}
                                 </div>
                             ))
                         ) : (
@@ -484,6 +524,57 @@ const CustomerDetails = () => {
                             </div>
                         </form>
                     </div>
+                </div>
+            )}
+
+            {/* Home Photo Lightbox */}
+            {lightboxPhoto && (
+                <div
+                    style={{
+                        position: 'fixed',
+                        inset: 0,
+                        backgroundColor: 'rgba(0, 0, 0, 0.92)',
+                        zIndex: 9999,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        cursor: 'pointer',
+                    }}
+                    onClick={() => setLightboxPhoto(null)}
+                >
+                    <button
+                        onClick={() => setLightboxPhoto(null)}
+                        style={{
+                            position: 'absolute',
+                            top: '16px',
+                            right: '16px',
+                            background: 'rgba(255,255,255,0.15)',
+                            border: 'none',
+                            color: '#fff',
+                            fontSize: '1.5rem',
+                            width: '40px',
+                            height: '40px',
+                            borderRadius: '50%',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            backdropFilter: 'blur(4px)',
+                        }}
+                    >
+                        ✕
+                    </button>
+                    <img
+                        src={lightboxPhoto}
+                        alt="Customer Home — Full Size"
+                        style={{
+                            maxWidth: '95vw',
+                            maxHeight: '90vh',
+                            objectFit: 'contain',
+                            borderRadius: '8px',
+                        }}
+                        onClick={(e) => e.stopPropagation()}
+                    />
                 </div>
             )}
         </div>
