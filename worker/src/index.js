@@ -15,8 +15,10 @@
 // Render backend instances — update these after creating accounts #2 and #3
 const BACKENDS = [
   'https://azbooks.onrender.com',      // Account #1 — Primary
-  'https://azbooks-b.onrender.com',    // Account #2 — Backup 1
-  'https://azbooks-c.onrender.com',    // Account #3 — Backup 2
+  'https://azbooks2-xmxe.onrender.com',  // Account #2
+  'https://azbooks3.onrender.com',     // Account #3
+  'https://azbooks4.onrender.com',     // Account #4
+  'https://azbooks5.onrender.com',     // Account #5
 ];
 
 const BACKEND_TIMEOUT_MS = 8000;  // 8 seconds — if exceeded, try next backend
