@@ -42,6 +42,7 @@ export default function ProductForm({ initialData = null, isEdit = false }) {
     const [tags, setTags] = useState([]);
     const [tagInput, setTagInput] = useState('');
     const [images, setImages] = useState([]);
+    const [thumbnails, setThumbnails] = useState([]);
     const [imagePreviews, setImagePreviews] = useState([]);
     const [existingImages, setExistingImages] = useState([]); // For edit mode
 
@@ -152,9 +153,11 @@ export default function ProductForm({ initialData = null, isEdit = false }) {
             );
             
             const optimizedFiles = compressedResults.map(r => r.file);
+            const thumbFiles = compressedResults.map(r => r.thumbnail);
             const newPreviews = compressedResults.map(r => r.previewUrl);
             
             setImages(prev => [...prev, ...optimizedFiles]);
+            setThumbnails(prev => [...prev, ...thumbFiles]);
             setImagePreviews(prev => [...prev, ...newPreviews]);
         } catch (error) {
             console.error('Image compression failed:', error);
@@ -176,6 +179,7 @@ export default function ProductForm({ initialData = null, isEdit = false }) {
 
     const removeImage = (index) => {
         setImages(prev => prev.filter((_, i) => i !== index));
+        setThumbnails(prev => prev.filter((_, i) => i !== index));
         setImagePreviews(prev => {
             URL.revokeObjectURL(prev[index]);
             return prev.filter((_, i) => i !== index);
@@ -242,6 +246,10 @@ export default function ProductForm({ initialData = null, isEdit = false }) {
                 submitData.append('images', image);
             });
 
+            thumbnails.forEach(thumb => {
+                submitData.append('thumbnails', thumb);
+            });
+
             const url = isEdit && initialData?.id
                 ? `${ENDPOINTS.INVENTORY_PRODUCTS}${initialData.id}/`
                 : ENDPOINTS.INVENTORY_PRODUCTS;
@@ -269,6 +277,7 @@ export default function ProductForm({ initialData = null, isEdit = false }) {
                     });
                     setTags([]);
                     setImages([]);
+                    setThumbnails([]);
                     setImagePreviews([]);
                     setTagInput('');
                     setFieldErrors({});
@@ -502,7 +511,7 @@ export default function ProductForm({ initialData = null, isEdit = false }) {
                                 <div className="preview-grid">
                                     {existingImages.map((img, index) => (
                                         <div key={index} className="image-preview">
-                                            <img src={img.image || img} alt={`Existing ${index}`} />
+                                            <img src={img.thumbnail || img.image || img} alt={`Existing ${index}`} />
                                             {img.id && (
                                                 <button 
                                                     type="button" 

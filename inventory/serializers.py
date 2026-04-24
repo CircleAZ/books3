@@ -71,7 +71,7 @@ class TagSerializer(serializers.ModelSerializer):
 class ProductImageSerializer(serializers.ModelSerializer):
     class Meta:
         model = ProductImage
-        fields = ['id', 'image', 'is_primary']
+        fields = ['id', 'image', 'thumbnail', 'is_primary']
 
 class ProductListSerializer(serializers.ModelSerializer):
     category_name = serializers.CharField(source='category.name', read_only=True)
@@ -148,6 +148,7 @@ class ProductDetailSerializer(serializers.ModelSerializer):
 
 class ProductCreateUpdateSerializer(serializers.ModelSerializer):
     images = serializers.ListField(child=serializers.ImageField(), write_only=True, required=False)
+    thumbnails = serializers.ListField(child=serializers.ImageField(), write_only=True, required=False)
     tags = serializers.ListField(child=serializers.CharField(), write_only=True, required=False)
 
     class Meta:
@@ -155,7 +156,7 @@ class ProductCreateUpdateSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'display_id', 'name', 'description', 'category', 'vendor', 'tags',
             'cost_price', 'selling_price', 'stock_quantity', 'low_stock_threshold',
-            'is_additional', 'images'
+            'is_additional', 'images', 'thumbnails'
         ]
         read_only_fields = ['id', 'display_id']
     
@@ -184,6 +185,7 @@ class ProductCreateUpdateSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         tags_data = validated_data.pop('tags', [])
         images_data = validated_data.pop('images', [])
+        thumbnails_data = validated_data.pop('thumbnails', [])
 
         product = Product.objects.create(**validated_data)
 
@@ -192,9 +194,11 @@ class ProductCreateUpdateSerializer(serializers.ModelSerializer):
             product.tags.add(tag)
 
         for i, image_data in enumerate(images_data):
+            thumb_data = thumbnails_data[i] if i < len(thumbnails_data) else None
             ProductImage.objects.create(
                 product=product,
                 image=image_data,
+                thumbnail=thumb_data,
                 is_primary=(i == 0)
             )
 
@@ -218,12 +222,15 @@ class ProductCreateUpdateSerializer(serializers.ModelSerializer):
 
         # Append new images (don't destroy existing ones — use remove_image endpoint for individual deletion)
         if images_data is not None:
+            thumbnails_data = validated_data.pop('thumbnails', [])
             existing_count = instance.images.count()
             try:
                 for i, image_data in enumerate(images_data):
+                    thumb_data = thumbnails_data[i] if i < len(thumbnails_data) else None
                     ProductImage.objects.create(
                         product=instance,
                         image=image_data,
+                        thumbnail=thumb_data,
                         is_primary=(existing_count == 0 and i == 0)
                     )
             except Exception as e:

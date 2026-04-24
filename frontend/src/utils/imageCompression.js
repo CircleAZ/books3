@@ -6,10 +6,9 @@ export const compressImage = async (file, maxWidth = 1500, maxHeight = 1500, qua
             const img = new Image();
             img.src = event.target.result;
             img.onload = () => {
+                // Generate Main Image (1500x1500)
                 let width = img.width;
                 let height = img.height;
-
-                // Only scale if the image is larger than the max bounds
                 if (width > maxWidth || height > maxHeight) {
                     const ratio = Math.min(maxWidth / width, maxHeight / height);
                     width = Math.round(width * ratio);
@@ -20,32 +19,47 @@ export const compressImage = async (file, maxWidth = 1500, maxHeight = 1500, qua
                 canvas.width = width;
                 canvas.height = height;
                 const ctx = canvas.getContext('2d');
-                
-                // Draw white background in case of transparent PNG to JPEG/WebP conversion
                 ctx.fillStyle = '#FFFFFF';
                 ctx.fillRect(0, 0, width, height);
                 ctx.drawImage(img, 0, 0, width, height);
 
-                canvas.toBlob(
-                    (blob) => {
-                        if (!blob) {
-                            reject(new Error('Canvas to Blob failed'));
-                            return;
-                        }
-                        // Create a new File object from the Blob
-                        const optimizedFile = new File(
-                            [blob], 
-                            file.name.replace(/\.[^/.]+$/, "") + ".webp", 
-                            { type: 'image/webp', lastModified: Date.now() }
-                        );
+                // Generate Thumbnail (150x150)
+                const thumbMaxWidth = 150;
+                const thumbMaxHeight = 150;
+                let tWidth = img.width;
+                let tHeight = img.height;
+                if (tWidth > thumbMaxWidth || tHeight > thumbMaxHeight) {
+                    const ratio = Math.min(thumbMaxWidth / tWidth, thumbMaxHeight / tHeight);
+                    tWidth = Math.round(tWidth * ratio);
+                    tHeight = Math.round(tHeight * ratio);
+                }
+                const tCanvas = document.createElement('canvas');
+                tCanvas.width = tWidth;
+                tCanvas.height = tHeight;
+                const tCtx = tCanvas.getContext('2d');
+                tCtx.fillStyle = '#FFFFFF';
+                tCtx.fillRect(0, 0, tWidth, tHeight);
+                tCtx.drawImage(img, 0, 0, tWidth, tHeight);
+
+                // Convert both to Blobs
+                canvas.toBlob((mainBlob) => {
+                    if (!mainBlob) return reject(new Error('Main canvas to Blob failed'));
+                    
+                    tCanvas.toBlob((thumbBlob) => {
+                        if (!thumbBlob) return reject(new Error('Thumb canvas to Blob failed'));
+                        
+                        const baseName = file.name.replace(/\.[^/.]+$/, "");
+                        
+                        const optimizedFile = new File([mainBlob], `${baseName}.webp`, { type: 'image/webp', lastModified: Date.now() });
+                        const thumbnailFile = new File([thumbBlob], `${baseName}_thumb.webp`, { type: 'image/webp', lastModified: Date.now() });
+                        
                         resolve({
                             file: optimizedFile,
+                            thumbnail: thumbnailFile,
                             previewUrl: URL.createObjectURL(optimizedFile)
                         });
-                    },
-                    'image/webp',
-                    quality
-                );
+                    }, 'image/webp', 0.85);
+                }, 'image/webp', quality);
             };
             img.onerror = (err) => reject(err);
         };
