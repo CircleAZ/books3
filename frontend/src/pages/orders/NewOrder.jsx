@@ -70,16 +70,33 @@ export default function NewOrder() {
     const isDrawerOpenRef = useRef(isDrawerOpen);
     isDrawerOpenRef.current = isDrawerOpen;
 
-    // Ref for cart length (used in event handlers to avoid stale closures)
+    // Refs for unsaved-work detection (used in event handlers to avoid stale closures)
     const cartLengthRef = useRef(cartItems.length);
     cartLengthRef.current = cartItems.length;
+    const showAddCustomerRef = useRef(showAddCustomer);
+    showAddCustomerRef.current = showAddCustomer;
+    const quickAddInfoRef = useRef(quickAddInfo);
+    quickAddInfoRef.current = quickAddInfo;
+    const isQuickAddRef = useRef(isQuickAdd);
+    isQuickAddRef.current = isQuickAdd;
 
-    // Warn on browser refresh/close when cart has items
+    // Unified check: is there ANY unsaved work on this page?
+    const hasUnsavedWork = () => {
+        if (cartLengthRef.current > 0) return true;
+        if (showAddCustomerRef.current) return true; // AddCustomer form is open
+        if (isQuickAddRef.current) {
+            const qa = quickAddInfoRef.current;
+            if (qa.first_name?.trim() || qa.phone?.trim()) return true;
+        }
+        return false;
+    };
+
+    // Warn on browser refresh/close when there's unsaved work
     useEffect(() => {
         const onBeforeUnload = (e) => {
-            if (cartLengthRef.current > 0) {
+            if (hasUnsavedWork()) {
                 e.preventDefault();
-                e.returnValue = 'You have items in your cart. Are you sure you want to leave?';
+                e.returnValue = 'You have unsaved work. Are you sure you want to leave?';
                 return e.returnValue;
             }
         };
@@ -87,10 +104,10 @@ export default function NewOrder() {
         return () => window.removeEventListener('beforeunload', onBeforeUnload);
     }, []);
 
-    // Unified back-button handler: drawer close > cart guard > allow navigation
+    // Unified back-button handler: drawer close > unsaved work guard > allow navigation
     useEffect(() => {
-        // Push a guard state whenever drawer opens OR cart gets items
-        const needsGuard = isDrawerOpen || cartItems.length > 0;
+        // Push a guard state whenever drawer opens OR there's unsaved work
+        const needsGuard = isDrawerOpen || cartItems.length > 0 || showAddCustomer || (isQuickAdd && (quickAddInfo.first_name?.trim() || quickAddInfo.phone?.trim()));
         if (!needsGuard) return;
 
         window.history.pushState({ posGuard: true }, '');
@@ -100,16 +117,21 @@ export default function NewOrder() {
             if (isDrawerOpenRef.current) {
                 setIsDrawerOpen(false);
                 if (drawerRef.current) drawerRef.current.style.transform = '';
-                // Re-push guard if cart still has items
-                if (cartLengthRef.current > 0) {
+                // Re-push guard if there's still unsaved work
+                if (hasUnsavedWork()) {
                     window.history.pushState({ posGuard: true }, '');
                 }
                 return;
             }
 
-            // Priority 2: Cart has items — confirm before leaving
-            if (cartLengthRef.current > 0) {
-                if (window.confirm('You have items in your cart. Leave this page?')) {
+            // Priority 2: Unsaved work — confirm before leaving
+            if (hasUnsavedWork()) {
+                const msg = cartLengthRef.current > 0 && showAddCustomerRef.current
+                    ? 'You have items in your cart and unsaved customer details. Leave this page?'
+                    : cartLengthRef.current > 0
+                        ? 'You have items in your cart. Leave this page?'
+                        : 'You have unsaved customer details. Leave this page?';
+                if (window.confirm(msg)) {
                     window.history.back();
                 } else {
                     window.history.pushState({ posGuard: true }, '');
@@ -123,7 +145,7 @@ export default function NewOrder() {
 
         window.addEventListener('popstate', onPopState);
         return () => window.removeEventListener('popstate', onPopState);
-    }, [isDrawerOpen, cartItems.length > 0]); // eslint-disable-line react-hooks/exhaustive-deps
+    }, [isDrawerOpen, cartItems.length > 0, showAddCustomer, isQuickAdd, quickAddInfo.first_name, quickAddInfo.phone]); // eslint-disable-line react-hooks/exhaustive-deps
 
     // Debounced Customer Search (with AbortController)
     useEffect(() => {
