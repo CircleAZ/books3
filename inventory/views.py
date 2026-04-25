@@ -14,6 +14,12 @@ from .serializers import (
 from .services import StockService
 from django.db import transaction
 from core.permissions import HasRequiredPermission
+from rest_framework.pagination import PageNumberPagination
+
+class ProductPagination(PageNumberPagination):
+    page_size = 20
+    page_size_query_param = 'page_size'
+    max_page_size = 1000
 
 class CategoryViewSet(viewsets.ModelViewSet):
     queryset = Category.objects.annotate(product_count=Count('products'))
@@ -73,6 +79,7 @@ class ProductViewSet(viewsets.ModelViewSet):
     queryset = Product.objects.all().select_related('category', 'vendor').prefetch_related('images', 'tags')
     permission_classes = [HasRequiredPermission]
     required_permission = 'inventory.manage_products'
+    pagination_class = ProductPagination
     permission_map = {
         'list': 'inventory.view_products',
         'retrieve': 'inventory.view_products',

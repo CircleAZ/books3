@@ -206,7 +206,7 @@ export default function NewOrder() {
 
             setIsSearchingProducts(true);
             try {
-                let url = `${ENDPOINTS.INVENTORY_PRODUCTS}?search=${encodeURIComponent(productSearch)}`;
+                let url = `${ENDPOINTS.INVENTORY_PRODUCTS}?search=${encodeURIComponent(productSearch)}&page_size=100`;
                 if (selectedCategory) {
                     url += `&category=${selectedCategory}`;
                 } else {
@@ -238,7 +238,7 @@ export default function NewOrder() {
     useEffect(() => {
         const fetchPopularProducts = async () => {
             try {
-                let url = `${ENDPOINTS.INVENTORY_PRODUCTS}?ordering=-order_count&page_size=30`;
+                let url = `${ENDPOINTS.INVENTORY_PRODUCTS}?ordering=-order_count&page_size=100`;
                 if (selectedCategory) {
                     url += `&category=${selectedCategory}`;
                 } else {
