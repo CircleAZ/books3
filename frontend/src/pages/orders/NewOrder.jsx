@@ -57,6 +57,7 @@ export default function NewOrder() {
     });
     const [referencePhoto, setReferencePhoto] = useState(null);
     const [isCreatingProduct, setIsCreatingProduct] = useState(false);
+    const [productSetToConfirm, setProductSetToConfirm] = useState(null);
 
     // Refs for AbortController (fixes Chaos race condition)
     const customerAbortRef = useRef(null);
@@ -353,47 +354,8 @@ export default function NewOrder() {
                 const productSet = data.product_set;
                 if (!productSet?.items?.length) return;
 
-                // Auto-add items to cart
-                let outOfStockItems = [];
-
-                setCartItems(prev => {
-                    const updated = [...prev];
-                    for (const setItem of productSet.items) {
-                        const existing = updated.find(ci => ci.id === setItem.product);
-                        if (existing) {
-                            if (setItem.quantity > existing.quantity) {
-                                existing.quantity = setItem.quantity;
-                            }
-                        } else {
-                            updated.push({
-                                id: setItem.product,
-                                name: setItem.product_name,
-                                selling_price: setItem.selling_price,
-                                cost_price: setItem.cost_price,
-                                stock_quantity: setItem.stock_quantity,
-                                quantity: setItem.quantity,
-                                discountType: 'fixed',
-                                discountValue: 0,
-                            });
-                            if (setItem.stock_quantity <= 0) {
-                                outOfStockItems.push(setItem.product_name);
-                            }
-                        }
-                    }
-                    return updated;
-                });
-
-                showToast(
-                    `📦 "${productSet.name}" loaded — ${productSet.items.length} items`,
-                    'success'
-                );
-                if (outOfStockItems.length > 0) {
-                    showToast(
-                        `⚠ Out of stock: ${outOfStockItems.join(', ')}`,
-                        'warning',
-                        { duration: 6000 }
-                    );
-                }
+                // Prompt user instead of auto-adding
+                setProductSetToConfirm(productSet);
             } catch (err) {
                 console.error('Product set auto-load failed:', err);
             }
@@ -401,6 +363,56 @@ export default function NewOrder() {
 
         loadProductSet();
     }, [selectedCustomer, fetchWithAuth, showToast]);
+
+    const handleConfirmProductSet = (confirmed) => {
+        if (!confirmed) {
+            setProductSetToConfirm(null);
+            return;
+        }
+
+        const productSet = productSetToConfirm;
+        let outOfStockItems = [];
+
+        setCartItems(prev => {
+            const updated = [...prev];
+            for (const setItem of productSet.items) {
+                const existing = updated.find(ci => ci.id === setItem.product);
+                if (existing) {
+                    if (setItem.quantity > existing.quantity) {
+                        existing.quantity = setItem.quantity;
+                    }
+                } else {
+                    updated.push({
+                        id: setItem.product,
+                        name: setItem.product_name,
+                        selling_price: setItem.selling_price,
+                        cost_price: setItem.cost_price,
+                        stock_quantity: setItem.stock_quantity,
+                        quantity: setItem.quantity,
+                        discountType: 'fixed',
+                        discountValue: 0,
+                    });
+                    if (setItem.stock_quantity <= 0) {
+                        outOfStockItems.push(setItem.product_name);
+                    }
+                }
+            }
+            return updated;
+        });
+
+        showToast(
+            `📦 "${productSet.name}" loaded — ${productSet.items.length} items`,
+            'success'
+        );
+        if (outOfStockItems.length > 0) {
+            showToast(
+                `⚠ Out of stock: ${outOfStockItems.join(', ')}`,
+                'warning',
+                { duration: 6000 }
+            );
+        }
+        setProductSetToConfirm(null);
+    };
 
     // Cart Logic
     const addToCart = (product) => {
@@ -1377,6 +1389,22 @@ export default function NewOrder() {
                     </div>
                 )
             }
+
+            {/* Product Set Confirmation Modal */}
+            {productSetToConfirm && (
+                <div className="modal-overlay">
+                    <div className="modal-content" style={{ maxWidth: '400px', textAlign: 'center' }}>
+                        <h3>Add Product Set?</h3>
+                        <p style={{ margin: '1rem 0' }}>
+                            Would you like to auto-add the product set <strong>"{productSetToConfirm.name}"</strong> ({productSetToConfirm.items.length} items) for this customer?
+                        </p>
+                        <div className="modal-actions" style={{ justifyContent: 'center', gap: '1rem' }}>
+                            <button className="btn btn-ghost" onClick={() => handleConfirmProductSet(false)}>No</button>
+                            <button className="btn btn-primary" onClick={() => handleConfirmProductSet(true)}>Yes</button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div >
     );
 }
