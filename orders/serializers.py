@@ -160,7 +160,7 @@ class OrderItemCreateSerializer(serializers.Serializer):
 
 class PaymentCreateSerializer(serializers.Serializer):
     """For creating payments nested inside order creation (no order FK required)."""
-    method = serializers.CharField(max_length=20, required=False, allow_blank=True, allow_null=True)
+    method = serializers.CharField(max_length=100, required=False, allow_blank=True, allow_null=True)
     destination_bank = serializers.UUIDField(required=False, allow_null=True)
     destination_wallet = serializers.UUIDField(required=False, allow_null=True)
     amount = serializers.DecimalField(max_digits=10, decimal_places=2)

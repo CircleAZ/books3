@@ -437,7 +437,7 @@ class Payment(UUIDPrimaryKeyModel):
     # Phase 1 Migration Fields
     destination_bank = models.ForeignKey('finance.BankAccount', on_delete=models.PROTECT, null=True, blank=True, related_name='order_payments')
     destination_wallet = models.ForeignKey('finance.CashWallet', on_delete=models.PROTECT, null=True, blank=True, related_name='order_payments')
-    method = models.CharField(max_length=20, choices=PAYMENT_METHODS, null=True, blank=True)
+    method = models.CharField(max_length=100, null=True, blank=True)
     
     amount = models.DecimalField(max_digits=12, decimal_places=2)
     upi_reference = models.CharField(max_length=100, blank=True, 
@@ -656,7 +656,7 @@ class Refund(UUIDPrimaryKeyModel):
     # Phase 1 Migration Fields
     source_bank = models.ForeignKey('finance.BankAccount', on_delete=models.PROTECT, null=True, blank=True, related_name='refunds_issued')
     source_wallet = models.ForeignKey('finance.CashWallet', on_delete=models.PROTECT, null=True, blank=True, related_name='refunds_issued')
-    method = models.CharField(max_length=20, choices=REFUND_METHOD, null=True, blank=True)
+    method = models.CharField(max_length=100, null=True, blank=True)
     transaction_id = models.CharField(max_length=100, blank=True, help_text="UPI reference or transaction ID")
     note = models.TextField(blank=True)
     status = models.CharField(max_length=20, choices=REFUND_STATUS, default='completed')
