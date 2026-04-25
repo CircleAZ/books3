@@ -60,7 +60,7 @@ export default function StockControl() {
     const fetchHistory = useCallback(async () => {
         setLoading(true);
         try {
-            const response = await fetchWithAuth(ENDPOINTS.INVENTORY_STOCK_HISTORY);
+            const response = await fetchWithAuth(`${ENDPOINTS.INVENTORY_STOCK_HISTORY}?page_size=1000`);
             if (response.ok) {
                 const data = await response.json();
                 setHistoryItems(data.results || data || []);

@@ -215,6 +215,7 @@ class StockAdjustmentViewSet(viewsets.ModelViewSet):
 class StockHistoryViewSet(viewsets.ModelViewSet):
     queryset = StockHistory.objects.all().select_related('product', 'created_by')
     serializer_class = StockHistorySerializer
+    pagination_class = ProductPagination
     permission_classes = [HasRequiredPermission]
     required_permission = 'inventory.view_products'
     filter_backends = [filters.OrderingFilter, DjangoFilterBackend]
