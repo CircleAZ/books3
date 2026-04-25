@@ -164,8 +164,16 @@ const PublicReceipt = () => {
             <div className="receipt-container" ref={receiptRef}>
                 {/* Store Header */}
                 <div className="store-header">
-                    <h1 className="store-name">{receipt.store?.name || 'AZ Books'}</h1>
-                    {receipt.store?.phone && <p className="store-phone">📞 {receipt.store.phone}</p>}
+                    {receipt.store?.logo ? (
+                        <img src={receipt.store.logo} alt={receipt.store.name} className="store-logo" />
+                    ) : (
+                        <h1 className="store-name">{receipt.store?.name || 'AZ Books'}</h1>
+                    )}
+                    {receipt.store?.phone && (
+                        <p className="store-phone">
+                            📞 <a href={`tel:${receipt.store.phone}`}>{receipt.store.phone}</a>
+                        </p>
+                    )}
                 </div>
 
                 {/* Order Info */}

@@ -9,7 +9,7 @@
     flex-direction: column;
     align-items: center;
     padding: 16px;
-    background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0f172a 100%);
+    background: #f1f5f9; /* light background */
     font-family: 'Outfit', 'Noto Sans Gujarati', 'Noto Sans Devanagari', sans-serif;
 }
 
@@ -23,9 +23,9 @@
 
 .lang-btn {
     padding: 6px 14px;
-    border: 1.5px solid rgba(255, 255, 255, 0.15);
-    background: rgba(255, 255, 255, 0.05);
-    color: rgba(255, 255, 255, 0.6);
+    border: 1.5px solid #cbd5e1;
+    background: #ffffff;
+    color: #64748b;
     border-radius: 20px;
     font-size: 13px;
     font-weight: 500;
@@ -35,8 +35,8 @@
 }
 
 .lang-btn:hover {
-    background: rgba(255, 255, 255, 0.1);
-    color: rgba(255, 255, 255, 0.9);
+    background: #f8fafc;
+    color: #334155;
 }
 
 .lang-btn.active {
@@ -50,39 +50,50 @@
 .receipt-container {
     width: 100%;
     max-width: 420px;
-    background: rgba(255, 255, 255, 0.03);
-    backdrop-filter: blur(20px);
-    border: 1px solid rgba(255, 255, 255, 0.08);
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
     border-radius: 20px;
     padding: 28px 22px;
-    box-shadow:
-        0 4px 24px rgba(0, 0, 0, 0.3),
-        inset 0 1px 0 rgba(255, 255, 255, 0.05);
+    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.05);
 }
 
 /* ── Store Header ── */
 .store-header {
     text-align: center;
     padding-bottom: 16px;
-    border-bottom: 1px dashed rgba(255, 255, 255, 0.1);
+    border-bottom: 1px dashed #cbd5e1;
     margin-bottom: 16px;
+}
+
+.store-logo {
+    max-height: 60px;
+    max-width: 100%;
+    object-fit: contain;
+    margin: 0 auto 8px auto;
+    display: block;
 }
 
 .store-name {
     font-size: 22px;
     font-weight: 700;
-    background: linear-gradient(135deg, #e0e7ff, #c7d2fe, #a5b4fc);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
+    color: #1e293b;
     margin: 0 0 4px 0;
     letter-spacing: -0.3px;
 }
 
 .store-phone {
     font-size: 13px;
-    color: rgba(255, 255, 255, 0.4);
+    color: #64748b;
     margin: 0;
+}
+
+.store-phone a {
+    color: #6366f1;
+    text-decoration: none;
+}
+
+.store-phone a:hover {
+    text-decoration: underline;
 }
 
 /* ── Order Info ── */
@@ -91,15 +102,15 @@
     justify-content: space-between;
     align-items: center;
     padding: 12px 14px;
-    background: rgba(99, 102, 241, 0.06);
-    border: 1px solid rgba(99, 102, 241, 0.12);
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
     border-radius: 12px;
     margin-bottom: 14px;
 }
 
 .order-info .label {
     font-size: 11px;
-    color: rgba(255, 255, 255, 0.4);
+    color: #64748b;
     text-transform: uppercase;
     letter-spacing: 0.5px;
     display: block;
@@ -108,7 +119,7 @@
 .order-info .value {
     font-size: 15px;
     font-weight: 600;
-    color: #e0e7ff;
+    color: #0f172a;
 }
 
 /* ── Customer Info ── */
@@ -118,18 +129,18 @@
     align-items: center;
     padding: 10px 0;
     margin-bottom: 14px;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    border-bottom: 1px solid #e2e8f0;
 }
 
 .customer-name {
     font-size: 14px;
-    font-weight: 500;
-    color: rgba(255, 255, 255, 0.8);
+    font-weight: 600;
+    color: #334155;
 }
 
 .customer-phone {
     font-size: 13px;
-    color: rgba(255, 255, 255, 0.4);
+    color: #64748b;
     font-family: 'Outfit', monospace;
 }
 
@@ -147,12 +158,12 @@
 .items-table thead th {
     text-align: left;
     padding: 8px 6px;
-    color: rgba(255, 255, 255, 0.4);
-    font-weight: 500;
+    color: #64748b;
+    font-weight: 600;
     font-size: 11px;
     text-transform: uppercase;
     letter-spacing: 0.5px;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    border-bottom: 1px solid #e2e8f0;
 }
 
 .items-table thead th:last-child,
@@ -162,8 +173,8 @@
 
 .items-table tbody td {
     padding: 10px 6px;
-    color: rgba(255, 255, 255, 0.85);
-    border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+    color: #1e293b;
+    border-bottom: 1px solid #f1f5f9;
 }
 
 .item-name {
@@ -176,7 +187,7 @@
 
 .item-qty {
     text-align: center;
-    color: rgba(255, 255, 255, 0.5);
+    color: #64748b;
 }
 
 .item-price,
@@ -188,8 +199,8 @@
 /* ── Totals Section ── */
 .totals-section {
     padding: 14px 0;
-    border-top: 1px dashed rgba(255, 255, 255, 0.1);
-    border-bottom: 1px dashed rgba(255, 255, 255, 0.1);
+    border-top: 1px dashed #cbd5e1;
+    border-bottom: 1px dashed #cbd5e1;
     margin-bottom: 14px;
 }
 
@@ -198,32 +209,32 @@
     justify-content: space-between;
     padding: 5px 0;
     font-size: 13px;
-    color: rgba(255, 255, 255, 0.6);
+    color: #64748b;
 }
 
 .total-row.discount span:last-child {
-    color: #34d399;
+    color: #10b981;
 }
 
 .total-row.grand-total {
     font-size: 16px;
     font-weight: 700;
-    color: #e0e7ff;
+    color: #0f172a;
     padding: 10px 0;
     margin: 4px 0;
-    border-top: 1px solid rgba(255, 255, 255, 0.08);
-    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    border-top: 1px solid #e2e8f0;
+    border-bottom: 1px solid #e2e8f0;
 }
 
 .total-row.balance-due {
     font-weight: 600;
     font-size: 14px;
-    color: #fbbf24;
+    color: #d97706;
     padding: 8px 0 4px;
 }
 
 .total-row.balance-due span:last-child {
-    color: #f59e0b;
+    color: #b45309;
 }
 
 /* ── Payment Status Badge ── */
@@ -243,27 +254,27 @@
 }
 
 .payment-badge.paid {
-    background: rgba(52, 211, 153, 0.12);
-    color: #34d399;
-    border: 1px solid rgba(52, 211, 153, 0.2);
+    background: #d1fae5;
+    color: #059669;
+    border: 1px solid #a7f3d0;
 }
 
 .payment-badge.pending {
-    background: rgba(251, 191, 36, 0.12);
-    color: #fbbf24;
-    border: 1px solid rgba(251, 191, 36, 0.2);
+    background: #fef3c7;
+    color: #d97706;
+    border: 1px solid #fde68a;
 }
 
 .payment-badge.partial {
-    background: rgba(96, 165, 250, 0.12);
-    color: #60a5fa;
-    border: 1px solid rgba(96, 165, 250, 0.2);
+    background: #dbeafe;
+    color: #2563eb;
+    border: 1px solid #bfdbfe;
 }
 
 .payment-badge.overpaid {
-    background: rgba(244, 114, 182, 0.12);
-    color: #f472b6;
-    border: 1px solid rgba(244, 114, 182, 0.2);
+    background: #fce7f3;
+    color: #db2777;
+    border: 1px solid #fbcfe8;
 }
 
 /* ── Payment History ── */
@@ -273,8 +284,8 @@
 
 .payment-history h3 {
     font-size: 13px;
-    font-weight: 600;
-    color: rgba(255, 255, 255, 0.5);
+    font-weight: 700;
+    color: #475569;
     text-transform: uppercase;
     letter-spacing: 0.5px;
     margin: 0 0 10px 0;
@@ -289,12 +300,12 @@
 .payments-table thead th {
     text-align: left;
     padding: 6px 6px;
-    color: rgba(255, 255, 255, 0.35);
-    font-weight: 500;
+    color: #64748b;
+    font-weight: 600;
     font-size: 11px;
     text-transform: uppercase;
     letter-spacing: 0.5px;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    border-bottom: 1px solid #e2e8f0;
 }
 
 .payments-table thead th:last-child {
@@ -303,15 +314,15 @@
 
 .payments-table tbody td {
     padding: 8px 6px;
-    color: rgba(255, 255, 255, 0.7);
-    border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+    color: #334155;
+    border-bottom: 1px solid #f1f5f9;
 }
 
 .payments-table tbody td:last-child {
     text-align: right;
     font-family: 'Outfit', monospace;
-    color: #34d399;
-    font-weight: 500;
+    color: #059669;
+    font-weight: 600;
 }
 
 .payment-history.empty {
@@ -321,7 +332,7 @@
 
 .no-payments {
     font-size: 13px;
-    color: rgba(255, 255, 255, 0.3);
+    color: #94a3b8;
     font-style: italic;
     margin: 0;
 }
@@ -346,14 +357,12 @@
     transition: all 0.25s ease;
     background: linear-gradient(135deg, #059669, #10b981, #34d399);
     color: #fff;
-    box-shadow:
-        0 4px 14px rgba(16, 185, 129, 0.35),
-        inset 0 1px 0 rgba(255, 255, 255, 0.15);
+    box-shadow: 0 4px 14px rgba(16, 185, 129, 0.25);
 }
 
 .pay-now-btn:hover {
     transform: translateY(-1px);
-    box-shadow: 0 6px 20px rgba(16, 185, 129, 0.45);
+    box-shadow: 0 6px 20px rgba(16, 185, 129, 0.35);
 }
 
 .pay-now-btn:active {
@@ -363,21 +372,21 @@
 .download-btn {
     width: 100%;
     padding: 12px 20px;
-    border: 1.5px solid rgba(255, 255, 255, 0.12);
+    border: 1.5px solid #cbd5e1;
     border-radius: 14px;
     font-size: 14px;
     font-weight: 500;
     cursor: pointer;
     font-family: inherit;
     transition: all 0.2s ease;
-    background: rgba(255, 255, 255, 0.04);
-    color: rgba(255, 255, 255, 0.7);
+    background: #f8fafc;
+    color: #475569;
 }
 
 .download-btn:hover:not(:disabled) {
-    background: rgba(255, 255, 255, 0.08);
-    border-color: rgba(255, 255, 255, 0.2);
-    color: #fff;
+    background: #f1f5f9;
+    border-color: #94a3b8;
+    color: #0f172a;
 }
 
 .download-btn:disabled {
@@ -389,7 +398,7 @@
 .powered-by {
     text-align: center;
     font-size: 11px;
-    color: rgba(255, 255, 255, 0.2);
+    color: #94a3b8;
     margin-top: 16px;
     letter-spacing: 0.5px;
 }
@@ -403,7 +412,7 @@
 .loading-spinner {
     width: 40px;
     height: 40px;
-    border: 3px solid rgba(99, 102, 241, 0.2);
+    border: 3px solid #e0e7ff;
     border-top-color: #6366f1;
     border-radius: 50%;
     animation: spin 0.8s linear infinite;
@@ -415,7 +424,7 @@
 }
 
 .loading-container p {
-    color: rgba(255, 255, 255, 0.5);
+    color: #64748b;
     font-size: 14px;
 }
 
@@ -430,13 +439,13 @@
 }
 
 .error-container h2 {
-    color: rgba(255, 255, 255, 0.8);
+    color: #0f172a;
     font-size: 20px;
     margin: 0 0 8px 0;
 }
 
 .error-container p {
-    color: rgba(255, 255, 255, 0.4);
+    color: #64748b;
     font-size: 14px;
 }
 
@@ -450,25 +459,10 @@
         background: #fff;
         border: none;
         box-shadow: none;
-        backdrop-filter: none;
-        color: #000;
-    }
-    .store-name {
-        -webkit-text-fill-color: #1e293b;
-        color: #1e293b;
     }
     .lang-toggle,
     .receipt-actions {
         display: none !important;
-    }
-    .items-table tbody td,
-    .payments-table tbody td,
-    .total-row,
-    .customer-name,
-    .customer-phone,
-    .order-info .value,
-    .order-info .label {
-        color: #1e293b !important;
     }
 }
 
