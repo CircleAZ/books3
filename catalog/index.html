@@ -1,0 +1,753 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AZ Books | Premium Catalog</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@300;500;700&family=Great+Vibes&display=swap"
+        rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box
+        }
+
+        html {
+            scroll-behavior: auto;
+            scroll-snap-type: y mandatory;
+        }
+
+        body {
+            font-family: 'Oswald', sans-serif;
+            background: #0a0a0a;
+            color: #fff;
+            overflow-x: hidden
+        }
+
+        body::before {
+            content: '';
+            position: fixed;
+            inset: 0;
+            z-index: -2;
+            background: radial-gradient(ellipse 600px 600px at 10% 20%, rgba(26, 54, 93, .25) 0%, transparent 70%), radial-gradient(ellipse 500px 500px at 85% 60%, rgba(100, 60, 180, .12) 0%, transparent 60%);
+            animation: bgMesh 20s ease-in-out infinite alternate;
+            pointer-events: none
+        }
+
+        body::after {
+            content: '';
+            position: fixed;
+            inset: 0;
+            z-index: -1;
+            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 512 512' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23g)' opacity='0.04'/%3E%3C/svg%3E");
+            background-size: 256px;
+            opacity: .6;
+            pointer-events: none;
+            mix-blend-mode: soft-light
+        }
+
+        @keyframes bgMesh {
+            0% {
+                filter: hue-rotate(0deg)
+            }
+
+            50% {
+                filter: hue-rotate(8deg)
+            }
+
+            100% {
+                filter: hue-rotate(-3deg)
+            }
+        }
+
+        .product-page {
+            height: 100vh;
+            height: 100svh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            z-index: 1;
+            scroll-snap-align: start;
+            scroll-snap-stop: always;
+            padding: 2rem 5%;
+            overflow: hidden;
+            box-sizing: border-box;
+        }
+
+        .product-page .bg-blob {
+            position: absolute;
+            border-radius: 50%;
+            filter: blur(120px);
+            opacity: .4;
+            pointer-events: none;
+            animation: blobFloat 15s ease-in-out infinite alternate
+        }
+
+        .product-page .bg-blob:nth-child(2) {
+            animation-delay: -5s;
+            animation-duration: 18s
+        }
+
+        .product-page .bg-blob:nth-child(3) {
+            animation-delay: -10s;
+            animation-duration: 22s
+        }
+
+        @keyframes blobFloat {
+            0% {
+                transform: translate(0, 0) scale(1)
+            }
+
+            50% {
+                transform: translate(30px, -40px) scale(1.15)
+            }
+
+            100% {
+                transform: translate(-20px, 30px) scale(.95)
+            }
+        }
+
+        .product-inner {
+            max-width: 1200px;
+            width: 100%;
+            height: 100%;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 3rem;
+            align-items: center;
+            position: relative;
+            z-index: 2
+        }
+
+        @media(max-width:768px) {
+            .product-inner {
+                grid-template-columns: 1fr;
+                grid-template-rows: 1fr auto;
+                text-align: center;
+                gap: 1rem;
+            }
+
+            .info h2 {
+                font-size: clamp(2rem, 8vw, 3rem) !important;
+                margin-bottom: 0.5rem !important;
+            }
+
+            .info .price {
+                font-size: 1.5rem !important;
+                margin-bottom: 1rem !important;
+            }
+
+            .info .price span {
+                font-size: 2.2rem !important;
+            }
+
+            .info .desc {
+                margin-bottom: 1rem !important;
+                margin-inline: auto;
+            }
+
+            .gallery {
+                height: 35vh !important;
+                min-height: 250px;
+            }
+        }
+
+        .gallery {
+            position: relative;
+            height: 45vh;
+            min-height: 300px;
+            perspective: 1200px;
+            width: 100%;
+            touch-action: pan-y pinch-zoom;
+        }
+
+        .gallery img {
+            position: absolute;
+            max-height: 100%;
+            max-width: 100%;
+            object-fit: contain;
+            border-radius: 1.5rem;
+            filter: drop-shadow(0 20px 40px rgba(0, 0, 0, .5));
+            transition: transform .7s cubic-bezier(.23, 1, .32, 1), opacity .7s cubic-bezier(.23, 1, .32, 1);
+            cursor: pointer;
+            left: 50%;
+            top: 50%;
+            transform: translate(-50%, -50%) scale(.6) rotate(0deg);
+            opacity: .3;
+            font-size: 0;
+            color: transparent;
+            user-select: none;
+            -webkit-user-drag: none;
+        }
+
+        .gallery img.active {
+            z-index: 10;
+            transform: translate(-50%, -50%) scale(1) rotate(0deg);
+            opacity: 1;
+            filter: drop-shadow(0 30px 60px rgba(0, 0, 0, .6));
+        }
+
+        .gallery img.prev {
+            z-index: 8;
+            transform: translate(-85%, -45%) scale(.7) rotate(-8deg);
+            opacity: .6;
+            filter: drop-shadow(0 15px 30px rgba(0, 0, 0, .4)) brightness(.7);
+        }
+
+        .gallery img.next {
+            z-index: 8;
+            transform: translate(-15%, -45%) scale(.7) rotate(8deg);
+            opacity: .6;
+            filter: drop-shadow(0 15px 30px rgba(0, 0, 0, .4)) brightness(.7);
+        }
+
+        .gallery img.hidden {
+            z-index: 1;
+            transform: translate(-50%, -40%) scale(.5) rotate(0deg);
+            opacity: .15;
+            filter: drop-shadow(0 5px 10px rgba(0, 0, 0, .2)) brightness(.4);
+            pointer-events: none;
+        }
+
+        .info {
+            opacity: 0;
+            transform: translateY(60px);
+            align-self: end;
+            margin-bottom: 5vh;
+        }
+
+        .info h2 {
+            font-size: clamp(2.5rem, 5vw, 4.5rem);
+            font-weight: 700;
+            line-height: 1.1;
+            margin-bottom: 1rem;
+            letter-spacing: .05em
+        }
+
+        .info .price {
+            font-size: 2rem;
+            font-weight: 300;
+            margin-bottom: 1.5rem;
+            letter-spacing: .1em
+        }
+
+        .info .price span {
+            font-weight: 700;
+            font-size: 3rem
+        }
+
+        .info .desc {
+            font-weight: 300;
+            font-size: 1.1rem;
+            opacity: .7;
+            margin-bottom: 2rem;
+            max-width: 400px
+        }
+
+        .info button {
+            background: #25D366;
+            color: #fff;
+            border: none;
+            padding: .9rem 2.5rem;
+            border-radius: 9999px;
+            font-family: inherit;
+            font-size: 1rem;
+            font-weight: 700;
+            letter-spacing: .15em;
+            text-transform: uppercase;
+            cursor: pointer;
+            transition: all .3s
+        }
+
+        .info button:hover {
+            transform: scale(1.06);
+            box-shadow: 0 0 30px rgba(37, 211, 102, .4)
+        }
+
+        /* Page type variant selector */
+        .variant-selector {
+            margin-bottom: 1.5rem;
+        }
+
+        .variant-selector label {
+            display: block;
+            font-size: .85rem;
+            letter-spacing: .15em;
+            text-transform: uppercase;
+            opacity: .6;
+            margin-bottom: .75rem;
+        }
+
+        .variant-options {
+            display: flex;
+            gap: .75rem;
+            flex-wrap: wrap;
+        }
+
+        .variant-btn {
+            background: rgba(255, 255, 255, .08);
+            border: 2px solid rgba(255, 255, 255, .15);
+            border-radius: 1rem;
+            padding: .5rem .75rem;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: .4rem;
+            cursor: pointer;
+            transition: all .35s cubic-bezier(.23, 1, .32, 1);
+            color: #fff;
+            font-family: inherit;
+            font-size: .75rem;
+            font-weight: 500;
+            letter-spacing: .1em;
+            text-transform: uppercase;
+            min-width: 90px;
+        }
+
+        .variant-btn img {
+            width: 60px;
+            height: 60px;
+            object-fit: cover;
+            border-radius: .5rem;
+            transition: transform .3s;
+        }
+
+        .variant-btn:hover {
+            background: rgba(255, 255, 255, .15);
+            transform: translateY(-3px);
+        }
+
+        .variant-btn:hover img {
+            transform: scale(1.1);
+        }
+
+        .variant-btn.selected {
+            border-color: currentColor;
+            background: rgba(255, 255, 255, .12);
+            box-shadow: 0 0 20px rgba(255, 255, 255, .1);
+        }
+
+        .variant-btn.selected img {
+            transform: scale(1.05);
+        }
+
+        .gallery-dots {
+            display: flex;
+            gap: .5rem;
+            margin-top: 1rem;
+            justify-content: center
+        }
+
+        .gallery-dots span {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, .3);
+            cursor: pointer;
+            transition: all .3s
+        }
+
+        .gallery-dots span.active {
+            background: #fff;
+            transform: scale(1.3)
+        }
+
+        .nav-arrow {
+            position: absolute;
+            top: 50%;
+            transform: translateY(-50%);
+            z-index: 20;
+            background: rgba(255, 255, 255, .15);
+            backdrop-filter: blur(8px);
+            border: 1px solid rgba(255, 255, 255, .2);
+            color: #fff;
+            width: 44px;
+            height: 44px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            font-size: 1.2rem;
+            transition: all .3s
+        }
+
+        .nav-arrow:hover {
+            background: rgba(255, 255, 255, .3);
+            transform: translateY(-50%) scale(1.1)
+        }
+
+        .nav-arrow.left {
+            left: -10px
+        }
+
+        .nav-arrow.right {
+            right: -10px
+        }
+
+        .scroll-indicator {
+            position: absolute;
+            bottom: 2rem;
+            left: 50%;
+            transform: translateX(-50%);
+            animation: bounce 2s ease-in-out infinite;
+            z-index: 10
+        }
+
+        @keyframes bounce {
+
+            0%,
+            100% {
+                transform: translateX(-50%) translateY(0);
+                opacity: 1
+            }
+
+            50% {
+                transform: translateX(-50%) translateY(12px);
+                opacity: .5
+            }
+        }
+
+        .section-divider {
+            height: 2px;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, .15), transparent);
+            margin: 0 auto;
+            max-width: 600px;
+            position: relative;
+            z-index: 1
+        }
+    </style>
+</head>
+
+<body>
+    <!-- HERO -->
+    <section class="product-page" style="background:linear-gradient(135deg,#0a1628,#1a365d,#2d4a7a)">
+        <div class="bg-blob" style="width:400px;height:400px;background:#1a365d;top:10%;left:20%"></div>
+        <div class="bg-blob" style="width:300px;height:300px;background:#2d4a7a;bottom:20%;right:10%"></div>
+        <div class="product-inner"
+            style="display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;height:100%;width:100%;margin:0;padding:0;">
+            <div class="info"
+                style="opacity:1;transform:none;margin:0 auto;display:flex;flex-direction:column;align-items:center;">
+                <img src="./Logo/logo.png" alt="AZ BOOKS"
+                    style="max-height:45vh;max-width:90vw;object-fit:contain;margin-bottom:2rem;display:block;">
+                <div
+                    style="display:flex;justify-content:center;gap:2rem;font-size:1.2rem;letter-spacing:.2em;opacity:.7;flex-wrap:wrap;width:100%;">
+                    <a href="tel:+919316044274"
+                        style="color:#8BB7F0;text-decoration:none;white-space:nowrap;">9316044274</a>
+                    <a href="tel:+919328852611"
+                        style="color:#8BB7F0;text-decoration:none;white-space:nowrap;">9328852611</a>
+                </div>
+            </div>
+        </div>
+        <div class="scroll-indicator"
+            style="color:rgba(255,255,255,.5);display:flex;flex-direction:column;align-items:center;gap:.5rem">
+            <span style="font-size:.75rem;letter-spacing:.3em;text-transform:uppercase">Scroll</span>
+            <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M12 5v14M5 12l7 7 7-7" />
+            </svg>
+        </div>
+    </section>
+
+    <!-- PRODUCTS (generated by JS) -->
+    <div id="productSections"></div>
+
+    <script>
+        const API_URL = 'https://books.circleaz.in/api/inventory/products/';
+
+        const FALLBACK_PRODUCTS = [
+            { name: 'A4 176 PAGES', price: 50, folder: 'A4 176', files: ['A4 176-01.png', 'A4 176-02.png', 'A4 176-03.png', 'A4 176-04.png'], bg: '#0d2137', blobs: ['#1a4a6e', '#2980b9', '#0e3a5c'], accent: '#8BB7F0', desc: 'Premium ruled notebook, 176 pages.', dim: '29.7 x 21 cm' },
+            { name: 'A4 240 PAGES', price: 70, folder: 'A4 240', files: ['A4 240-01.png', 'A4 240-02.png', 'A4 240-03.png', 'A4 240-04.png'], bg: '#1a2e0d', blobs: ['#2d5a1e', '#4caf50', '#1b3d0f'], accent: '#B6FCA9', desc: 'Extra-thick 240 page notebook. Built for heavy note-takers.', dim: '29.7 x 21 cm' },
+            { name: 'A4 392 PAGES', price: 120, folder: 'A4 392', files: ['A4 392-01.png', 'A4 392-02.png'], bg: '#2d1a0a', blobs: ['#5c3a1e', '#d4843e', '#3d2515'], accent: '#FADCB9', desc: 'Massive 392-page notebook. One book, one entire semester.', dim: '29.7 x 21 cm' },
+            { name: 'A4 120 PAGES', price: 35, folder: 'A4 120', files: ['books01.png', 'books02.png', 'books03.png', 'books04.png'], bg: '#2d2a0a', blobs: ['#5c551e', '#c4b83e', '#3d3815'], accent: '#FCF5B3', desc: 'Lightweight 120 pages. Ideal for quick notes.', dim: '29.7 x 21 cm' },
+            { name: 'B5 176 PAGES', price: 40, folder: 'B5', files: ['B5.png'], bg: '#0d1a2d', blobs: ['#1e3a5c', '#3a7bd5', '#152d4a'], accent: '#C5DAFB', desc: 'Compact B5 format, 176 ruled pages. Swipe to see page types.', dim: '24 x 18 cm' },
+            { name: 'B5 80 PAGES', price: 25, folder: 'B5', files: ['B5.png'], bg: '#1a0d2d', blobs: ['#3a1e5c', '#7b3ad5', '#2d154a'], accent: '#E1CEF5', desc: 'Slim 80-page pocket notebook.', dim: '24 x 18 cm' },
+            { name: 'SMALL 144 PAGES', price: 25, folder: 'small', files: ['small.png'], bg: '#1a2e0d', blobs: ['#2e5c1e', '#5cbf50', '#1e3d10'], accent: '#B6FCA9', desc: 'Small form factor, 144 pages. Swipe to see page types.', dim: '19.5 x 15.5 cm' },
+            { name: 'ROUGH NOTEBOOK', price: 25, folder: 'ROUGH', files: ['ROUGH.png'], bg: '#2d1a0a', blobs: ['#5c3a1e', '#bf843e', '#3d2515'], accent: '#FADCB9', desc: 'Unruled rough notebook for sketches.', dim: '24 x 19 cm' },
+            { name: 'DRAWING BOOK', price: 30, folder: 'Drawing book', files: ['drawing book01.png', 'drawing book02.png', 'drawing book03.png', 'drawing book04.png'], bg: '#0d1a2d', blobs: ['#1e3a5c', '#3a7bd5', '#152d4a'], accent: '#C5DAFB', desc: 'Thick art paper for sketching, drawing and painting.' },
+            { name: 'SMALL 56 PAGES', price: 15, folder: 'small', files: ['small.png'], bg: '#1a0d2d', blobs: ['#3a1e5c', '#7b3ad5', '#2d154a'], accent: '#E1CEF5', desc: 'Ultra-slim 56-page pocket notebook.', dim: '19.5 x 15.5 cm' },
+            { name: 'POUCH', price: 100, folder: 'pouch', files: ['Remove background project.png', '1000066558 (1).png', '1000066559.png'], bg: '#1a0d2d', blobs: ['#3a1e5c', '#9b59b6', '#2d154a'], accent: '#E1CEF5', desc: 'Premium zippered pouch for pens, pencils and stationery.' },
+            { name: 'EXAM PAD', price: 100, folder: 'STATIONARY', files: ['EXAM PAD.png', 'transparent pad.png'], bg: '#EFE4AE', blobs: ['#e5da9e', '#d8ce91', '#cabc7f'], accent: '#000000', desc: 'Sturdy exam pad for comfortable writing during exams.' },
+            { name: 'SELF ADHESIVE BOOK COVER', price: 100, folder: 'STATIONARY', files: ['SELF ADHESIVE BOOK COVER.png'], bg: '#2d1a0a', blobs: ['#5c3a1e', '#d4843e', '#3d2515'], accent: '#FADCB9', desc: 'Self-stick transparent book cover. Protects notebooks instantly.' },
+            { name: 'MISTI PEN PACK', price: 70, folder: 'STATIONARY', files: ['MISTI PEN PACK.png'], bg: '#1a2e0d', blobs: ['#2d5a1e', '#4caf50', '#1b3d0f'], accent: '#B6FCA9', desc: 'Premium assorted pen pack. Smooth ink flow, vibrant colors.' },
+            { name: 'XO PEN PACK', price: 90, folder: 'STATIONARY', files: ['XO PEN PACK.png'], bg: '#1a0d2d', blobs: ['#3a1e5c', '#7b3ad5', '#2d154a'], accent: '#E1CEF5', desc: 'Smooth writing XO pen pack. Premium quality ball pens for students and professionals.' },
+            { name: 'APSARA PENCIL', price: 60, folder: 'STATIONARY', files: ['APSARA PENCIL.png'], bg: '#0d2137', blobs: ['#1a4a6e', '#2980b9', '#0e3a5c'], accent: '#8BB7F0', desc: 'Classic Apsara pencils. Dark writing, easy to sharpen.' },
+            { name: 'APSARA ERASER', price: 60, folder: 'STATIONARY', files: ['APSARA ERASER.jpg'], bg: '#2d1a0a', blobs: ['#5c3a1e', '#bf843e', '#3d2515'], accent: '#FADCB9', desc: 'Dust-free eraser. Clean erasing without smudging.' },
+            { name: 'APSARA SHARPENER', price: 100, folder: 'STATIONARY', files: ['APSARA SHARPENER.png'], bg: '#1a0d2d', blobs: ['#3a1e5c', '#7b3ad5', '#2d154a'], accent: '#E1CEF5', desc: 'Precision blade sharpener. Sharp point every time.' },
+            { name: '15CM PLASTIC SCALE', price: 5, folder: 'scale', files: ['15cm plastic scale.png'], bg: '#0d1a2d', blobs: ['#1e3a5c', '#3a7bd5', '#152d4a'], accent: '#C5DAFB', desc: '15cm transparent plastic ruler. Compact and durable.' },
+            { name: '30CM PLASTIC SCALE', price: 10, folder: 'scale', files: ['30cm plastic scale.png'], bg: '#1a2e0d', blobs: ['#2d5a1e', '#4caf50', '#1b3d0f'], accent: '#B6FCA9', desc: '30cm transparent plastic ruler. Precise measurements for students.' },
+            { name: '30CM STEEL SCALE', price: 30, folder: 'scale', files: ['30cm steel scale.png'], bg: '#1a1a1a', blobs: ['#333333', '#555555', '#222222'], accent: '#CCCCCC', desc: '30cm premium steel ruler. Unbreakable and professional grade.' },
+            { name: 'CALCULATOR', price: 230, folder: 'STATIONARY', files: ['CALCULATOR.png'], bg: '#2d2a0a', blobs: ['#5c551e', '#c4b83e', '#3d3815'], accent: '#FCF5B3', desc: 'Scientific calculator for students and professionals.' },
+            { name: 'GRAPH BOOK', price: 20, folder: 'STATIONARY', files: ['GRAPH BOOK.png'], bg: '#1a2e0d', blobs: ['#2e5c1e', '#5cbf50', '#1e3d10'], accent: '#B6FCA9', desc: 'Grid-lined graph book for math, science and engineering.' },
+            { name: 'PENCIL COLOUR', price: 30, folder: 'STATIONARY', files: ['pencil colour.png'], bg: '#0d2137', blobs: ['#1a4a6e', '#2980b9', '#0e3a5c'], accent: '#8BB7F0', desc: 'Vibrant colored pencils for precise drawing and shading.' },
+            { name: 'PLASTIC CRAYONS', price: 60, folder: 'STATIONARY', files: ['plastic crayon.png'], bg: '#1a2e0d', blobs: ['#2d5a1e', '#4caf50', '#1b3d0f'], accent: '#B6FCA9', desc: 'Non-toxic, break-resistant plastic crayons for kids.' },
+            { name: 'WAX CRAYONS', price: 30, folder: 'STATIONARY', files: ['WAX CRAYONS.png'], bg: '#2d1a0a', blobs: ['#5c3a1e', '#bf843e', '#3d2515'], accent: '#FADCB9', desc: 'Classic wax crayons with smooth color laydown.' },
+            { name: 'TEMPERA COLORS', price: 30, folder: 'STATIONARY', files: ['Tempera color.png'], bg: '#1a0d2d', blobs: ['#3a1e5c', '#7b3ad5', '#2d154a'], accent: '#E1CEF5', desc: 'Rich, opaque tempera paints perfect for poster work and art projects.' },
+            { name: 'RAJA SLATE', price: 70, folder: 'STATIONARY', files: ['RAJA SLATE.png'], bg: '#0d2137', blobs: ['#1a4a6e', '#2980b9', '#0e3a5c'], accent: '#8BB7F0', desc: 'Traditional writing slate. Reusable and eco-friendly.' },
+            { name: 'NAVNEET PUBLICATIONS', price: 0, customPriceLabel: 'CUSTOM ORDERS', folder: 'STATIONARY', files: ['PUBLICATIONS.png'], bg: '#1a0d2d', blobs: ['#3a1e5c', '#7b3ad5', '#2d154a'], accent: '#E1CEF5', desc: 'We take custom orders for all Navneet Publications books and deliver them directly to you.' }
+        ];
+
+        async function initCatalog() {
+            let productsToRender = [];
+            try {
+                // Try API first
+                const res = await fetch(API_URL, { signal: AbortSignal.timeout(3000) });
+                if (!res.ok) throw new Error('API Response not ok');
+                const data = await res.json();
+                const fetchedProducts = data.results || data;
+
+                productsToRender = fetchedProducts.map(p => {
+                    let bg = '#1a2e0d', blobs = ['#2d5a1e', '#4caf50', '#1b3d0f'], accent = '#B6FCA9';
+                    if (p.category_name && p.category_name.toLowerCase().includes('notebook')) {
+                        bg = '#0d2137'; blobs = ['#1a4a6e', '#2980b9', '#0e3a5c']; accent = '#8BB7F0';
+                    } else if (p.category_name && p.category_name.toLowerCase().includes('stationery')) {
+                        bg = '#1a0d2d'; blobs = ['#3a1e5c', '#7b3ad5', '#2d154a']; accent = '#E1CEF5';
+                    } else if (p.category_name && p.category_name.toLowerCase().includes('art')) {
+                        bg = '#2d1a0a'; blobs = ['#5c3a1e', '#d4843e', '#3d2515']; accent = '#FADCB9';
+                    }
+
+                    const files = p.images && p.images.length > 0
+                        ? p.images.map(img => img.image)
+                        : (p.primary_image_url ? [p.primary_image_url] : []);
+
+                    return { name: p.name, price: p.selling_price, files: files, bg: bg, blobs: blobs, accent: accent, desc: p.description || 'Premium item', dim: p.dim || '' };
+                });
+            } catch (err) {
+                console.error("API Fetch Failed. Engaging Local Catalog Fallback Matrix.", err);
+                productsToRender = FALLBACK_PRODUCTS.map(p => ({
+                    ...p,
+                    files: p.files.map(f => `./scan/${p.folder}/${f}`)
+                }));
+            }
+
+            if (productsToRender.length > 0) {
+                buildUI(productsToRender);
+                initInteractions();
+            } else {
+                console.error("CRITICAL: No products to render. Scroll snap will fail.");
+            }
+        }
+
+        function buildUI(products) {
+            const container = document.getElementById('productSections');
+            products.forEach((p, idx) => {
+                const section = document.createElement('section');
+                section.className = 'product-page';
+                section.style.setProperty('--bg1', p.bg);
+                section.style.setProperty('--bg2', p.blobs[0]);
+                section.style.background = `linear-gradient(135deg, var(--bg1), var(--bg2))`;
+                section.dataset.accent = p.accent;
+
+                const allImgs = p.files.map(f => ({ src: f, label: p.name }));
+                const imgsHtml = allImgs.map((img, i) => {
+                    const cls = i === 0 ? 'active' : i === 1 ? 'next' : 'hidden';
+                    return `<img src="${encodeURI(img.src)}" alt="${img.label}" class="${cls}" data-index="${i}" loading="lazy">`;
+                }).join('');
+                const dotsHtml = allImgs.length > 1 ? `<div class="gallery-dots">${allImgs.map((img, i) => `<span data-i="${i}" class="${i === 0 ? 'active' : ''}" title="${img.label}"></span>`).join('')}</div>` : '';
+                const arrows = allImgs.length > 1 ? `<div class="nav-arrow left" data-dir="-1">&#8249;</div><div class="nav-arrow right" data-dir="1">&#8250;</div>` : '';
+
+                section.innerHTML = `
+        <div class="bg-blob" style="width:500px;height:500px;background:${p.blobs[0]};top:5%;left:10%"></div>
+        <div class="bg-blob" style="width:350px;height:350px;background:${p.blobs[1]};bottom:10%;right:15%"></div>
+        <div class="bg-blob" style="width:250px;height:250px;background:${p.blobs[2] || p.blobs[0]};top:60%;left:60%"></div>
+        <div class="product-inner ${idx % 2 === 1 ? 'dir-reverse' : ''}">
+          <div class="gallery" data-product="${idx}">${arrows}${imgsHtml}${dotsHtml}</div>
+          <div class="info">
+            <h2>${p.name}</h2>
+            <div class="price">PRICE <span>₹${p.price}/-</span></div>
+            ${p.dim ? `<div style="font-size:1rem;letter-spacing:.05em;margin-bottom:1.5rem;opacity:.8">Dimensions: ${p.dim}</div>` : ''}
+            <div class="desc">${p.desc}</div>
+          </div>
+        </div>`;
+                container.appendChild(section);
+                if (idx < products.length - 1) {
+                    const div = document.createElement('div');
+                    div.className = 'section-divider';
+                    container.appendChild(div);
+                }
+            });
+
+            document.querySelectorAll('.dir-reverse').forEach(el => { el.style.direction = 'rtl'; el.querySelectorAll('*').forEach(c => c.style.direction = 'ltr'); });
+        }
+
+        function initInteractions() {
+            document.querySelectorAll('.gallery').forEach(gallery => {
+                const imgs = gallery.querySelectorAll('img');
+                const dots = gallery.querySelectorAll('.gallery-dots span');
+                if (imgs.length <= 1) return;
+                let current = 0;
+                function setSlide(n) {
+                    current = (n + imgs.length) % imgs.length;
+                    imgs.forEach((img, i) => {
+                        img.className = i === current ? 'active' : i === (current + 1) % imgs.length ? 'next' : i === (current - 1 + imgs.length) % imgs.length ? 'prev' : 'hidden';
+                        if (i === current && window.updateSectionColor) window.updateSectionColor(gallery.closest('.product-page'), img);
+                    });
+                    dots.forEach((d, i) => d.classList.toggle('active', i === current));
+                }
+                gallery.querySelectorAll('.nav-arrow').forEach(btn => btn.addEventListener('click', () => setSlide(current + parseInt(btn.dataset.dir))));
+                dots.forEach(d => d.addEventListener('click', () => setSlide(parseInt(d.dataset.i))));
+                imgs.forEach(img => img.addEventListener('click', () => { if (img.classList.contains('next')) setSlide(current + 1); else if (img.classList.contains('prev')) setSlide(current - 1); }));
+
+                let startX = 0;
+                gallery.addEventListener('touchstart', e => { startX = e.changedTouches[0].screenX; }, { passive: true });
+                gallery.addEventListener('touchend', e => {
+                    let endX = e.changedTouches[0].screenX;
+                    if (startX - endX > 40) setSlide(current + 1);
+                    else if (endX - startX > 40) setSlide(current - 1);
+                }, { passive: true });
+
+                let isDown = false;
+                gallery.addEventListener('mousedown', e => { isDown = true; startX = e.clientX; });
+                gallery.addEventListener('mouseup', e => {
+                    if (!isDown) return;
+                    isDown = false;
+                    let endX = e.clientX;
+                    if (startX - endX > 40) setSlide(current + 1);
+                    else if (endX - startX > 40) setSlide(current - 1);
+                });
+                gallery.addEventListener('mouseleave', () => { isDown = false; });
+                setInterval(() => setSlide(current + 1), 5000);
+            });
+
+            document.addEventListener('mousemove', e => {
+                const px = (e.clientX / innerWidth - 0.5) * 40;
+                const py = (e.clientY / innerHeight - 0.5) * 40;
+                gsap.to('.bg-blob', { x: px, y: py, duration: 1.5, ease: 'power2.out', stagger: { amount: 0.1, from: 'center' } });
+            });
+
+            gsap.registerPlugin(ScrollTrigger);
+
+            document.querySelectorAll('.product-page').forEach(sec => {
+                const inner = sec.querySelector('.product-inner');
+                if (inner) gsap.fromTo(inner, { scale: 0.85, opacity: 0 }, { scrollTrigger: { trigger: sec, start: 'top 85%', end: 'top 20%', scrub: 1 }, scale: 1, opacity: 1, ease: 'power2.out' });
+
+                const info = sec.querySelector('.info');
+                const gallery = sec.querySelector('.gallery');
+                if (info) gsap.fromTo(info, { opacity: 0, y: 60 }, { scrollTrigger: { trigger: sec, start: 'top 70%', end: 'top 20%', scrub: 1 }, opacity: 1, y: 0, ease: 'power3.out' });
+                if (gallery) gsap.fromTo(gallery, { opacity: 0, x: -80, rotateY: 25 }, { scrollTrigger: { trigger: sec, start: 'top 75%', end: 'top 25%', scrub: 1 }, opacity: 1, x: 0, rotateY: 0, ease: 'power2.out' });
+            });
+
+            document.querySelectorAll('.gallery').forEach(g => {
+                g.addEventListener('mousemove', e => {
+                    const r = g.getBoundingClientRect();
+                    const rx = ((e.clientY - r.top) / r.height - .5);
+                    const ry = ((e.clientX - r.left) / r.width - .5);
+                    gsap.to(g, { rotateX: rx * -15, rotateY: ry * 15, transformPerspective: 1200, duration: .4, ease: 'power2.out' });
+
+                    const activeImg = g.querySelector('img.active');
+                    if (activeImg) gsap.to(activeImg, { filter: `drop-shadow(${ry * -60}px ${rx * -60}px 30px rgba(0,0,0,0.8))`, duration: 0.4 });
+                });
+                g.addEventListener('mouseleave', () => {
+                    gsap.to(g, { rotateX: 0, rotateY: 0, duration: .6, ease: 'elastic.out(1,.5)' });
+                    const activeImg = g.querySelector('img.active');
+                    if (activeImg) gsap.to(activeImg, { filter: `drop-shadow(0 30px 60px rgba(0,0,0,0.6))`, duration: 0.6 });
+                });
+            });
+
+            document.querySelectorAll('button').forEach(b => {
+                b.addEventListener('mouseenter', () => gsap.to(b, { scale: 1.08, duration: .3, ease: 'back.out(2)' }));
+                b.addEventListener('mouseleave', () => gsap.to(b, { scale: 1, duration: .3 }));
+            });
+
+            gsap.to('.scroll-indicator', { scrollTrigger: { trigger: '.product-page', start: '10% top', end: '30% top', scrub: true }, opacity: 0 });
+        }
+
+        initCatalog();
+
+        const COLOR_MAP = {
+            "A4 120/books01.png": { bg1: "rgb(236,207,219)", bg2: "rgb(222,175,196)", text: "#000000" },
+            "A4 120/books02.png": { bg1: "rgb(44,59,60)", bg2: "rgb(73,99,100)", text: "#ffffff" },
+            "A4 120/books03.png": { bg1: "rgb(49,56,23)", bg2: "rgb(81,93,39)", text: "#ffffff" },
+            "A4 120/books04.png": { bg1: "rgb(216,216,225)", bg2: "rgb(190,190,205)", text: "#000000" },
+            "small/small.png": { bg1: "rgb(75,43,23)", bg2: "rgb(124,71,38)", text: "#ffffff" },
+            "A4 240/A4 240-01.png": { bg1: "rgb(71,53,37)", bg2: "rgb(118,88,61)", text: "#ffffff" },
+            "A4 240/A4 240-02.png": { bg1: "rgb(56,65,38)", bg2: "rgb(94,108,64)", text: "#ffffff" },
+            "A4 240/A4 240-03.png": { bg1: "rgb(47,52,52)", bg2: "rgb(78,86,86)", text: "#ffffff" },
+            "A4 240/A4 240-04.png": { bg1: "rgb(44,60,65)", bg2: "rgb(72,100,109)", text: "#ffffff" },
+            "ROUGH/ROUGH.png": { bg1: "rgb(69,47,30)", bg2: "rgb(114,78,50)", text: "#ffffff" },
+            "B5/B5.png": { bg1: "rgb(75,49,26)", bg2: "rgb(125,81,43)", text: "#ffffff" },
+            "A4 392/A4 392-01.png": { bg1: "rgb(36,45,35)", bg2: "rgb(60,74,59)", text: "#ffffff" },
+            "A4 392/A4 392-02.png": { bg1: "rgb(33,40,44)", bg2: "rgb(54,66,74)", text: "#ffffff" },
+            "A4 176/A4 176-01.png": { bg1: "rgb(52,45,57)", bg2: "rgb(87,76,95)", text: "#ffffff" },
+            "A4 176/A4 176-02.png": { bg1: "rgb(68,41,22)", bg2: "rgb(113,68,37)", text: "#ffffff" },
+            "A4 176/A4 176-03.png": { bg1: "rgb(63,53,23)", bg2: "rgb(106,88,38)", text: "#ffffff" },
+            "A4 176/A4 176-04.png": { bg1: "rgb(39,47,53)", bg2: "rgb(65,78,88)", text: "#ffffff" },
+            "STATIONARY/SELF ADHESIVE BOOK COVER.png": { bg1: "rgb(15,54,68)", bg2: "rgb(26,90,112)", text: "#ffffff" },
+            "STATIONARY/EXAM PAD.png": { bg1: "rgb(211,202,197)", bg2: "rgb(182,167,158)", text: "#000000" },
+            "STATIONARY/MISTI PEN PACK.png": { bg1: "rgb(188,188,189)", bg2: "rgb(144,143,144)", text: "#000000" },
+            "STATIONARY/APSARA SHARPENER.png": { bg1: "rgb(25,47,43)", bg2: "rgb(42,79,72)", text: "#ffffff" },
+            "STATIONARY/APSARA PENCIL.png": { bg1: "rgb(32,45,42)", bg2: "rgb(52,75,70)", text: "#ffffff" },
+            "STATIONARY/CALCULATOR.png": { bg1: "rgb(37,41,43)", bg2: "rgb(62,68,72)", text: "#ffffff" },
+            "STATIONARY/RAJA SLATE.png": { bg1: "rgb(207,205,199)", bg2: "rgb(176,171,162)", text: "#000000" },
+            "STATIONARY/GRAPH BOOK.png": { bg1: "rgb(65,68,68)", bg2: "rgb(108,114,112)", text: "#ffffff" },
+            "STATIONARY/PUBLICATIONS.png": { bg1: "rgb(193,216,236)", bg2: "rgb(152,190,224)", text: "#000000" },
+            "STATIONARY/APSARA ERASER.jpg": { bg1: "rgb(38,55,47)", bg2: "rgb(64,92,79)", text: "#ffffff" },
+            "STATIONARY/transparent pad.png": { bg1: "rgb(59,56,47)", bg2: "rgb(98,93,79)", text: "#ffffff" },
+            "STATIONARY/XO PEN PACK.png": { bg1: "rgb(55,58,54)", bg2: "rgb(91,96,90)", text: "#ffffff" },
+            "STATIONARY/Tempera color.png": { bg1: "rgb(47,43,41)", bg2: "rgb(78,72,69)", text: "#ffffff" },
+            "STATIONARY/WAX CRAYONS.png": { bg1: "rgb(212,217,225)", bg2: "rgb(183,191,205)", text: "#000000" },
+            "STATIONARY/pencil colour.png": { bg1: "rgb(47,46,47)", bg2: "rgb(78,76,78)", text: "#ffffff" },
+            "STATIONARY/plastic crayon.png": { bg1: "rgb(44,44,44)", bg2: "rgb(74,73,72)", text: "#ffffff" },
+            "STATIONARY/30cm steel scale.png": { bg1: "rgb(214,213,211)", bg2: "rgb(187,184,182)", text: "#000000" },
+            "STATIONARY/30cm plastic scale.png": { bg1: "rgb(59,39,42)", bg2: "rgb(98,66,70)", text: "#ffffff" },
+            "STATIONARY/15cm plastic scale.png": { bg1: "rgb(63,42,46)", bg2: "rgb(106,70,76)", text: "#ffffff" },
+            "STATIONARY/1000077583 (1).png": { bg1: "rgb(44,44,46)", bg2: "rgb(74,74,76)", text: "#ffffff" },
+            "Drawing book/drawing book01.png": { bg1: "rgb(228,214,190)", bg2: "rgb(210,186,147)", text: "#000000" },
+            "Drawing book/drawing book02.png": { bg1: "rgb(39,44,24)", bg2: "rgb(64,73,40)", text: "#ffffff" },
+            "Drawing book/drawing book03.png": { bg1: "rgb(223,215,197)", bg2: "rgb(201,188,159)", text: "#000000" },
+            "Drawing book/drawing book04.png": { bg1: "rgb(50,53,41)", bg2: "rgb(84,88,68)", text: "#ffffff" },
+            "pouch/1000066559.png": { bg1: "rgb(190,196,205)", bg2: "rgb(146,158,172)", text: "#000000" },
+            "pouch/Remove background project.png": { bg1: "rgb(190,206,226)", bg2: "rgb(146,173,207)", text: "#000000" },
+            "pouch/1000066558 (1).png": { bg1: "rgb(232,195,201)", bg2: "rgb(216,154,165)", text: "#000000" },
+            "PAGE/FOUR LINE PAGE.jpg": { bg1: "rgb(74,74,74)", bg2: "rgb(123,123,124)", text: "#ffffff" },
+            "PAGE/SINGAL LINE PAGE.jpg": { bg1: "rgb(74,74,74)", bg2: "rgb(124,123,124)", text: "#ffffff" },
+            "PAGE/BOX PAGE.jpg": { bg1: "rgb(72,72,72)", bg2: "rgb(120,120,120)", text: "#ffffff" },
+            "scale/30cm plastic scale.png": { bg1: "rgb(55,55,58)", bg2: "rgb(92,92,97)", text: "#ffffff" },
+            "scale/15cm plastic scale.png": { bg1: "rgb(46,46,49)", bg2: "rgb(76,76,81)", text: "#ffffff" },
+            "scale/30cm steel scale.png": { bg1: "rgb(49,49,49)", bg2: "rgb(81,81,81)", text: "#ffffff" },
+        };
+
+
+        // Offline Average Color Extraction (100% Reliable without Live Server)
+        window.updateSectionColor = function (sec, img) {
+            const decodedUrl = decodeURI(img.src).replace(/\\/g, '/');
+            let colorData = null;
+            for (let key in COLOR_MAP) {
+                if (decodedUrl.endsWith(key)) { colorData = COLOR_MAP[key]; break; }
+            }
+            if (!colorData) return;
+
+            gsap.to(sec, {
+                '--bg1': colorData.bg1, '--bg2': colorData.bg2, duration: 0.8, ease: 'power2.out', onUpdate: () => {
+                    sec.style.background = `linear-gradient(135deg, ${sec.style.getPropertyValue('--bg1')}, ${sec.style.getPropertyValue('--bg2')})`;
+                }
+            });
+            sec.querySelectorAll('.bg-blob').forEach(blob => {
+                gsap.to(blob, { backgroundColor: colorData.bg2, duration: 0.8, ease: 'power2.out' });
+            });
+
+            const textColor = colorData.text;
+            if (textColor) {
+                const info = sec.querySelector('.info');
+                if (info) gsap.to(info, { color: textColor, duration: 0.8 });
+
+                // Also update any inline SVGs (like the scroll arrow) if needed
+                sec.querySelectorAll('svg').forEach(svg => gsap.to(svg, { stroke: textColor, duration: 0.8 }));
+            }
+        };
+
+        window.addEventListener('load', () => {
+            document.querySelectorAll('.product-page').forEach(sec => {
+                const img = sec.querySelector('.gallery img.active');
+                if (img) window.updateSectionColor(sec, img);
+            });
+        });
+    </script>
+</body>
+
+</html>
