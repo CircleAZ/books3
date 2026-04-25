@@ -5,6 +5,7 @@ The separate Receipt model was merged into Order.receipt_uuid.
 """
 from rest_framework import serializers
 from .models import Order, Payment
+from settings_app.models import StoreSettings
 
 
 class ReceiptPaymentSerializer(serializers.ModelSerializer):
@@ -27,6 +28,7 @@ class LivingReceiptSerializer(serializers.ModelSerializer):
     customer_name = serializers.SerializerMethodField()
     customer_phone = serializers.SerializerMethodField()
     items = serializers.SerializerMethodField()
+    store = serializers.SerializerMethodField()
     payments = ReceiptPaymentSerializer(many=True, read_only=True)
     paid = serializers.DecimalField(
         source='amount_paid', max_digits=12, decimal_places=2, read_only=True)
@@ -39,8 +41,24 @@ class LivingReceiptSerializer(serializers.ModelSerializer):
             'receipt_uuid', 'display_id', 'created_at',
             'customer_name', 'customer_phone',
             'items', 'subtotal', 'discount_amount', 'total',
-            'payments', 'paid', 'balance', 'payment_status',
+            'payments', 'paid', 'balance', 'payment_status', 'store',
         ]
+
+    def get_store(self, obj):
+        try:
+            store = StoreSettings.get_instance()
+            request = self.context.get('request')
+            logo_url = store.logo.url if store.logo else None
+            if logo_url and request:
+                logo_url = request.build_absolute_uri(logo_url)
+            return {
+                'name': store.name,
+                'phone': store.phone,
+                'logo': logo_url,
+                'currency_symbol': store.currency_symbol,
+            }
+        except Exception:
+            return None
 
     def get_customer_name(self, obj):
         """Mask customer name for privacy on public receipt."""
