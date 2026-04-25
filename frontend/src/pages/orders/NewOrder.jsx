@@ -206,10 +206,13 @@ export default function NewOrder() {
 
             setIsSearchingProducts(true);
             try {
-                const response = await fetchWithAuth(
-                    `${ENDPOINTS.INVENTORY_PRODUCTS}?search=${encodeURIComponent(productSearch)}`,
-                    { signal: controller.signal }
-                );
+                let url = `${ENDPOINTS.INVENTORY_PRODUCTS}?search=${encodeURIComponent(productSearch)}`;
+                if (selectedCategory) {
+                    url += `&category=${selectedCategory}`;
+                } else {
+                    url += `&exclude_category_prefix=Nav_`;
+                }
+                const response = await fetchWithAuth(url, { signal: controller.signal });
                 if (response.ok) {
                     const data = await response.json();
                     setProductResults(data.results || []);
@@ -229,15 +232,19 @@ export default function NewOrder() {
                 productAbortRef.current.abort();
             }
         };
-    }, [productSearch, fetchWithAuth]);
+    }, [productSearch, fetchWithAuth, selectedCategory]);
 
     // Fetch popular products on mount (ordered by order_count desc)
     useEffect(() => {
         const fetchPopularProducts = async () => {
             try {
-                const response = await fetchWithAuth(
-                    `${ENDPOINTS.INVENTORY_PRODUCTS}?ordering=-order_count&page_size=30${selectedCategory ? `&category=${selectedCategory}` : ''}`
-                );
+                let url = `${ENDPOINTS.INVENTORY_PRODUCTS}?ordering=-order_count&page_size=30`;
+                if (selectedCategory) {
+                    url += `&category=${selectedCategory}`;
+                } else {
+                    url += `&exclude_category_prefix=Nav_`;
+                }
+                const response = await fetchWithAuth(url);
                 if (response.ok) {
                     const data = await response.json();
                     setPopularProducts(data.results || []);
