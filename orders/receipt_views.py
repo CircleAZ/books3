@@ -45,12 +45,14 @@ class PublicReceiptView(APIView):
         except Exception:
             pass
         
+        logo_url = request.build_absolute_uri(store.logo.url) if store.logo else None
         data = serializer.data
         data['store'] = {
             'name': store.name,
             'phone': store.phone,
             'currency_symbol': store.currency_symbol,
             'upi_vpa': upi_vpa,
+            'logo': logo_url,
         }
         return Response(data)
 
