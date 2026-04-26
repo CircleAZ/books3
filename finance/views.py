@@ -1277,3 +1277,210 @@ class CashTransferViewSet(viewsets.ModelViewSet):
         transfer.status = 'rejected'
         transfer.save()
         return Response(CashTransferSerializer(transfer).data)
+
+# ======== Unified Financial Ledger ========
+
+class AllTransactionsViewSet(viewsets.ViewSet):
+    """
+    Unified Ledger consolidating Bank and Cash Wallet transactions.
+    Tracks exact money movement and provides rich drill-down metadata.
+    """
+    permission_classes = [HasRequiredPermission]
+    required_permission = 'finance.manage_banking'
+
+    def list(self, request):
+        from finance.models import BankTransaction, CashWalletTransaction, Expense, Loan, SalaryPayment
+        from orders.models import Order
+        from django.db.models import Q, Value, CharField, F
+        from rest_framework.exceptions import ValidationError
+        
+        # 1. Filters with 500 Error Shield
+        try:
+            date_from = request.query_params.get('date_from')
+            date_to = request.query_params.get('date_to')
+            txn_type = request.query_params.get('transaction_type')
+            source = request.query_params.get('source') # 'bank' or 'wallet'
+            min_amount = request.query_params.get('min_amount')
+            max_amount = request.query_params.get('max_amount')
+            search = request.query_params.get('search')
+            
+            bt_qs = BankTransaction.objects.all()
+            cw_qs = CashWalletTransaction.objects.all()
+            
+            if date_from:
+                bt_qs = bt_qs.filter(date__gte=date_from)
+                cw_qs = cw_qs.filter(date__gte=date_from)
+            if date_to:
+                bt_qs = bt_qs.filter(date__lte=date_to)
+                cw_qs = cw_qs.filter(date__lte=date_to)
+            if txn_type:
+                bt_qs = bt_qs.filter(transaction_type=txn_type)
+                cw_qs = cw_qs.filter(transaction_type=txn_type)
+            if min_amount:
+                bt_qs = bt_qs.filter(amount__gte=float(min_amount))
+                cw_qs = cw_qs.filter(amount__gte=float(min_amount))
+            if max_amount:
+                bt_qs = bt_qs.filter(amount__lte=float(max_amount))
+                cw_qs = cw_qs.filter(amount__lte=float(max_amount))
+                
+            if search:
+                # Defeating the Architect: Strip wildcards and enforce minimum length
+                search = search.replace('%', '').replace('_', '').strip()
+                if len(search) < 3:
+                    raise ValidationError("Search query must be at least 3 characters long after ignoring wildcards.")
+                    
+                # We search across description and reference.
+                bt_qs = bt_qs.filter(Q(reference__icontains=search) | Q(description__icontains=search))
+                cw_qs = cw_qs.filter(Q(reference_id__icontains=search) | Q(description__icontains=search))
+        except (ValueError, TypeError):
+            raise ValidationError("Invalid filter parameters provided.")
+        except Exception as e:
+            from django.core.exceptions import ValidationError as DjangoValidationError
+            if isinstance(e, DjangoValidationError):
+                raise ValidationError("Invalid date or filter parameters provided.")
+            raise e
+            
+        # Annotate Common Fields
+        bt_values = bt_qs.annotate(
+            source_type=Value('bank', output_field=CharField()),
+            source_name=F('account__name'),
+            source_id=F('account_id'),
+            ref=F('reference'),
+            user_name=F('recorded_by__username')
+        ).values('id', 'date', 'transaction_type', 'amount', 'ref', 'description', 'source_type', 'source_name', 'source_id', 'created_at', 'user_name')
+        
+        cw_values = cw_qs.annotate(
+            source_type=Value('wallet', output_field=CharField()),
+            source_name=F('wallet__name'),
+            source_id=F('wallet_id'),
+            ref=F('reference_id'),
+            user_name=F('created_by__username')
+        ).values('id', 'date', 'transaction_type', 'amount', 'ref', 'description', 'source_type', 'source_name', 'source_id', 'created_at', 'user_name')
+        
+        if source == 'bank':
+            unified = bt_values
+        elif source == 'wallet':
+            unified = cw_values
+        else:
+            unified = bt_values.union(cw_values)
+            
+        unified = unified.order_by('-date', '-created_at')
+        
+        # Defeating the Arbitrageur: Cap pagination depth to prevent OOM/DoS
+        req_page = request.query_params.get('page', 1)
+        try:
+            if int(req_page) > 1000:
+                raise ValidationError("Maximum pagination depth (1000) exceeded. Please use date filters to narrow your search.")
+        except ValueError:
+            pass # Let standard paginator handle non-integers
+            
+        paginator = FinancePagination()
+        paginator.page_size = 30 # As requested
+        page = paginator.paginate_queryset(unified, request)
+        
+        # 2. The N+1 Fix & Defeating The Prism (IDOR): Bulk resolve + RBAC Checks
+        from core.permissions import HasRequiredPermission
+        can_view_orders = HasRequiredPermission._check_rbac(request.user, 'orders.view_orders') or request.user.is_superuser
+        can_view_expenses = HasRequiredPermission._check_rbac(request.user, 'finance.manage_expenses') or request.user.is_superuser
+        can_view_salaries = HasRequiredPermission._check_rbac(request.user, 'finance.manage_salaries') or request.user.is_superuser
+        can_view_loans = HasRequiredPermission._check_rbac(request.user, 'finance.manage_loans') or request.user.is_superuser
+
+        order_display_ids = set()
+        expense_ids = set()
+        salary_ids = set()
+        loan_ids = set()
+        
+        for item in page:
+            ref = item.get('ref', '') or ''
+            if (ref.startswith('order_') or ref.startswith('refund_')) and can_view_orders:
+                display_id = ref.replace('order_', '').replace('refund_', '')
+                if display_id:
+                    order_display_ids.add(display_id)
+            elif ref.startswith('expense_') and can_view_expenses:
+                exp_id = ref.replace('expense_', '')
+                if exp_id.isdigit():
+                    expense_ids.add(exp_id)
+            elif ref.startswith('salary_') and can_view_salaries:
+                sal_id = ref.replace('salary_', '')
+                if sal_id.isdigit():
+                    salary_ids.add(sal_id)
+            elif ref.startswith('loan_') and can_view_loans:
+                ln_id = ref.replace('loan_', '')
+                if ln_id.isdigit():
+                    loan_ids.add(ln_id)
+                    
+        orders_map = {}
+        if order_display_ids:
+            orders = Order.objects.filter(display_id__in=order_display_ids).select_related('customer')
+            orders_map = {order.display_id: order for order in orders}
+            
+        expenses_map = {}
+        if expense_ids:
+            expenses = Expense.objects.filter(id__in=expense_ids).select_related('category')
+            expenses_map = {str(exp.id): exp for exp in expenses}
+            
+        salaries_map = {}
+        if salary_ids:
+            salaries = SalaryPayment.objects.filter(id__in=salary_ids).select_related('salary__employee')
+            salaries_map = {str(sal.id): sal for sal in salaries}
+            
+        loans_map = {}
+        if loan_ids:
+            loans = Loan.objects.filter(id__in=loan_ids).select_related('lender')
+            loans_map = {str(ln.id): ln for ln in loans}
+        
+        # Enrich results with drill-down metadata
+        enriched_results = []
+        for item in page:
+            item_dict = dict(item)
+            ref = item_dict.get('ref', '') or ''
+            linked_data = None
+            
+            try:
+                if (ref.startswith('order_') or ref.startswith('refund_')) and can_view_orders:
+                    display_id = ref.replace('order_', '').replace('refund_', '')
+                    order = orders_map.get(display_id)
+                    if order:
+                        linked_data = {
+                            'type': 'order' if ref.startswith('order_') else 'refund',
+                            'id': str(order.id),
+                            'display_id': order.display_id,
+                            'customer_name': order.guest_name if order.is_guest else (order.customer.full_name if order.customer else 'Guest'),
+                            'customer_id': order.customer.display_id if order.customer else None,
+                            'status': order.payment_status if ref.startswith('order_') else None
+                        }
+                elif ref.startswith('expense_') and can_view_expenses:
+                    exp_id = ref.replace('expense_', '')
+                    exp = expenses_map.get(exp_id)
+                    if exp:
+                        linked_data = {
+                            'type': 'expense',
+                            'id': str(exp.id),
+                            'payee': exp.payee_name,
+                            'category': exp.category.name if exp.category else 'Uncategorized'
+                        }
+                elif ref.startswith('salary_') and can_view_salaries:
+                    sal_id = ref.replace('salary_', '')
+                    sal = salaries_map.get(sal_id)
+                    if sal:
+                        linked_data = {
+                            'type': 'salary',
+                            'id': str(sal.id),
+                            'employee': sal.salary.employee.username
+                        }
+                elif ref.startswith('loan_') and can_view_loans:
+                    ln_id = ref.replace('loan_', '')
+                    ln = loans_map.get(ln_id)
+                    if ln:
+                        linked_data = {
+                            'type': 'loan',
+                            'id': str(ln.id),
+                            'lender': ln.lender.name
+                        }
+            except Exception as e:
+                logger.error(f"Failed to resolve linked data for ref {ref}: {e}")
+                
+            item_dict['linked_entity'] = linked_data
+            enriched_results.append(item_dict)
+            
+        return paginator.get_paginated_response(enriched_results)

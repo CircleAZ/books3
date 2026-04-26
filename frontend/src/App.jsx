@@ -61,6 +61,7 @@ import EmployeeSalaries from './pages/finance/EmployeeSalaries';
 import BankAccounts from './pages/finance/BankAccounts';
 import BankTransactions from './pages/finance/BankTransactions';
 import RecordTransaction from './pages/finance/RecordTransaction';
+import AllTransactions from './pages/finance/AllTransactions';
 
 import ProfitLossReport from './pages/finance/ProfitLossReport';
 import CashFlowReport from './pages/finance/CashFlowReport';
@@ -310,6 +311,11 @@ function AppRoutes() {
       <Route path="/finance/banking/transactions" element={
         <PermissionRoute permission="finance.manage_banking">
           <MainLayout><BankTransactions /></MainLayout>
+        </PermissionRoute>
+      } />
+      <Route path="/finance/transactions" element={
+        <PermissionRoute permission="finance.manage_banking">
+          <MainLayout><AllTransactions /></MainLayout>
         </PermissionRoute>
       } />
       <Route path="/finance/banking/record" element={
