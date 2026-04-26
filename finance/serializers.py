@@ -621,7 +621,7 @@ class CashTransferSerializer(serializers.ModelSerializer):
         model = CashTransfer
         fields = [
             'id', 'source_wallet', 'source_wallet_name', 'destination_wallet', 'destination_wallet_name', 
-            'destination_bank', 'destination_bank_name', 'amount', 'reference_id', 'status', 
+            'destination_bank', 'destination_bank_name', 'amount', 'notes', 'status', 
             'initiated_by', 'initiated_by_name', 'approved_by', 'approved_by_name', 
             'created_at', 'updated_at'
         ]

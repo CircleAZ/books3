@@ -1261,25 +1261,33 @@ class CashTransferViewSet(viewsets.ModelViewSet):
             
         from .services import LedgerService
         from django.db import transaction
-        with transaction.atomic():
-            transfer.status = 'approved'
-            transfer.approved_by = request.user
-            transfer.save()
-            
-            # Atomic ledger transfer
-            LedgerService.process_withdrawal(
-                amount=transfer.amount,
-                source_wallet=transfer.source_wallet,
-                description=f"Transfer to {transfer.destination_wallet.name if transfer.destination_wallet else transfer.destination_bank.name}",
-                user=request.user
-            )
-            LedgerService.process_deposit(
-                amount=transfer.amount,
-                destination_bank=transfer.destination_bank,
-                destination_wallet=transfer.destination_wallet,
-                description=f"Transfer from {transfer.source_wallet.name}",
-                user=request.user
-            )
+        from django.core.exceptions import ValidationError
+        
+        try:
+            with transaction.atomic():
+                transfer.status = 'approved'
+                transfer.approved_by = request.user
+                transfer.clean()
+                transfer.save()
+                
+                # Atomic ledger transfer
+                LedgerService.process_withdrawal(
+                    amount=transfer.amount,
+                    source_wallet=transfer.source_wallet,
+                    description=f"Transfer to {transfer.destination_wallet.name if transfer.destination_wallet else transfer.destination_bank.name}",
+                    user=request.user
+                )
+                LedgerService.process_deposit(
+                    amount=transfer.amount,
+                    destination_bank=transfer.destination_bank,
+                    destination_wallet=transfer.destination_wallet,
+                    description=f"Transfer from {transfer.source_wallet.name}",
+                    user=request.user
+                )
+                
+        except ValidationError as e:
+            # Catch model-level or LedgerService insufficient funds errors to prevent 500
+            return Response({'error': e.messages[0] if hasattr(e, 'messages') else str(e)}, status=status.HTTP_400_BAD_REQUEST)
             
         return Response(CashTransferSerializer(transfer).data)
         
