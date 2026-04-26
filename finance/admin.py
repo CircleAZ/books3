@@ -8,7 +8,8 @@ from .models import (
     BankAccount, BankTransaction, EmployeeExpense, EmployeeSalary,
     SalaryPayment, Lender, Loan, LoanRepayment,
     IncomeCategory, RecurringExpense, CategoryBudget, FinanceAuditLog,
-    ExpenseTrip, ExpenseTripItem
+    ExpenseTrip, ExpenseTripItem,
+    CashWallet, CashTransfer, CashWalletTransaction
 )
 
 
@@ -145,6 +146,33 @@ class LoanRepaymentAdmin(admin.ModelAdmin):
     search_fields = ['loan__lender__name', 'reference']
     date_hierarchy = 'date'
 
+
+# ======== Cash Management ========
+
+class CashWalletTransactionInline(admin.TabularInline):
+    model = CashWalletTransaction
+    extra = 0
+    readonly_fields = ['created_at']
+
+@admin.register(CashWallet)
+class CashWalletAdmin(admin.ModelAdmin):
+    list_display = ['name', 'owner', 'balance', 'is_system', 'is_active']
+    list_filter = ['is_system', 'is_active']
+    search_fields = ['name', 'owner__username']
+    inlines = [CashWalletTransactionInline]
+
+@admin.register(CashTransfer)
+class CashTransferAdmin(admin.ModelAdmin):
+    list_display = ['source_wallet', 'destination_wallet', 'destination_bank', 'amount', 'status', 'initiated_by']
+    list_filter = ['status']
+    search_fields = ['source_wallet__name', 'destination_wallet__name', 'destination_bank__name']
+
+@admin.register(CashWalletTransaction)
+class CashWalletTransactionAdmin(admin.ModelAdmin):
+    list_display = ['date', 'wallet', 'transaction_type', 'amount', 'balance_after']
+    list_filter = ['transaction_type', 'date', 'wallet']
+    search_fields = ['description', 'reference_id']
+    date_hierarchy = 'date'
 
 # ======== New Models ========
 
