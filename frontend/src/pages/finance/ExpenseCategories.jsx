@@ -23,6 +23,11 @@ export default function ExpenseCategories() {
         description: '',
         is_active: true
     });
+    const [customIconFile, setCustomIconFile] = useState(null);
+    const [uploadingLibraryIcon, setUploadingLibraryIcon] = useState(false);
+
+    // Extract unique custom icons for the library
+    const customIconsLibrary = [...new Set(categories.map(c => c.custom_icon).filter(Boolean))];
 
     const fetchCategories = useCallback(async () => {
         setLoading(true);
@@ -55,6 +60,7 @@ export default function ExpenseCategories() {
                 description: category.description || '',
                 is_active: category.is_active !== undefined ? category.is_active : true
             });
+            setCustomIconFile(null);
         } else {
             setCurrentCategory(null);
             setFormData({
@@ -63,6 +69,7 @@ export default function ExpenseCategories() {
                 description: '',
                 is_active: true
             });
+            setCustomIconFile(null);
         }
         setIsEditModalOpen(true);
     };
@@ -70,6 +77,31 @@ export default function ExpenseCategories() {
     const handleCloseEditModal = () => {
         setIsEditModalOpen(false);
         setCurrentCategory(null);
+        setCustomIconFile(null);
+    };
+
+    const handleFileChange = (e) => {
+        if (e.target.files && e.target.files[0]) {
+            setCustomIconFile(e.target.files[0]);
+            setFormData(prev => ({ ...prev, icon: '' }));
+        }
+    };
+
+    const selectFromLibrary = async (url) => {
+        setUploadingLibraryIcon(true);
+        try {
+            const response = await fetch(url);
+            const blob = await response.blob();
+            const filename = url.split('/').pop();
+            const file = new File([blob], filename, { type: blob.type });
+            setCustomIconFile(file);
+            setFormData(prev => ({ ...prev, icon: '' }));
+        } catch (err) {
+            console.error("Failed to load icon from library", err);
+            alert("Could not load the custom icon from the library.");
+        } finally {
+            setUploadingLibraryIcon(false);
+        }
     };
 
     const handleSaveCategory = async (e) => {
@@ -81,19 +113,44 @@ export default function ExpenseCategories() {
         const method = currentCategory ? 'PATCH' : 'POST';
 
         try {
-            const response = await fetchWithAuth(url, {
-                method,
-                body: JSON.stringify(formData)
-            });
+            let options;
+            
+            // Use FormData if we have a file, otherwise JSON
+            if (customIconFile) {
+                const formDataObj = new FormData();
+                formDataObj.append('name', formData.name);
+                formDataObj.append('icon', formData.icon);
+                formDataObj.append('description', formData.description);
+                formDataObj.append('is_active', formData.is_active);
+                formDataObj.append('custom_icon', customIconFile);
+                
+                options = {
+                    method,
+                    body: formDataObj,
+                    isFormData: true 
+                };
+            } else {
+                const payload = { ...formData };
+                if (payload.clearCustomIcon) {
+                    payload.custom_icon = null;
+                }
+                delete payload.clearCustomIcon;
+
+                options = {
+                    method,
+                    body: JSON.stringify(payload)
+                };
+            }
+
+            const response = await fetchWithAuth(url, options);
 
             if (response.ok) {
                 fetchCategories();
                 handleCloseEditModal();
-                // Simple toast-like alert
                 console.log('Category saved successfully');
             } else {
                 const data = await response.json();
-                alert(data.detail || 'Failed to save category');
+                alert(data.detail || JSON.stringify(data) || 'Failed to save category');
             }
         } catch (err) {
             console.error('Error saving category:', err);
@@ -169,7 +226,11 @@ export default function ExpenseCategories() {
                 {categories.map(category => (
                     <div key={category.id} className={`category-card glass-card ${!category.is_active ? 'inactive' : ''}`}>
                         <div className="category-icon-wrapper">
-                            <span className="category-icon">{category.icon || '📁'}</span>
+                            {category.custom_icon ? (
+                                <img src={category.custom_icon} alt={category.name} className="category-custom-icon" style={{width: '48px', height: '48px', objectFit: 'contain', borderRadius: '8px'}} />
+                            ) : (
+                                <span className="category-icon">{category.icon || '📁'}</span>
+                            )}
                             <div className="status-badge">
                                 <label className="switch">
                                     <input 
@@ -238,18 +299,71 @@ export default function ExpenseCategories() {
 
                             <div className="form-group">
                                 <label>Pick an Icon</label>
-                                <div className="icon-picker">
+                                
+                                {customIconFile && (
+                                    <div className="selected-custom-preview" style={{ marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '1rem', background: 'rgba(0,0,0,0.2)', padding: '0.5rem', borderRadius: '8px' }}>
+                                        <img 
+                                            src={URL.createObjectURL(customIconFile)} 
+                                            alt="Preview" 
+                                            style={{ width: '40px', height: '40px', objectFit: 'contain', borderRadius: '4px' }} 
+                                        />
+                                        <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>Custom Icon Selected</span>
+                                        <button type="button" className="btn btn-sm btn-ghost" onClick={() => { setCustomIconFile(null); setFormData(prev => ({...prev, icon: '📁'})); }}>Remove</button>
+                                    </div>
+                                )}
+
+                                {!customIconFile && currentCategory?.custom_icon && (
+                                    <div className="selected-custom-preview" style={{ marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '1rem', background: 'rgba(0,0,0,0.2)', padding: '0.5rem', borderRadius: '8px' }}>
+                                        <img 
+                                            src={currentCategory.custom_icon} 
+                                            alt="Current" 
+                                            style={{ width: '40px', height: '40px', objectFit: 'contain', borderRadius: '4px' }} 
+                                        />
+                                        <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>Current Custom Icon</span>
+                                        <button type="button" className="btn btn-sm btn-ghost" onClick={() => { 
+                                            // To effectively "remove" it without a file, we could just let them select an emoji which will override it.
+                                            setFormData(prev => ({...prev, icon: '📁', clearCustomIcon: true})); 
+                                        }}>Clear (Select Emoji Below)</button>
+                                    </div>
+                                )}
+
+                                <div className="icon-picker" style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
+                                    {/* Upload Button */}
+                                    <label className="icon-option upload-btn" title="Upload Custom Icon" style={{ cursor: 'pointer', background: 'var(--primary-color)', color: '#fff', border: 'none' }}>
+                                        <input type="file" accept="image/*" style={{ display: 'none' }} onChange={handleFileChange} />
+                                        <span>+ 🖼️</span>
+                                    </label>
+
+                                    {/* Custom Icons Library */}
+                                    {customIconsLibrary.map((url, idx) => (
+                                        <button 
+                                            key={`lib-${idx}`}
+                                            type="button"
+                                            className="icon-option"
+                                            onClick={() => selectFromLibrary(url)}
+                                            disabled={uploadingLibraryIcon}
+                                            title="Use this icon"
+                                            style={{ padding: '4px' }}
+                                        >
+                                            <img src={url} alt="lib" style={{ width: '24px', height: '24px', objectFit: 'contain', borderRadius: '4px' }} />
+                                        </button>
+                                    ))}
+
+                                    <div style={{ width: '100%', height: '1px', background: 'rgba(255,255,255,0.1)', margin: '0.5rem 0' }}></div>
+
+                                    {/* Default Emojis */}
                                     {ICONS.map(icon => (
                                         <button 
                                             key={icon}
                                             type="button"
-                                            className={`icon-option ${formData.icon === icon ? 'selected' : ''}`}
-                                            onClick={() => setFormData({ ...formData, icon })}
+                                            className={`icon-option ${formData.icon === icon && !customIconFile && !(currentCategory?.custom_icon && !formData.clearCustomIcon) ? 'selected' : ''}`}
+                                            onClick={() => { setFormData({ ...formData, icon, clearCustomIcon: true }); setCustomIconFile(null); }}
                                         >
                                             {icon}
                                         </button>
                                     ))}
                                 </div>
+                                {uploadingLibraryIcon && <div style={{ fontSize: '0.8rem', color: 'var(--primary-color)', marginTop: '0.5rem' }}>Preparing library icon...</div>}
                             </div>
 
                             <div className="form-group">
