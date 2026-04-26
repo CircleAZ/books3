@@ -581,7 +581,7 @@ export default function OrderDetails() {
 
             {/* Cancellation Pending Banner */}
             {order.cancellation_status === 'pending' && (
-                <div className="card" style={{ background: 'var(--color-warning-bg, #fff3cd)', border: '1px solid var(--color-warning, #ffc107)', padding: '1rem 1.5rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '1rem' }}>
+                <div className="card" style={{ background: 'var(--color-warning-bg, #fff3cd)', color: '#856404', border: '1px solid var(--color-warning, #ffc107)', padding: '1rem 1.5rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '1rem' }}>
                     <div>
                         <strong>⚠️ Cancellation Requested</strong>
                         <p style={{ margin: '0.25rem 0 0', fontSize: '0.875rem' }}>This order has a pending cancellation request. Approve to finalize or reject to resume the order.</p>
@@ -1180,7 +1180,7 @@ export default function OrderDetails() {
                                     onChange={(e) => setDeliveryNotes(e.target.value)}
                                 />
                             </div>
-                            <div style={{ padding: '0.75rem', background: 'var(--color-warning-bg, #fff3cd)', borderRadius: '8px', marginBottom: '1rem', fontSize: '0.8rem' }}>
+                            <div style={{ padding: '0.75rem', background: 'var(--color-warning-bg, #fff3cd)', color: '#856404', borderRadius: '8px', marginBottom: '1rem', fontSize: '0.8rem' }}>
                                 ⚠️ <strong>This action cannot be undone.</strong> Delivered quantities are permanently recorded.
                             </div>
                             <div className="modal-actions">
