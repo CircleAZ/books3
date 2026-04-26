@@ -51,7 +51,10 @@ if not DEBUG and 'insecure' in SECRET_KEY:
     from django.core.exceptions import ImproperlyConfigured
     raise ImproperlyConfigured("Production requires a real SECRET_KEY. Set SECRET_KEY env var.")
 _hosts = os.getenv('ALLOWED_HOSTS', 'localhost,127.0.0.1,api.circleaz.in')
-ALLOWED_HOSTS = [x.strip() for x in _hosts.split(',') if x.strip()]
+ALLOWED_HOSTS = [
+    x.strip().replace('https://', '').replace('http://', '') 
+    for x in _hosts.split(',') if x.strip()
+]
 # Each Render instance sets its own hostname via env var (e.g., "azbooks.onrender.com,api.circleaz.in")
 # Do NOT hardcode all instance hostnames here — that defeats per-instance isolation.
 
