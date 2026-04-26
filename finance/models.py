@@ -20,6 +20,7 @@ class ExpenseCategory(TimestampedModel):
     """
     name = models.CharField(max_length=100, unique=True)
     icon = models.CharField(max_length=50, blank=True, default='receipt')
+    custom_icon = models.ImageField(upload_to='category_icons/', null=True, blank=True)
     description = models.TextField(blank=True)
     is_active = models.BooleanField(default=True)
     
@@ -29,6 +30,34 @@ class ExpenseCategory(TimestampedModel):
     
     def __str__(self):
         return self.name
+
+    def save(self, *args, **kwargs):
+        if self.custom_icon and not getattr(self, '_icon_resized', False):
+            from django.core.files.uploadedfile import UploadedFile
+            # Only resize newly uploaded files
+            if isinstance(self.custom_icon.file, UploadedFile):
+                from PIL import Image
+                from io import BytesIO
+                from django.core.files.base import ContentFile
+                try:
+                    img = Image.open(self.custom_icon.file)
+                    if img.width > 100 or img.height > 100:
+                        img.thumbnail((100, 100), Image.Resampling.LANCZOS)
+                        output = BytesIO()
+                        fmt = img.format or 'PNG'
+                        if img.mode in ('RGBA', 'P') and fmt == 'JPEG':
+                            img = img.convert('RGB')
+                        img.save(output, format=fmt, quality=90, optimize=True)
+                        output.seek(0)
+                        self.custom_icon.save(
+                            self.custom_icon.name,
+                            ContentFile(output.read()),
+                            save=False
+                        )
+                except Exception as e:
+                    pass
+            self._icon_resized = True
+        super().save(*args, **kwargs)
 
 
 class Expense(SoftDeleteModel):
