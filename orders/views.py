@@ -45,7 +45,7 @@ class OrderViewSet(viewsets.ModelViewSet):
     """
     queryset = Order.objects.all().select_related(
         'customer', 'created_by'
-    ).prefetch_related('items', 'items__product', 'payments', 'status_history', 'order_notes').annotate(
+    ).prefetch_related('items', 'items__product', 'payments', 'deliveries', 'deliveries__items', 'deliveries__items__order_item__product', 'deliveries__delivered_by', 'status_history', 'order_notes').annotate(
         item_count=Count('items'),
         customer_sort_name=Case(
             When(is_guest=True, then=Coalesce('guest_name', Value('Guest'))),
@@ -80,6 +80,12 @@ class OrderViewSet(viewsets.ModelViewSet):
         # For non-customer users (e.g. just a user account?), show created_by
         return queryset.filter(created_by=user)
     
+    def perform_create(self, serializer):
+        """Inject created_by and manually freeze quantities if created as confirmed."""
+        instance = serializer.save(created_by=self.request.user)
+        if instance.order_status in ('confirmed', 'completed'):
+            instance.freeze_confirmed_quantities()
+            
     
     def update(self, request, *args, **kwargs):
         """Standard update with offline sync protection (V-01)."""
@@ -105,15 +111,15 @@ class OrderViewSet(viewsets.ModelViewSet):
         serializer = self.get_serializer(instance, data=request.data, partial=partial)
         serializer.is_valid(raise_exception=True)
 
-        # Stock Management for Completed Orders
-        is_completed = instance.order_status == 'completed'
+        # Stock Management for Active Orders
+        is_active = instance.order_status in ('confirmed', 'completed')
         old_items = []
-        if is_completed:
+        if is_active:
             old_items = list(instance.items.all())
 
         with transaction.atomic():
-            # If previously completed, restore stock for old items before update
-            if is_completed:
+            # If previously active, restore stock for old items before update
+            if is_active:
                 from inventory.services import StockService
                 for item in old_items:
                      StockService.adjust_stock(
@@ -122,27 +128,45 @@ class OrderViewSet(viewsets.ModelViewSet):
                         quantity=item.quantity,
                         reason='correction',
                         notes=f"Order #{instance.display_id} Edit (Restore)",
-                        user=request.user
+                        user=request.user,
+                        target_ledger='available'
                     )
 
             self.perform_update(serializer)
             instance.refresh_from_db()
 
-            # If still completed, re-deduct stock for new items
-            if is_completed and instance.order_status == 'completed':
-                 from inventory.services import StockService
-                 for item in instance.items.all():
-                     StockService.adjust_stock(
-                        product_id=item.product.id,
-                        adjustment_type='decrease',
-                        quantity=item.quantity,
-                        reason='sale',
-                        notes=f"Order #{instance.display_id} Edit (Deduct)",
-                        user=request.user
-                    )
+            # Handle Draft -> Confirmed transition OR update of Active orders
+            if instance.order_status in ('confirmed', 'completed'):
+                # For already active orders, manually freeze to set confirmed_quantity
+                # The old items were restored above. We do NOT use freeze_confirmed_quantities() 
+                # because we want to maintain the "Edit (Deduct)" audit trail notes instead of "Order Confirmed".
+                # BUT we must set confirmed_quantity!
+                
+                from inventory.services import StockService
+                for item in instance.items.all():
+                    if item.confirmed_quantity is None:
+                        item.confirmed_quantity = item.quantity
+                        item.save(update_fields=['confirmed_quantity'])
+                        
+                    # We only deduct stock here if it was ALREADY active. 
+                    # If it transitioned from draft to confirmed, we call freeze_confirmed_quantities()
+                    if is_active:
+                        StockService.adjust_stock(
+                            product_id=item.product.id,
+                            adjustment_type='decrease',
+                            quantity=item.quantity,
+                            reason='sale',
+                            notes=f"Order #{instance.display_id} Edit (Deduct)",
+                            user=request.user,
+                            target_ledger='available'
+                        )
+                
+                # If it transitioned from draft to confirmed during this update:
+                if not is_active:
+                    instance.freeze_confirmed_quantities()
             
             # Log history
-            if is_completed:
+            if is_active:
                  OrderStatusHistory.objects.create(
                     order=instance,
                     status_field='order_details',
@@ -213,22 +237,9 @@ class OrderViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST
             )
         
-        from inventory.services import StockService
-        
-        # Deduct stock for each item
         with transaction.atomic():
             order.order_status = 'completed'
             order.save(update_fields=['order_status'])
-            
-            for item in order.items.all():
-                StockService.adjust_stock(
-                    product_id=item.product.id,
-                    adjustment_type='decrease',
-                    quantity=item.quantity,
-                    reason='sale',
-                    notes=f"Order #{order.display_id}",
-                    user=request.user
-                )
         
         # Dispatch receipt notification via customer preference
         try:
@@ -237,6 +248,177 @@ class OrderViewSet(viewsets.ModelViewSet):
             logger.error("Failed to dispatch receipt for order #%s: %s", order.display_id, e)
         
         return Response({'status': 'Order completed'})
+    
+    @action(detail=True, methods=['post'])
+    def deliver_all(self, request, pk=None):
+        """Deliver all remaining items in the order."""
+        order = self.get_object()
+        
+        if order.order_status not in ['confirmed', 'completed']:
+            return Response(
+                {'error': 'Order must be confirmed or completed to start delivery'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+            
+        if order.delivery_status == 'delivered':
+            return Response(
+                {'error': 'Order is already fully delivered'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+            
+        notes = request.data.get('notes', '')
+        
+        with transaction.atomic():
+            # Acquire lock to prevent concurrent delivery exploits
+            order = Order.objects.select_for_update().get(pk=order.pk)
+            
+            # Re-verify status after acquiring lock
+            if order.delivery_status == 'delivered':
+                return Response(
+                    {'error': 'Order is already fully delivered'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+                
+            # Ensure quantities are frozen
+            if order.items.filter(confirmed_quantity__isnull=True).exists():
+                order.freeze_confirmed_quantities()
+                
+            from orders.models import Delivery, DeliveryItem
+            delivery = Delivery.objects.create(
+                order=order,
+                notes=notes,
+                delivered_by=request.user
+            )
+            
+            items_delivered = False
+            for item in order.items.all():
+                remaining = item.remaining_quantity
+                if remaining > 0:
+                    DeliveryItem.objects.create(
+                        delivery=delivery,
+                        order_item=item,
+                        quantity=remaining
+                    )
+                    from inventory.services import StockService
+                    StockService.adjust_stock(
+                        product_id=item.product.id,
+                        adjustment_type='decrease',
+                        quantity=remaining,
+                        reason='sale',
+                        notes=f"Order #{order.display_id} Delivery",
+                        user=request.user,
+                        target_ledger='physical'
+                    )
+                    items_delivered = True
+            
+            if not items_delivered:
+                return Response({'error': 'No items left to deliver'}, status=status.HTTP_400_BAD_REQUEST)
+                
+            # Trigger status update after items are attached
+            order.update_delivery_status()
+            order.refresh_from_db()
+            
+        return Response({
+            'status': 'All items delivered',
+            'delivery_status': order.delivery_status,
+            'derived_status': order.derived_status
+        })
+
+    @action(detail=True, methods=['post'])
+    def deliver_partial(self, request, pk=None):
+        """Deliver a specific set of items and quantities."""
+        order = self.get_object()
+        
+        if order.order_status not in ['confirmed', 'completed']:
+            return Response(
+                {'error': 'Order must be confirmed or completed to start delivery'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+            
+        if order.delivery_status == 'delivered':
+            return Response(
+                {'error': 'Order is already fully delivered'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+            
+        items_data = request.data.get('items', [])
+        if not items_data or not isinstance(items_data, list):
+            return Response(
+                {'error': 'Must provide a list of items to deliver'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+            
+        notes = request.data.get('notes', '')
+        from django.core.exceptions import ValidationError
+        
+        try:
+            with transaction.atomic():
+                # Acquire lock to prevent concurrent delivery exploits
+                order = Order.objects.select_for_update().get(pk=order.pk)
+                
+                # Re-verify status after acquiring lock
+                if order.delivery_status == 'delivered':
+                    return Response(
+                        {'error': 'Order is already fully delivered'},
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
+                    
+                if order.items.filter(confirmed_quantity__isnull=True).exists():
+                    order.freeze_confirmed_quantities()
+                    
+                from orders.models import Delivery, DeliveryItem
+                delivery = Delivery.objects.create(
+                    order=order,
+                    notes=notes,
+                    delivered_by=request.user
+                )
+                
+                for item_data in items_data:
+                    item_id = item_data.get('order_item')
+                    qty = item_data.get('quantity')
+                    
+                    if not item_id or not qty or int(qty) <= 0:
+                        raise ValidationError("Invalid item data. Requires order_item and positive quantity.")
+                    
+                    try:
+                        order_item = order.items.get(pk=item_id)
+                    except Exception:
+                        raise ValidationError(f"Order item {item_id} not found in this order.")
+                        
+                    if int(qty) > order_item.remaining_quantity:
+                        raise ValidationError(f"Cannot deliver {qty} of {order_item.product.name}. Only {order_item.remaining_quantity} remaining.")
+                        
+                    DeliveryItem.objects.create(
+                        delivery=delivery,
+                        order_item=order_item,
+                        quantity=int(qty)
+                    )
+                    from inventory.services import StockService
+                    StockService.adjust_stock(
+                        product_id=order_item.product.id,
+                        adjustment_type='decrease',
+                        quantity=int(qty),
+                        reason='sale',
+                        notes=f"Order #{order.display_id} Partial Delivery",
+                        user=request.user,
+                        target_ledger='physical'
+                    )
+                    
+                # Update status after items attached
+                order.update_delivery_status()
+                order.refresh_from_db()
+                
+        except ValidationError as e:
+            return Response(
+                {'error': str(e.message if hasattr(e, 'message') else str(e))},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+            
+        return Response({
+            'status': 'Partial delivery recorded',
+            'delivery_status': order.delivery_status,
+            'derived_status': order.derived_status
+        })
     
     @action(detail=True, methods=['post'])
     def cancel(self, request, pk=None):
@@ -264,8 +446,25 @@ class OrderViewSet(viewsets.ModelViewSet):
         try:
             old_cancellation = order.cancellation_status
             old_order_status = order.order_status
-            order.approve_cancellation()
-            # Audit trail
+            
+            with transaction.atomic():
+                order.approve_cancellation()
+                
+                # Restore Available Stock for undelivered items
+                from inventory.services import StockService
+                for item in order.items.all():
+                    if item.remaining_quantity > 0:
+                        StockService.adjust_stock(
+                            product_id=item.product.id,
+                            adjustment_type='increase',
+                            quantity=item.remaining_quantity,
+                            reason='correction',
+                            notes=f"Order #{order.display_id} Cancelled",
+                            user=request.user,
+                            target_ledger='available'
+                        )
+                
+                # Audit trail
             OrderStatusHistory.objects.create(
                 order=order, status_field='cancellation_status',
                 old_value=old_cancellation, new_value='completed',
@@ -464,15 +663,21 @@ class OrderViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST
             )
         
+        # Block manual delivery_status changes (auto-computed from delivery events)
+        if field == 'delivery_status':
+            return Response(
+                {'error': 'Delivery status is auto-computed. Use deliver_all or deliver_partial endpoints.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
         # Validate field name
-        valid_fields = ['delivery_status', 'order_status', 
+        valid_fields = ['order_status', 
                         'return_status', 'refund_status', 'cancellation_status']
         if field not in valid_fields:
             return Response({'error': f'Invalid field: {field}'}, status=status.HTTP_400_BAD_REQUEST)
         
         # Validate new_value is a valid choice for the field
         valid_choices = {
-            'delivery_status': ['pending', 'processing', 'ready', 'delivered'],
             'order_status': ['draft', 'confirmed', 'completed', 'cancelled'],
             'return_status': ['na', 'pending', 'received', 'completed', 'cancelled'],
             'refund_status': ['na', 'pending', 'partial', 'completed', 'cancelled'],

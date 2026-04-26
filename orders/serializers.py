@@ -6,7 +6,8 @@ from decimal import Decimal
 from django.utils.html import strip_tags
 from .models import (
     Order, OrderItem, Payment, OrderStatusHistory, OrderNote,
-    ReturnReason, Return, ReturnItem, Refund, CreditNote
+    ReturnReason, Return, ReturnItem, Refund, CreditNote,
+    Delivery, DeliveryItem
 )
 
 
@@ -51,11 +52,12 @@ class OrderItemSerializer(serializers.ModelSerializer):
         model = OrderItem
         fields = [
             'id', 'product', 'product_name', 'product_display_id', 'product_stock',
-            'quantity', 'unit_price', 
+            'quantity', 'confirmed_quantity', 'delivered_quantity', 'remaining_quantity',
+            'unit_price', 
             'discount_type', 'discount_value', 'discount_amount',
             'line_total'
         ]
-        read_only_fields = ['id', 'discount_amount', 'line_total']
+        read_only_fields = ['id', 'confirmed_quantity', 'delivered_quantity', 'remaining_quantity', 'discount_amount', 'line_total']
 
 
 class OrderListSerializer(serializers.ModelSerializer):
@@ -96,10 +98,30 @@ class OrderNoteSerializer(serializers.ModelSerializer):
         read_only_fields = ['id', 'created_at', 'created_by_name']
 
 
+class DeliveryItemSerializer(serializers.ModelSerializer):
+    product_name = serializers.CharField(source='order_item.product.name', read_only=True)
+    
+    class Meta:
+        model = DeliveryItem
+        fields = ['id', 'delivery', 'order_item', 'product_name', 'quantity', 'created_at']
+        read_only_fields = ['id', 'created_at']
+
+
+class DeliverySerializer(serializers.ModelSerializer):
+    delivered_by_name = serializers.CharField(source='delivered_by.username', read_only=True, default=None)
+    items = DeliveryItemSerializer(many=True, read_only=True)
+    
+    class Meta:
+        model = Delivery
+        fields = ['id', 'order', 'notes', 'delivered_by', 'delivered_by_name', 'created_at', 'items']
+        read_only_fields = ['id', 'created_at', 'delivered_by_name']
+
+
 class OrderDetailSerializer(serializers.ModelSerializer):
     """Full detail serializer with nested items, payments, history, and notes."""
     items = OrderItemSerializer(many=True, read_only=True)
     payments = PaymentSerializer(many=True, read_only=True)
+    deliveries = DeliverySerializer(many=True, read_only=True)
     status_history = OrderStatusHistorySerializer(many=True, read_only=True)
     order_notes = OrderNoteSerializer(many=True, read_only=True)
     customer_name = serializers.SerializerMethodField()
@@ -124,7 +146,7 @@ class OrderDetailSerializer(serializers.ModelSerializer):
             'derived_status', 'can_edit', 'can_cancel',
             'subtotal', 'discount_type', 'discount_value', 'discount_amount', 'total',
             'amount_paid', 'balance_due', 'change_due',
-            'notes', 'items', 'payments', 'status_history', 'order_notes',
+            'notes', 'items', 'payments', 'deliveries', 'status_history', 'order_notes',
             'receipt_uuid',
             'created_at', 'updated_at'
         ]
@@ -237,19 +259,6 @@ class OrderCreateSerializer(serializers.ModelSerializer):
         order.calculate_totals()
         order.update_payment_status()
 
-        # Deduct stock for completed orders (allows negative stock for reorder tracking)
-        if order.order_status == 'completed':
-            from inventory.services import StockService
-            user = validated_data.get('created_by')
-            for item in order.items.select_related('product'):
-                StockService.adjust_stock(
-                    product_id=item.product.id,
-                    adjustment_type='decrease',
-                    quantity=item.quantity,
-                    reason='sale',
-                    notes=f"Order #{order.display_id}",
-                    user=user
-                )
 
         # Snapshot receipt to R2 for edge-served receipts
         try:

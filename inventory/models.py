@@ -80,6 +80,7 @@ class Product(DisplayIDMixin, SoftDeleteModel):
     cost_price = models.DecimalField(max_digits=10, decimal_places=2)
     selling_price = models.DecimalField(max_digits=10, decimal_places=2)
     stock_quantity = models.IntegerField(default=0)
+    physical_stock = models.IntegerField(default=0, help_text="Actual stock sitting in the warehouse. Deducted only upon delivery.")
     low_stock_threshold = models.PositiveIntegerField(default=10)
 
     def __str__(self):

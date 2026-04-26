@@ -32,9 +32,14 @@ export default function OrderDetails() {
     const [paymentSubmitting, setPaymentSubmitting] = useState(false);
     const [paymentError, setPaymentError] = useState('');
     const [showHistory, setShowHistory] = useState(false);
-    const [showDeliveryConfirm, setShowDeliveryConfirm] = useState(false);
     const [showCancelConfirm, setShowCancelConfirm] = useState(false);
-    const [pendingDeliveryUpdate, setPendingDeliveryUpdate] = useState(null);
+    
+    // Delivery Modal State
+    const [showDeliveryModal, setShowDeliveryModal] = useState(false);
+    const [deliveryMode, setDeliveryMode] = useState('all'); // 'all' or 'partial'
+    const [deliveryNotes, setDeliveryNotes] = useState('');
+    const [partialQuantities, setPartialQuantities] = useState({});
+    const [deliverySubmitting, setDeliverySubmitting] = useState(false);
 
     const fetchOrderDetails = useCallback(async () => {
         setLoading(true);
@@ -176,14 +181,6 @@ export default function OrderDetails() {
     const handleUpdateStatus = async (e) => {
         e.preventDefault();
 
-        // Intercept delivery=delivered for confirmation
-        if (statusUpdate.field === 'delivery_status' && statusUpdate.value === 'delivered') {
-            setPendingDeliveryUpdate({ ...statusUpdate });
-            setShowStatusModal(false);
-            setShowDeliveryConfirm(true);
-            return;
-        }
-
         try {
             const response = await fetchWithAuth(`${ENDPOINTS.ORDERS}${id}/update_status/`, {
                 method: 'POST',
@@ -201,25 +198,6 @@ export default function OrderDetails() {
         }
     };
 
-    const confirmDelivery = async () => {
-        setShowDeliveryConfirm(false);
-        if (!pendingDeliveryUpdate) return;
-        try {
-            const response = await fetchWithAuth(`${ENDPOINTS.ORDERS}${id}/update_status/`, {
-                method: 'POST',
-                body: JSON.stringify({ ...pendingDeliveryUpdate, confirm: true })
-            });
-            if (response.ok) {
-                fetchOrderDetails();
-            } else {
-                const data = await response.json();
-                showToast(data.error || 'Failed to update delivery status', 'error');
-            }
-        } catch (err) {
-            console.error('Error confirming delivery:', err);
-        }
-        setPendingDeliveryUpdate(null);
-    };
 
     const openStatusModal = (field, currentValue) => {
         // Block manual payment_status changes
@@ -227,8 +205,83 @@ export default function OrderDetails() {
             showToast('Payment status is auto-computed and cannot be changed manually.', 'info');
             return;
         }
+        // Block manual delivery_status changes (auto-computed from delivery events)
+        if (field === 'delivery_status') {
+            showToast('Delivery status is auto-computed. Use "Record Delivery" to update.', 'info');
+            return;
+        }
         setStatusUpdate({ field, value: currentValue, note: '' });
         setShowStatusModal(true);
+    };
+
+    const openDeliveryModal = () => {
+        setDeliveryMode('all');
+        setDeliveryNotes('');
+        
+        // Initialize partial quantities with remaining quantities
+        const initialQtys = {};
+        if (order && order.items) {
+            order.items.forEach(item => {
+                if (item.remaining_quantity > 0) {
+                    initialQtys[item.id] = item.remaining_quantity;
+                }
+            });
+        }
+        setPartialQuantities(initialQtys);
+        setShowDeliveryModal(true);
+    };
+
+    const handleRecordDelivery = async (e) => {
+        e.preventDefault();
+        setDeliverySubmitting(true);
+        
+        try {
+            const endpoint = deliveryMode === 'all' 
+                ? `${ENDPOINTS.ORDERS}${id}/deliver_all/`
+                : `${ENDPOINTS.ORDERS}${id}/deliver_partial/`;
+                
+            let payload = { notes: deliveryNotes };
+            
+            if (deliveryMode === 'partial') {
+                const itemsToDeliver = [];
+                Object.entries(partialQuantities).forEach(([itemId, qty]) => {
+                    const parsedQty = parseInt(qty, 10);
+                    if (parsedQty > 0) {
+                        itemsToDeliver.push({
+                            order_item: itemId,
+                            quantity: parsedQty
+                        });
+                    }
+                });
+                
+                if (itemsToDeliver.length === 0) {
+                    showToast('Please specify at least one item to deliver.', 'error');
+                    setDeliverySubmitting(false);
+                    return;
+                }
+                
+                payload.items = itemsToDeliver;
+            }
+            
+            const response = await fetchWithAuth(endpoint, {
+                method: 'POST',
+                body: JSON.stringify(payload)
+            });
+            
+            if (response.ok) {
+                setShowDeliveryModal(false);
+                fetchOrderDetails();
+                showToast('Delivery recorded successfully', 'success');
+            } else {
+                const data = await response.json();
+                showToast(data.error || 'Failed to record delivery', 'error');
+            }
+        } catch (err) {
+            console.error('Error recording delivery:', err);
+            showToast('Error connecting to server', 'error');
+        } finally {
+            setDeliverySubmitting(false);
+        }
     };
 
     const isUpiMethod = (method) => {
@@ -389,6 +442,15 @@ export default function OrderDetails() {
                             >
                                 ⋮
                             </button>
+                            {/* Record Delivery Button */}
+                            {order.order_status !== 'draft' && order.order_status !== 'cancelled' && order.delivery_status !== 'delivered' && (
+                                <GuardedAction permission="orders.edit_orders">
+                                    <button className="btn btn-primary" onClick={openDeliveryModal}
+                                        style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                                        🚚 Record Delivery
+                                    </button>
+                                </GuardedAction>
+                            )}
                             {showShareMenu && (
                                 <>
                                     <div className="actions-menu-backdrop" onClick={() => setShowShareMenu(false)} />
@@ -561,7 +623,6 @@ export default function OrderDetails() {
                     label="Delivery Status"
                     value={formatStatusLabel(order.delivery_status)}
                     className={getStatusClass(order.delivery_status)}
-                    onUpdate={() => openStatusModal('delivery_status', order.delivery_status)}
                 />
                 <StatusCard
                     label="Return"
@@ -647,7 +708,9 @@ export default function OrderDetails() {
                                 <tr>
                                     <th>Product</th>
                                     <th>Price</th>
-                                    <th>Qty</th>
+                                    <th>Ordered</th>
+                                    <th>Delivered</th>
+                                    <th>Remaining</th>
                                     <th>Discount</th>
                                     <th>Total</th>
                                 </tr>
@@ -662,7 +725,23 @@ export default function OrderDetails() {
                                             </div>
                                         </td>
                                         <td>{currency}{Number(item.unit_price).toFixed(2)}</td>
-                                        <td>{item.quantity}</td>
+                                        <td>{item.confirmed_quantity ?? item.quantity}</td>
+                                        <td>
+                                            <span style={{
+                                                color: item.delivered_quantity > 0 ? 'var(--color-success, #28a745)' : 'inherit',
+                                                fontWeight: item.delivered_quantity > 0 ? 600 : 400
+                                            }}>
+                                                {item.delivered_quantity ?? 0}
+                                            </span>
+                                        </td>
+                                        <td>
+                                            <span style={{
+                                                color: (item.remaining_quantity ?? item.quantity) > 0 ? 'var(--color-warning, #ffc107)' : 'var(--color-success, #28a745)',
+                                                fontWeight: 600
+                                            }}>
+                                                {item.remaining_quantity ?? item.quantity}
+                                            </span>
+                                        </td>
                                         <td>
                                             {item.discount_amount > 0 ? (
                                                 <span className="discount-tag">-{currency}{Number(item.discount_amount).toFixed(2)}</span>
@@ -719,6 +798,63 @@ export default function OrderDetails() {
                                 )}
                             </tbody>
                         </table>
+                    </div>
+
+                    {/* Deliveries History */}
+                    <div className="card order-deliveries-card">
+                        <div className="card-header-with-action">
+                            <h3>Deliveries</h3>
+                            <div className="payment-summary">
+                                <span className={`status-pill ${getStatusClass(order.delivery_status)}`} style={{ fontSize: '0.75rem' }}>
+                                    {formatStatusLabel(order.delivery_status)}
+                                </span>
+                            </div>
+                        </div>
+                        {order.deliveries && order.deliveries.length > 0 ? (
+                            order.deliveries.map((delivery, idx) => (
+                                <div key={delivery.id} className="delivery-event" style={{
+                                    padding: '0.75rem',
+                                    borderBottom: idx < order.deliveries.length - 1 ? '1px solid var(--color-border, #eee)' : 'none'
+                                }}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+                                        <span style={{ fontWeight: 600, fontSize: '0.85rem' }}>
+                                            Delivery #{idx + 1}
+                                        </span>
+                                        <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary, #888)' }}>
+                                            {new Date(delivery.created_at).toLocaleString()}
+                                        </span>
+                                    </div>
+                                    {delivery.delivered_by_name && (
+                                        <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary, #888)', marginBottom: '0.4rem' }}>
+                                            Delivered by: <strong>{delivery.delivered_by_name}</strong>
+                                        </div>
+                                    )}
+                                    {delivery.notes && (
+                                        <div style={{ fontSize: '0.8rem', fontStyle: 'italic', color: 'var(--text-secondary, #888)', marginBottom: '0.4rem' }}>
+                                            "{delivery.notes}"
+                                        </div>
+                                    )}
+                                    <table className="details-table" style={{ fontSize: '0.8rem' }}>
+                                        <thead>
+                                            <tr>
+                                                <th>Product</th>
+                                                <th>Qty Delivered</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {delivery.items.map(dItem => (
+                                                <tr key={dItem.id}>
+                                                    <td>{dItem.product_name}</td>
+                                                    <td style={{ fontWeight: 600 }}>{dItem.quantity}</td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            ))
+                        ) : (
+                            <p className="empty-state" style={{ padding: '1rem' }}>No deliveries recorded</p>
+                        )}
                     </div>
 
                 </div>
@@ -967,28 +1103,95 @@ export default function OrderDetails() {
                 </div>
             )}
 
-            {/* Delivery Confirmation Modal */}
-            {showDeliveryConfirm && (
-                <div className="modal-overlay" onClick={() => { setShowDeliveryConfirm(false); setPendingDeliveryUpdate(null); }}>
-                    <div className="modal-content animate-slide-in-up" onClick={e => e.stopPropagation()}>
-                        <h2>⚠️ Confirm Delivery</h2>
-                        <p style={{ margin: '1rem 0', lineHeight: 1.6 }}>
-                            <strong>Mark this order as delivered?</strong><br />
-                            This action <strong>cannot be undone</strong>. Once delivered:
-                        </p>
-                        <ul style={{ margin: '0 0 1rem 1.5rem', lineHeight: 1.8 }}>
-                            <li>The order will be permanently locked</li>
-                            <li>Items cannot be edited or cancelled</li>
-                            <li>Only Returns & Refunds can be used for corrections</li>
-                        </ul>
-                        <div className="modal-actions">
-                            <button type="button" className="btn btn-ghost" onClick={() => { setShowDeliveryConfirm(false); setPendingDeliveryUpdate(null); }}>
-                                Go Back
+            {/* Delivery Modal */}
+            {showDeliveryModal && (
+                <div className="modal-overlay" onClick={() => setShowDeliveryModal(false)}>
+                    <div className="modal-content animate-slide-in-up" onClick={e => e.stopPropagation()} style={{ maxWidth: '560px' }}>
+                        <h2>🚚 Record Delivery</h2>
+                        <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1rem' }}>
+                            <button
+                                type="button"
+                                className={`btn btn-sm ${deliveryMode === 'all' ? 'btn-primary' : 'btn-ghost'}`}
+                                onClick={() => setDeliveryMode('all')}
+                            >
+                                Deliver All Remaining
                             </button>
-                            <button type="button" className="btn btn-primary" onClick={confirmDelivery}>
-                                Yes, Mark as Delivered
+                            <button
+                                type="button"
+                                className={`btn btn-sm ${deliveryMode === 'partial' ? 'btn-primary' : 'btn-ghost'}`}
+                                onClick={() => setDeliveryMode('partial')}
+                            >
+                                Partial Delivery
                             </button>
                         </div>
+                        <form onSubmit={handleRecordDelivery}>
+                            {deliveryMode === 'all' ? (
+                                <div style={{ padding: '0.75rem', background: 'var(--color-bg-secondary, #f8f9fa)', borderRadius: '8px', marginBottom: '1rem' }}>
+                                    <p style={{ margin: 0, fontSize: '0.85rem' }}>
+                                        <strong>All remaining items will be marked as delivered:</strong>
+                                    </p>
+                                    <ul style={{ margin: '0.5rem 0 0 1.25rem', fontSize: '0.85rem', lineHeight: 1.8 }}>
+                                        {order.items.filter(i => (i.remaining_quantity ?? i.quantity) > 0).map(item => (
+                                            <li key={item.id}>
+                                                {item.product_name} — <strong>{item.remaining_quantity ?? item.quantity}</strong> units
+                                            </li>
+                                        ))}
+                                    </ul>
+                                </div>
+                            ) : (
+                                <div style={{ marginBottom: '1rem' }}>
+                                    <table className="details-table" style={{ fontSize: '0.85rem' }}>
+                                        <thead>
+                                            <tr>
+                                                <th>Product</th>
+                                                <th>Remaining</th>
+                                                <th>Deliver Qty</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {order.items.filter(i => (i.remaining_quantity ?? i.quantity) > 0).map(item => (
+                                                <tr key={item.id}>
+                                                    <td>{item.product_name}</td>
+                                                    <td>{item.remaining_quantity ?? item.quantity}</td>
+                                                    <td>
+                                                        <input
+                                                            type="number"
+                                                            min="0"
+                                                            max={item.remaining_quantity ?? item.quantity}
+                                                            value={partialQuantities[item.id] ?? 0}
+                                                            onChange={(e) => setPartialQuantities({
+                                                                ...partialQuantities,
+                                                                [item.id]: e.target.value
+                                                            })}
+                                                            style={{ width: '70px', textAlign: 'center' }}
+                                                        />
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            )}
+                            <div className="form-group">
+                                <label>Notes (Optional)</label>
+                                <textarea
+                                    placeholder="e.g. Driver name, vehicle, delivery notes..."
+                                    value={deliveryNotes}
+                                    onChange={(e) => setDeliveryNotes(e.target.value)}
+                                />
+                            </div>
+                            <div style={{ padding: '0.75rem', background: 'var(--color-warning-bg, #fff3cd)', borderRadius: '8px', marginBottom: '1rem', fontSize: '0.8rem' }}>
+                                ⚠️ <strong>This action cannot be undone.</strong> Delivered quantities are permanently recorded.
+                            </div>
+                            <div className="modal-actions">
+                                <button type="button" className="btn btn-ghost" onClick={() => setShowDeliveryModal(false)}>
+                                    Cancel
+                                </button>
+                                <button type="submit" className="btn btn-primary" disabled={deliverySubmitting}>
+                                    {deliverySubmitting ? 'Recording...' : (deliveryMode === 'all' ? 'Deliver All' : 'Record Partial Delivery')}
+                                </button>
+                            </div>
+                        </form>
                     </div>
                 </div>
             )}

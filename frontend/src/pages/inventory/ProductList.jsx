@@ -227,7 +227,10 @@ export default function ProductList() {
                                         Selling {ordering.includes('selling_price') && (ordering.startsWith('-') ? '↓' : '↑')}
                                     </th>
                                     <th onClick={() => toggleSort('stock_quantity')} className="sortable" style={{ cursor: 'pointer' }}>
-                                        Stock {ordering.includes('stock_quantity') && (ordering.startsWith('-') ? '↓' : '↑')}
+                                        Available {ordering.includes('stock_quantity') && (ordering.startsWith('-') ? '↓' : '↑')}
+                                    </th>
+                                    <th onClick={() => toggleSort('physical_stock')} className="sortable" style={{ cursor: 'pointer' }}>
+                                        Physical {ordering.includes('physical_stock') && (ordering.startsWith('-') ? '↓' : '↑')}
                                     </th>
                                     <th>Status</th>
                                     <th>Actions</th>
@@ -259,6 +262,7 @@ export default function ProductList() {
                                                 <td>{currency}{Number(product.cost_price).toFixed(2)}</td>
                                                 <td>{currency}{Number(product.selling_price).toFixed(2)}</td>
                                                 <td>{product.stock_quantity}</td>
+                                                <td>{product.physical_stock}</td>
                                                 <td>
                                                     <span className={`status-badge status-${status}`}>
                                                         {getStatusLabel(status)}
@@ -279,7 +283,7 @@ export default function ProductList() {
                                     })
                                 ) : (
                                     <tr>
-                                        <td colSpan="10" style={{ textAlign: 'center', padding: '2rem' }}>
+                                        <td colSpan="11" style={{ textAlign: 'center', padding: '2rem' }}>
                                             No products found.
                                         </td>
                                     </tr>

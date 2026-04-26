@@ -6,6 +6,7 @@ from django.db import models
 from simple_history.models import HistoricalRecords
 from django.conf import settings
 from django.core.exceptions import ValidationError
+from django.core.validators import MinValueValidator
 from django.utils import timezone
 from decimal import Decimal
 from core.models import SoftDeleteModel, UUIDPrimaryKeyModel, DisplayIDMixin
@@ -29,8 +30,7 @@ class Order(DisplayIDMixin, SoftDeleteModel):
     
     DELIVERY_STATUS = [
         ('pending', 'Pending'),
-        ('processing', 'Processing'),
-        ('ready', 'Ready'),
+        ('partial', 'Partially Delivered'),
         ('delivered', 'Delivered'),
     ]
     
@@ -71,19 +71,13 @@ class Order(DisplayIDMixin, SoftDeleteModel):
 
     # ── State Transition Matrix ──
     # Defines legal transitions for each status field.
-    # payment_status is EXCLUDED — it's always auto-computed.
+    # payment_status and delivery_status are EXCLUDED — they are always auto-computed.
     VALID_TRANSITIONS = {
         'order_status': {
             'draft': ['confirmed', 'cancelled'],
             'confirmed': ['completed', 'cancelled'],
             'completed': [],   # Terminal — use returns/refunds
             'cancelled': [],   # Terminal
-        },
-        'delivery_status': {
-            'pending': ['processing'],
-            'processing': ['ready', 'pending'],   # Allow rollback
-            'ready': ['delivered', 'processing'],  # Allow rollback
-            'delivered': [],  # Terminal — Ironclad lock
         },
         'cancellation_status': {
             'na': ['pending'],
@@ -273,11 +267,9 @@ class Order(DisplayIDMixin, SoftDeleteModel):
             if self.return_status == 'pending':
                 return 'Return in Progress'
 
-        # ── Priority 6: Delivery workflow ──
-        if self.delivery_status == 'processing':
-            return 'Processing'
-        if self.delivery_status == 'ready':
-            return 'Ready for Pickup'
+        # ── Priority 6: Partial delivery ──
+        if self.delivery_status == 'partial':
+            return 'Partially Delivered'
 
         # ── Priority 7: Order lifecycle ──
         if self.order_status == 'draft':
@@ -297,8 +289,9 @@ class Order(DisplayIDMixin, SoftDeleteModel):
     def can_edit(self):
         """Check if order can be edited."""
         return (
-            self.delivery_status != 'delivered'
-            and self.cancellation_status in ('na', 'cancelled')
+            self.delivery_status == 'pending'
+            and self.cancellation_status == 'na'
+            and self.order_status != 'cancelled'
         )
     
     @property
@@ -314,6 +307,8 @@ class Order(DisplayIDMixin, SoftDeleteModel):
         """Validate that a status transition is legal per the transition matrix."""
         if field == 'payment_status':
             raise ValidationError("Payment status is auto-computed and cannot be set manually.")
+        if field == 'delivery_status':
+            raise ValidationError("Delivery status is auto-computed from delivery records and cannot be set manually.")
         if field not in self.VALID_TRANSITIONS:
             raise ValidationError(f"Unknown status field: {field}")
         
@@ -361,6 +356,51 @@ class Order(DisplayIDMixin, SoftDeleteModel):
         self._refresh_overall_status()
         self.save(update_fields=['cancellation_status', 'overall_status'])
 
+    def update_delivery_status(self):
+        """Auto-compute delivery_status from delivery records. Like update_payment_status."""
+        items = self.items.all()
+        if not items.exists():
+            return
+        
+        all_delivered = True
+        any_delivered = False
+        
+        for item in items:
+            base = item.confirmed_quantity if item.confirmed_quantity is not None else item.quantity
+            delivered = sum(di.quantity for di in item.delivery_items.all())
+            if delivered > 0:
+                any_delivered = True
+            if delivered < base:
+                all_delivered = False
+        
+        old_status = self.delivery_status
+        if all_delivered:
+            self.delivery_status = 'delivered'
+        elif any_delivered:
+            self.delivery_status = 'partial'
+        else:
+            self.delivery_status = 'pending'
+        
+        self.save(update_fields=['delivery_status'])
+    
+    def freeze_confirmed_quantities(self):
+        """Freeze all item quantities at confirmation time. Called once, immutable after."""
+        from inventory.services import StockService
+        for item in self.items.filter(confirmed_quantity__isnull=True):
+            item.confirmed_quantity = item.quantity
+            item.save(update_fields=['confirmed_quantity'])
+            
+            # Deduct Available Stock (stock_quantity) immediately
+            StockService.adjust_stock(
+                product_id=item.product.id,
+                adjustment_type='decrease',
+                quantity=item.quantity,
+                reason='sale',
+                notes=f"Order #{self.display_id} Confirmed",
+                user=self.created_by,
+                target_ledger='available'
+            )
+    
     def save(self, *args, **kwargs):
         """Auto-refresh overall_status on every save."""
         # Auto-set delivered_at when delivery transitions to 'delivered'
@@ -390,6 +430,10 @@ class OrderItem(UUIDPrimaryKeyModel):
     )
     
     quantity = models.PositiveIntegerField(default=1)
+    confirmed_quantity = models.PositiveIntegerField(
+        null=True, blank=True,
+        help_text="Frozen copy of quantity at order confirmation. Immutable after set."
+    )
     unit_price = models.DecimalField(max_digits=10, decimal_places=2)
     cost_price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True, help_text="Product cost at time of sale")
     
@@ -399,6 +443,17 @@ class OrderItem(UUIDPrimaryKeyModel):
     discount_amount = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     
     line_total = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    
+    @property
+    def delivered_quantity(self):
+        """Total quantity delivered across all delivery events."""
+        return sum(di.quantity for di in self.delivery_items.all())
+    
+    @property
+    def remaining_quantity(self):
+        """Quantity still awaiting delivery."""
+        base = self.confirmed_quantity if self.confirmed_quantity is not None else self.quantity
+        return max(0, base - self.delivered_quantity)
     
     def __str__(self):
         return f"{self.product.name} x {self.quantity}"
@@ -420,6 +475,73 @@ class OrderItem(UUIDPrimaryKeyModel):
         
         self.line_total = gross - self.discount_amount
         super().save(*args, **kwargs)
+
+
+class Delivery(UUIDPrimaryKeyModel):
+    """
+    A single delivery event for an order. Supports partial deliveries.
+    Multiple Delivery records per Order (like Payment records).
+    Each delivery records which items and quantities were physically handed over.
+    """
+    order = models.ForeignKey(Order, on_delete=models.CASCADE, related_name='deliveries')
+    notes = models.TextField(blank=True)
+    
+    delivered_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name='deliveries_made'
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    
+    class Meta:
+        ordering = ['-created_at']
+        verbose_name_plural = 'Deliveries'
+    
+    def __str__(self):
+        total_qty = sum(item.quantity for item in self.items.all())
+        return f"Delivery ({total_qty} items) for Order #{self.order.display_id}"
+    
+    def save(self, *args, **kwargs):
+        super().save(*args, **kwargs)
+        # Auto-update the order's delivery_status after recording a delivery
+        self.order.update_delivery_status()
+
+
+class DeliveryItem(UUIDPrimaryKeyModel):
+    """
+    Line item within a Delivery. Tracks how many of each OrderItem were delivered
+    in this specific delivery event.
+    """
+    delivery = models.ForeignKey(Delivery, on_delete=models.CASCADE, related_name='items')
+    order_item = models.ForeignKey(
+        OrderItem, on_delete=models.PROTECT, related_name='delivery_items'
+    )
+    quantity = models.PositiveIntegerField(
+        validators=[MinValueValidator(1)]
+    )
+    
+    created_at = models.DateTimeField(auto_now_add=True)
+    
+    def __str__(self):
+        return f"{self.order_item.product.name} x {self.quantity}"
+    
+    def clean(self):
+        """Validate delivery quantity doesn't exceed remaining."""
+        if self.order_item_id:
+            remaining = self.order_item.remaining_quantity
+            # If editing, add back our own quantity
+            if self.pk:
+                try:
+                    old = DeliveryItem.objects.get(pk=self.pk)
+                    remaining += old.quantity
+                except DeliveryItem.DoesNotExist:
+                    pass
+            if self.quantity > remaining:
+                raise ValidationError(
+                    f"Cannot deliver {self.quantity} of {self.order_item.product.name}. "
+                    f"Only {remaining} remaining."
+                )
 
 
 class Payment(UUIDPrimaryKeyModel):
@@ -607,21 +729,16 @@ class ReturnItem(UUIDPrimaryKeyModel):
         if self.stock_restored or self.stock_action != 'return_to_stock':
             return False
         
-        from inventory.models import Product, StockHistory
+        from inventory.services import StockService
         
-        product = self.order_item.product
-        product.stock_quantity += self.quantity
-        product.save(update_fields=['stock_quantity'])
-        
-        # Create stock history entry
-        StockHistory.objects.create(
-            product=product,
-            quantity_change=self.quantity,
-            quantity_after=product.stock_quantity,
-            cost_at_time=product.cost_price,
+        StockService.adjust_stock(
+            product_id=self.order_item.product.id,
+            adjustment_type='increase',
+            quantity=self.quantity,
             reason='return',
             notes=f"Return #{self.return_request.display_id} - {self.reason.name if self.reason else 'No reason'}",
-            created_by=user
+            user=user,
+            target_ledger='both'
         )
         
         self.stock_restored = True

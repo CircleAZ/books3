@@ -19,6 +19,20 @@ import dj_database_url
 # Load environment variables from .env file
 load_dotenv()
 
+# --- GDAL / GEOS Configuration for Windows ---
+if os.name == 'nt':
+    import site
+    for sp in site.getsitepackages():
+        gdal_path = os.path.join(sp, 'osgeo', 'gdal.dll')
+        geos_path = os.path.join(sp, 'osgeo', 'geos_c.dll')
+        if os.path.exists(gdal_path):
+            GDAL_LIBRARY_PATH = gdal_path
+            GEOS_LIBRARY_PATH = geos_path
+            # Add osgeo directory to PATH so it can load other DLLs (e.g. proj_9.dll, libssl)
+            osgeo_path = os.path.join(sp, 'osgeo')
+            os.environ['PATH'] = osgeo_path + ';' + os.environ.get('PATH', '')
+            break
+
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 

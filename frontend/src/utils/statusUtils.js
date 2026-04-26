@@ -29,7 +29,8 @@ export const getStatusClass = (status) => {
         'refund in progress',
         'return in progress',
         'ready for pickup',
-        'received'
+        'received',
+        'partially delivered'
     ].includes(lowerStatus)) {
         return 'status-warning';
     }
@@ -83,6 +84,7 @@ export const formatStatusLabel = (value) => {
         'processing': 'Processing',
         'ready': 'Ready',
         'delivered': 'Delivered',
+        'partial': 'Partially Delivered',
 
         // Return
         'received': 'Item Received',
@@ -112,10 +114,10 @@ export const STATUS_OPTIONS = {
         { value: 'refunded', label: 'Refunded' }
     ],
     // NOTE: payment_status is auto-computed — dropdown is read-only in the UI
+    // NOTE: delivery_status is auto-computed — dropdown is read-only in the UI
     delivery_status: [
         { value: 'pending', label: 'Pending' },
-        { value: 'processing', label: 'Processing' },
-        { value: 'ready', label: 'Ready' },
+        { value: 'partial', label: 'Partially Delivered' },
         { value: 'delivered', label: 'Delivered' }
     ],
     return_status: [

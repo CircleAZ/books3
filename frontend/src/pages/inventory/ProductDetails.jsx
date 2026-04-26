@@ -178,7 +178,11 @@ export default function ProductDetails() {
                         <h3>Stock Status</h3>
                         <div className="stock-display">
                             <span className="stock-number">{product.stock_quantity}</span>
-                            <span className="stock-label">In Stock</span>
+                            <span className="stock-label">Available Stock</span>
+                        </div>
+                        <div className="stock-display" style={{ marginTop: '0.5rem' }}>
+                            <span className="stock-number" style={{ color: 'var(--color-secondary)' }}>{product.physical_stock}</span>
+                            <span className="stock-label">Physical Stock</span>
                         </div>
                         <div className="threshold-info">
                             Low Stock Threshold: {product.low_stock_threshold}
@@ -231,8 +235,12 @@ export default function ProductDetails() {
                         </p>
                         <div className="delete-details">
                             <div className="delete-detail-item">
-                                <span>Current Stock:</span>
+                                <span>Available Stock:</span>
                                 <strong>{product.stock_quantity} units</strong>
+                            </div>
+                            <div className="delete-detail-item">
+                                <span>Physical Stock:</span>
+                                <strong>{product.physical_stock} units</strong>
                             </div>
                             <div className="delete-detail-item">
                                 <span>Selling Price:</span>
@@ -271,7 +279,7 @@ export default function ProductDetails() {
 
                         <div className="current-stock-display">
                             <span className="stock-product-name">{product.name}</span>
-                            <span className="stock-current-badge">Current Stock: <strong>{product.stock_quantity}</strong></span>
+                            <span className="stock-current-badge">Available: <strong>{product.stock_quantity}</strong> | Physical: <strong>{product.physical_stock}</strong></span>
                         </div>
 
                         <form onSubmit={handleStockSubmit}>

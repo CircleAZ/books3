@@ -7,15 +7,15 @@ class StockService:
     RETRY_DELAY = 0.2  # seconds
 
     @staticmethod
-    def adjust_stock(product_id, adjustment_type, quantity, reason, notes, user=None, unit_cost=None):
+    def adjust_stock(product_id, adjustment_type, quantity, reason, notes, user=None, unit_cost=None, target_ledger='both'):
         """
         Centrally manage stock adjustments to prevent race conditions.
-        Includes retry logic for SQLite database locking.
+        target_ledger: 'available' (stock_quantity), 'physical' (physical_stock), or 'both'
         """
         for attempt in range(StockService.MAX_RETRIES):
             try:
                 return StockService._do_adjust_stock(
-                    product_id, adjustment_type, quantity, reason, notes, user, unit_cost
+                    product_id, adjustment_type, quantity, reason, notes, user, unit_cost, target_ledger
                 )
             except OperationalError as e:
                 if 'database is locked' in str(e) and attempt < StockService.MAX_RETRIES - 1:
@@ -26,7 +26,7 @@ class StockService:
 
     @staticmethod
     @transaction.atomic
-    def _do_adjust_stock(product_id, adjustment_type, quantity, reason, notes, user, unit_cost=None):
+    def _do_adjust_stock(product_id, adjustment_type, quantity, reason, notes, user, unit_cost=None, target_ledger='both'):
         """
         Perform atomic stock adjustment using optimistic locking.
         """
@@ -37,14 +37,34 @@ class StockService:
         new_cost_price = product.cost_price
         
         if adjustment_type == 'set':
-             current_qty = product.stock_quantity
-             change = quantity - current_qty
-             new_quantity = quantity
+             from orders.models import OrderItem
+             
+             # 1. Calculate Owed Quantity
+             active_items = OrderItem.objects.filter(
+                 product_id=product_id,
+                 order__order_status__in=['confirmed', 'completed'],
+                 order__cancellation_status__in=['na', 'pending']
+             ).prefetch_related('delivery_items')
+             
+             owed_quantity = sum(item.remaining_quantity for item in active_items)
+
+             # 2. Synchronize Ledgers
+             if target_ledger in ('both', 'physical'):
+                 # Input is Physical Count
+                 new_physical = quantity
+                 new_quantity = quantity - owed_quantity
+             elif target_ledger == 'available':
+                 # Input is Available Count
+                 new_quantity = quantity
+                 new_physical = quantity + owed_quantity
+             
+             change = new_quantity - product.stock_quantity
         else:
              change = quantity if adjustment_type == 'increase' else -quantity
              new_quantity = product.stock_quantity + change
+             new_physical = product.physical_stock + change
              
-             if adjustment_type == 'increase' and unit_cost is not None and quantity > 0:
+             if adjustment_type == 'increase' and unit_cost is not None and quantity > 0 and target_ledger in ('available', 'both'):
                 current_total_value = product.stock_quantity * product.cost_price
                 new_stock_value = quantity * unit_cost
                 
@@ -68,8 +88,18 @@ class StockService:
                     if total_qty > 0:
                         new_cost_price = total_value / total_qty
 
-        product.stock_quantity = new_quantity
-        product.cost_price = new_cost_price
+        if target_ledger in ('available', 'both'):
+            product.stock_quantity = new_quantity
+            product.cost_price = new_cost_price
+        if target_ledger in ('physical', 'both'):
+            if adjustment_type == 'set':
+                 # If setting stock to an absolute number, physical stock becomes the absolute number + owed items
+                 # Wait, 'set' is usually for physical audits. If they count 10 on the shelf, physical=10, 
+                 # available = physical - owed. But for now, let's keep set identical if 'both'.
+                 product.physical_stock = new_physical
+            else:
+                 product.physical_stock = new_physical
+                 
         product.save()
         
         # Removed F() update since we are saving the full object now with lock
