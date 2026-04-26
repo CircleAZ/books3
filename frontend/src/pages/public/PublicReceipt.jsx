@@ -27,6 +27,7 @@ const STRINGS = {
         notFound: 'રસીદ મળી નથી',
         noPayments: 'હજુ સુધી કોઈ ચુકવણી નથી',
         poweredBy: 'AZ Books દ્વારા સંચાલિત',
+        viewCatalogue: 'અમારું કેટલોગ જુઓ',
         Cash: 'રોકડ',
         UPI: 'UPI',
     },
@@ -53,6 +54,7 @@ const STRINGS = {
         notFound: 'रसीद नहीं मिली',
         noPayments: 'अभी तक कोई भुगतान नहीं',
         poweredBy: 'AZ Books द्वारा संचालित',
+        viewCatalogue: 'हमारी कैटलॉग देखें',
         Cash: 'नकद',
         UPI: 'UPI',
     },
@@ -79,6 +81,7 @@ const STRINGS = {
         notFound: 'Receipt Not Found',
         noPayments: 'No payments yet',
         poweredBy: 'Powered by AZ Books',
+        viewCatalogue: 'View Our Catalogue',
         Cash: 'Cash',
         UPI: 'UPI',
     },
@@ -282,6 +285,18 @@ const PublicReceipt = () => {
                         </table>
                     </div>
                 )}
+
+                {/* Catalogue Link */}
+                <div className="catalogue-link-container">
+                    <a 
+                        href={receipt.store?.website || 'https://circleaz.in/catalog/index.html'} 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        className="catalogue-link"
+                    >
+                        📚 {t.viewCatalogue}
+                    </a>
+                </div>
             </div>
         </div>
     );

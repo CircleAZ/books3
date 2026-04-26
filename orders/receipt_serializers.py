@@ -56,6 +56,7 @@ class LivingReceiptSerializer(serializers.ModelSerializer):
                 'phone': store.phone,
                 'logo': logo_url,
                 'currency_symbol': store.currency_symbol,
+                'website': store.website,
             }
         except Exception:
             return None

@@ -74,8 +74,16 @@ export default {
 
     // ── Ranking debug endpoint ──
     if (path === '/worker/ranking') {
-      const ranking = await getCachedRanking();
-      return new Response(JSON.stringify(ranking || { status: 'no_ranking_cached', fallback: 'using_default_order' }, null, 2), {
+      let ranking = await getCachedRanking();
+      let source = 'cache';
+      if (!ranking) {
+        // Force synchronous probe if cache is empty
+        const probeResults = await probeAllBackends();
+        ranking = computeRanking(probeResults);
+        await cacheRanking(ranking);
+        source = 'sync_probe';
+      }
+      return new Response(JSON.stringify({ source, ranking }, null, 2), {
         headers: { 'Content-Type': 'application/json' }
       });
     }

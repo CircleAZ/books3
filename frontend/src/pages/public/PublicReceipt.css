@@ -395,6 +395,30 @@
 }
 
 /* ── Footer ── */
+.catalogue-link-container {
+    text-align: center;
+    margin-top: 24px;
+    padding-top: 16px;
+    border-top: 1px dashed #cbd5e1;
+}
+
+.catalogue-link {
+    display: inline-block;
+    color: #6366f1;
+    text-decoration: none;
+    font-weight: 600;
+    font-size: 14px;
+    padding: 8px 16px;
+    background: #eef2ff;
+    border-radius: 20px;
+    transition: all 0.2s ease;
+}
+
+.catalogue-link:hover {
+    background: #e0e7ff;
+    transform: translateY(-1px);
+}
+
 .powered-by {
     text-align: center;
     font-size: 11px;
