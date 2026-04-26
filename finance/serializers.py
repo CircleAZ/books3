@@ -184,6 +184,16 @@ class BankTransactionSerializer(serializers.ModelSerializer):
 
     def validate_reference(self, value):
         return _sanitize(value)
+        
+    def validate_date(self, value):
+        if value > timezone.now().date():
+            raise serializers.ValidationError("Transaction date cannot be in the future.")
+        return value
+        
+    def validate_amount(self, value):
+        if value <= Decimal('0.00'):
+            raise serializers.ValidationError("Transaction amount must be strictly greater than zero.")
+        return value
 
 
 class BankAccountSerializer(serializers.ModelSerializer):

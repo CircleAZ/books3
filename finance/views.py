@@ -355,13 +355,27 @@ class BankAccountViewSet(viewsets.ModelViewSet):
             })
 
 
-class BankTransactionViewSet(viewsets.ModelViewSet):
-    """CRUD for bank transactions."""
+from rest_framework import mixins
+
+class BankTransactionViewSet(mixins.CreateModelMixin,
+                             mixins.RetrieveModelMixin,
+                             mixins.ListModelMixin,
+                             viewsets.GenericViewSet):
+    """
+    Immutable ledger for bank transactions.
+    Supports Create, Read, and List ONLY. Update and Delete are permanently disabled.
+    """
     queryset = BankTransaction.objects.select_related('account', 'recorded_by')
     serializer_class = BankTransactionSerializer
     permission_classes = [HasRequiredPermission]
     required_permission = 'finance.manage_banking'
     pagination_class = FinancePagination
+    
+    def get_permissions(self):
+        perms = super().get_permissions()
+        if self.action == 'create':
+            perms.append(HasElevatedAuth())
+        return perms
     
     def get_queryset(self):
         qs = super().get_queryset()
@@ -385,7 +399,7 @@ class BankTransactionViewSet(viewsets.ModelViewSet):
         return qs
     
     def perform_create(self, serializer):
-        serializer.save(created_by=self.request.user)
+        serializer.save(recorded_by=self.request.user)
     
     @action(detail=True, methods=['post'], throttle_classes=[FinanceActionThrottle])
     def reconcile(self, request, pk=None):
