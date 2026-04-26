@@ -19,8 +19,13 @@ from rest_framework_simplejwt.views import (
 @ratelimit(key='header:x-forwarded-for', rate='60/m', method=['GET', 'HEAD'])
 def health_check(request):
     """Minimal health endpoint for UptimeRobot / Render / CF Worker warm-up.
-    Rate-limited to 60 req/min per real client IP (via X-Forwarded-For for Cloudflare/proxy)."""
-    return JsonResponse({"status": "ok"})
+    Rate-limited to 60 req/min per real client IP (via X-Forwarded-For for Cloudflare/proxy).
+    Returns deployed git commit hash so the CF Worker can detect stale backends."""
+    import os
+    return JsonResponse({
+        "status": "ok",
+        "version": os.environ.get("RENDER_GIT_COMMIT", "dev")[:8]
+    })
 
 
 urlpatterns = [
