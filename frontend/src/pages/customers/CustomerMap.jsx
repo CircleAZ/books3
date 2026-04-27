@@ -146,6 +146,15 @@ export default function CustomerMap() {
     const [showBoundaries, setShowBoundaries] = useState(true);
     const [boundaryCache, setBoundaryCache] = useState({});
 
+    // Phase 5: Potential Customer pins
+    const potentialLayerRef = useRef(null);
+    const [placingPotentialPin, setPlacingPotentialPin] = useState(false);
+    const [potentialEditOpen, setPotentialEditOpen] = useState(false);
+    const [potentialEditForm, setPotentialEditForm] = useState({ id: null, latitude: '', longitude: '', notes: '' });
+    const [potentialSidebarOpen, setPotentialSidebarOpen] = useState(false);
+    const [showPotentialPins, setShowPotentialPins] = useState(true);
+    const [canManageCustomers, setCanManageCustomers] = useState(false);
+
     // Filter state
     const savedFilters = loadFilters();
     const [filters, setFilters] = useState({
@@ -192,6 +201,10 @@ export default function CustomerMap() {
         } else {
             setCanManageTargets(false);
         }
+        // Phase 5: Check if user can manage customers (for Drop Pin)
+        setCanManageCustomers(
+            rbac?.is_superuser || rbac?.permissions?.includes('customers.manage_customers') || false
+        );
     }, [rbac]); // Re-run when RBAC loads
 
     // ── Initialize Leaflet map ──
@@ -528,6 +541,203 @@ export default function CustomerMap() {
         })();
     }, [mapData, boundaryLayer, showBoundaries, fetchWithAuth, boundaryCache]);
 
+    // ── Phase 5: Render potential customer pins ──
+    useEffect(() => {
+        const map = mapInstanceRef.current;
+        if (!map || !mapData || !mapData.potential_customers) return;
+
+        if (potentialLayerRef.current) {
+            map.removeLayer(potentialLayerRef.current);
+        }
+
+        if (!showPotentialPins) {
+            potentialLayerRef.current = null;
+            return;
+        }
+
+        const potentialLayer = L.layerGroup();
+
+        mapData.potential_customers.forEach(pc => {
+            const lat = parseFloat(pc.latitude);
+            const lng = parseFloat(pc.longitude);
+            if (isNaN(lat) || isNaN(lng)) return;
+
+            const dissolved = pc.is_dissolved;
+            const icon = L.divIcon({
+                className: `custom-map-marker marker-potential ${dissolved ? 'marker-potential-dissolved' : ''}`,
+                html: `<div class="marker-pin-potential" aria-label="${dissolved ? 'Linked location' : 'Potential customer'}">
+                         <span class="marker-icon-potential">🧑</span>
+                       </div>`,
+                iconSize: [28, 38],
+                iconAnchor: [14, 38],
+                popupAnchor: [0, -40],
+            });
+
+            const marker = L.marker([lat, lng], { icon });
+
+            // XSS-safe popup
+            const container = document.createElement('div');
+            container.className = 'map-popup-content';
+
+            if (dissolved) {
+                const title = document.createElement('div');
+                title.className = 'popup-customer-name';
+                title.style.color = '#888';
+                title.textContent = `🔗 Linked → ${pc.dissolved_into_name || 'Customer'}`;
+                container.appendChild(title);
+            }
+
+            if (pc.notes) {
+                const notesRow = document.createElement('div');
+                notesRow.className = 'popup-row';
+                notesRow.textContent = `📝 ${pc.notes}`;
+                container.appendChild(notesRow);
+            } else if (!dissolved) {
+                const noNote = document.createElement('div');
+                noNote.className = 'popup-row popup-landmark';
+                noNote.textContent = '(no note)';
+                container.appendChild(noNote);
+            }
+
+            const metaRow = document.createElement('div');
+            metaRow.className = 'popup-row popup-group';
+            metaRow.textContent = `👤 ${pc.created_by_name || 'Unknown'}`;
+            if (pc.created_at) {
+                metaRow.textContent += ` · ${new Date(pc.created_at).toLocaleDateString()}`;
+            }
+            container.appendChild(metaRow);
+
+            // Action buttons (only for active pins, with permission)
+            if (!dissolved && canManageCustomers) {
+                const actions = document.createElement('div');
+                actions.className = 'popup-potential-actions';
+
+                const editBtn = document.createElement('button');
+                editBtn.textContent = '✏️ Edit';
+                editBtn.className = 'popup-edit-btn';
+                editBtn.addEventListener('click', () => {
+                    map.closePopup();
+                    setPotentialEditForm({
+                        id: pc.id,
+                        latitude: pc.latitude,
+                        longitude: pc.longitude,
+                        notes: pc.notes || '',
+                    });
+                    setPotentialEditOpen(true);
+                });
+                actions.appendChild(editBtn);
+
+                const deleteBtn = document.createElement('button');
+                deleteBtn.textContent = '🗑️ Delete';
+                deleteBtn.className = 'popup-delete-potential-btn';
+                deleteBtn.addEventListener('click', async () => {
+                    if (!confirm('Delete this potential customer pin?')) return;
+                    try {
+                        const res = await fetchWithAuth(`${ENDPOINTS.POTENTIAL_CUSTOMERS}${pc.id}/`, { method: 'DELETE' });
+                        if (res.ok || res.status === 204) {
+                            fetchMapData(filters);
+                        }
+                    } catch (err) {
+                        console.error('Delete potential pin failed:', err);
+                    }
+                });
+                actions.appendChild(deleteBtn);
+                container.appendChild(actions);
+            }
+
+            marker.bindPopup(container, { maxWidth: 280, className: 'custom-map-popup' });
+            potentialLayer.addLayer(marker);
+        });
+
+        potentialLayer.addTo(map);
+        potentialLayerRef.current = potentialLayer;
+    }, [mapData, showPotentialPins, canManageCustomers, fetchWithAuth, filters]);
+
+    // ── Phase 5: Drop Pin handlers ──
+    const handleStartDropPin = () => {
+        setPlacingPotentialPin(true);
+        const map = mapInstanceRef.current;
+        if (!map) return;
+        map.getContainer().style.cursor = 'crosshair';
+        const onClick = (e) => {
+            if (e.originalEvent) e.originalEvent.stopPropagation();
+            map.getContainer().style.cursor = '';
+            map.off('click', onClick);
+            setTimeout(() => {
+                setPotentialEditForm({
+                    id: null,
+                    latitude: e.latlng.lat.toFixed(7),
+                    longitude: e.latlng.lng.toFixed(7),
+                    notes: '',
+                });
+                setPlacingPotentialPin(false);
+                setPotentialEditOpen(true);
+            }, 50);
+        };
+        map.on('click', onClick);
+    };
+
+    const handleCancelDropPin = () => {
+        setPlacingPotentialPin(false);
+        const map = mapInstanceRef.current;
+        if (map) map.getContainer().style.cursor = '';
+    };
+
+    const handleSavePotential = async () => {
+        const { id, latitude, longitude, notes } = potentialEditForm;
+        if (!latitude || !longitude) return;
+        try {
+            const payload = { latitude: parseFloat(latitude), longitude: parseFloat(longitude), notes };
+            let res;
+            if (id) {
+                res = await fetchWithAuth(`${ENDPOINTS.POTENTIAL_CUSTOMERS}${id}/`, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload),
+                });
+            } else {
+                res = await fetchWithAuth(ENDPOINTS.POTENTIAL_CUSTOMERS, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload),
+                });
+            }
+            if (res.ok || res.status === 201) {
+                setPotentialEditOpen(false);
+                setPotentialEditForm({ id: null, latitude: '', longitude: '', notes: '' });
+                fetchMapData(filters);
+            } else {
+                const err = await res.json().catch(() => ({}));
+                const msg = err.location || err.detail || 'Failed to save pin.';
+                alert(Array.isArray(msg) ? msg[0] : msg);
+            }
+        } catch (err) {
+            console.error('Save potential pin failed:', err);
+        }
+    };
+
+    const handleBulkPurge = async () => {
+        const confirmText = prompt('Type PURGE to confirm deleting all previous season pins:');
+        if (confirmText !== 'PURGE') return;
+        try {
+            const res = await fetchWithAuth(`${ENDPOINTS.POTENTIAL_CUSTOMERS}bulk-purge/`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ confirm: 'PURGE' }),
+            });
+            if (res.ok) {
+                const data = await res.json();
+                alert(data.detail || 'Purge complete.');
+                fetchMapData(filters);
+            } else {
+                const err = await res.json().catch(() => ({}));
+                alert(err.detail || 'Purge failed.');
+            }
+        } catch (err) {
+            console.error('Bulk purge failed:', err);
+        }
+    };
+
     // ── Filter handlers ──
     const handleApplyFilters = () => {
         setFilters({ ...pendingFilters });
@@ -697,6 +907,17 @@ export default function CustomerMap() {
                         📌+
                     </button>
                 )}
+
+                {/* Drop Pin button (potential customers) */}
+                {canManageCustomers && (
+                    <button
+                        className="drop-pin-btn"
+                        onClick={handleStartDropPin}
+                        title="Drop Potential Customer Pin"
+                    >
+                        🧑+
+                    </button>
+                )}
             </div>
 
             {/* Pin placing banner */}
@@ -704,6 +925,14 @@ export default function CustomerMap() {
                 <div className="placing-banner">
                     <span>📌 Click on the map to place target village pin</span>
                     <button onClick={handleCancelPlacing}>Cancel</button>
+                </div>
+            )}
+
+            {/* Potential pin placing banner */}
+            {placingPotentialPin && (
+                <div className="placing-banner-potential">
+                    <span>🧑 Tap on the map to mark a location</span>
+                    <button onClick={handleCancelDropPin}>Cancel</button>
                 </div>
             )}
 
@@ -823,6 +1052,18 @@ export default function CustomerMap() {
                 <div className="legend-item">
                     <span className="legend-dot" style={{background: '#f97316', borderStyle: 'dashed'}}>📌</span>
                     <span className="legend-label">Target Village</span>
+                </div>
+                <div className="legend-item">
+                    <label style={{display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer'}}>
+                        <input
+                            type="checkbox"
+                            checked={showPotentialPins}
+                            onChange={(e) => setShowPotentialPins(e.target.checked)}
+                            style={{width: '12px', height: '12px', accentColor: '#FF00D9', margin: 0}}
+                        />
+                        <span className="legend-dot" style={{background: '#FF00D9', border: '2px solid #F9F6C4'}}>🧑</span>
+                        <span className="legend-label">Potential</span>
+                    </label>
                 </div>
 
                 {/* Phase 4: Boundary Layer Toggle */}
@@ -945,6 +1186,143 @@ export default function CustomerMap() {
                                 disabled={!targetForm.name || !targetForm.latitude || !targetForm.target_season}
                             >
                                 Save Target
+                            </button>
+                        </div>
+                    </div>
+                </>
+            )}
+
+            {/* ── Phase 5: Potential Pin Sidebar Toggle ── */}
+            {canManageCustomers && (
+                <button
+                    className="potential-sidebar-toggle"
+                    onClick={() => setPotentialSidebarOpen(!potentialSidebarOpen)}
+                    title="Potential Customer List"
+                >
+                    🧑
+                </button>
+            )}
+
+            {/* ── Phase 5: Potential Customer Sidebar (M9) ── */}
+            {potentialSidebarOpen && (() => {
+                const activePins = (mapData?.potential_customers || []).filter(pc => !pc.is_dissolved);
+                return (
+                    <div className="potential-sidebar">
+                        <div className="potential-sidebar-header">
+                            <h3>
+                                🧑 Marked Locations
+                                <span className="sidebar-count">{activePins.length}</span>
+                            </h3>
+                            <button className="filter-close" onClick={() => setPotentialSidebarOpen(false)}>✕</button>
+                        </div>
+                        <div className="potential-sidebar-list">
+                            {activePins.length === 0 ? (
+                                <div className="potential-sidebar-empty">No marked locations yet</div>
+                            ) : (
+                                activePins.map(pc => (
+                                    <div
+                                        key={pc.id}
+                                        className="potential-sidebar-item"
+                                        onClick={() => {
+                                            const map = mapInstanceRef.current;
+                                            if (map) {
+                                                map.flyTo([parseFloat(pc.latitude), parseFloat(pc.longitude)], 18);
+                                            }
+                                            setPotentialSidebarOpen(false);
+                                        }}
+                                    >
+                                        <div className="potential-sidebar-item-note">
+                                            {pc.notes || '(no note)'}
+                                        </div>
+                                        <div className="potential-sidebar-item-meta">
+                                            <span>👤 {pc.created_by_name || 'Unknown'}</span>
+                                            <span>📅 {pc.created_at ? new Date(pc.created_at).toLocaleDateString() : ''}</span>
+                                        </div>
+                                    </div>
+                                ))
+                            )}
+                        </div>
+                        {rbac?.is_superuser && (
+                            <div className="potential-sidebar-purge">
+                                <button className="btn-bulk-purge" onClick={handleBulkPurge}>
+                                    🗑️ Clear Previous Season Pins
+                                </button>
+                            </div>
+                        )}
+                    </div>
+                );
+            })()}
+
+            {/* ── Phase 5: Potential Customer Edit/Create Modal ── */}
+            {potentialEditOpen && (
+                <>
+                    <div className="filter-backdrop" onClick={() => setPotentialEditOpen(false)}></div>
+                    <div className="potential-edit-modal">
+                        <div className="filter-header">
+                            <h3 style={{color: '#FF00D9'}}>
+                                🧑 {potentialEditForm.id ? 'Edit Location' : 'Mark Location'}
+                            </h3>
+                            <button className="filter-close" onClick={() => setPotentialEditOpen(false)}>✕</button>
+                        </div>
+                        <div className="filter-body">
+                            <div className="filter-field">
+                                <label>Coordinates</label>
+                                <div className="coord-display">
+                                    {potentialEditForm.latitude && potentialEditForm.longitude
+                                        ? `${potentialEditForm.latitude}, ${potentialEditForm.longitude}`
+                                        : 'Click map to set'
+                                    }
+                                </div>
+                                {potentialEditForm.id && (
+                                    <button
+                                        className="btn-replace"
+                                        onClick={() => {
+                                            setPotentialEditOpen(false);
+                                            setPlacingPotentialPin(true);
+                                            const map = mapInstanceRef.current;
+                                            if (!map) return;
+                                            map.getContainer().style.cursor = 'crosshair';
+                                            const onClick = (e) => {
+                                                if (e.originalEvent) e.originalEvent.stopPropagation();
+                                                map.getContainer().style.cursor = '';
+                                                map.off('click', onClick);
+                                                setTimeout(() => {
+                                                    setPotentialEditForm(prev => ({
+                                                        ...prev,
+                                                        latitude: e.latlng.lat.toFixed(7),
+                                                        longitude: e.latlng.lng.toFixed(7),
+                                                    }));
+                                                    setPlacingPotentialPin(false);
+                                                    setPotentialEditOpen(true);
+                                                }, 50);
+                                            };
+                                            map.on('click', onClick);
+                                        }}
+                                    >
+                                        📍 Re-pick on map
+                                    </button>
+                                )}
+                            </div>
+                            <div className="filter-field">
+                                <label>Notes (optional)</label>
+                                <textarea
+                                    value={potentialEditForm.notes}
+                                    onChange={(e) => setPotentialEditForm(p => ({ ...p, notes: e.target.value }))}
+                                    placeholder="e.g. Blue house near temple"
+                                    rows={2}
+                                    autoFocus
+                                />
+                            </div>
+                        </div>
+                        <div className="filter-actions">
+                            <button className="btn-filter-reset" onClick={() => setPotentialEditOpen(false)}>Cancel</button>
+                            <button
+                                className="btn-filter-apply"
+                                style={{background: '#FF00D9'}}
+                                onClick={handleSavePotential}
+                                disabled={!potentialEditForm.latitude || !potentialEditForm.longitude}
+                            >
+                                {potentialEditForm.id ? 'Save Changes' : 'Drop Pin'}
                             </button>
                         </div>
                     </div>

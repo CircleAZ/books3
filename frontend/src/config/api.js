@@ -49,6 +49,7 @@ export const ENDPOINTS = {
     COVERAGE_PDF: `${API_BASE}/customers/customers/coverage_pdf/`,
     GEO_BOUNDARIES: `${API_BASE}/customers/geo/boundaries/`,
     GEO_REGIONS: `${API_BASE}/customers/geo/regions/`,
+    POTENTIAL_CUSTOMERS: `${API_BASE}/customers/potential-customers/`,
 
     // Template Catalogs (reusable name pools)
     CLASS_TEMPLATES: `${API_BASE}/customers/class-templates/`,
