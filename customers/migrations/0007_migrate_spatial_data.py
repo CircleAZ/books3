@@ -50,7 +50,7 @@ def migrate_spatial_data(apps, schema_editor):
             ])
             migrated += 1
 
-    print(f'  → Migrated {migrated} addresses to PostGIS fields.')
+    print(f'  -> Migrated {migrated} addresses to PostGIS fields.')
 
     # ── Migrate TargetVillage lat/lng → PointField ──
     tv_migrated = 0
@@ -66,7 +66,7 @@ def migrate_spatial_data(apps, schema_editor):
             except (ValueError, TypeError):
                 pass
 
-    print(f'  → Migrated {tv_migrated} target villages to PostGIS fields.')
+    print(f'  -> Migrated {tv_migrated} target villages to PostGIS fields.')
 
 
 def reverse_spatial_data(apps, schema_editor):
