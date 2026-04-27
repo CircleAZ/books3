@@ -297,6 +297,13 @@ const PublicReceipt = () => {
                         📚 {t.viewCatalogue}
                     </a>
                 </div>
+
+                {/* Branding Footer */}
+                <div className="receipt-footer-brand">
+                    <a href="https://circleaz.in" target="_blank" rel="noopener noreferrer">
+                        circleaz.in
+                    </a>
+                </div>
             </div>
         </div>
     );

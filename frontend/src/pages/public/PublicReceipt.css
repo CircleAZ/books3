@@ -427,6 +427,26 @@
     letter-spacing: 0.5px;
 }
 
+.receipt-footer-brand {
+    text-align: center;
+    margin-top: 18px;
+    padding-top: 14px;
+    border-top: 1px dashed #e2e8f0;
+}
+
+.receipt-footer-brand a {
+    color: #94a3b8;
+    text-decoration: none;
+    font-size: 12px;
+    font-weight: 500;
+    letter-spacing: 0.8px;
+    transition: color 0.2s;
+}
+
+.receipt-footer-brand a:hover {
+    color: #6366f1;
+}
+
 /* ── Loading & Error States ── */
 .loading-container {
     text-align: center;
