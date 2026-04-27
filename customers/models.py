@@ -325,3 +325,58 @@ class TargetVillage(UUIDPrimaryKeyModel):
 
     def __str__(self):
         return f"{self.name} (Target: Dec {self.target_season})"
+
+
+class PotentialCustomer(UUIDPrimaryKeyModel):
+    """
+    A lightweight location pin dropped by a salesman during field visits.
+    Represents a house/location where a potential sale was identified but no
+    customer details were collected yet. Completely separate from Customer.
+
+    Lifecycle:
+      1. Created: Salesman drops pin on the map with optional notes.
+      2. Active: Pin is visible on the customer map as a neon-pink human icon.
+      3. Dissolved: When a real Customer is created nearby, the salesman can
+         "link" (dissolve) the pin into the customer. The pin's notes are
+         appended to the customer's notes. The pin stays in the DB for audit
+         but renders grayed-out for the current season, then hidden.
+      4. Deleted: Hard-deleted via manual action or bulk purge.
+    """
+    # Core data — only location is required
+    location = gis_models.PointField(srid=4326)
+    notes = models.TextField(blank=True)
+
+    # Audit: creation
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL,
+        null=True, blank=True, related_name='created_potential_customers'
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    # Audit: modification (NO auto_now — set manually in PATCH handler only, per M2)
+    modified_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL,
+        null=True, blank=True, related_name='modified_potential_customers'
+    )
+    modified_at = models.DateTimeField(null=True, blank=True)
+
+    # Dissolution tracking
+    is_dissolved = models.BooleanField(default=False)
+    dissolved_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL,
+        null=True, blank=True, related_name='dissolved_potential_customers'
+    )
+    dissolved_at = models.DateTimeField(null=True, blank=True)
+    dissolved_into = models.ForeignKey(
+        Customer, on_delete=models.SET_NULL,
+        null=True, blank=True, related_name='source_potential_customers'
+    )
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        status = "dissolved" if self.is_dissolved else "active"
+        note_preview = (self.notes[:30] + '…') if len(self.notes) > 30 else self.notes
+        return f"PotentialCustomer [{status}] {note_preview or 'no note'}"
+

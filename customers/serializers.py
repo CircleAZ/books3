@@ -5,7 +5,7 @@ import re
 from rest_framework import serializers
 from django.db import models
 from django.utils.html import strip_tags
-from .models import Customer, Address, CustomerLink, Wallet, WalletTransaction
+from .models import Customer, Address, CustomerLink, Wallet, WalletTransaction, PotentialCustomer
 from settings_app.models import (
     School, Class, Division, Subdivision, CustomerGroup, LinkType, LocationTag,
     ClassTemplate, DivisionTemplate, SubdivisionTemplate
@@ -565,3 +565,79 @@ class WalletSerializer(serializers.ModelSerializer):
         model = Wallet
         fields = ['id', 'customer', 'customer_name', 'balance', 'transactions']
         read_only_fields = ['balance']  # Balance modified via credit/debit methods only
+
+
+# ============ Potential Customer Serializers ============
+
+class PotentialCustomerSerializer(serializers.ModelSerializer):
+    """Serializer for PotentialCustomer — location-only pins on the map."""
+    latitude = serializers.FloatField(write_only=True)
+    longitude = serializers.FloatField(write_only=True)
+    created_by_name = serializers.SerializerMethodField()
+    dissolved_into_name = serializers.SerializerMethodField()
+
+    class Meta:
+        model = PotentialCustomer
+        fields = [
+            'id', 'latitude', 'longitude', 'notes',
+            'created_by', 'created_by_name', 'created_at',
+            'modified_by', 'modified_at',
+            'is_dissolved', 'dissolved_by', 'dissolved_at',
+            'dissolved_into', 'dissolved_into_name',
+        ]
+        read_only_fields = [
+            'id', 'created_by', 'created_by_name', 'created_at',
+            'modified_by', 'modified_at',
+            'is_dissolved', 'dissolved_by', 'dissolved_at',
+            'dissolved_into', 'dissolved_into_name',
+        ]
+
+    def get_created_by_name(self, obj):
+        if obj.created_by:
+            return obj.created_by.get_full_name() or obj.created_by.username
+        return ''
+
+    def get_dissolved_into_name(self, obj):
+        if obj.dissolved_into:
+            return obj.dissolved_into.full_name
+        return None
+
+    def validate_notes(self, value):
+        """M7: Strip HTML tags to prevent XSS."""
+        return strip_tags(value).strip() if value else ''
+
+    def validate_latitude(self, value):
+        if value is not None and (value < -90 or value > 90):
+            raise serializers.ValidationError("Latitude must be between -90 and 90.")
+        return value
+
+    def validate_longitude(self, value):
+        if value is not None and (value < -180 or value > 180):
+            raise serializers.ValidationError("Longitude must be between -180 and 180.")
+        return value
+
+    def create(self, validated_data):
+        from django.contrib.gis.geos import Point
+        lat = validated_data.pop('latitude')
+        lng = validated_data.pop('longitude')
+        validated_data['location'] = Point(lng, lat, srid=4326)
+        return super().create(validated_data)
+
+    def update(self, instance, validated_data):
+        from django.contrib.gis.geos import Point
+        lat = validated_data.pop('latitude', None)
+        lng = validated_data.pop('longitude', None)
+        if lat is not None and lng is not None:
+            validated_data['location'] = Point(lng, lat, srid=4326)
+        return super().update(instance, validated_data)
+
+    def to_representation(self, instance):
+        rep = super().to_representation(instance)
+        if instance.location:
+            rep['latitude'] = str(instance.location.y)
+            rep['longitude'] = str(instance.location.x)
+        else:
+            rep['latitude'] = None
+            rep['longitude'] = None
+        return rep
+

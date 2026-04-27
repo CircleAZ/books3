@@ -9,13 +9,14 @@ from django.db.models import Sum, Q, Count
 from django.db import transaction
 
 from core.permissions import HasRequiredPermission
-from .models import Customer, Address, CustomerLink, Wallet, WalletTransaction, TargetVillage
+from .models import Customer, Address, CustomerLink, Wallet, WalletTransaction, TargetVillage, PotentialCustomer
 from .serializers import (
     CustomerListSerializer, CustomerDetailSerializer, CustomerCreateUpdateSerializer,
     AddressSerializer, CustomerLinkSerializer, WalletSerializer, WalletTransactionSerializer,
     SchoolSerializer, ClassSerializer, DivisionSerializer, SubdivisionSerializer,
     CustomerGroupSerializer, LinkTypeSerializer, LocationTagSerializer,
-    ClassTemplateSerializer, DivisionTemplateSerializer, SubdivisionTemplateSerializer
+    ClassTemplateSerializer, DivisionTemplateSerializer, SubdivisionTemplateSerializer,
+    PotentialCustomerSerializer
 )
 from settings_app.models import (
     School, Class, Division, Subdivision, CustomerGroup, LinkType, LocationTag,
@@ -377,6 +378,35 @@ class CustomerViewSet(viewsets.ModelViewSet):
             for tv in target_qs
         ]
 
+        # ── Potential customers for map display ──
+        potential_qs = PotentialCustomer.objects.filter(
+            location__isnull=False
+        ).select_related('created_by', 'dissolved_into')
+
+        # Include: all active + dissolved within current season (M11)
+        potential_list = []
+        for pc in potential_qs:
+            # Skip dissolved pins outside current season
+            if pc.is_dissolved:
+                if not pc.dissolved_at:
+                    continue
+                d = pc.dissolved_at.date()
+                if not (season_start <= d <= season_end):
+                    continue
+
+            potential_list.append({
+                'id': str(pc.id),
+                'latitude': str(pc.location.y),
+                'longitude': str(pc.location.x),
+                'notes': pc.notes,
+                'created_by_name': (pc.created_by.get_full_name() or pc.created_by.username) if pc.created_by else '',
+                'created_by_id': str(pc.created_by.id) if pc.created_by else None,
+                'created_at': pc.created_at.isoformat() if pc.created_at else None,
+                'is_dissolved': pc.is_dissolved,
+                'dissolved_into_name': pc.dissolved_into.full_name if pc.dissolved_into else None,
+                'dissolved_at': pc.dissolved_at.isoformat() if pc.dissolved_at else None,
+            })
+
         return Response({
             'season': {
                 'start': season_start.isoformat(),
@@ -392,6 +422,7 @@ class CustomerViewSet(viewsets.ModelViewSet):
             'villages': village_list,
             'customers': customer_list,
             'target_villages': target_village_list,
+            'potential_customers': potential_list,
             'filter_options': {
                 'villages': all_village_names,
                 'customer_groups': all_groups,
@@ -1333,4 +1364,273 @@ class GeoRegionListView(APIView):
 
         data = list(qs.values('id', 'name', 'layer').order_by('name'))
         return Response(data)
+
+
+# ═══════════════════════════════════════════════════════
+# Potential Customer CRUD + Dissolution + Proximity
+# ═══════════════════════════════════════════════════════
+
+class PotentialCustomerViewSet(viewsets.ModelViewSet):
+    """
+    CRUD for potential customer pins on the map.
+    Additional actions: dissolve, nearby, bulk-purge.
+    """
+    queryset = PotentialCustomer.objects.filter(
+        is_dissolved=False
+    ).select_related('created_by', 'dissolved_into')
+    serializer_class = PotentialCustomerSerializer
+    permission_classes = [HasRequiredPermission]
+    required_permission = 'customers.manage_customers'
+    pagination_class = None
+
+    def get_queryset(self):
+        qs = super().get_queryset()
+        # M10: Filter by salesman
+        created_by = self.request.query_params.get('created_by')
+        if created_by:
+            qs = qs.filter(created_by_id=created_by)
+        # M10: Filter by date range
+        date_from = self.request.query_params.get('date_from')
+        date_to = self.request.query_params.get('date_to')
+        if date_from:
+            qs = qs.filter(created_at__date__gte=date_from)
+        if date_to:
+            qs = qs.filter(created_at__date__lte=date_to)
+        return qs
+
+    def _check_gap(self, point, exclude_id=None):
+        """
+        M1/M5: Enforce 3m minimum gap between potential customer pins.
+        Uses PostGIS ST_DWithin for efficient spatial query.
+        Returns True if too close to another pin.
+        """
+        from django.contrib.gis.measure import D
+        nearby = PotentialCustomer.objects.filter(
+            is_dissolved=False,
+            location__distance_lte=(point, D(m=3))
+        )
+        if exclude_id:
+            nearby = nearby.exclude(pk=exclude_id)
+        return nearby.exists()
+
+    def perform_create(self, serializer):
+        from django.contrib.gis.geos import Point
+        lat = self.request.data.get('latitude')
+        lng = self.request.data.get('longitude')
+        if lat is not None and lng is not None:
+            point = Point(float(lng), float(lat), srid=4326)
+            if self._check_gap(point):
+                from rest_framework.exceptions import ValidationError
+                raise ValidationError(
+                    {'location': 'Too close to an existing pin (must be 3m+ apart).'}
+                )
+        serializer.save(created_by=self.request.user)
+
+    def perform_update(self, serializer):
+        from django.contrib.gis.geos import Point
+        from django.utils import timezone
+        lat = self.request.data.get('latitude')
+        lng = self.request.data.get('longitude')
+        if lat is not None and lng is not None:
+            point = Point(float(lng), float(lat), srid=4326)
+            # M5: Exclude self from gap check
+            if self._check_gap(point, exclude_id=serializer.instance.pk):
+                from rest_framework.exceptions import ValidationError
+                raise ValidationError(
+                    {'location': 'Too close to an existing pin (must be 3m+ apart).'}
+                )
+        # M2: Manual modified_at update, not auto_now
+        serializer.save(
+            modified_by=self.request.user,
+            modified_at=timezone.now()
+        )
+
+    @action(detail=True, methods=['post'])
+    def dissolve(self, request, pk=None):
+        """
+        Dissolve a potential customer pin into a real customer.
+        M3: Uses select_for_update to prevent double-dissolve race condition.
+        M4: Returns 404 gracefully if pin was already deleted.
+        """
+        from django.utils import timezone
+
+        customer_id = request.data.get('customer_id')
+        if not customer_id:
+            return Response(
+                {'detail': 'customer_id is required.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        try:
+            customer = Customer.objects.get(pk=customer_id)
+        except Customer.DoesNotExist:
+            return Response(
+                {'detail': 'Customer not found.'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        with transaction.atomic():
+            try:
+                # M3: Row-level lock to prevent concurrent dissolution
+                pin = PotentialCustomer.objects.select_for_update().get(pk=pk)
+            except PotentialCustomer.DoesNotExist:
+                # M4: Pin was deleted by another user
+                return Response(
+                    {'detail': 'This pin was already removed.'},
+                    status=status.HTTP_404_NOT_FOUND
+                )
+
+            if pin.is_dissolved:
+                # M3: Already dissolved by another user
+                return Response(
+                    {'detail': 'This pin was already linked to another customer.'},
+                    status=status.HTTP_409_CONFLICT
+                )
+
+            # Mark as dissolved
+            pin.is_dissolved = True
+            pin.dissolved_by = request.user
+            pin.dissolved_at = timezone.now()
+            pin.dissolved_into = customer
+            pin.save(update_fields=[
+                'is_dissolved', 'dissolved_by', 'dissolved_at', 'dissolved_into'
+            ])
+
+            # Append potential customer's notes to real customer's notes
+            if pin.notes and pin.notes.strip():
+                separator = '\n' if customer.notes else ''
+                customer.notes = (
+                    customer.notes + separator +
+                    f'[From marked location] {pin.notes.strip()}'
+                )
+                customer.save(update_fields=['notes', 'updated_at'])
+
+        return Response({'detail': 'Pin successfully linked to customer.'})
+
+    @action(detail=False, methods=['get'])
+    def nearby(self, request):
+        """
+        Find non-dissolved potential customers within a radius of given coords.
+        M6: Server-side radius cap at 50m.
+        """
+        from django.contrib.gis.geos import Point
+        from django.contrib.gis.measure import D
+        from django.contrib.gis.db.models.functions import Distance
+
+        lat = request.query_params.get('lat')
+        lng = request.query_params.get('lng')
+        radius = request.query_params.get('radius', '5')
+
+        if not lat or not lng:
+            return Response(
+                {'detail': 'lat and lng are required.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        try:
+            lat = float(lat)
+            lng = float(lng)
+            radius = min(float(radius), 50)  # M6: Cap at 50m
+        except (TypeError, ValueError):
+            return Response(
+                {'detail': 'Invalid lat, lng, or radius.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        ref_point = Point(lng, lat, srid=4326)
+
+        nearby_pins = PotentialCustomer.objects.filter(
+            is_dissolved=False,
+            location__distance_lte=(ref_point, D(m=radius))
+        ).annotate(
+            distance=Distance('location', ref_point)
+        ).select_related('created_by').order_by('distance')
+
+        results = []
+        for pin in nearby_pins:
+            results.append({
+                'id': str(pin.id),
+                'latitude': str(pin.location.y),
+                'longitude': str(pin.location.x),
+                'notes': pin.notes,
+                'distance_m': round(pin.distance.m, 1) if pin.distance else None,
+                'created_by_name': (
+                    pin.created_by.get_full_name() or pin.created_by.username
+                ) if pin.created_by else '',
+                'created_at': pin.created_at.isoformat() if pin.created_at else None,
+            })
+
+        return Response(results)
+
+    @action(detail=False, methods=['post'], url_path='bulk-purge')
+    def bulk_purge(self, request):
+        """
+        Delete all non-dissolved potential customer pins from the previous season.
+        M8: Requires {"confirm": "PURGE"} in request body. Superuser only.
+        """
+        if not request.user.is_superuser:
+            return Response(
+                {'detail': 'Only superusers can bulk-purge pins.'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        if request.data.get('confirm') != 'PURGE':
+            return Response(
+                {'detail': 'Request body must contain {"confirm": "PURGE"}.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        import datetime
+        from django.utils import timezone
+
+        today = timezone.now().date()
+        # Previous season: Dec (Y-2) → Nov (Y-1)
+        if today.month >= 12:
+            prev_start = datetime.date(today.year - 1, 12, 1)
+            prev_end = datetime.date(today.year, 11, 30)
+        else:
+            prev_start = datetime.date(today.year - 2, 12, 1)
+            prev_end = datetime.date(today.year - 1, 11, 30)
+
+        deleted_count, _ = PotentialCustomer.objects.filter(
+            is_dissolved=False,
+            created_at__date__gte=prev_start,
+            created_at__date__lte=prev_end,
+        ).delete()
+
+        return Response({
+            'detail': f'Purged {deleted_count} pins from Dec {prev_start.year} – Nov {prev_end.year}.',
+            'deleted': deleted_count,
+            'season': f'Dec {prev_start.year} – Nov {prev_end.year}',
+        })
+
+    @action(detail=True, methods=['post'])
+    def undissolve(self, request, pk=None):
+        """
+        Resurrect a dissolved potential customer pin (used when the linked
+        customer is being deleted and the user chooses to restore the pin).
+        """
+        try:
+            pin = PotentialCustomer.objects.get(pk=pk)
+        except PotentialCustomer.DoesNotExist:
+            return Response(
+                {'detail': 'Pin not found.'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        if not pin.is_dissolved:
+            return Response(
+                {'detail': 'Pin is not dissolved.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        pin.is_dissolved = False
+        pin.dissolved_by = None
+        pin.dissolved_at = None
+        pin.dissolved_into = None
+        pin.save(update_fields=[
+            'is_dissolved', 'dissolved_by', 'dissolved_at', 'dissolved_into'
+        ])
+
+        return Response({'detail': 'Pin restored successfully.'})
 
