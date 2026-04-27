@@ -289,19 +289,12 @@ const PublicReceipt = () => {
                 {/* Catalogue Link */}
                 <div className="catalogue-link-container">
                     <a 
-                        href={receipt.store?.website || 'https://circleaz.in/catalog/index.html'} 
+                        href={receipt.store?.website || 'https://circleaz.in'} 
                         target="_blank" 
                         rel="noopener noreferrer"
                         className="catalogue-link"
                     >
                         📚 {t.viewCatalogue}
-                    </a>
-                </div>
-
-                {/* Branding Footer */}
-                <div className="receipt-footer-brand">
-                    <a href="https://circleaz.in" target="_blank" rel="noopener noreferrer">
-                        circleaz.in
                     </a>
                 </div>
             </div>
