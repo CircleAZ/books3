@@ -67,6 +67,14 @@ export default function AddCustomer({ onSuccess, onCancel, isEmbedded = false })
     const [successMsg, setSuccessMsg] = useState('');
     const [addressId, setAddressId] = useState(null);
     const [independentClass, setIndependentClass] = useState(false);
+
+    // Phase 5: Dissolution state
+    const [nearbyPins, setNearbyPins] = useState([]);
+    const [dissolveModalOpen, setDissolveModalOpen] = useState(false);
+    const [currentDissolvePin, setCurrentDissolvePin] = useState(null);
+    const [dissolveConfirmEnabled, setDissolveConfirmEnabled] = useState(false);
+    const [pendingDissolutions, setPendingDissolutions] = useState([]);
+    const dissolveTimerRef = useRef(null);
     const [classTemplatesForForm, setClassTemplatesForForm] = useState([]);
     const [divisionTemplatesForForm, setDivisionTemplatesForForm] = useState([]);
     const [subdivisionTemplatesForForm, setSubdivisionTemplatesForForm] = useState([]);
@@ -386,7 +394,88 @@ export default function AddCustomer({ onSuccess, onCancel, isEmbedded = false })
                 console.error("Geocoding failed:", err);
             }
         }
+
+        // Phase 5: Check for nearby potential customer pins within 5m
+        try {
+            const res = await fetchWithAuth(
+                `${ENDPOINTS.POTENTIAL_CUSTOMERS}nearby/?lat=${latlng.lat}&lng=${latlng.lng}&radius=5`
+            );
+            if (res.ok) {
+                const data = await res.json();
+                const activePins = (data.results || data || []).filter(p => !p.is_dissolved);
+                if (activePins.length > 0) {
+                    setNearbyPins(activePins);
+                    // Show dissolution prompt for the first pin
+                    showDissolvePrompt(activePins[0]);
+                } else {
+                    setNearbyPins([]);
+                }
+            }
+        } catch (err) {
+            console.error('Nearby pin check failed:', err);
+        }
     };
+
+    // Phase 5: Dissolution prompt handlers
+    const showDissolvePrompt = (pin) => {
+        setCurrentDissolvePin(pin);
+        setDissolveConfirmEnabled(false);
+        setDissolveModalOpen(true);
+        // 1-second delay before confirm button activates
+        if (dissolveTimerRef.current) clearTimeout(dissolveTimerRef.current);
+        dissolveTimerRef.current = setTimeout(() => {
+            setDissolveConfirmEnabled(true);
+        }, 1000);
+    };
+
+    const handleDissolveYes = () => {
+        if (!currentDissolvePin || !dissolveConfirmEnabled) return;
+        // Queue this pin for dissolution after customer is saved
+        setPendingDissolutions(prev => [...prev, currentDissolvePin]);
+        // Append note from potential pin to form notes
+        if (currentDissolvePin.notes) {
+            setFormData(prev => ({
+                ...prev,
+                notes: prev.notes
+                    ? `${prev.notes}\n[Marked location] ${currentDissolvePin.notes}`
+                    : `[Marked location] ${currentDissolvePin.notes}`
+            }));
+        }
+        setDissolveModalOpen(false);
+        setCurrentDissolvePin(null);
+        // Check if there are more nearby pins to prompt
+        const remaining = nearbyPins.filter(
+            p => p.id !== currentDissolvePin.id && !pendingDissolutions.some(d => d.id === p.id)
+        );
+        if (remaining.length > 0) {
+            setTimeout(() => showDissolvePrompt(remaining[0]), 300);
+        }
+    };
+
+    const handleDissolveNo = () => {
+        setDissolveConfirmEnabled(false);
+        // Require confirmation for "No" too (1-sec delay re-triggers)
+        if (dissolveTimerRef.current) clearTimeout(dissolveTimerRef.current);
+        dissolveTimerRef.current = setTimeout(() => {
+            setDissolveConfirmEnabled(true);
+        }, 1000);
+    };
+
+    const handleDissolveNoConfirm = () => {
+        if (!dissolveConfirmEnabled) return;
+        setDissolveModalOpen(false);
+        setCurrentDissolvePin(null);
+        // Check remaining pins
+        const remaining = nearbyPins.filter(
+            p => p.id !== currentDissolvePin?.id && !pendingDissolutions.some(d => d.id === p.id)
+        );
+        if (remaining.length > 0) {
+            setTimeout(() => showDissolvePrompt(remaining[0]), 300);
+        }
+    };
+
+    // Cleanup dissolve timer
+    useEffect(() => () => clearTimeout(dissolveTimerRef.current), []);
 
     const toggleSection = (section) => {
         setSections(prev => ({ ...prev, [section]: !prev[section] }));
@@ -570,6 +659,17 @@ export default function AddCustomer({ onSuccess, onCancel, isEmbedded = false })
                                 link_type: link.link_type
                             })
                         }).catch(err => console.error('Failed to create link:', err))
+                    ));
+                }
+
+                // Phase 5: Execute pending dissolutions
+                if (pendingDissolutions.length > 0) {
+                    await Promise.all(pendingDissolutions.map(pin =>
+                        fetchWithAuth(`${ENDPOINTS.POTENTIAL_CUSTOMERS}${pin.id}/dissolve/`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ customer_id: data.id }),
+                        }).catch(err => console.error('Dissolution failed for pin:', pin.id, err))
                     ));
                 }
 
@@ -1101,6 +1201,69 @@ export default function AddCustomer({ onSuccess, onCancel, isEmbedded = false })
                     </div>
                 )}
             </form>
+
+            {/* Phase 5: Queued dissolution badges */}
+            {pendingDissolutions.length > 0 && (
+                <div className="dissolve-queued-bar">
+                    <span>🔗 Marked locations to link:</span>
+                    {pendingDissolutions.map(pin => (
+                        <span key={pin.id} className="dissolve-badge">
+                            📍 {pin.notes || `Pin ${pin.id.slice(0, 6)}`}
+                            <button
+                                type="button"
+                                onClick={() => setPendingDissolutions(prev => prev.filter(p => p.id !== pin.id))}
+                                title="Remove"
+                            >✕</button>
+                        </span>
+                    ))}
+                </div>
+            )}
+
+            {/* Phase 5: Dissolution Confirmation Modal */}
+            {dissolveModalOpen && currentDissolvePin && (
+                <>
+                    <div className="dissolve-backdrop" />
+                    <div className="dissolve-modal">
+                        <div className="dissolve-modal-header">
+                            <span style={{fontSize: '24px'}}>🔗</span>
+                            <h3>Marked Location Found Nearby</h3>
+                        </div>
+                        <div className="dissolve-modal-body">
+                            <p>This location is within 5 meters of a marked location.</p>
+                            {currentDissolvePin.notes && (
+                                <div className="dissolve-pin-note">
+                                    📝 {currentDissolvePin.notes}
+                                </div>
+                            )}
+                            <div className="dissolve-pin-meta">
+                                <span>👤 {currentDissolvePin.created_by_name || 'Unknown'}</span>
+                                {currentDissolvePin.created_at && (
+                                    <span>📅 {new Date(currentDissolvePin.created_at).toLocaleDateString()}</span>
+                                )}
+                            </div>
+                            <p className="dissolve-question">Link this mark to the customer you&apos;re saving?</p>
+                        </div>
+                        <div className="dissolve-modal-actions">
+                            <button
+                                className="dissolve-btn dissolve-btn-no"
+                                onClick={dissolveConfirmEnabled ? handleDissolveNoConfirm : handleDissolveNo}
+                                disabled={!dissolveConfirmEnabled}
+                                style={{opacity: dissolveConfirmEnabled ? 1 : 0.4}}
+                            >
+                                {dissolveConfirmEnabled ? '✕ No, skip' : '⏳ Wait...'}
+                            </button>
+                            <button
+                                className="dissolve-btn dissolve-btn-yes"
+                                onClick={handleDissolveYes}
+                                disabled={!dissolveConfirmEnabled}
+                                style={{opacity: dissolveConfirmEnabled ? 1 : 0.4}}
+                            >
+                                {dissolveConfirmEnabled ? '✓ Yes, link it' : '⏳ Wait...'}
+                            </button>
+                        </div>
+                    </div>
+                </>
+            )}
         </div>
     );
 }

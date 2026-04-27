@@ -460,3 +460,183 @@
     color: #10b981;
     font-weight: 600;
 }
+
+/* ============ Phase 5: Dissolution Modal ============ */
+.dissolve-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 9998;
+    background: rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(4px);
+}
+
+.dissolve-modal {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 9999;
+    width: 360px;
+    max-width: 92vw;
+    background: var(--color-bg-secondary, #1e293b);
+    border: 1px solid #FF00D940;
+    border-radius: 16px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4), 0 0 20px rgba(255, 0, 217, 0.15);
+    overflow: hidden;
+    animation: dissolveModalIn 0.25s ease-out;
+}
+
+@keyframes dissolveModalIn {
+    from { opacity: 0; transform: translate(-50%, -50%) scale(0.9); }
+    to { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+}
+
+.dissolve-modal-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 16px 20px 12px;
+    border-bottom: 1px solid var(--color-border, #334155);
+}
+
+.dissolve-modal-header h3 {
+    margin: 0;
+    font-size: 15px;
+    font-weight: 600;
+    color: #FF00D9;
+}
+
+.dissolve-modal-body {
+    padding: 16px 20px;
+}
+
+.dissolve-modal-body p {
+    margin: 0 0 10px;
+    font-size: 13px;
+    color: var(--color-text-secondary, #94a3b8);
+    line-height: 1.5;
+}
+
+.dissolve-pin-note {
+    padding: 10px 14px;
+    background: var(--color-bg-tertiary, #0f172a);
+    border: 1px solid var(--color-border, #334155);
+    border-radius: 8px;
+    font-size: 13px;
+    color: var(--color-text-primary, #f1f5f9);
+    margin-bottom: 10px;
+}
+
+.dissolve-pin-meta {
+    display: flex;
+    gap: 12px;
+    font-size: 11px;
+    color: var(--color-text-muted, #64748b);
+    margin-bottom: 12px;
+}
+
+.dissolve-question {
+    font-weight: 600;
+    color: var(--color-text-primary, #f1f5f9) !important;
+    font-size: 14px !important;
+}
+
+.dissolve-modal-actions {
+    display: flex;
+    gap: 10px;
+    padding: 12px 20px 16px;
+    border-top: 1px solid var(--color-border, #334155);
+}
+
+.dissolve-btn {
+    flex: 1;
+    padding: 10px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+    border: 1px solid;
+}
+
+.dissolve-btn-no {
+    background: transparent;
+    border-color: var(--color-border, #334155);
+    color: var(--color-text-secondary, #94a3b8);
+}
+
+.dissolve-btn-no:hover:not(:disabled) {
+    background: var(--color-bg-hover, #334155);
+    color: var(--color-text-primary, #f1f5f9);
+}
+
+.dissolve-btn-yes {
+    background: #FF00D9;
+    border-color: #FF00D9;
+    color: #fff;
+}
+
+.dissolve-btn-yes:hover:not(:disabled) {
+    background: #e600c3;
+}
+
+.dissolve-btn:disabled {
+    cursor: not-allowed;
+}
+
+/* Queued dissolution badges */
+.dissolve-queued-bar {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+    padding: 10px 16px;
+    margin-top: 12px;
+    background: #FF00D910;
+    border: 1px solid #FF00D930;
+    border-radius: 10px;
+    font-size: 12px;
+    color: #FF00D9;
+    font-weight: 600;
+}
+
+.dissolve-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 10px;
+    background: #FF00D920;
+    border-radius: 999px;
+    font-size: 11px;
+    color: var(--color-text-primary, #f1f5f9);
+    font-weight: 500;
+}
+
+.dissolve-badge button {
+    background: none;
+    border: none;
+    color: #ef4444;
+    cursor: pointer;
+    font-size: 12px;
+    padding: 0 2px;
+    line-height: 1;
+}
+
+@media (max-width: 768px) {
+    .dissolve-modal {
+        top: auto;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        transform: none;
+        width: 100%;
+        max-width: 100%;
+        border-radius: 16px 16px 0 0;
+        animation: dissolveSlideUp 0.25s ease-out;
+    }
+
+    @keyframes dissolveSlideUp {
+        from { transform: translateY(100%); }
+        to { transform: translateY(0); }
+    }
+}
