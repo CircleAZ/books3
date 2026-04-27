@@ -379,21 +379,17 @@ class CustomerViewSet(viewsets.ModelViewSet):
         ]
 
         # ── Potential customers for map display ──
+        # DB-level filter: active pins + dissolved-within-current-season (M11)
+        # Avoids loading stale dissolved pins from previous seasons into memory.
         potential_qs = PotentialCustomer.objects.filter(
             location__isnull=False
+        ).filter(
+            Q(is_dissolved=False) |
+            Q(is_dissolved=True, dissolved_at__date__gte=season_start, dissolved_at__date__lte=season_end)
         ).select_related('created_by', 'dissolved_into')
 
-        # Include: all active + dissolved within current season (M11)
         potential_list = []
         for pc in potential_qs:
-            # Skip dissolved pins outside current season
-            if pc.is_dissolved:
-                if not pc.dissolved_at:
-                    continue
-                d = pc.dissolved_at.date()
-                if not (season_start <= d <= season_end):
-                    continue
-
             potential_list.append({
                 'id': str(pc.id),
                 'latitude': str(pc.location.y),
@@ -1530,7 +1526,7 @@ class PotentialCustomerViewSet(viewsets.ModelViewSet):
         try:
             lat = float(lat)
             lng = float(lng)
-            radius = min(float(radius), 50)  # M6: Cap at 50m
+            radius = max(0, min(float(radius), 50))  # M6: Clamp to [0, 50]m
         except (TypeError, ValueError):
             return Response(
                 {'detail': 'Invalid lat, lng, or radius.'},

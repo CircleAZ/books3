@@ -430,8 +430,13 @@ export default function AddCustomer({ onSuccess, onCancel, isEmbedded = false })
 
     const handleDissolveYes = () => {
         if (!currentDissolvePin || !dissolveConfirmEnabled) return;
-        // Queue this pin for dissolution after customer is saved
-        setPendingDissolutions(prev => [...prev, currentDissolvePin]);
+        // Immediately disable to prevent double-tap (VULN-08)
+        setDissolveConfirmEnabled(false);
+        // Queue this pin for dissolution (deduplicated)
+        setPendingDissolutions(prev => {
+            if (prev.some(d => d.id === currentDissolvePin.id)) return prev;
+            return [...prev, currentDissolvePin];
+        });
         // Append note from potential pin to form notes
         if (currentDissolvePin.notes) {
             setFormData(prev => ({
