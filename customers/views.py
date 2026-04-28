@@ -5,7 +5,8 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.views import APIView
 from rest_framework.throttling import UserRateThrottle
 from django_filters.rest_framework import DjangoFilterBackend
-from django.db.models import Sum, Q, Count
+from django.db.models import Sum, Q, Count, Subquery, OuterRef
+from django.db.models import Prefetch
 from django.db import transaction
 
 from core.permissions import HasRequiredPermission
@@ -137,9 +138,9 @@ class CustomerViewSet(viewsets.ModelViewSet):
         """
         from django.db.models import Max, F, Value, CharField, DecimalField
         from django.db.models.functions import Coalesce
+        from orders.models import Order as OrderModel
         from django.utils.html import strip_tags
         from django.utils import timezone
-        from orders.models import Order
         from settings_app.models import Permission, RolePermission, Role, CustomerGroup
         import datetime
 
@@ -203,10 +204,24 @@ class CustomerViewSet(viewsets.ModelViewSet):
         if filter_group:
             customers = customers.filter(customer_group__name__iexact=filter_group)
 
+        # Subquery: last order display_id (kills N+1 — was 1 query per customer)
+        last_order_subquery = Subquery(
+            OrderModel.objects.filter(
+                customer=OuterRef('pk'),
+                order_status__in=valid_statuses,
+            ).order_by('-created_at').values('display_id')[:1]
+        )
+
+        # Prefetch addresses WITH region join (kills N+1 on addr.region)
+        address_prefetch = Prefetch(
+            'addresses',
+            queryset=Address.objects.select_related('region').prefetch_related('location_tags')
+        )
+
         customers = customers.select_related(
             'customer_group'
         ).prefetch_related(
-            'addresses', 'addresses__location_tags'
+            address_prefetch
         ).annotate(
             last_order_date=Max(
                 'orders__created_at',
@@ -237,6 +252,7 @@ class CustomerViewSet(viewsets.ModelViewSet):
                     orders__order_status__in=valid_statuses
                 )
             ),
+            last_order_display_id=last_order_subquery,
         ).distinct()
 
         # Build response
@@ -293,12 +309,7 @@ class CustomerViewSet(viewsets.ModelViewSet):
                 if marker_status == 'active':
                     villages[village_key]['active'] += 1
 
-            # Last order ID
-            last_order = Order.objects.filter(
-                customer=c, order_status__in=valid_statuses
-            ).order_by('-created_at').values_list('display_id', flat=True).first()
-
-            # Location tags
+            # Location tags (already prefetched via address_prefetch)
             loc_tags = [
                 strip_tags(lt.name) for lt in primary_addr.location_tags.all()
             ]
@@ -318,7 +329,7 @@ class CustomerViewSet(viewsets.ModelViewSet):
                 'total_orders': c.total_order_count,
                 'total_spent': str(c.total_amount_spent or 0),
                 'last_order_date': c.last_order_date.strftime('%Y-%m-%d') if c.last_order_date else None,
-                'last_order_id': last_order,
+                'last_order_id': c.last_order_display_id,
                 'season_orders': c.season_order_count,
                 'marker_status': marker_status,
             })
@@ -363,7 +374,7 @@ class CustomerViewSet(viewsets.ModelViewSet):
         coverage_pct = round((covered / total_mapped * 100)) if total_mapped > 0 else 0
 
         # ── Phase 3: Target villages ──
-        target_qs = TargetVillage.objects.all()
+        target_qs = TargetVillage.objects.select_related('created_by').all()
         target_village_list = [
             {
                 'id': str(tv.id),
