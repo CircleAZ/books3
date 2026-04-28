@@ -30,6 +30,9 @@ export default function CashManagement() {
         owner: '',
     });
     const [walletFormError, setWalletFormError] = useState('');
+    
+    const [isSubmittingTransfer, setIsSubmittingTransfer] = useState(false);
+    const [isSubmittingWallet, setIsSubmittingWallet] = useState(false);
 
     const fetchData = useCallback(async () => {
         setLoading(true);
@@ -80,6 +83,8 @@ export default function CashManagement() {
 
     const handleTransferSubmit = async (e) => {
         e.preventDefault();
+        if (isSubmittingTransfer) return;
+        setIsSubmittingTransfer(true);
         try {
             const payload = {
                 source_wallet: transferForm.source_wallet,
@@ -94,6 +99,9 @@ export default function CashManagement() {
 
             const response = await fetchWithAuth(ENDPOINTS.FINANCE_CASH_TRANSFERS, {
                 method: 'POST',
+                headers: {
+                    'X-Idempotency-Key': crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`
+                },
                 body: JSON.stringify(payload)
             });
 
@@ -115,11 +123,14 @@ export default function CashManagement() {
             }
         } catch (err) {
             console.error('Transfer error:', err);
+        } finally {
+            setIsSubmittingTransfer(false);
         }
     };
 
     const handleCreateWallet = async (e) => {
         e.preventDefault();
+        if (isSubmittingWallet) return;
         setWalletFormError('');
 
         if (!walletForm.name.trim()) {
@@ -127,12 +138,14 @@ export default function CashManagement() {
             return;
         }
 
+        setIsSubmittingWallet(true);
         try {
             const payload = { name: walletForm.name.trim() };
 
             if (walletForm.wallet_type === 'personal') {
                 if (!walletForm.owner) {
                     setWalletFormError('Please select an employee.');
+                    setIsSubmittingWallet(false);
                     return;
                 }
                 payload.owner = walletForm.owner;
@@ -159,6 +172,8 @@ export default function CashManagement() {
         } catch (err) {
             console.error('Create wallet error:', err);
             setWalletFormError('Network error. Please try again.');
+        } finally {
+            setIsSubmittingWallet(false);
         }
     };
 
@@ -374,8 +389,10 @@ export default function CashManagement() {
                             </div>
 
                             <div className="modal-actions">
-                                <button type="button" className="btn btn-ghost" onClick={() => setShowTransferModal(false)}>Cancel</button>
-                                <button type="submit" className="btn btn-primary">Initiate</button>
+                                <button type="button" className="btn btn-ghost" onClick={() => setShowTransferModal(false)} disabled={isSubmittingTransfer}>Cancel</button>
+                                <button type="submit" className="btn btn-primary" disabled={isSubmittingTransfer}>
+                                    {isSubmittingTransfer ? 'Initiating...' : 'Initiate'}
+                                </button>
                             </div>
                         </form>
                     </div>
@@ -473,8 +490,10 @@ export default function CashManagement() {
                             )}
 
                             <div className="modal-actions">
-                                <button type="button" className="btn btn-ghost" onClick={() => { setShowCreateWalletModal(false); setWalletFormError(''); }}>Cancel</button>
-                                <button type="submit" className="btn btn-primary">Create Wallet</button>
+                                <button type="button" className="btn btn-ghost" onClick={() => { setShowCreateWalletModal(false); setWalletFormError(''); }} disabled={isSubmittingWallet}>Cancel</button>
+                                <button type="submit" className="btn btn-primary" disabled={isSubmittingWallet}>
+                                    {isSubmittingWallet ? 'Creating...' : 'Create Wallet'}
+                                </button>
                             </div>
                         </form>
                     </div>

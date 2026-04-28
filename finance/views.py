@@ -1248,6 +1248,34 @@ class CashTransferViewSet(viewsets.ModelViewSet):
     required_permission = 'finance.manage_banking'
     pagination_class = FinancePagination
     
+    def create(self, request, *args, **kwargs):
+        """Override create to enforce idempotency key for duplicate prevention."""
+        idempotency_key = request.headers.get('X-Idempotency-Key')
+        if idempotency_key:
+            from django.core.cache import cache
+            cache_key = f"cashtransfer_idempotency_{request.user.id}_{idempotency_key}"
+            cached_transfer_id = cache.get(cache_key)
+            if cached_transfer_id:
+                # Duplicate request — return the already-created transfer
+                try:
+                    from .models import CashTransfer
+                    existing_transfer = CashTransfer.objects.get(pk=cached_transfer_id)
+                    serializer = self.get_serializer(existing_transfer)
+                    return Response(serializer.data, status=status.HTTP_200_OK)
+                except Exception:
+                    pass  # Cache stale, proceed with creation
+
+        response = super().create(request, *args, **kwargs)
+
+        if idempotency_key and response.status_code == 201:
+            from django.core.cache import cache
+            cache_key = f"cashtransfer_idempotency_{request.user.id}_{idempotency_key}"
+            transfer_id = response.data.get('id')
+            if transfer_id:
+                cache.set(cache_key, transfer_id, timeout=300)
+
+        return response
+    
     def perform_create(self, serializer):
         serializer.save(initiated_by=self.request.user)
         
