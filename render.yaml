@@ -50,8 +50,8 @@ services:
       - key: RECEIPT_BASE_URL
         value: "https://books.circleaz.in"
 
-      # ── New Relic APM ──
-      - key: NEW_RELIC_LICENSE_KEY
-        sync: false
-      - key: NEW_RELIC_APP_NAME
-        value: "AZBooks"
+      # ── New Relic APM (disabled for performance on free tier) ──
+      # - key: NEW_RELIC_LICENSE_KEY
+      #   sync: false
+      # - key: NEW_RELIC_APP_NAME
+      #   value: "AZBooks"
