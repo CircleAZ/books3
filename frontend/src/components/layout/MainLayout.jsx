@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
+import { useStore } from '../../context/StoreContext';
 import { ENDPOINTS } from '../../config/api';
 import { getPageTitle, getBreadcrumbs } from '../../config/navigation';
 import TopBar from './TopBar';
@@ -36,11 +37,17 @@ export default function MainLayout({ children }) {
     // Store logo
     const [storeLogo, setStoreLogo] = useState(null);
 
+    // Ref for fetchWithAuth to prevent interval reset on token refresh
+    const fetchWithAuthRef = useRef(fetchWithAuth);
+    useEffect(() => {
+        fetchWithAuthRef.current = fetchWithAuth;
+    }, [fetchWithAuth]);
+
     // Fetch unread notification count
     useEffect(() => {
         const fetchCount = async () => {
             try {
-                const res = await fetchWithAuth(ENDPOINTS.NOTIFICATIONS_COUNT);
+                const res = await fetchWithAuthRef.current(ENDPOINTS.NOTIFICATIONS_COUNT);
                 if (res.ok) {
                     const data = await res.json();
                     setNotifCount(data.unread_count);
@@ -50,7 +57,7 @@ export default function MainLayout({ children }) {
         fetchCount();
         const interval = setInterval(fetchCount, 60000); // Poll every 60s
         return () => clearInterval(interval);
-    }, [fetchWithAuth]);
+    }, []); // Empty deps — never re-creates
 
     // NAV-A3: Page title derived from shared navigation config
     const pageTitle = getPageTitle(location.pathname);
@@ -85,22 +92,11 @@ export default function MainLayout({ children }) {
         };
     }, []);
 
-    // Fetch store logo once on mount
+    // Get store logo from global StoreContext (removes redundant API call)
+    const { store } = useStore();
     useEffect(() => {
-        const fetchStoreLogo = async () => {
-            if (!fetchWithAuth) return;
-            try {
-                const res = await fetchWithAuth(ENDPOINTS.SETTINGS_STORE);
-                if (res && res.ok) {
-                    const data = await res.json();
-                    if (data && data.logo) setStoreLogo(data.logo);
-                }
-            } catch (err) {
-                console.error('Error fetching store logo:', err);
-            }
-        };
-        fetchStoreLogo();
-    }, [fetchWithAuth]);
+        if (store?.logo) setStoreLogo(store.logo);
+    }, [store]);
 
     // Handle Ctrl+K and Escape key globally (F3: Escape dismiss)
     useEffect(() => {

@@ -8,8 +8,8 @@ const AuthContext = createContext(null);
 // NOTE: Must be LESS than ACCESS_TOKEN_LIFETIME (30 min) or the timer never fires
 const REFRESH_BUFFER_MS = 120 * 1000;
 
-// Backend keepalive interval (4 minutes) — prevents Render free-tier sleep
-const KEEPALIVE_INTERVAL_MS = 4 * 60 * 1000;
+// Backend keepalive interval (10 minutes) — prevents Render free-tier sleep
+const KEEPALIVE_INTERVAL_MS = 10 * 60 * 1000;
 
 // Retry settings for proactive token refresh
 const REFRESH_MAX_RETRIES = 3;
@@ -501,17 +501,6 @@ export function AuthProvider({ children }) {
 
     // Keep retry ref always pointing to latest closure
     refreshTokenWithRetryRef.current = refreshTokenWithRetry;
-
-    // Phase 4: Cache-Breaker Interval - Sync permissions every 5 minutes
-    useEffect(() => {
-        if (!token) return;
-        const interval = setInterval(() => {
-            if (refreshTokenWithRetryRef.current) {
-                refreshTokenWithRetryRef.current();
-            }
-        }, 5 * 60 * 1000);
-        return () => clearInterval(interval);
-    }, [token]);
 
     const value = {
         user,

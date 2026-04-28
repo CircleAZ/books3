@@ -13,6 +13,7 @@ const CustomerList = () => {
     const [search, setSearch] = useState('');
     const [page, setPage] = useState(1);
     const [totalPages, setTotalPages] = useState(1);
+    const [debouncedSearch, setDebouncedSearch] = useState('');
     const navigate = useNavigate();
     const location = useLocation();
     const { fetchWithAuth } = useAuth();
@@ -20,7 +21,7 @@ const CustomerList = () => {
     const fetchCustomers = async () => {
         setLoading(true);
         try {
-            const response = await fetchWithAuth(`${ENDPOINTS.CUSTOMERS}?page=${page}&search=${search}`);
+            const response = await fetchWithAuth(`${ENDPOINTS.CUSTOMERS}?page=${page}&search=${debouncedSearch}`);
             if (response.ok) {
                 const data = await response.json();
                 setCustomers(data.results || []);
@@ -34,8 +35,15 @@ const CustomerList = () => {
     };
 
     useEffect(() => {
+        const timer = setTimeout(() => {
+            setDebouncedSearch(search);
+        }, 300);
+        return () => clearTimeout(timer);
+    }, [search]);
+
+    useEffect(() => {
         fetchCustomers();
-    }, [page, search, location.key]);
+    }, [page, debouncedSearch, location.key]);
 
     const handleSearchChange = (e) => {
         setSearch(e.target.value);
