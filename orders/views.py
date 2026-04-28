@@ -637,6 +637,195 @@ class OrderViewSet(viewsets.ModelViewSet):
             'change_due': order.change_due
         })
     @action(detail=True, methods=['post'])
+    def edit_payment(self, request, pk=None):
+        """Edit the amount of an existing payment record."""
+        from decimal import Decimal
+        from django.utils import timezone
+        from datetime import timedelta
+
+        order = self.get_object()
+        payment_id = request.data.get('payment_id')
+        new_amount_raw = request.data.get('amount')
+
+        if not payment_id or not new_amount_raw:
+            return Response(
+                {'error': 'payment_id and amount are required.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        try:
+            new_amount = Decimal(str(new_amount_raw))
+        except Exception:
+            return Response(
+                {'error': 'Invalid amount.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        if new_amount <= 0:
+            return Response(
+                {'error': 'Amount must be positive.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # ── Block editing on cancelled orders ──
+        if order.order_status == 'cancelled' or order.cancellation_status == 'completed':
+            return Response(
+                {'error': 'Cannot edit payments on a cancelled order.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Find the payment
+        try:
+            payment = order.payments.get(pk=payment_id)
+        except Payment.DoesNotExist:
+            return Response(
+                {'error': 'Payment not found on this order.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        old_amount = payment.amount
+
+        if new_amount == old_amount:
+            return Response(
+                {'error': 'New amount is the same as the current amount.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # ── Time restriction: 24h for staff/cashier, unrestricted for manager/owner ──
+        user_role = getattr(request.user, 'role', 'staff')
+        is_privileged = user_role in ('owner', 'manager') or request.user.is_superuser
+        if not is_privileged:
+            age = timezone.now() - payment.created_at
+            if age > timedelta(hours=24):
+                return Response(
+                    {'error': 'Payment is older than 24 hours. Only managers can edit older payments.'},
+                    status=status.HTTP_403_FORBIDDEN
+                )
+
+        # ── Validate the new amount doesn't create an impossible state ──
+        delta = new_amount - old_amount
+        current_net_paid = order.net_paid
+        projected_net_paid = current_net_paid + delta
+
+        if projected_net_paid < 0:
+            return Response(
+                {'error': 'Reducing by this much would result in negative total paid.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # ── Atomic update: lock payment + ledger + order status ──
+        with transaction.atomic():
+            # Lock the payment row to prevent concurrent edits
+            payment = Payment.objects.select_for_update().get(pk=payment_id)
+
+            # Re-validate old_amount after lock (another edit could have changed it)
+            if payment.amount != old_amount:
+                return Response(
+                    {'error': 'Payment was modified by another user. Please refresh and try again.'},
+                    status=status.HTTP_409_CONFLICT
+                )
+
+            # Adjust ledger based on delta and payment method
+            is_customer_wallet = payment.method == 'Customer Wallet'
+            abs_delta = abs(delta)
+
+            if is_customer_wallet:
+                # Customer Wallet payments: credit/debit the customer's own wallet
+                customer_wallet = getattr(order.customer, 'wallet', None)
+                if customer_wallet:
+                    if delta < 0:
+                        # Reducing payment → credit back to customer wallet
+                        customer_wallet.credit(
+                            abs_delta,
+                            f"Payment edited on Order #{order.display_id} ({old_amount} → {new_amount})",
+                            user=request.user
+                        )
+                    else:
+                        # Increasing payment → debit more from customer wallet
+                        try:
+                            customer_wallet.debit(
+                                abs_delta,
+                                f"Payment edited on Order #{order.display_id} ({old_amount} → {new_amount})",
+                                user=request.user
+                            )
+                        except Exception as e:
+                            return Response(
+                                {'error': f'Insufficient customer wallet balance: {str(e)}'},
+                                status=status.HTTP_400_BAD_REQUEST
+                            )
+                else:
+                    return Response(
+                        {'error': 'Customer wallet not found. Cannot adjust wallet payment.'},
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
+            elif delta != 0:
+                # Bank/Cash Wallet payments: use LedgerService
+                from finance.services import LedgerService
+
+                if delta < 0:
+                    try:
+                        LedgerService.process_withdrawal(
+                            amount=abs_delta,
+                            source_bank=payment.destination_bank,
+                            source_wallet=payment.destination_wallet,
+                            reference=f"edit_payment_{order.display_id}",
+                            description=f"Payment edit: Order #{order.display_id} ({old_amount} → {new_amount})",
+                            user=request.user
+                        )
+                    except Exception as e:
+                        return Response(
+                            {'error': f'Ledger adjustment failed: {str(e)}'},
+                            status=status.HTTP_400_BAD_REQUEST
+                        )
+                else:
+                    LedgerService.process_deposit(
+                        amount=delta,
+                        destination_bank=payment.destination_bank,
+                        destination_wallet=payment.destination_wallet,
+                        reference=f"edit_payment_{order.display_id}",
+                        description=f"Payment edit: Order #{order.display_id} ({old_amount} → {new_amount})",
+                        user=request.user
+                    )
+
+            # Update the payment record (bypass save() auto-dispatch to avoid double-triggers)
+            Payment.objects.filter(pk=payment.pk).update(amount=new_amount)
+
+            # Audit trail
+            OrderStatusHistory.objects.create(
+                order=order,
+                status_field='payment_edited',
+                old_value=str(old_amount),
+                new_value=str(new_amount),
+                note=f"Payment edited: ₹{old_amount} → ₹{new_amount} by {request.user.username}",
+                created_by=request.user
+            )
+
+            # Recalculate order payment status
+            order.update_payment_status()
+            order.refresh_from_db()
+
+        # Re-dispatch notifications
+        try:
+            dispatch_payment_update(order)
+        except Exception:
+            pass
+        try:
+            from messaging.r2 import update_receipt_snapshot
+            update_receipt_snapshot(order)
+        except Exception:
+            pass
+
+        return Response({
+            'status': 'Payment updated',
+            'old_amount': float(old_amount),
+            'new_amount': float(new_amount),
+            'payment_status': order.payment_status,
+            'amount_paid': float(order.amount_paid),
+            'balance_due': float(order.balance_due),
+            'change_due': float(order.change_due)
+        })
+
+    @action(detail=True, methods=['post'])
     def recalculate(self, request, pk=None):
         """Force recalculation of order totals."""
         order = self.get_object()

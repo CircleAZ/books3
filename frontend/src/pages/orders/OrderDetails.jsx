@@ -12,7 +12,7 @@ import './OrderDetails.css';
 export default function OrderDetails() {
     const { id } = useParams();
     const navigate = useNavigate();
-    const { fetchWithAuth } = useAuth();
+    const { fetchWithAuth, rbac } = useAuth();
     const { currency } = useCurrency();
     const { showToast } = useToast();
 
@@ -40,6 +40,15 @@ export default function OrderDetails() {
     const [deliveryNotes, setDeliveryNotes] = useState('');
     const [partialQuantities, setPartialQuantities] = useState({});
     const [deliverySubmitting, setDeliverySubmitting] = useState(false);
+
+    // Edit Payment Modal State
+    const [showEditPaymentModal, setShowEditPaymentModal] = useState(false);
+    const [editPaymentData, setEditPaymentData] = useState({ id: '', currentAmount: '', newAmount: '' });
+    const [editPaymentSubmitting, setEditPaymentSubmitting] = useState(false);
+    const [editPaymentError, setEditPaymentError] = useState('');
+
+    // RBAC for edit payment time restrictions
+    const isPrivilegedRole = rbac.role === 'owner' || rbac.role === 'manager' || rbac.is_superuser;
 
     const fetchOrderDetails = useCallback(async () => {
         setLoading(true);
@@ -386,6 +395,52 @@ export default function OrderDetails() {
             console.error("Error sweeping change to wallet:", error);
             alert("Failed to sweep change to wallet");
         }
+    };
+
+    const openEditPaymentModal = (payment) => {
+        setEditPaymentData({
+            id: payment.id,
+            currentAmount: Number(payment.amount).toFixed(2),
+            newAmount: Number(payment.amount).toFixed(2)
+        });
+        setEditPaymentError('');
+        setShowEditPaymentModal(true);
+    };
+
+    const handleEditPayment = async (e) => {
+        e.preventDefault();
+        setEditPaymentSubmitting(true);
+        setEditPaymentError('');
+        try {
+            const response = await fetchWithAuth(`${ENDPOINTS.ORDERS}${id}/edit_payment/`, {
+                method: 'POST',
+                body: JSON.stringify({
+                    payment_id: editPaymentData.id,
+                    amount: editPaymentData.newAmount
+                })
+            });
+            if (response.ok) {
+                setShowEditPaymentModal(false);
+                fetchOrderDetails();
+                showToast('Payment updated successfully', 'success');
+            } else {
+                const data = await response.json();
+                setEditPaymentError(data.error || 'Failed to update payment');
+            }
+        } catch (err) {
+            setEditPaymentError('Error connecting to server');
+            console.error('Error editing payment:', err);
+        } finally {
+            setEditPaymentSubmitting(false);
+        }
+    };
+
+    const canEditPayment = (payment) => {
+        // Managers/owners can always edit
+        if (isPrivilegedRole) return true;
+        // Staff/cashier: only within 24 hours
+        const paymentAge = Date.now() - new Date(payment.created_at).getTime();
+        return paymentAge < 24 * 60 * 60 * 1000;
     };
 
     if (loading) return (
@@ -780,6 +835,7 @@ export default function OrderDetails() {
                                     <th>Reference</th>
                                     <th>Amount</th>
                                     <th>Collector</th>
+                                    <th style={{ width: '50px' }}></th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -790,10 +846,24 @@ export default function OrderDetails() {
                                         <td>{payment.upi_reference || '-'}</td>
                                         <td className="font-bold">{currency}{Number(payment.amount).toFixed(2)}</td>
                                         <td>{payment.created_by_name}</td>
+                                        <td>
+                                            {canEditPayment(payment) && (
+                                                <GuardedAction permission="orders.manage_payments">
+                                                    <button
+                                                        className="btn btn-ghost btn-sm"
+                                                        onClick={(e) => { e.stopPropagation(); openEditPaymentModal(payment); }}
+                                                        title="Edit payment amount"
+                                                        style={{ padding: '4px 8px', fontSize: '0.75rem' }}
+                                                    >
+                                                        ✏️
+                                                    </button>
+                                                </GuardedAction>
+                                            )}
+                                        </td>
                                     </tr>
                                 )) : (
                                     <tr>
-                                        <td colSpan="5" className="empty-state">No payments recorded</td>
+                                        <td colSpan="6" className="empty-state">No payments recorded</td>
                                     </tr>
                                 )}
                             </tbody>
@@ -1213,6 +1283,62 @@ export default function OrderDetails() {
                                 Yes, Request Cancellation
                             </button>
                         </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Edit Payment Modal */}
+            {showEditPaymentModal && (
+                <div className="modal-overlay" onClick={() => setShowEditPaymentModal(false)}>
+                    <div className="modal-content animate-slide-in-up" onClick={e => e.stopPropagation()}>
+                        <h2>Edit Payment</h2>
+                        <div className="payment-modal-summary">
+                            <span>Current Amount: <strong>{currency}{editPaymentData.currentAmount}</strong></span>
+                        </div>
+                        {editPaymentError && <div className="payment-error">{editPaymentError}</div>}
+                        <form onSubmit={handleEditPayment}>
+                            <div className="form-group">
+                                <label>New Amount ({currency})</label>
+                                <input
+                                    type="number"
+                                    step="0.01"
+                                    min="0.01"
+                                    value={editPaymentData.newAmount}
+                                    onChange={(e) => setEditPaymentData({ ...editPaymentData, newAmount: e.target.value })}
+                                    required
+                                    autoFocus
+                                />
+                            </div>
+                            {editPaymentData.newAmount && editPaymentData.currentAmount !== editPaymentData.newAmount && (
+                                <div style={{
+                                    padding: '0.75rem',
+                                    background: Number(editPaymentData.newAmount) < Number(editPaymentData.currentAmount)
+                                        ? 'rgba(239, 68, 68, 0.1)' : 'rgba(16, 185, 129, 0.1)',
+                                    borderRadius: '8px',
+                                    marginBottom: '1rem',
+                                    fontSize: '0.85rem',
+                                    color: Number(editPaymentData.newAmount) < Number(editPaymentData.currentAmount)
+                                        ? '#ef4444' : '#10b981'
+                                }}>
+                                    {Number(editPaymentData.newAmount) < Number(editPaymentData.currentAmount)
+                                        ? `↓ Reducing by ${currency}${(Number(editPaymentData.currentAmount) - Number(editPaymentData.newAmount)).toFixed(2)}`
+                                        : `↑ Increasing by ${currency}${(Number(editPaymentData.newAmount) - Number(editPaymentData.currentAmount)).toFixed(2)}`
+                                    }
+                                </div>
+                            )}
+                            <div className="modal-actions">
+                                <button type="button" className="btn btn-ghost" onClick={() => setShowEditPaymentModal(false)}>
+                                    Cancel
+                                </button>
+                                <button
+                                    type="submit"
+                                    className="btn btn-primary"
+                                    disabled={editPaymentSubmitting || editPaymentData.newAmount === editPaymentData.currentAmount}
+                                >
+                                    {editPaymentSubmitting ? 'Saving...' : 'Save Changes'}
+                                </button>
+                            </div>
+                        </form>
                     </div>
                 </div>
             )}
