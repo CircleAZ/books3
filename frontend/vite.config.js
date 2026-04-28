@@ -26,64 +26,12 @@ export default defineConfig({
               },
             },
           },
-          // ── POST requests: NetworkOnly + BackgroundSync ──
-          // Queues failed POST requests (create order, add customer, etc.)
-          // and replays them when connectivity returns
-          {
-            urlPattern: /\/api\//i,
-            handler: 'NetworkOnly',
-            method: 'POST',
-            options: {
-              backgroundSync: {
-                name: 'offline-post-queue',
-                options: {
-                  maxRetentionTime: 24 * 60, // 24 hours in minutes
-                },
-              },
-            },
-          },
-          // ── PUT requests: NetworkOnly + BackgroundSync ──
-          {
-            urlPattern: /\/api\//i,
-            handler: 'NetworkOnly',
-            method: 'PUT',
-            options: {
-              backgroundSync: {
-                name: 'offline-put-queue',
-                options: {
-                  maxRetentionTime: 24 * 60,
-                },
-              },
-            },
-          },
-          // ── PATCH requests: NetworkOnly + BackgroundSync ──
-          {
-            urlPattern: /\/api\//i,
-            handler: 'NetworkOnly',
-            method: 'PATCH',
-            options: {
-              backgroundSync: {
-                name: 'offline-patch-queue',
-                options: {
-                  maxRetentionTime: 24 * 60,
-                },
-              },
-            },
-          },
-          // ── DELETE requests: NetworkOnly + BackgroundSync ──
-          {
-            urlPattern: /\/api\//i,
-            handler: 'NetworkOnly',
-            method: 'DELETE',
-            options: {
-              backgroundSync: {
-                name: 'offline-delete-queue',
-                options: {
-                  maxRetentionTime: 24 * 60,
-                },
-              },
-            },
-          },
+          // ── Mutating requests: NetworkOnly, NO BackgroundSync ──
+          // BackgroundSync is UNSAFE for non-idempotent operations.
+          // It replays requests on network recovery without knowing if the
+          // server already processed the original — causing duplicate orders,
+          // payments, and stock deductions. Failed mutations must surface
+          // errors to the user so they can retry manually with full context.
         ],
       },
       includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'masked-icon.svg'],

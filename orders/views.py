@@ -80,6 +80,34 @@ class OrderViewSet(viewsets.ModelViewSet):
         # For non-customer users (e.g. just a user account?), show created_by
         return queryset.filter(created_by=user)
     
+    def create(self, request, *args, **kwargs):
+        """Override create to enforce idempotency key for duplicate prevention."""
+        idempotency_key = request.headers.get('X-Idempotency-Key')
+        if idempotency_key:
+            from django.core.cache import cache
+            cache_key = f"order_idempotency_{request.user.id}_{idempotency_key}"
+            cached_order_id = cache.get(cache_key)
+            if cached_order_id:
+                # Duplicate request — return the already-created order
+                try:
+                    existing_order = Order.objects.get(pk=cached_order_id)
+                    serializer = self.get_serializer(existing_order)
+                    return Response(serializer.data, status=status.HTTP_200_OK)
+                except Order.DoesNotExist:
+                    pass  # Cache stale, proceed with creation
+
+        response = super().create(request, *args, **kwargs)
+
+        # Cache the idempotency key → order ID mapping for 5 minutes
+        if idempotency_key and response.status_code == 201:
+            from django.core.cache import cache
+            cache_key = f"order_idempotency_{request.user.id}_{idempotency_key}"
+            order_id = response.data.get('id')
+            if order_id:
+                cache.set(cache_key, order_id, timeout=300)
+
+        return response
+
     def perform_create(self, serializer):
         """Inject created_by and manually freeze quantities if created as confirmed."""
         instance = serializer.save(created_by=self.request.user)

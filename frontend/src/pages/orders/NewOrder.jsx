@@ -65,6 +65,8 @@ export default function NewOrder() {
 
     // Synchronous submission lock — prevents rapid-fire duplicate orders (VULN-3)
     const isSubmittingRef = useRef(false);
+    // Idempotency key — prevents duplicate order creation from SW replay or 401 retry
+    const idempotencyKeyRef = useRef(null);
 
     // Drawer panel ref
     const drawerRef = useRef(null);
@@ -709,8 +711,12 @@ export default function NewOrder() {
 
 
 
+            // Generate a fresh idempotency key for each submission attempt
+            idempotencyKeyRef.current = crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+
             const response = await fetchWithAuth(ENDPOINTS.ORDERS, {
                 method: 'POST',
+                headers: { 'X-Idempotency-Key': idempotencyKeyRef.current },
                 body: JSON.stringify(orderData)
             });
 

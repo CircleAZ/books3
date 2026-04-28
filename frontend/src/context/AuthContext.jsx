@@ -402,9 +402,17 @@ export function AuthProvider({ children }) {
             // Try to refresh token
             const refreshed = await refreshToken();
             if (refreshed) {
-                // Retry request with new token
-                headers['Authorization'] = `Bearer ${secureStorage.getItem('access_token')}`;
-                return fetch(url, { ...options, headers, cache: 'no-store' });
+                // Only auto-retry idempotent methods (GET/HEAD/OPTIONS).
+                // Mutating methods (POST/PUT/PATCH/DELETE) must NOT be auto-retried
+                // because the server may have already processed the original request.
+                const method = (options.method || 'GET').toUpperCase();
+                const safeToRetry = ['GET', 'HEAD', 'OPTIONS'].includes(method);
+                if (safeToRetry) {
+                    headers['Authorization'] = `Bearer ${secureStorage.getItem('access_token')}`;
+                    return fetch(url, { ...options, headers, cache: 'no-store' });
+                }
+                // For mutating methods: token is refreshed for next call,
+                // but return the 401 response so the caller can handle it
             } else {
                 logout();
             }
