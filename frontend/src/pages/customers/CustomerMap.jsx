@@ -395,18 +395,18 @@ export default function CustomerMap() {
                 const dissolved = pc.is_dissolved;
                 
                 // SVG icon for potential
-                const potentialSvg = `<svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" style="width:100%; height:100%;">
+                const potentialSvg = `<svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" style="width:100%; height:100%; filter: drop-shadow(0px 3px 4px rgba(0,0,0,0.6));">
                   <path fill-rule="evenodd" clip-rule="evenodd" d="M8 16L3.54223 12.3383C1.93278 11.0162 1 9.04287 1 6.96005C1 3.11612 4.15607 0 8 0C11.8439 0 15 3.11612 15 6.96005C15 9.04287 14.0672 11.0162 12.4578 12.3383L8 16ZM3 6H5C6.10457 6 7 6.89543 7 8V9L3 7.5V6ZM11 6C9.89543 6 9 6.89543 9 8V9L13 7.5V6H11Z" fill="currentColor"/>
                 </svg>`;
 
                 const icon = L.divIcon({
                     className: `custom-map-marker marker-potential ${dissolved ? 'marker-potential-dissolved' : ''}`,
-                    html: `<div class="marker-pin-potential" aria-label="${dissolved ? 'Linked location' : 'Potential customer'}" style="width: 28px; height: 38px; display: flex; align-items: center; justify-content: center; background: white; border: 2px solid #333; border-radius: 8px; padding: 2px; color: #333;">
+                    html: `<div class="marker-pin-potential" aria-label="${dissolved ? 'Linked location' : 'Potential customer'}" style="width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; color: #ec4899; background: transparent; border: none; transform: none !important; box-shadow: none;">
                              ${potentialSvg}
                            </div>`,
-                    iconSize: [28, 38],
-                    iconAnchor: [14, 38],
-                    popupAnchor: [0, -40],
+                    iconSize: [36, 36],
+                    iconAnchor: [18, 36],
+                    popupAnchor: [0, -38],
                 });
 
                 const marker = L.marker([lat, lng], { 
