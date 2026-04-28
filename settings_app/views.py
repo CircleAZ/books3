@@ -70,7 +70,9 @@ class UserViewSet(viewsets.ModelViewSet):
     
     def get_queryset(self):
         # Prevent Deleting/Editing Superuser by normal admins if needed
-        return User.objects.all().order_by('-date_joined')
+        return User.objects.prefetch_related(
+            'user_roles__role__role_permissions__permission'
+        ).all().order_by('-date_joined')
 
     def get_permissions(self):
         perms = super().get_permissions()
