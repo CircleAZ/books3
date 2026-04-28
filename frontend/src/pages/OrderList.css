@@ -163,8 +163,10 @@
 }
 
 .customer-name {
-    font-weight: 500;
-    color: var(--color-text-primary);
+    font-weight: 600;
+    color: #f1f5f9 !important;
+    text-decoration: none !important;
+    border: none !important;
 }
 
 .guest-badge {
