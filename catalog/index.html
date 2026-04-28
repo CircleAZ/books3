@@ -178,7 +178,7 @@
             max-width: 100%;
             object-fit: contain;
             border-radius: 1.5rem;
-            box-shadow: 0 20px 40px rgba(0, 0, 0, .3);
+            filter: drop-shadow(0 20px 40px rgba(0, 0, 0, .4));
             transition: transform .5s cubic-bezier(.23, 1, .32, 1), opacity .5s cubic-bezier(.23, 1, .32, 1);
             cursor: pointer;
             left: 50%;
@@ -196,31 +196,28 @@
             z-index: 10;
             transform: translate(-50%, -50%) scale(1) rotate(0deg);
             opacity: 1;
-            box-shadow: 0 30px 60px rgba(0, 0, 0, .4);
+            filter: drop-shadow(0 30px 60px rgba(0, 0, 0, .5));
         }
 
         .gallery img.prev {
             z-index: 8;
             transform: translate(-85%, -45%) scale(.7) rotate(-8deg);
             opacity: .6;
-            box-shadow: 0 15px 30px rgba(0, 0, 0, .2);
-            filter: brightness(.7);
+            filter: drop-shadow(0 15px 30px rgba(0, 0, 0, .3)) brightness(.7);
         }
 
         .gallery img.next {
             z-index: 8;
             transform: translate(-15%, -45%) scale(.7) rotate(8deg);
             opacity: .6;
-            box-shadow: 0 15px 30px rgba(0, 0, 0, .2);
-            filter: brightness(.7);
+            filter: drop-shadow(0 15px 30px rgba(0, 0, 0, .3)) brightness(.7);
         }
 
         .gallery img.hidden {
             z-index: 1;
             transform: translate(-50%, -40%) scale(.5) rotate(0deg);
             opacity: .15;
-            box-shadow: 0 5px 10px rgba(0, 0, 0, .1);
-            filter: brightness(.4);
+            filter: drop-shadow(0 5px 10px rgba(0, 0, 0, .2)) brightness(.4);
             pointer-events: none;
         }
 
