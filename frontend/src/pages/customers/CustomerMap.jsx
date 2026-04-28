@@ -337,17 +337,22 @@ export default function CustomerMap() {
                     clusterColor = '#6b7280'; // gray for pure potential
                 }
                 
-                let countDisplay = totalStandard > 0 ? `${active}/${totalStandard}` : `${totalPotential}`;
+                let htmlContent = '';
                 if (totalStandard > 0 && totalPotential > 0) {
-                    countDisplay += ` +${totalPotential}`;
+                    htmlContent = `<span class="cluster-count" style="line-height: 1; margin-bottom: 2px; font-size: 13px;">${active}/${totalStandard}</span>
+                                   <span style="font-size: 10.5px; opacity: 0.95; line-height: 1; font-weight: 700; color: #fff;">+${totalPotential}</span>`;
+                } else if (totalStandard > 0) {
+                    htmlContent = `<span class="cluster-count">${active}/${totalStandard}</span>`;
+                } else {
+                    htmlContent = `<span class="cluster-count">+${totalPotential}</span>`;
                 }
 
                 return L.divIcon({
-                    html: `<div class="cluster-badge" style="background:${clusterColor}; padding: 0 4px; border-radius: 12px; width: auto; min-width: 40px;">
-                             <span class="cluster-count">${countDisplay}</span>
+                    html: `<div class="cluster-badge" style="background:${clusterColor}; width: 60px; height: 60px; border-radius: 50%; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 0; flex-shrink: 0;">
+                             ${htmlContent}
                            </div>`,
                     className: 'custom-cluster',
-                    iconSize: [0, 0],
+                    iconSize: [60, 60],
                 });
             },
         });
@@ -390,13 +395,8 @@ export default function CustomerMap() {
                 const dissolved = pc.is_dissolved;
                 
                 // SVG icon for potential
-                const potentialSvg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:100%; height:100%;">
-                  <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path>
-                  <circle cx="9" cy="7" r="4"></circle>
-                  <path d="M9 11l1.5 5-1.5 2.5L7.5 16 9 11"></path>
-                  <path d="M22 20l-4-8-4 8z" fill="#fff" stroke="currentColor"></path>
-                  <path d="M18 15v2"></path>
-                  <path d="M18 19h.01"></path>
+                const potentialSvg = `<svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" style="width:100%; height:100%;">
+                  <path fill-rule="evenodd" clip-rule="evenodd" d="M8 16L3.54223 12.3383C1.93278 11.0162 1 9.04287 1 6.96005C1 3.11612 4.15607 0 8 0C11.8439 0 15 3.11612 15 6.96005C15 9.04287 14.0672 11.0162 12.4578 12.3383L8 16ZM3 6H5C6.10457 6 7 6.89543 7 8V9L3 7.5V6ZM11 6C9.89543 6 9 6.89543 9 8V9L13 7.5V6H11Z" fill="currentColor"/>
                 </svg>`;
 
                 const icon = L.divIcon({
