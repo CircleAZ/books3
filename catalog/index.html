@@ -47,9 +47,8 @@
             z-index: -1;
             background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 512 512' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23g)' opacity='0.04'/%3E%3C/svg%3E");
             background-size: 256px;
-            opacity: .6;
+            opacity: .1;
             pointer-events: none;
-            mix-blend-mode: soft-light
         }
 
         @keyframes bgMesh {
@@ -157,6 +156,11 @@
                 height: 35vh !important;
                 min-height: 250px;
             }
+
+            .product-page .bg-blob {
+                display: none !important;
+                animation: none !important;
+            }
         }
 
         .gallery {
@@ -174,8 +178,8 @@
             max-width: 100%;
             object-fit: contain;
             border-radius: 1.5rem;
-            filter: drop-shadow(0 20px 40px rgba(0, 0, 0, .5));
-            transition: transform .7s cubic-bezier(.23, 1, .32, 1), opacity .7s cubic-bezier(.23, 1, .32, 1);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, .3);
+            transition: transform .5s cubic-bezier(.23, 1, .32, 1), opacity .5s cubic-bezier(.23, 1, .32, 1);
             cursor: pointer;
             left: 50%;
             top: 50%;
@@ -185,34 +189,38 @@
             color: transparent;
             user-select: none;
             -webkit-user-drag: none;
+            will-change: transform, opacity;
         }
 
         .gallery img.active {
             z-index: 10;
             transform: translate(-50%, -50%) scale(1) rotate(0deg);
             opacity: 1;
-            filter: drop-shadow(0 30px 60px rgba(0, 0, 0, .6));
+            box-shadow: 0 30px 60px rgba(0, 0, 0, .4);
         }
 
         .gallery img.prev {
             z-index: 8;
             transform: translate(-85%, -45%) scale(.7) rotate(-8deg);
             opacity: .6;
-            filter: drop-shadow(0 15px 30px rgba(0, 0, 0, .4)) brightness(.7);
+            box-shadow: 0 15px 30px rgba(0, 0, 0, .2);
+            filter: brightness(.7);
         }
 
         .gallery img.next {
             z-index: 8;
             transform: translate(-15%, -45%) scale(.7) rotate(8deg);
             opacity: .6;
-            filter: drop-shadow(0 15px 30px rgba(0, 0, 0, .4)) brightness(.7);
+            box-shadow: 0 15px 30px rgba(0, 0, 0, .2);
+            filter: brightness(.7);
         }
 
         .gallery img.hidden {
             z-index: 1;
             transform: translate(-50%, -40%) scale(.5) rotate(0deg);
             opacity: .15;
-            filter: drop-shadow(0 5px 10px rgba(0, 0, 0, .2)) brightness(.4);
+            box-shadow: 0 5px 10px rgba(0, 0, 0, .1);
+            filter: brightness(.4);
             pointer-events: none;
         }
 
@@ -266,9 +274,11 @@
             transition: all .3s
         }
 
-        .info button:hover {
-            transform: scale(1.06);
-            box-shadow: 0 0 30px rgba(37, 211, 102, .4)
+        @media (hover: hover) {
+            .info button:hover {
+                transform: scale(1.06);
+                box-shadow: 0 0 30px rgba(37, 211, 102, .4)
+            }
         }
 
         /* Page type variant selector */
@@ -379,9 +389,11 @@
             transition: all .3s
         }
 
-        .nav-arrow:hover {
-            background: rgba(255, 255, 255, .3);
-            transform: translateY(-50%) scale(1.1)
+        @media (hover: hover) {
+            .nav-arrow:hover {
+                background: rgba(255, 255, 255, .3);
+                transform: translateY(-50%) scale(1.1)
+            }
         }
 
         .nav-arrow.left {
@@ -625,12 +637,6 @@
                 setInterval(() => setSlide(current + 1), 5000);
             });
 
-            document.addEventListener('mousemove', e => {
-                const px = (e.clientX / innerWidth - 0.5) * 40;
-                const py = (e.clientY / innerHeight - 0.5) * 40;
-                gsap.to('.bg-blob', { x: px, y: py, duration: 1.5, ease: 'power2.out', stagger: { amount: 0.1, from: 'center' } });
-            });
-
             gsap.registerPlugin(ScrollTrigger);
 
             document.querySelectorAll('.product-page').forEach(sec => {
@@ -641,28 +647,6 @@
                 const gallery = sec.querySelector('.gallery');
                 if (info) gsap.fromTo(info, { opacity: 0, y: 60 }, { scrollTrigger: { trigger: sec, start: 'top 70%', end: 'top 20%', scrub: 1 }, opacity: 1, y: 0, ease: 'power3.out' });
                 if (gallery) gsap.fromTo(gallery, { opacity: 0, x: -80, rotateY: 25 }, { scrollTrigger: { trigger: sec, start: 'top 75%', end: 'top 25%', scrub: 1 }, opacity: 1, x: 0, rotateY: 0, ease: 'power2.out' });
-            });
-
-            document.querySelectorAll('.gallery').forEach(g => {
-                g.addEventListener('mousemove', e => {
-                    const r = g.getBoundingClientRect();
-                    const rx = ((e.clientY - r.top) / r.height - .5);
-                    const ry = ((e.clientX - r.left) / r.width - .5);
-                    gsap.to(g, { rotateX: rx * -15, rotateY: ry * 15, transformPerspective: 1200, duration: .4, ease: 'power2.out' });
-
-                    const activeImg = g.querySelector('img.active');
-                    if (activeImg) gsap.to(activeImg, { filter: `drop-shadow(${ry * -60}px ${rx * -60}px 30px rgba(0,0,0,0.8))`, duration: 0.4 });
-                });
-                g.addEventListener('mouseleave', () => {
-                    gsap.to(g, { rotateX: 0, rotateY: 0, duration: .6, ease: 'elastic.out(1,.5)' });
-                    const activeImg = g.querySelector('img.active');
-                    if (activeImg) gsap.to(activeImg, { filter: `drop-shadow(0 30px 60px rgba(0,0,0,0.6))`, duration: 0.6 });
-                });
-            });
-
-            document.querySelectorAll('button').forEach(b => {
-                b.addEventListener('mouseenter', () => gsap.to(b, { scale: 1.08, duration: .3, ease: 'back.out(2)' }));
-                b.addEventListener('mouseleave', () => gsap.to(b, { scale: 1, duration: .3 }));
             });
 
             gsap.to('.scroll-indicator', { scrollTrigger: { trigger: '.product-page', start: '10% top', end: '30% top', scrub: true }, opacity: 0 });

@@ -101,8 +101,10 @@
     border-bottom: none;
 }
 
-.inventory-table tr:hover {
-    background-color: var(--color-bg-hover);
+@media (hover: hover) {
+    .inventory-table tr:hover {
+        background-color: var(--color-bg-hover);
+    }
 }
 
 .product-image-cell {

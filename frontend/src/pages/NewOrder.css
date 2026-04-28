@@ -132,13 +132,7 @@
     padding: var(--space-sm);
     border-radius: var(--radius-md);
     cursor: pointer;
-    transition: transform 0.1s, border-color 0.1s;
     border: 1px solid transparent;
-}
-
-.product-card:hover {
-    transform: translateY(-2px);
-    border-color: var(--color-primary);
 }
 
 .product-card-name {
