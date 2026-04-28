@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
-import { useStore } from '../../context/StoreContext';
+import { useStoreSettings } from '../../context/StoreContext';
 import { ENDPOINTS } from '../../config/api';
 import { getPageTitle, getBreadcrumbs } from '../../config/navigation';
 import TopBar from './TopBar';
@@ -93,10 +93,10 @@ export default function MainLayout({ children }) {
     }, []);
 
     // Get store logo from global StoreContext (removes redundant API call)
-    const { store } = useStore();
+    const { storeSettings } = useStoreSettings();
     useEffect(() => {
-        if (store?.logo) setStoreLogo(store.logo);
-    }, [store]);
+        if (storeSettings?.logo) setStoreLogo(storeSettings.logo);
+    }, [storeSettings]);
 
     // Handle Ctrl+K and Escape key globally (F3: Escape dismiss)
     useEffect(() => {

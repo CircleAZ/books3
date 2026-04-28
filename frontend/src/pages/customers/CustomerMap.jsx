@@ -147,7 +147,6 @@ export default function CustomerMap() {
     const [boundaryCache, setBoundaryCache] = useState({});
 
     // Phase 5: Potential Customer pins
-    const potentialLayerRef = useRef(null);
     const [placingPotentialPin, setPlacingPotentialPin] = useState(false);
     const [potentialEditOpen, setPotentialEditOpen] = useState(false);
     const [potentialEditForm, setPotentialEditForm] = useState({ id: null, latitude: '', longitude: '', notes: '' });
@@ -317,50 +316,179 @@ export default function CustomerMap() {
             maxClusterRadius: 60,
             iconCreateFunction: (cluster) => {
                 const markers = cluster.getAllChildMarkers();
-                const active = markers.filter(m => m.options.markerStatus === 'active').length;
-                const total = markers.length;
-                const pct = Math.round((active / total) * 100);
-                // Color based on coverage
+                const standardMarkers = markers.filter(m => m.options.isStandard);
+                const potentialMarkers = markers.filter(m => m.options.isPotential);
+                
+                const active = standardMarkers.filter(m => m.options.markerStatus === 'active').length;
+                const totalStandard = standardMarkers.length;
+                const totalPotential = potentialMarkers.length;
+                
+                let pct = 0;
+                if (totalStandard > 0) {
+                    pct = Math.round((active / totalStandard) * 100);
+                }
+                
                 let clusterColor = '#ef4444'; // red < 50%
                 if (pct >= 80) clusterColor = '#22c55e'; // green
                 else if (pct >= 50) clusterColor = '#eab308'; // yellow
+                
+                // If it's ONLY potential customers
+                if (totalStandard === 0 && totalPotential > 0) {
+                    clusterColor = '#6b7280'; // gray for pure potential
+                }
+                
+                let countDisplay = totalStandard > 0 ? `${active}/${totalStandard}` : `${totalPotential}`;
+                if (totalStandard > 0 && totalPotential > 0) {
+                    countDisplay += ` +${totalPotential}`;
+                }
+
                 return L.divIcon({
-                    html: `<div class="cluster-badge" style="background:${clusterColor}">
-                             <span class="cluster-count">${active}/${total}</span>
+                    html: `<div class="cluster-badge" style="background:${clusterColor}; padding: 0 4px; border-radius: 12px; width: auto; min-width: 40px;">
+                             <span class="cluster-count">${countDisplay}</span>
                            </div>`,
                     className: 'custom-cluster',
-                    iconSize: [52, 52],
+                    iconSize: [0, 0],
                 });
             },
         });
 
-        if (mapData.customers.length === 0) {
-            clusterGroupRef.current = clusterGroup;
-            return;
+        const bounds = [];
+        
+        // --- 1. Standard Customers ---
+        if (mapData.customers && mapData.customers.length > 0) {
+            mapData.customers.forEach(customer => {
+                const lat = parseFloat(customer.latitude);
+                const lng = parseFloat(customer.longitude);
+                if (isNaN(lat) || isNaN(lng)) return;
+
+                const icon = createMarkerIcon(customer.marker_status);
+                const marker = L.marker([lat, lng], {
+                    icon,
+                    markerStatus: customer.marker_status,
+                    isStandard: true
+                });
+
+                const popupContent = createPopupContent(customer, navigate);
+                marker.bindPopup(popupContent, {
+                    maxWidth: 280,
+                    minWidth: 200,
+                    className: 'custom-map-popup',
+                });
+
+                clusterGroup.addLayer(marker);
+                bounds.push([lat, lng]);
+            });
         }
 
-        const bounds = [];
-        mapData.customers.forEach(customer => {
-            const lat = parseFloat(customer.latitude);
-            const lng = parseFloat(customer.longitude);
-            if (isNaN(lat) || isNaN(lng)) return;
+        // --- 2. Potential Customers ---
+        if (showPotentialPins && mapData.potential_customers) {
+            mapData.potential_customers.forEach(pc => {
+                const lat = parseFloat(pc.latitude);
+                const lng = parseFloat(pc.longitude);
+                if (isNaN(lat) || isNaN(lng)) return;
 
-            const icon = createMarkerIcon(customer.marker_status);
-            const marker = L.marker([lat, lng], {
-                icon,
-                markerStatus: customer.marker_status,
+                const dissolved = pc.is_dissolved;
+                
+                // SVG icon for potential
+                const potentialSvg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:100%; height:100%;">
+                  <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path>
+                  <circle cx="9" cy="7" r="4"></circle>
+                  <path d="M9 11l1.5 5-1.5 2.5L7.5 16 9 11"></path>
+                  <path d="M22 20l-4-8-4 8z" fill="#fff" stroke="currentColor"></path>
+                  <path d="M18 15v2"></path>
+                  <path d="M18 19h.01"></path>
+                </svg>`;
+
+                const icon = L.divIcon({
+                    className: `custom-map-marker marker-potential ${dissolved ? 'marker-potential-dissolved' : ''}`,
+                    html: `<div class="marker-pin-potential" aria-label="${dissolved ? 'Linked location' : 'Potential customer'}" style="width: 28px; height: 38px; display: flex; align-items: center; justify-content: center; background: white; border: 2px solid #333; border-radius: 8px; padding: 2px; color: #333;">
+                             ${potentialSvg}
+                           </div>`,
+                    iconSize: [28, 38],
+                    iconAnchor: [14, 38],
+                    popupAnchor: [0, -40],
+                });
+
+                const marker = L.marker([lat, lng], { 
+                    icon,
+                    isPotential: true 
+                });
+
+                // XSS-safe popup
+                const container = document.createElement('div');
+                container.className = 'map-popup-content';
+
+                if (dissolved) {
+                    const title = document.createElement('div');
+                    title.className = 'popup-customer-name';
+                    title.style.color = '#888';
+                    title.textContent = `🔗 Linked → ${pc.dissolved_into_name || 'Customer'}`;
+                    container.appendChild(title);
+                }
+
+                if (pc.notes) {
+                    const notesRow = document.createElement('div');
+                    notesRow.className = 'popup-row';
+                    notesRow.textContent = `📝 ${pc.notes}`;
+                    container.appendChild(notesRow);
+                } else if (!dissolved) {
+                    const noNote = document.createElement('div');
+                    noNote.className = 'popup-row popup-landmark';
+                    noNote.textContent = '(no note)';
+                    container.appendChild(noNote);
+                }
+
+                const metaRow = document.createElement('div');
+                metaRow.className = 'popup-row popup-group';
+                metaRow.textContent = `👤 ${pc.created_by_name || 'Unknown'}`;
+                if (pc.created_at) {
+                    metaRow.textContent += ` · ${new Date(pc.created_at).toLocaleDateString()}`;
+                }
+                container.appendChild(metaRow);
+
+                // Action buttons (only for active pins, with permission)
+                if (!dissolved && canManageCustomers) {
+                    const actions = document.createElement('div');
+                    actions.className = 'popup-potential-actions';
+
+                    const editBtn = document.createElement('button');
+                    editBtn.textContent = '✏️ Edit';
+                    editBtn.className = 'popup-edit-btn';
+                    editBtn.addEventListener('click', () => {
+                        map.closePopup();
+                        setPotentialEditForm({
+                            id: pc.id,
+                            latitude: pc.latitude,
+                            longitude: pc.longitude,
+                            notes: pc.notes || '',
+                        });
+                        setPotentialEditOpen(true);
+                    });
+                    actions.appendChild(editBtn);
+
+                    const deleteBtn = document.createElement('button');
+                    deleteBtn.textContent = '🗑️ Delete';
+                    deleteBtn.className = 'popup-delete-potential-btn';
+                    deleteBtn.addEventListener('click', async () => {
+                        if (!confirm('Delete this potential customer pin?')) return;
+                        try {
+                            const res = await fetchWithAuth(`${ENDPOINTS.POTENTIAL_CUSTOMERS}${pc.id}/`, { method: 'DELETE' });
+                            if (res.ok || res.status === 204) {
+                                fetchMapData(filters);
+                            }
+                        } catch (err) {
+                            console.error('Delete potential pin failed:', err);
+                        }
+                    });
+                    actions.appendChild(deleteBtn);
+                    container.appendChild(actions);
+                }
+
+                marker.bindPopup(container, { maxWidth: 280, className: 'custom-map-popup' });
+                clusterGroup.addLayer(marker);
+                bounds.push([lat, lng]);
             });
-
-            const popupContent = createPopupContent(customer, navigate);
-            marker.bindPopup(popupContent, {
-                maxWidth: 280,
-                minWidth: 200,
-                className: 'custom-map-popup',
-            });
-
-            clusterGroup.addLayer(marker);
-            bounds.push([lat, lng]);
-        });
+        }
 
         map.addLayer(clusterGroup);
         clusterGroupRef.current = clusterGroup;
@@ -368,7 +496,7 @@ export default function CustomerMap() {
         if (bounds.length > 0) {
             map.fitBounds(bounds, { padding: [50, 50], maxZoom: 14 });
         }
-    }, [mapData, navigate]);
+    }, [mapData, showPotentialPins, canManageCustomers, fetchWithAuth, filters, navigate]);
 
     // ── Render target village pins (separate layer, not clustered) ──
     useEffect(() => {
@@ -541,117 +669,7 @@ export default function CustomerMap() {
         })();
     }, [mapData, boundaryLayer, showBoundaries, fetchWithAuth, boundaryCache]);
 
-    // ── Phase 5: Render potential customer pins ──
-    useEffect(() => {
-        const map = mapInstanceRef.current;
-        if (!map || !mapData || !mapData.potential_customers) return;
-
-        if (potentialLayerRef.current) {
-            map.removeLayer(potentialLayerRef.current);
-        }
-
-        if (!showPotentialPins) {
-            potentialLayerRef.current = null;
-            return;
-        }
-
-        const potentialLayer = L.layerGroup();
-
-        mapData.potential_customers.forEach(pc => {
-            const lat = parseFloat(pc.latitude);
-            const lng = parseFloat(pc.longitude);
-            if (isNaN(lat) || isNaN(lng)) return;
-
-            const dissolved = pc.is_dissolved;
-            const icon = L.divIcon({
-                className: `custom-map-marker marker-potential ${dissolved ? 'marker-potential-dissolved' : ''}`,
-                html: `<div class="marker-pin-potential" aria-label="${dissolved ? 'Linked location' : 'Potential customer'}">
-                         <span class="marker-icon-potential">🧑</span>
-                       </div>`,
-                iconSize: [28, 38],
-                iconAnchor: [14, 38],
-                popupAnchor: [0, -40],
-            });
-
-            const marker = L.marker([lat, lng], { icon });
-
-            // XSS-safe popup
-            const container = document.createElement('div');
-            container.className = 'map-popup-content';
-
-            if (dissolved) {
-                const title = document.createElement('div');
-                title.className = 'popup-customer-name';
-                title.style.color = '#888';
-                title.textContent = `🔗 Linked → ${pc.dissolved_into_name || 'Customer'}`;
-                container.appendChild(title);
-            }
-
-            if (pc.notes) {
-                const notesRow = document.createElement('div');
-                notesRow.className = 'popup-row';
-                notesRow.textContent = `📝 ${pc.notes}`;
-                container.appendChild(notesRow);
-            } else if (!dissolved) {
-                const noNote = document.createElement('div');
-                noNote.className = 'popup-row popup-landmark';
-                noNote.textContent = '(no note)';
-                container.appendChild(noNote);
-            }
-
-            const metaRow = document.createElement('div');
-            metaRow.className = 'popup-row popup-group';
-            metaRow.textContent = `👤 ${pc.created_by_name || 'Unknown'}`;
-            if (pc.created_at) {
-                metaRow.textContent += ` · ${new Date(pc.created_at).toLocaleDateString()}`;
-            }
-            container.appendChild(metaRow);
-
-            // Action buttons (only for active pins, with permission)
-            if (!dissolved && canManageCustomers) {
-                const actions = document.createElement('div');
-                actions.className = 'popup-potential-actions';
-
-                const editBtn = document.createElement('button');
-                editBtn.textContent = '✏️ Edit';
-                editBtn.className = 'popup-edit-btn';
-                editBtn.addEventListener('click', () => {
-                    map.closePopup();
-                    setPotentialEditForm({
-                        id: pc.id,
-                        latitude: pc.latitude,
-                        longitude: pc.longitude,
-                        notes: pc.notes || '',
-                    });
-                    setPotentialEditOpen(true);
-                });
-                actions.appendChild(editBtn);
-
-                const deleteBtn = document.createElement('button');
-                deleteBtn.textContent = '🗑️ Delete';
-                deleteBtn.className = 'popup-delete-potential-btn';
-                deleteBtn.addEventListener('click', async () => {
-                    if (!confirm('Delete this potential customer pin?')) return;
-                    try {
-                        const res = await fetchWithAuth(`${ENDPOINTS.POTENTIAL_CUSTOMERS}${pc.id}/`, { method: 'DELETE' });
-                        if (res.ok || res.status === 204) {
-                            fetchMapData(filters);
-                        }
-                    } catch (err) {
-                        console.error('Delete potential pin failed:', err);
-                    }
-                });
-                actions.appendChild(deleteBtn);
-                container.appendChild(actions);
-            }
-
-            marker.bindPopup(container, { maxWidth: 280, className: 'custom-map-popup' });
-            potentialLayer.addLayer(marker);
-        });
-
-        potentialLayer.addTo(map);
-        potentialLayerRef.current = potentialLayer;
-    }, [mapData, showPotentialPins, canManageCustomers, fetchWithAuth, filters]);
+    // Removed: Potential pins are now handled in the main cluster useEffect
 
     // ── Phase 5: Drop Pin handlers ──
     const handleStartDropPin = () => {
