@@ -17,6 +17,14 @@ class Command(BaseCommand):
     def handle(self, *args, **options):
         redis_url = os.getenv('REDIS_URL')
         
+        # Bypass Neon PgBouncer for migrations to prevent MigrationSchemaMissing
+        db_conf = settings.DATABASES['default']
+        if 'neon.tech' in db_conf.get('HOST', '') and '-pooler' in db_conf.get('HOST', ''):
+            self.stdout.write(self.style.WARNING("Bypassing Neon PgBouncer for migrations..."))
+            db_conf['HOST'] = db_conf['HOST'].replace('-pooler', '')
+            from django.db import connections
+            connections['default'].close()
+
         # If no Redis is configured or available, fallback to standard migration
         if not redis or not redis_url:
             self.stdout.write(self.style.WARNING("Redis not detected. Running standard local migration."))
