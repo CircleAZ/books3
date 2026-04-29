@@ -164,7 +164,10 @@ DATABASES = {
 
 # Neon requires SSL in production
 if 'neon.tech' in DATABASE_URL:
-    DATABASES['default']['OPTIONS'] = {'sslmode': 'require'}
+    DATABASES['default']['OPTIONS'] = {
+        'sslmode': 'require',
+        'options': '-c search_path=public'
+    }
 
 # Neon uses PgBouncer in transaction mode — server-side cursors
 # (used by Django's .iterator()) are incompatible with transaction pooling.
