@@ -364,6 +364,12 @@ CORS_ALLOWED_ORIGINS = os.getenv(
 
 CORS_ALLOW_CREDENTIALS = True
 
+# Whitelist custom headers for idempotency
+from corsheaders.defaults import default_headers
+CORS_ALLOW_HEADERS = list(default_headers) + [
+    'x-idempotency-key',
+]
+
 # Allow all origins in development only
 if DEBUG:
     CORS_ALLOW_ALL_ORIGINS = True
