@@ -5,7 +5,7 @@ from .views import (
     SchoolViewSet, ClassViewSet, DivisionViewSet, SubdivisionViewSet,
     CustomerGroupViewSet, LinkTypeViewSet, LocationTagViewSet,
     ClassTemplateViewSet, DivisionTemplateViewSet, SubdivisionTemplateViewSet,
-    InlineSchoolCreateView, GeoBoundaryView, GeoRegionListView,
+    InlineSchoolCreateView, GeoRegionListView,
     PotentialCustomerViewSet
 )
 
@@ -35,6 +35,5 @@ router.register(r'subdivision-templates', SubdivisionTemplateViewSet)
 urlpatterns = [
     path('', include(router.urls)),
     path('inline-school/', InlineSchoolCreateView.as_view(), name='inline-school-create'),
-    path('geo/boundaries/', GeoBoundaryView.as_view(), name='geo-boundaries'),
     path('geo/regions/', GeoRegionListView.as_view(), name='geo-regions'),
 ]

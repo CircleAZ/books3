@@ -1309,49 +1309,6 @@ class LocationTagViewSet(viewsets.ModelViewSet):
 # Phase 4: GeoJSON Boundary API
 # ═══════════════════════════════════════════════════════
 
-class GeoBoundaryView(APIView):
-    """
-    Serves GeographicRegion boundaries as GeoJSON FeatureCollection.
-    
-    GET /api/customers/geo/boundaries/?layer=district
-    GET /api/customers/geo/boundaries/?layer=taluka
-    GET /api/customers/geo/boundaries/?layer=village
-    GET /api/customers/geo/boundaries/  (all layers)
-    """
-    permission_classes = [IsAuthenticated]
-
-    def get(self, request):
-        from customers.models import GeographicRegion
-        import json
-
-        layer = request.query_params.get('layer', '').strip().lower()
-        qs = GeographicRegion.objects.all()
-        if layer in ('district', 'taluka', 'village'):
-            qs = qs.filter(layer=layer)
-
-        features = []
-        for region in qs.select_related('parent'):
-            if not region.boundary:
-                continue
-            feature = {
-                'type': 'Feature',
-                'geometry': json.loads(region.boundary.geojson),
-                'properties': {
-                    'id': str(region.id),
-                    'name': region.name,
-                    'layer': region.layer,
-                    'parent_name': region.parent.name if region.parent else None,
-                    'center_lat': region.center.y if region.center else None,
-                    'center_lng': region.center.x if region.center else None,
-                }
-            }
-            features.append(feature)
-
-        return Response({
-            'type': 'FeatureCollection',
-            'features': features,
-        })
-
 
 class GeoRegionListView(APIView):
     """
