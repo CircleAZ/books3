@@ -259,14 +259,22 @@ export default function NewOrder() {
         fetchPopularProducts();
     }, [fetchWithAuth, selectedCategory]);
 
-    // Fetch Payment Methods, UPI Accounts, and Categories
+    // Fetch Payment Methods, UPI Accounts, Bank Accounts, Cash Wallets, and Categories — ALL IN PARALLEL
     useEffect(() => {
         const fetchSettings = async () => {
             try {
-                // Fetch enabled payment methods
-                const methodsRes = await fetchWithAuth(ENDPOINTS.SETTINGS_PAYMENT_METHODS);
-                if (methodsRes.ok) {
-                    const methodsData = await methodsRes.json();
+                // Fire all 5 requests simultaneously — no data dependencies between them
+                const [methodsRes, upiRes, bankRes, walletRes, catRes] = await Promise.allSettled([
+                    fetchWithAuth(ENDPOINTS.SETTINGS_PAYMENT_METHODS),
+                    fetchWithAuth(ENDPOINTS.SETTINGS_UPI_ACCOUNTS),
+                    fetchWithAuth(ENDPOINTS.FINANCE_BANK_ACCOUNTS + '?active_only=true'),
+                    fetchWithAuth(ENDPOINTS.FINANCE_CASH_WALLETS + '?active_only=true'),
+                    fetchWithAuth(ENDPOINTS.INVENTORY_CATEGORIES),
+                ]);
+
+                // Process payment methods
+                if (methodsRes.status === 'fulfilled' && methodsRes.value.ok) {
+                    const methodsData = await methodsRes.value.json();
                     const enabled = (methodsData.results || methodsData).filter(m => m.is_enabled);
                     setAvailablePaymentMethods(enabled);
                     if (enabled.length > 0) {
@@ -274,10 +282,9 @@ export default function NewOrder() {
                     }
                 }
 
-                // Fetch active UPI accounts
-                const upiRes = await fetchWithAuth(ENDPOINTS.SETTINGS_UPI_ACCOUNTS);
-                if (upiRes.ok) {
-                    const upiData = await upiRes.json();
+                // Process UPI accounts
+                if (upiRes.status === 'fulfilled' && upiRes.value.ok) {
+                    const upiData = await upiRes.value.json();
                     const active = (upiData.results || upiData).filter(u => u.is_active);
                     setAvailableUpiAccounts(active);
                     if (active.length > 0) {
@@ -285,24 +292,21 @@ export default function NewOrder() {
                     }
                 }
 
-                // Fetch Bank Accounts
-                const bankRes = await fetchWithAuth(ENDPOINTS.FINANCE_BANK_ACCOUNTS + '?active_only=true');
-                if (bankRes.ok) {
-                    const bankData = await bankRes.json();
+                // Process bank accounts
+                if (bankRes.status === 'fulfilled' && bankRes.value.ok) {
+                    const bankData = await bankRes.value.json();
                     setAvailableBankAccounts(bankData.results || bankData);
                 }
 
-                // Fetch Cash Wallets
-                const walletRes = await fetchWithAuth(ENDPOINTS.FINANCE_CASH_WALLETS + '?active_only=true');
-                if (walletRes.ok) {
-                    const walletData = await walletRes.json();
+                // Process cash wallets
+                if (walletRes.status === 'fulfilled' && walletRes.value.ok) {
+                    const walletData = await walletRes.value.json();
                     setAvailableCashWallets(walletData.results || walletData);
                 }
 
-                // Fetch categories for Quick Add Product
-                const catRes = await fetchWithAuth(ENDPOINTS.INVENTORY_CATEGORIES);
-                if (catRes.ok) {
-                    const catData = await catRes.json();
+                // Process categories
+                if (catRes.status === 'fulfilled' && catRes.value.ok) {
+                    const catData = await catRes.value.json();
                     setAvailableCategories(catData.results || catData);
                 }
             } catch (error) {
