@@ -1,7 +1,6 @@
 # Generated manually to load OSM data into production via Render deploy
 
 from django.db import migrations
-from django.contrib.gis.geos import GEOSGeometry, MultiPolygon, Point
 import json
 import os
 
@@ -24,26 +23,6 @@ def load_osm_data(apps, schema_editor):
         layer = item.get('layer', 'village')
         pincode = item.get('pincode', '')
         color = item.get('color', '')
-        
-        # Parse center point
-        lat = item.get('lat')
-        lng = item.get('lng')
-        center_point = None
-        if lat and lng:
-            center_point = Point(lng, lat, srid=4326)
-
-        # Parse boundary
-        boundary_geom = None
-        boundary_data = item.get('boundary')
-        if boundary_data:
-            try:
-                geom = GEOSGeometry(json.dumps(boundary_data))
-                if geom.geom_type == 'Polygon':
-                    boundary_geom = MultiPolygon(geom)
-                elif geom.geom_type == 'MultiPolygon':
-                    boundary_geom = geom
-            except Exception as e:
-                pass
 
         # We must use filter and update because we cannot use update_or_create 
         # cleanly with the historical models from apps.get_model if there are duplicates
@@ -54,8 +33,6 @@ def load_osm_data(apps, schema_editor):
             region.label = label
             region.pincode = pincode
             region.color = color
-            region.center = center_point
-            region.boundary = boundary_geom
             region.save()
             
             for dup in regions[1:]:
@@ -67,9 +44,7 @@ def load_osm_data(apps, schema_editor):
                 layer=layer,
                 label=label,
                 pincode=pincode,
-                color=color,
-                center=center_point,
-                boundary=boundary_geom
+                color=color
             )
 
 def reverse_load(apps, schema_editor):

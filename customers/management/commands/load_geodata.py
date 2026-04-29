@@ -1,7 +1,6 @@
 import json
 import os
 from django.core.management.base import BaseCommand
-from django.contrib.gis.geos import GEOSGeometry, MultiPolygon, Point
 from django.db import transaction
 from customers.models import GeographicRegion
 
@@ -33,29 +32,6 @@ class Command(BaseCommand):
             layer = item.get('layer', 'village')
             pincode = item.get('pincode', '')
             color = item.get('color', '')
-            
-            # Parse center point
-            lat = item.get('lat')
-            lng = item.get('lng')
-            center_point = None
-            if lat and lng:
-                center_point = Point(lng, lat, srid=4326)
-
-            # Parse boundary
-            boundary_geom = None
-            boundary_data = item.get('boundary')
-            if boundary_data:
-                try:
-                    geom = GEOSGeometry(json.dumps(boundary_data))
-                    # Models expect MultiPolygon, so upgrade Polygon to MultiPolygon if necessary
-                    if geom.geom_type == 'Polygon':
-                        boundary_geom = MultiPolygon(geom)
-                    elif geom.geom_type == 'MultiPolygon':
-                        boundary_geom = geom
-                    else:
-                        self.stderr.write(f"Warning: Unexpected geometry type {geom.geom_type} for {name}")
-                except Exception as e:
-                    self.stderr.write(f"Error parsing geometry for {name}: {e}")
 
             # Robust Update or Create (handles duplicates from concurrent boots)
             try:
@@ -67,8 +43,6 @@ class Command(BaseCommand):
                         'label': label,
                         'pincode': pincode,
                         'color': color,
-                        'center': center_point,
-                        'boundary': boundary_geom,
                     }
                 )
             except GeographicRegion.MultipleObjectsReturned:
@@ -80,8 +54,6 @@ class Command(BaseCommand):
                 region.label = label
                 region.pincode = pincode
                 region.color = color
-                region.center = center_point
-                region.boundary = boundary_geom
                 region.save()
                 
                 # Delete the rest
