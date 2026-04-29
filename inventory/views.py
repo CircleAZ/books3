@@ -4,6 +4,7 @@ from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from django.db.models import Count, F
 from django.core.exceptions import ValidationError
+import django_filters
 from django_filters.rest_framework import DjangoFilterBackend
 from .models import Category, Vendor, Tag, Product, StockAdjustment, StockHistory
 from .serializers import (
@@ -212,19 +213,47 @@ class StockAdjustmentViewSet(viewsets.ModelViewSet):
             unit_cost=serializer.validated_data.get('unit_cost'),
         )
 
+class StockHistoryFilter(django_filters.FilterSet):
+    """Server-side filters for Stock History: date range, change direction, user."""
+    date_from = django_filters.DateFilter(field_name='created_at', lookup_expr='date__gte')
+    date_to = django_filters.DateFilter(field_name='created_at', lookup_expr='date__lte')
+    change_direction = django_filters.CharFilter(method='filter_change_direction')
+
+    def filter_change_direction(self, queryset, name, value):
+        if value == 'positive':
+            return queryset.filter(quantity_change__gt=0)
+        elif value == 'negative':
+            return queryset.filter(quantity_change__lt=0)
+        return queryset
+
+    class Meta:
+        model = StockHistory
+        fields = ['product', 'reason', 'created_by']
+
+
 class StockHistoryViewSet(viewsets.ModelViewSet):
     queryset = StockHistory.objects.all().select_related('product', 'created_by')
     serializer_class = StockHistorySerializer
     pagination_class = ProductPagination
     permission_classes = [HasRequiredPermission]
     required_permission = 'inventory.view_products'
-    filter_backends = [filters.OrderingFilter, DjangoFilterBackend]
+    filter_backends = [filters.SearchFilter, filters.OrderingFilter, DjangoFilterBackend]
+    search_fields = ['product__name', 'notes']
     ordering = ['-created_at']
-    filterset_fields = ['product', 'reason']
-
-    ordering = ['-created_at']
-    filterset_fields = ['product', 'reason']
-    http_method_names = ['get', 'head', 'options'] # Read-only
+    filterset_class = StockHistoryFilter
+    http_method_names = ['get', 'head', 'options']  # Read-only
 
     # perform_create removed. Usage must go through StockAdjustment.
 
+    @action(detail=False, methods=['get'])
+    def filter_options(self, request):
+        """Return distinct users and reason choices for filter dropdowns."""
+        users = (
+            StockHistory.objects.filter(created_by__isnull=False)
+            .values_list('created_by__id', 'created_by__username')
+            .distinct()
+        )
+        return Response({
+            'users': [{'id': str(uid), 'username': uname} for uid, uname in users],
+            'reasons': [{'value': c[0], 'label': c[1]} for c in StockHistory.REASON_CHOICES],
+        })

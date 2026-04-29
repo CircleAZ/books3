@@ -5,6 +5,8 @@ import { ENDPOINTS } from '../../config/api';
 import './ProductList.css';
 import './StockControl.css';
 
+const HISTORY_PAGE_SIZE = 50;
+
 export default function StockControl() {
     const { fetchWithAuth } = useAuth();
     const location = useLocation();
@@ -26,6 +28,28 @@ export default function StockControl() {
     const [error, setError] = useState('');
     // LENS-12: Searchable product filter
     const [productSearch, setProductSearch] = useState('');
+
+    // History filter state
+    const [historySearch, setHistorySearch] = useState('');
+    const [debouncedHistorySearch, setDebouncedHistorySearch] = useState('');
+    const [historyReason, setHistoryReason] = useState('');
+    const [historyUser, setHistoryUser] = useState('');
+    const [historyDirection, setHistoryDirection] = useState('');
+    const [historyDateFrom, setHistoryDateFrom] = useState('');
+    const [historyDateTo, setHistoryDateTo] = useState('');
+    const [historyPage, setHistoryPage] = useState(1);
+    const [historyTotalPages, setHistoryTotalPages] = useState(1);
+    const [historyCount, setHistoryCount] = useState(0);
+    const [filterOptions, setFilterOptions] = useState({ users: [], reasons: [] });
+
+    // Debounce search — batch page reset with search term update (prevents race condition)
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            setDebouncedHistorySearch(historySearch);
+            setHistoryPage(1);
+        }, 400);
+        return () => clearTimeout(timer);
+    }, [historySearch]);
 
     const fetchLowStock = useCallback(async () => {
         setLoading(true);
@@ -60,17 +84,29 @@ export default function StockControl() {
     const fetchHistory = useCallback(async () => {
         setLoading(true);
         try {
-            const response = await fetchWithAuth(`${ENDPOINTS.INVENTORY_STOCK_HISTORY}?page_size=1000`);
+            const params = new URLSearchParams();
+            params.set('page', historyPage);
+            params.set('page_size', HISTORY_PAGE_SIZE);
+            if (debouncedHistorySearch) params.set('search', debouncedHistorySearch);
+            if (historyReason) params.set('reason', historyReason);
+            if (historyUser) params.set('created_by', historyUser);
+            if (historyDirection) params.set('change_direction', historyDirection);
+            if (historyDateFrom) params.set('date_from', historyDateFrom);
+            if (historyDateTo) params.set('date_to', historyDateTo);
+
+            const response = await fetchWithAuth(`${ENDPOINTS.INVENTORY_STOCK_HISTORY}?${params.toString()}`);
             if (response.ok) {
                 const data = await response.json();
-                setHistoryItems(data.results || data || []);
+                setHistoryItems(data.results || []);
+                setHistoryCount(data.count || 0);
+                setHistoryTotalPages(Math.ceil((data.count || 0) / HISTORY_PAGE_SIZE));
             }
         } catch (error) {
             console.error('Error fetching history:', error);
         } finally {
             setLoading(false);
         }
-    }, [fetchWithAuth]);
+    }, [fetchWithAuth, historyPage, debouncedHistorySearch, historyReason, historyUser, historyDirection, historyDateFrom, historyDateTo]);
 
     const fetchProducts = useCallback(async () => {
         try {
@@ -81,6 +117,18 @@ export default function StockControl() {
             }
         } catch (error) {
             console.error('Error fetching products:', error);
+        }
+    }, [fetchWithAuth]);
+
+    const fetchFilterOptions = useCallback(async () => {
+        try {
+            const response = await fetchWithAuth(`${ENDPOINTS.INVENTORY_STOCK_HISTORY}filter_options/`);
+            if (response.ok) {
+                const data = await response.json();
+                setFilterOptions(data);
+            }
+        } catch (error) {
+            console.error('Error fetching filter options:', error);
         }
     }, [fetchWithAuth]);
 
@@ -98,6 +146,11 @@ export default function StockControl() {
     useEffect(() => {
         fetchProducts();
     }, [fetchProducts]);
+
+    // Fetch filter options once for dropdowns
+    useEffect(() => {
+        fetchFilterOptions();
+    }, [fetchFilterOptions]);
 
     const handleOpenModal = (product = null) => {
         if (product) {
@@ -181,6 +234,24 @@ export default function StockControl() {
         }
     };
 
+    const handleFilterChange = (setter) => (e) => {
+        setter(e.target.value);
+        setHistoryPage(1);
+    };
+
+    const clearAllFilters = () => {
+        setHistorySearch('');
+        setDebouncedHistorySearch('');
+        setHistoryReason('');
+        setHistoryUser('');
+        setHistoryDirection('');
+        setHistoryDateFrom('');
+        setHistoryDateTo('');
+        setHistoryPage(1);
+    };
+
+    const hasActiveFilters = historySearch || historyReason || historyUser || historyDirection || historyDateFrom || historyDateTo;
+
     return (
         <div className="inventory-container fade-in">
             <div className="inventory-header">
@@ -214,118 +285,242 @@ export default function StockControl() {
             </div>
 
             <div className="inventory-table-container">
-                {loading ? (
-                    <div className="loading-container">
-                        <div className="spinner-large"></div>
-                    </div>
-                ) : (
+                {activeTab === 'low-stock' && (
+                    loading ? (
+                        <div className="loading-container"><div className="spinner-large"></div></div>
+                    ) : (
+                        <table className="inventory-table">
+                            <thead>
+                                <tr>
+                                    <th>Product</th>
+                                    <th>Category</th>
+                                    <th>Current Stock</th>
+                                    <th>Threshold</th>
+                                    <th>Status</th>
+                                    <th>Action</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {[...lowStockItems].sort((a, b) => a.stock_quantity - b.stock_quantity).map(item => (
+                                    <tr key={item.id}>
+                                        <td>{item.name}</td>
+                                        <td>{item.category_name}</td>
+                                        <td style={{ fontWeight: 'bold', color: 'var(--color-danger)' }}>{item.stock_quantity}</td>
+                                        <td>{item.low_stock_threshold}</td>
+                                        <td>
+                                            <span className={`status-badge status-${item.stock_quantity <= 0 ? 'out-of-stock' : item.stock_quantity <= (item.low_stock_threshold || 5) ? 'low-stock' : 'in-stock'}`}>
+                                                {item.stock_quantity <= 0 ? 'Out of Stock' : item.stock_quantity <= (item.low_stock_threshold || 5) ? 'Low Stock' : 'In Stock'}
+                                            </span>
+                                        </td>
+                                        <td>
+                                            <button className="btn btn-sm btn-ghost" onClick={() => handleOpenModal(item)}>Adjust</button>
+                                        </td>
+                                    </tr>
+                                ))}
+                                {lowStockItems.length === 0 && (
+                                    <tr>
+                                        <td colSpan="6" style={{ textAlign: 'center', padding: '2rem' }}>No low stock items. Good job!</td>
+                                    </tr>
+                                )}
+                            </tbody>
+                        </table>
+                    )
+                )}
+
+                {activeTab === 'negative-stock' && (
+                    loading ? (
+                        <div className="loading-container"><div className="spinner-large"></div></div>
+                    ) : (
+                        <table className="inventory-table">
+                            <thead>
+                                <tr>
+                                    <th>Product</th>
+                                    <th>Category</th>
+                                    <th>Current Stock</th>
+                                    <th>Status</th>
+                                    <th>Action</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {negativeStockItems.map(item => (
+                                    <tr key={item.id}>
+                                        <td>{item.name}</td>
+                                        <td>{item.category_name}</td>
+                                        <td style={{ fontWeight: 'bold', color: 'red' }}>{item.stock_quantity}</td>
+                                        <td><span className="status-badge status-out-of-stock">Negative</span></td>
+                                        <td>
+                                            <button className="btn btn-sm btn-ghost" onClick={() => handleOpenModal(item)}>Adjust</button>
+                                        </td>
+                                    </tr>
+                                ))}
+                                {negativeStockItems.length === 0 && (
+                                    <tr>
+                                        <td colSpan="5" style={{ textAlign: 'center', padding: '2rem' }}>No negative stock items. All good!</td>
+                                    </tr>
+                                )}
+                            </tbody>
+                        </table>
+                    )
+                )}
+
+                {activeTab === 'history' && (
                     <>
-                        {activeTab === 'low-stock' && (
-                            <table className="inventory-table">
-                                <thead>
-                                    <tr>
-                                        <th>Product</th>
-                                        <th>Category</th>
-                                        <th>Current Stock</th>
-                                        <th>Threshold</th>
-                                        <th>Status</th>
-                                        <th>Action</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {[...lowStockItems].sort((a, b) => a.stock_quantity - b.stock_quantity).map(item => (
-                                        <tr key={item.id}>
-                                            <td>{item.name}</td>
-                                            <td>{item.category_name}</td>
-                                            <td style={{ fontWeight: 'bold', color: 'var(--color-danger)' }}>{item.stock_quantity}</td>
-                                            <td>{item.low_stock_threshold}</td>
-                                            <td>
-                                                <span className={`status-badge status-${item.stock_quantity <= 0 ? 'out-of-stock' : item.stock_quantity <= (item.low_stock_threshold || 5) ? 'low-stock' : 'in-stock'}`}>
-                                                    {item.stock_quantity <= 0 ? 'Out of Stock' : item.stock_quantity <= (item.low_stock_threshold || 5) ? 'Low Stock' : 'In Stock'}
-                                                </span>
-                                            </td>
-                                            <td>
-                                                <button className="btn btn-sm btn-ghost" onClick={() => handleOpenModal(item)}>Adjust</button>
-                                            </td>
-                                        </tr>
+                        {/* Filter Bar */}
+                        <div className="history-filter-bar">
+                            <div className="filter-search-row">
+                                <div className="filter-search-wrapper">
+                                    <svg className="filter-search-icon" viewBox="0 0 20 20" fill="currentColor" width="16" height="16">
+                                        <path fillRule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clipRule="evenodd" />
+                                    </svg>
+                                    <input
+                                        type="text"
+                                        id="history-search-input"
+                                        placeholder="Search by product name or notes..."
+                                        className="filter-search-input"
+                                        value={historySearch}
+                                        onChange={e => setHistorySearch(e.target.value)}
+                                    />
+                                </div>
+                            </div>
+                            <div className="filter-controls-row">
+                                <select
+                                    id="history-reason-filter"
+                                    className="filter-select"
+                                    value={historyReason}
+                                    onChange={handleFilterChange(setHistoryReason)}
+                                >
+                                    <option value="">All Reasons</option>
+                                    {filterOptions.reasons.map(r => (
+                                        <option key={r.value} value={r.value}>{r.label}</option>
                                     ))}
-                                    {lowStockItems.length === 0 && (
-                                        <tr>
-                                            <td colSpan="6" style={{ textAlign: 'center', padding: '2rem' }}>No low stock items. Good job!</td>
-                                        </tr>
-                                    )}
-                                </tbody>
-                            </table>
-                        )}
+                                </select>
 
-                        {activeTab === 'negative-stock' && (
-                            <table className="inventory-table">
-                                <thead>
-                                    <tr>
-                                        <th>Product</th>
-                                        <th>Category</th>
-                                        <th>Current Stock</th>
-                                        <th>Status</th>
-                                        <th>Action</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {negativeStockItems.map(item => (
-                                        <tr key={item.id}>
-                                            <td>{item.name}</td>
-                                            <td>{item.category_name}</td>
-                                            <td style={{ fontWeight: 'bold', color: 'red' }}>{item.stock_quantity}</td>
-                                            <td><span className="status-badge status-out-of-stock">Negative</span></td>
-                                            <td>
-                                                <button className="btn btn-sm btn-ghost" onClick={() => handleOpenModal(item)}>Adjust</button>
-                                            </td>
-                                        </tr>
+                                <select
+                                    id="history-user-filter"
+                                    className="filter-select"
+                                    value={historyUser}
+                                    onChange={handleFilterChange(setHistoryUser)}
+                                >
+                                    <option value="">All Users</option>
+                                    {filterOptions.users.map(u => (
+                                        <option key={u.id} value={u.id}>{u.username}</option>
                                     ))}
-                                    {negativeStockItems.length === 0 && (
-                                        <tr>
-                                            <td colSpan="5" style={{ textAlign: 'center', padding: '2rem' }}>No negative stock items. All good!</td>
-                                        </tr>
-                                    )}
-                                </tbody>
-                            </table>
-                        )}
+                                </select>
 
-                        {activeTab === 'history' && (
-                            <table className="inventory-table">
-                                <thead>
-                                    <tr>
-                                        <th>Date</th>
-                                        <th>Product</th>
-                                        <th>Change</th>
-                                        <th>New Level</th>
-                                        <th>Reason</th>
-                                        <th>User</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {historyItems.map(item => (
-                                        <tr key={item.id}>
-                                            <td>{new Date(item.created_at).toLocaleDateString()} {new Date(item.created_at).toLocaleTimeString()}</td>
-                                            <td>{item.product_name}</td>
-                                            <td className={item.quantity_change > 0 ? 'positive-change' : 'negative-change'}>
-                                                {item.quantity_change > 0 ? '+' : ''}{item.quantity_change}
-                                            </td>
-                                            <td>{item.quantity_after}</td>
-                                            <td>
-                                                <span className={`history-reason-badge reason-${item.reason}`}>
-                                                    {item.reason}
-                                                </span>
-                                            </td>
-                                            <td>{item.created_by_name}</td>
-                                        </tr>
-                                    ))}
-                                    {historyItems.length === 0 && (
+                                <select
+                                    id="history-direction-filter"
+                                    className="filter-select"
+                                    value={historyDirection}
+                                    onChange={handleFilterChange(setHistoryDirection)}
+                                >
+                                    <option value="">All Changes</option>
+                                    <option value="positive">↑ Increases Only</option>
+                                    <option value="negative">↓ Decreases Only</option>
+                                </select>
+
+                                <div className="filter-date-group">
+                                    <label className="filter-date-label">From</label>
+                                    <input
+                                        type="date"
+                                        id="history-date-from"
+                                        className="filter-date-input"
+                                        value={historyDateFrom}
+                                        onChange={handleFilterChange(setHistoryDateFrom)}
+                                    />
+                                </div>
+
+                                <div className="filter-date-group">
+                                    <label className="filter-date-label">To</label>
+                                    <input
+                                        type="date"
+                                        id="history-date-to"
+                                        className="filter-date-input"
+                                        value={historyDateTo}
+                                        onChange={handleFilterChange(setHistoryDateTo)}
+                                    />
+                                </div>
+
+                                {hasActiveFilters && (
+                                    <button
+                                        className="btn btn-ghost btn-sm filter-clear-btn"
+                                        onClick={clearAllFilters}
+                                    >
+                                        ✕ Clear
+                                    </button>
+                                )}
+                            </div>
+                            {historyCount > 0 && (
+                                <div className="filter-result-count">
+                                    {historyCount} record{historyCount !== 1 ? 's' : ''} found
+                                </div>
+                            )}
+                        </div>
+
+                        {loading ? (
+                            <div className="loading-container"><div className="spinner-large"></div></div>
+                        ) : (
+                            <>
+                                <table className="inventory-table">
+                                    <thead>
                                         <tr>
-                                            <td colSpan="6" style={{ textAlign: 'center', padding: '2rem' }}>No history found.</td>
+                                            <th>Date</th>
+                                            <th>Product</th>
+                                            <th>Change</th>
+                                            <th>New Level</th>
+                                            <th>Reason</th>
+                                            <th>User</th>
                                         </tr>
-                                    )}
-                                </tbody>
-                            </table>
+                                    </thead>
+                                    <tbody>
+                                        {historyItems.map(item => (
+                                            <tr key={item.id}>
+                                                <td>{new Date(item.created_at).toLocaleDateString()} {new Date(item.created_at).toLocaleTimeString()}</td>
+                                                <td>{item.product_name}</td>
+                                                <td className={item.quantity_change > 0 ? 'positive-change' : 'negative-change'}>
+                                                    {item.quantity_change > 0 ? '+' : ''}{item.quantity_change}
+                                                </td>
+                                                <td>{item.quantity_after}</td>
+                                                <td>
+                                                    <span className={`history-reason-badge reason-${item.reason}`}>
+                                                        {item.reason}
+                                                    </span>
+                                                </td>
+                                                <td>{item.created_by_name}</td>
+                                            </tr>
+                                        ))}
+                                        {historyItems.length === 0 && (
+                                            <tr>
+                                                <td colSpan="6" style={{ textAlign: 'center', padding: '2rem' }}>
+                                                    {hasActiveFilters ? 'No records match your filters.' : 'No history found.'}
+                                                </td>
+                                            </tr>
+                                        )}
+                                    </tbody>
+                                </table>
+
+                                {/* Pagination */}
+                                {historyTotalPages > 1 && (
+                                    <div className="history-pagination">
+                                        <button
+                                            className="btn btn-ghost btn-sm"
+                                            disabled={historyPage <= 1}
+                                            onClick={() => setHistoryPage(p => p - 1)}
+                                        >
+                                            ← Previous
+                                        </button>
+                                        <span className="pagination-info">
+                                            Page {historyPage} of {historyTotalPages}
+                                        </span>
+                                        <button
+                                            className="btn btn-ghost btn-sm"
+                                            disabled={historyPage >= historyTotalPages}
+                                            onClick={() => setHistoryPage(p => p + 1)}
+                                        >
+                                            Next →
+                                        </button>
+                                    </div>
+                                )}
+                            </>
                         )}
                     </>
                 )}
