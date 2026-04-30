@@ -203,7 +203,7 @@ export default function OutletDetails() {
         if (!commissionSearch.trim()) return products;
         const q = commissionSearch.toLowerCase();
         return products.filter(p => 
-            p.name.toLowerCase().includes(q) || 
+            (p.name && p.name.toLowerCase().includes(q)) || 
             (p.display_id && String(p.display_id).includes(q))
         );
     }, [products, commissionSearch]);
@@ -366,7 +366,7 @@ export default function OutletDetails() {
                                         <td>{transfer.reference_number || '-'}</td>
                                         <td>
                                             <span className={`status-badge status-${transfer.status === 'dispatched' ? 'completed' : 'draft'}`}>
-                                                {transfer.status.toUpperCase()}
+                                                {(transfer.status || 'unknown').toUpperCase()}
                                             </span>
                                             {transfer.status === 'draft' && (
                                                 <button 

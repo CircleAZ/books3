@@ -94,8 +94,8 @@ export default function TransferModal({ isOpen, onClose, outletId, onTransferCom
     if (!isOpen) return null;
 
     const filteredProducts = products.filter(p => 
-        p.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
-        p.sku.toLowerCase().includes(searchTerm.toLowerCase())
+        (p.name || '').toLowerCase().includes(searchTerm.toLowerCase()) || 
+        (p.sku || '').toLowerCase().includes(searchTerm.toLowerCase())
     ).slice(0, 5); // Show top 5 matches
 
     return (

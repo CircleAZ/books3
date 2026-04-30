@@ -102,8 +102,8 @@ export default function SaleModal({ isOpen, onClose, outletId, onSaleComplete })
     if (!isOpen) return null;
 
     const filteredStock = outletStock.filter(s => 
-        s.product_details.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
-        s.product_details.sku.toLowerCase().includes(searchTerm.toLowerCase())
+        (s.product_details?.name || '').toLowerCase().includes(searchTerm.toLowerCase()) || 
+        (s.product_details?.sku || '').toLowerCase().includes(searchTerm.toLowerCase())
     ).filter(s => s.quantity > 0).slice(0, 5); // Only show items with positive stock
 
     return (
