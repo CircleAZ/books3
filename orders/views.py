@@ -216,9 +216,7 @@ class OrderViewSet(viewsets.ModelViewSet):
             return OrderCreateSerializer
         return OrderDetailSerializer
     
-    def perform_create(self, serializer):
-        serializer.save(created_by=self.request.user)
-    
+
     @action(detail=False, methods=['get'])
     def drafts(self, request):
         """Get all draft/held orders."""
@@ -245,6 +243,11 @@ class OrderViewSet(viewsets.ModelViewSet):
             )
         order.order_status = 'confirmed'
         order.save(update_fields=['order_status'])
+        
+        # Ensure quantities are frozen and stock deducted if transitioning from draft
+        if order.items.filter(confirmed_quantity__isnull=True).exists():
+            order.freeze_confirmed_quantities()
+            
         return Response({'status': 'Order confirmed'})
     
     @action(detail=True, methods=['post'])
@@ -268,6 +271,10 @@ class OrderViewSet(viewsets.ModelViewSet):
         with transaction.atomic():
             order.order_status = 'completed'
             order.save(update_fields=['order_status'])
+            
+            # Ensure quantities are frozen and stock deducted
+            if order.items.filter(confirmed_quantity__isnull=True).exists():
+                order.freeze_confirmed_quantities()
         
         # Dispatch receipt notification via customer preference
         try:
