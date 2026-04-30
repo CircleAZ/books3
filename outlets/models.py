@@ -30,19 +30,19 @@ class Outlet(DisplayIDMixin, SoftDeleteModel):
     # Financial Properties
     @property
     def total_gross_sales(self):
-        return sum(sale.gross_total for sale in self.sales.all_objects.filter(is_deleted=False))
+        return sum(sale.gross_total for sale in self.sales.all())
         
     @property
     def total_commission(self):
-        return sum(sale.commission_amount for sale in self.sales.all_objects.filter(is_deleted=False))
+        return sum(sale.commission_amount for sale in self.sales.all())
         
     @property
     def total_net_sales(self):
-        return sum(sale.net_total for sale in self.sales.all_objects.filter(is_deleted=False))
+        return sum(sale.net_total for sale in self.sales.all())
         
     @property
     def total_paid(self):
-        return sum(payment.amount for payment in self.payments.all_objects.filter(is_deleted=False))
+        return sum(payment.amount for payment in self.payments.all())
         
     @property
     def outstanding_balance(self):
@@ -289,7 +289,7 @@ class OutletDailySale(DisplayIDMixin, SoftDeleteModel):
             item.soft_delete()
             
     def recalculate_totals(self):
-        gross = sum(item.line_total for item in self.items.all_objects.filter(is_deleted=False))
+        gross = sum(item.line_total for item in self.items.all())
         commission = gross * (self.outlet.commission_percentage / Decimal('100.00'))
         net = gross - commission
         self.gross_total = gross
