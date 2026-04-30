@@ -120,29 +120,47 @@ To ensure no "lost state" failures during handoff, here is the master map of whe
 
 ---
 
-## 4. PWA Offline-First Architecture
+## 4. PWA Service Worker Architecture
 
-The React Front-End uses Google Workbox to implement guaranteed eventual-consistency when network partitions occur.
+The React front-end uses a single Workbox-generated Service Worker (`sw.js`), auto-registered by `vite-plugin-pwa` with `registerType: 'autoUpdate'`. The Vite config lives in `frontend/vite.config.js`.
 
 ```mermaid
 sequenceDiagram
     participant User
     participant React as Application UI
-    participant SW as Service Worker
-    participant IDB as IndexedDB (Browser)
+    participant SW as Service Worker (sw.js)
     participant API as CF Backend Gateway
 
-    User->>React: Update Inventory (No WiFi)
-    React->>SW: Intercept fetch() POST
-    SW--xAPI: Network Request Fails!
-    SW->>IDB: Serializes JSON payload to Queue
-    SW-->>React: Yield generic "Success" HTTP 200
-    Note over SW,IDB: Polling navigator.onLine...
-    SW->>SW: System 'Sync' event fired
-    IDB->>SW: Pull pending queue
-    SW->>API: Hydrate Request & Replay
-    API-->>SW: 200 OK (DB Mutated)
-    SW->>IDB: Delete queue record
+    Note over SW: GET Requests — NetworkFirst (cached)
+    User->>React: View Inventory List
+    React->>SW: fetch() GET /api/inventory/
+    SW->>API: Forward request (5s timeout)
+    alt Network OK
+        API-->>SW: 200 OK (JSON)
+        SW-->>React: Response + cache update
+    else Network Timeout / Offline
+        SW-->>React: Serve from api-cache (stale)
+    end
+
+    Note over SW: Mutating Requests — NetworkOnly (NO caching, NO replay)
+    User->>React: Create Order
+    React->>SW: fetch() POST /api/orders/
+    SW->>API: Forward request (no interception)
+    alt Network OK
+        API-->>SW: 201 Created
+        SW-->>React: Response
+    else Network Failure
+        SW-->>React: Network Error
+        React-->>User: "Failed to submit order" toast
+        Note over User: User retries manually with full context
+    end
 ```
 
-> **UI Lifecycle Routing:** Because cacheable states bypass Django entirely, developers must track `location.key` via React Router hooks (`useLocation`) to ensure that React forces localized state refreshes when a user navigates between pages immediately after triggering an asynchronous Workbox background sync queue execution.
+### Key Design Decisions
+
+> **BackgroundSync is permanently disabled for all mutating operations.** Non-idempotent requests (order creation, payments, stock deductions) cannot be safely replayed — BackgroundSync replays on reconnect without knowing if the server already processed the original. This was a confirmed root cause of duplicate orders. See [`ORDER_DUPLICATE_PREVENTION.md`](./ORDER_DUPLICATE_PREVENTION.md) for full details.
+
+> **Legacy `service-worker.js` was purged** in commit `4be87d4`. The app previously registered *two* service workers simultaneously — the legacy static SW and the Workbox-generated `sw.js`. The `main.jsx` entry point now includes a cleanup routine that auto-unregisters any non-Workbox service workers on page load.
+
+> **Offline read-only access** is preserved via Workbox `NetworkFirst` strategy on GET requests (`api-cache`, 200 entries, 24h max age, 5s network timeout). Users can browse cached inventory/order data while offline.
+
