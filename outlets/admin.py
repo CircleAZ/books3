@@ -1,5 +1,7 @@
 from django.contrib import admin
-from .models import Outlet, OutletStock, OutletStockTransfer, OutletStockTransferItem, OutletStockReturn, OutletStockReturnItem
+from .models import (Outlet, OutletStock, OutletStockTransfer, OutletStockTransferItem, 
+                     OutletStockReturn, OutletStockReturnItem, OutletDailySale, 
+                     OutletDailySaleItem, OutletPayment)
 
 @admin.register(Outlet)
 class OutletAdmin(admin.ModelAdmin):
@@ -56,3 +58,21 @@ class OutletStockReturnAdmin(admin.ModelAdmin):
                 self.message_user(request, f"Error receiving {return_rec}: {str(e)}", level='ERROR')
         self.message_user(request, "Selected draft returns were received successfully.")
     receive_returns.short_description = "Receive selected draft returns"
+
+class OutletDailySaleItemInline(admin.TabularInline):
+    model = OutletDailySaleItem
+    extra = 1
+
+@admin.register(OutletDailySale)
+class OutletDailySaleAdmin(admin.ModelAdmin):
+    list_display = ('display_id', 'outlet', 'date', 'gross_total', 'commission_amount', 'net_total', 'recorded_by')
+    list_filter = ('outlet', 'date')
+    search_fields = ('outlet__name',)
+    inlines = [OutletDailySaleItemInline]
+    readonly_fields = ('gross_total', 'commission_amount', 'net_total')
+
+@admin.register(OutletPayment)
+class OutletPaymentAdmin(admin.ModelAdmin):
+    list_display = ('display_id', 'outlet', 'date', 'amount', 'payment_method', 'recorded_by')
+    list_filter = ('payment_method', 'outlet', 'date')
+    search_fields = ('outlet__name', 'reference_id')

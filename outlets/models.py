@@ -263,3 +263,179 @@ class OutletStockReturnItem(SoftDeleteModel):
 
     def __str__(self):
         return f"{self.quantity} x {self.product.name}"
+
+
+class OutletDailySale(DisplayIDMixin, SoftDeleteModel):
+    """
+    Daily sales record submitted by an outlet.
+    """
+    outlet = models.ForeignKey(Outlet, on_delete=models.PROTECT, related_name='sales')
+    date = models.DateField(default=timezone.now)
+    notes = models.TextField(blank=True)
+    recorded_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, related_name='recorded_outlet_sales')
+    
+    # Financials (Calculated and cached on item save)
+    gross_total = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal('0.00'))
+    commission_amount = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal('0.00'))
+    net_total = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal('0.00'))
+
+    def __str__(self):
+        return f"Sale #{self.display_id} for {self.outlet.name} on {self.date}"
+
+    def soft_delete(self):
+        """Soft-Delete Cascade override."""
+        super().soft_delete()
+        for item in self.items.all():
+            item.soft_delete()
+            
+    def recalculate_totals(self):
+        gross = sum(item.line_total for item in self.items.all_objects.filter(is_deleted=False))
+        commission = gross * (self.outlet.commission_percentage / Decimal('100.00'))
+        net = gross - commission
+        self.gross_total = gross
+        self.commission_amount = commission.quantize(Decimal('0.01'))
+        self.net_total = net.quantize(Decimal('0.01'))
+        self.save(update_fields=['gross_total', 'commission_amount', 'net_total'])
+
+
+class OutletDailySaleItem(SoftDeleteModel):
+    sale = models.ForeignKey(OutletDailySale, on_delete=models.CASCADE, related_name='items')
+    product = models.ForeignKey(Product, on_delete=models.PROTECT)
+    quantity = models.PositiveIntegerField(validators=[MinValueValidator(1)])
+    unit_price = models.DecimalField(
+        max_digits=10, 
+        decimal_places=2,
+        help_text="Temporal Pricing: Captured exactly at the moment of sale creation"
+    )
+
+    @property
+    def line_total(self):
+        return self.quantity * self.unit_price
+
+    def __str__(self):
+        return f"{self.quantity} x {self.product.name} @ {self.unit_price}"
+
+    def save(self, *args, **kwargs):
+        is_new = self._state.adding
+        if is_new and not self.unit_price:
+            # Temporal Pricing Constraint
+            self.unit_price = self.product.selling_price
+            
+        with transaction.atomic():
+            super().save(*args, **kwargs)
+            if is_new:
+                # Deduct from Outlet Stock
+                try:
+                    outlet_stock = OutletStock.objects.select_for_update().get(
+                        outlet=self.sale.outlet,
+                        product=self.product
+                    )
+                    if outlet_stock.quantity < self.quantity:
+                        raise ValueError(f"Outlet does not have enough {self.product.name} to sell.")
+                    outlet_stock.quantity -= self.quantity
+                    outlet_stock.save()
+                except OutletStock.DoesNotExist:
+                    raise ValueError(f"Outlet has no stock of {self.product.name}.")
+            
+            # Recalculate parent sale
+            self.sale.recalculate_totals()
+
+    def soft_delete(self):
+        """
+        Void Protocol: Restores the OutletStock upon deletion.
+        """
+        with transaction.atomic():
+            super().soft_delete()
+            outlet_stock = OutletStock.objects.select_for_update().get(
+                outlet=self.sale.outlet,
+                product=self.product
+            )
+            outlet_stock.quantity += self.quantity
+            outlet_stock.save()
+            self.sale.recalculate_totals()
+
+
+class OutletPayment(DisplayIDMixin, SoftDeleteModel):
+    """
+    Payments received from the Outlet for consignment sales.
+    """
+    class PaymentMethod(models.TextChoices):
+        CASH = 'cash', 'Cash'
+        BANK = 'bank', 'Bank Transfer'
+
+    outlet = models.ForeignKey(Outlet, on_delete=models.PROTECT, related_name='payments')
+    date = models.DateField(default=timezone.now)
+    amount = models.DecimalField(max_digits=12, decimal_places=2, validators=[MinValueValidator(Decimal('0.01'))])
+    payment_method = models.CharField(max_length=20, choices=PaymentMethod.choices)
+    reference_id = models.CharField(max_length=100, blank=True)
+    
+    # Integration Hooks
+    destination_bank = models.ForeignKey('finance.BankAccount', on_delete=models.PROTECT, null=True, blank=True)
+    destination_wallet = models.ForeignKey('finance.CashWallet', on_delete=models.PROTECT, null=True, blank=True)
+    
+    # Hard Links for Ledger Safety
+    bank_transaction = models.OneToOneField('finance.BankTransaction', on_delete=models.SET_NULL, null=True, blank=True)
+    wallet_transaction = models.OneToOneField('finance.CashWalletTransaction', on_delete=models.SET_NULL, null=True, blank=True)
+    
+    recorded_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True)
+
+    def __str__(self):
+        return f"Payment of {self.amount} from {self.outlet.name}"
+
+    @transaction.atomic
+    def save(self, *args, **kwargs):
+        is_new = self._state.adding
+        super().save(*args, **kwargs)
+        
+        if is_new:
+            # Finance Ledger Integration
+            if self.payment_method == self.PaymentMethod.BANK and self.destination_bank:
+                from finance.models import BankTransaction
+                bt = BankTransaction.objects.create(
+                    account=self.destination_bank,
+                    transaction_type='deposit',
+                    date=self.date,
+                    amount=self.amount,
+                    description=f"Outlet Payment: {self.outlet.name}",
+                    reference=self.reference_id,
+                    recorded_by=self.recorded_by
+                )
+                self.bank_transaction = bt
+                super().save(update_fields=['bank_transaction'])
+                
+            elif self.payment_method == self.PaymentMethod.CASH and self.destination_wallet:
+                from finance.models import CashWalletTransaction, CashWallet
+                wallet = CashWallet.objects.select_for_update().get(pk=self.destination_wallet.pk)
+                new_balance = wallet.balance + self.amount
+                cwt = CashWalletTransaction.objects.create(
+                    wallet=wallet,
+                    transaction_type='deposit',
+                    amount=self.amount,
+                    description=f"Outlet Payment: {self.outlet.name}",
+                    reference_id=self.reference_id,
+                    balance_after=new_balance,
+                    date=self.date,
+                    created_by=self.recorded_by
+                )
+                wallet.balance = new_balance
+                wallet.save(update_fields=['balance'])
+                self.wallet_transaction = cwt
+                super().save(update_fields=['wallet_transaction'])
+
+    @transaction.atomic
+    def soft_delete(self):
+        """
+        Risk Mitigation: Bank Ledger Hard Links
+        Deleting an OutletPayment must explicitly hard-delete the BankTransaction 
+        to reverse the bank balance, since soft-deleting a payment won't touch the bank ledger.
+        """
+        super().soft_delete()
+        if self.bank_transaction:
+            self.bank_transaction.delete() # Triggers BankTransaction balance reversal logic
+            
+        if self.wallet_transaction:
+            from finance.models import CashWallet
+            wallet = CashWallet.objects.select_for_update().get(pk=self.destination_wallet.pk)
+            wallet.balance -= self.wallet_transaction.amount
+            wallet.save(update_fields=['balance'])
+            self.wallet_transaction.delete()
