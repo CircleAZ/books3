@@ -294,6 +294,39 @@
 .cart-item-price-info {
     font-size: var(--font-size-xs);
     color: var(--color-text-secondary);
+    display: flex;
+    align-items: center;
+    gap: 1px;
+}
+
+.cart-price-input {
+    width: 58px;
+    padding: 1px 3px;
+    font-size: var(--font-size-xs);
+    font-weight: 500;
+    color: var(--color-text-primary);
+    background: var(--color-bg-tertiary);
+    border: 1px solid transparent;
+    border-radius: var(--radius-sm);
+    text-align: right;
+    -moz-appearance: textfield;
+    transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.cart-price-input::-webkit-outer-spin-button,
+.cart-price-input::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+
+.cart-price-input:hover {
+    border-color: var(--color-border);
+}
+
+.cart-price-input:focus {
+    outline: none;
+    border-color: var(--color-primary);
+    background: var(--color-bg-elevated);
 }
 
 .cart-item-actions {

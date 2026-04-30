@@ -493,6 +493,10 @@ export default function NewOrder() {
         }));
     };
 
+    const updateItemPrice = (id, price) => {
+        setCartItems(prev => prev.map(item => item.id === id ? { ...item, selling_price: parseFloat(price) || 0 } : item));
+    };
+
     const removeFromCart = (id) => {
         const removed = cartItems.find(item => item.id === id);
         setCartItems(prev => prev.filter(item => item.id !== id));
@@ -1139,7 +1143,7 @@ export default function NewOrder() {
                                 <div className="cart-item-details">
                                     <span className="cart-item-name">{item.name}</span>
                                     <span className="cart-item-price-info">
-                                        {currency}{Number(item.selling_price).toFixed(2)} x {item.quantity}
+                                        {currency}<input type="number" className="cart-price-input" value={item.selling_price} onChange={e => updateItemPrice(item.id, e.target.value)} onBlur={e => { if (!e.target.value || parseFloat(e.target.value) < 0) updateItemPrice(item.id, 0); }} min="0" step="0.01" onClick={e => e.target.select()} /> × {item.quantity}
                                     </span>
                                 </div>
                                 <div className="cart-item-actions">
