@@ -81,7 +81,7 @@ class OutletStockTransfer(DisplayIDMixin, SoftDeleteModel):
         RECEIVED = 'received', 'Received'
 
     outlet = models.ForeignKey(Outlet, on_delete=models.PROTECT, related_name='transfers')
-    date = models.DateField(default=timezone.now)
+    date = models.DateField(default=timezone.localdate)
     status = models.CharField(max_length=20, choices=Status.choices, default=Status.DRAFT)
     reference_number = models.CharField(max_length=100, blank=True)
     notes = models.TextField(blank=True)
@@ -182,7 +182,7 @@ class OutletStockReturn(DisplayIDMixin, SoftDeleteModel):
         RECALL = 'recall', 'Recalled'
 
     outlet = models.ForeignKey(Outlet, on_delete=models.PROTECT, related_name='returns')
-    date = models.DateField(default=timezone.now)
+    date = models.DateField(default=timezone.localdate)
     status = models.CharField(max_length=20, choices=Status.choices, default=Status.DRAFT)
     reason = models.CharField(max_length=20, choices=Reason.choices, default=Reason.UNSOLD)
     notes = models.TextField(blank=True)
@@ -270,7 +270,7 @@ class OutletDailySale(DisplayIDMixin, SoftDeleteModel):
     Daily sales record submitted by an outlet.
     """
     outlet = models.ForeignKey(Outlet, on_delete=models.PROTECT, related_name='sales')
-    date = models.DateField(default=timezone.now)
+    date = models.DateField(default=timezone.localdate)
     notes = models.TextField(blank=True)
     recorded_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, related_name='recorded_outlet_sales')
     
@@ -364,7 +364,7 @@ class OutletPayment(DisplayIDMixin, SoftDeleteModel):
         BANK = 'bank', 'Bank Transfer'
 
     outlet = models.ForeignKey(Outlet, on_delete=models.PROTECT, related_name='payments')
-    date = models.DateField(default=timezone.now)
+    date = models.DateField(default=timezone.localdate)
     amount = models.DecimalField(max_digits=12, decimal_places=2, validators=[MinValueValidator(Decimal('0.01'))])
     payment_method = models.CharField(max_length=20, choices=PaymentMethod.choices)
     reference_id = models.CharField(max_length=100, blank=True)

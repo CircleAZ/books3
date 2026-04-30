@@ -15,7 +15,7 @@ export default function PaymentModal({ isOpen, onClose, outletId, outstandingBal
         outlet: outletId,
         date: new Date().toISOString().split('T')[0],
         amount: '',
-        payment_method: 'bank_transfer',
+        payment_method: 'bank',
         reference_id: '',
         notes: '',
         // These fields are needed for backend ledger injection
@@ -28,7 +28,7 @@ export default function PaymentModal({ isOpen, onClose, outletId, outstandingBal
                 outlet: outletId,
                 date: new Date().toISOString().split('T')[0],
                 amount: outstandingBalance || '',
-                payment_method: 'bank_transfer',
+                payment_method: 'bank',
                 reference_id: '',
                 notes: '',
                 finance_account_id: ''
@@ -81,7 +81,7 @@ export default function PaymentModal({ isOpen, onClose, outletId, outstandingBal
 
     if (!isOpen) return null;
 
-    const requiresBank = ['bank_transfer', 'cheque', 'upi'].includes(formData.payment_method);
+    const requiresBank = ['bank', 'cheque', 'upi'].includes(formData.payment_method);
     const destinationAccounts = requiresBank ? bankAccounts : cashWallets;
 
     return (
@@ -124,7 +124,7 @@ export default function PaymentModal({ isOpen, onClose, outletId, outstandingBal
                                 onChange={e => setFormData({...formData, payment_method: e.target.value, finance_account_id: ''})}
                             >
                                 <option value="cash">Cash</option>
-                                <option value="bank_transfer">Bank Transfer (NEFT/RTGS/IMPS)</option>
+                                <option value="bank">Bank Transfer (NEFT/RTGS/IMPS)</option>
                                 <option value="cheque">Cheque</option>
                                 <option value="upi">UPI</option>
                             </select>
