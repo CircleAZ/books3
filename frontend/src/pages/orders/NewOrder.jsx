@@ -331,10 +331,12 @@ export default function NewOrder() {
                     setAvailableCashWallets(walletData.results || walletData);
                 }
 
-                // Process categories
+                // Process categories — sort alphabetically by name for dropdown
                 if (catRes.status === 'fulfilled' && catRes.value.ok) {
                     const catData = await catRes.value.json();
-                    setAvailableCategories(catData.results || catData);
+                    const cats = (catData.results || catData).slice();
+                    cats.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+                    setAvailableCategories(cats);
                 }
             } catch (error) {
                 console.error('Error fetching settings:', error);
@@ -1024,7 +1026,23 @@ export default function NewOrder() {
                         <div className="loading-container"><div className="spinner"></div></div>
                     ) : (
                         <div className="product-grid">
-                            {(productSearch ? productResults : popularProducts).map(p => {
+                            {(productSearch ? productResults : (
+                                // When "All Categories" is active, group products by category
+                                // with uncategorized products at the end
+                                !selectedCategory
+                                    ? [...popularProducts].sort((a, b) => {
+                                        const catA = a.category_name || '';
+                                        const catB = b.category_name || '';
+                                        // Both uncategorized — preserve original order
+                                        if (!catA && !catB) return 0;
+                                        // Uncategorized goes last
+                                        if (!catA) return 1;
+                                        if (!catB) return -1;
+                                        // Sort by category name
+                                        return catA.localeCompare(catB);
+                                    })
+                                    : popularProducts
+                            )).map(p => {
                                 const cartItem = cartItems.find(item => item.id === p.id);
                                 const inCart = !!cartItem;
                                 return (
