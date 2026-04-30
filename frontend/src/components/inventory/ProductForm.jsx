@@ -34,6 +34,7 @@ export default function ProductForm({ initialData = null, isEdit = false }) {
         vendor: '',
         cost_price: '0',
         selling_price: '',
+        default_commission: '0',
         stock_quantity: '',
         low_stock_threshold: '5',
         is_additional: false
@@ -59,6 +60,7 @@ export default function ProductForm({ initialData = null, isEdit = false }) {
                 vendor: initialData.vendor?.id || initialData.vendor || '',
                 cost_price: initialData.cost_price || '',
                 selling_price: initialData.selling_price || '',
+                default_commission: initialData.default_commission ?? '0',
                 stock_quantity: initialData.stock_quantity || '',
                 low_stock_threshold: initialData.low_stock_threshold || '5',
                 is_additional: initialData.is_additional || false
@@ -271,6 +273,7 @@ export default function ProductForm({ initialData = null, isEdit = false }) {
                         vendor: '',
                         cost_price: '0',
                         selling_price: '',
+                        default_commission: '0',
                         stock_quantity: '',
                         low_stock_threshold: '5',
                         is_additional: false
@@ -423,6 +426,23 @@ export default function ProductForm({ initialData = null, isEdit = false }) {
                             />
                             {fieldErrors.selling_price && <span className="field-error">{fieldErrors.selling_price}</span>}
                             <small className="helper-text">What the customer pays</small>
+                        </div>
+                    </div>
+                    <div className="form-row">
+                        <div className="form-group">
+                            <label>Default Commission (%)</label>
+                            <input
+                                type="number"
+                                name="default_commission"
+                                value={formData.default_commission}
+                                onChange={handleInputChange}
+                                min="0"
+                                max="100"
+                                step="0.01"
+                                className={fieldErrors.default_commission ? 'input-error' : ''}
+                            />
+                            {fieldErrors.default_commission && <span className="field-error">{fieldErrors.default_commission}</span>}
+                            <small className="helper-text">Commission retained by outlets on consignment sales</small>
                         </div>
                     </div>
                     <div className="form-row">
