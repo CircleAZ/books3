@@ -466,6 +466,53 @@ input::placeholder {
     -webkit-tap-highlight-color: transparent;
 }
 
+/* ========================================
+   Global Tab System
+   ======================================== */
+.tabs {
+    display: flex;
+    gap: 0;
+    border-bottom: 2px solid var(--color-border);
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+}
+
+.tabs::-webkit-scrollbar {
+    display: none;
+}
+
+.tab {
+    position: relative;
+    padding: 0.75rem 1.25rem;
+    font-size: var(--font-size-sm);
+    font-weight: 500;
+    color: var(--color-text-muted);
+    background: none;
+    border: none;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: color var(--transition-fast);
+    border-bottom: 2px solid transparent;
+    margin-bottom: -2px;
+}
+
+.tab:hover {
+    color: var(--color-text-secondary);
+    background: var(--color-bg-hover);
+    border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+}
+
+.tab.active {
+    color: var(--color-primary-light);
+    border-bottom-color: var(--color-primary);
+    font-weight: 600;
+}
+
+.tab-content {
+    margin-top: var(--space-md);
+}
+
 /* Global Table Responsive Wrapper */
 .table-responsive {
     width: 100%;

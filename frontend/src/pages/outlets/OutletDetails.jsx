@@ -1,9 +1,10 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { ENDPOINTS } from '../../config/api';
 import { useCurrency } from '../../context/CurrencyContext';
 import { useToast } from '../../context/ToastContext';
+import Pagination from '../../components/common/Pagination';
 import TransferModal from './modals/TransferModal';
 import PaymentModal from './modals/PaymentModal';
 import SaleModal from './modals/SaleModal';
@@ -30,8 +31,12 @@ export default function OutletDetails() {
     const [commissions, setCommissions] = useState([]);
     const [overrides, setOverrides] = useState({});      // { productId: rateString }
     const [commissionSearch, setCommissionSearch] = useState('');
+    const [debouncedCommissionSearch, setDebouncedCommissionSearch] = useState('');
+    const [commissionPage, setCommissionPage] = useState(1);
+    const [commissionTotalPages, setCommissionTotalPages] = useState(1);
     const [savingCommissions, setSavingCommissions] = useState(false);
     const [commissionsLoaded, setCommissionsLoaded] = useState(false);
+    const [commissionsLoading, setCommissionsLoading] = useState(false);
 
     // Modal states
     const [isTransferModalOpen, setIsTransferModalOpen] = useState(false);
@@ -77,19 +82,10 @@ export default function OutletDetails() {
         }
     }, [fetchWithAuth, id, showToast]);
 
-    // Lazy-load commission data only when the tab is activated
-    const fetchCommissionData = useCallback(async () => {
-        if (commissionsLoaded) return;
+    // Fetch commission overrides once (all of them, not paginated)
+    const fetchCommissionOverrides = useCallback(async () => {
         try {
-            const [productsRes, commissionsRes] = await Promise.all([
-                fetchWithAuth(ENDPOINTS.INVENTORY_PRODUCTS),
-                fetchWithAuth(`${ENDPOINTS.OUTLETS_COMMISSIONS}?outlet=${id}`)
-            ]);
-
-            if (productsRes.ok) {
-                const productsData = await productsRes.json();
-                setProducts(productsData.results || productsData);
-            }
+            const commissionsRes = await fetchWithAuth(`${ENDPOINTS.OUTLETS_COMMISSIONS}?outlet=${id}`);
             if (commissionsRes.ok) {
                 const commData = await commissionsRes.json();
                 const commList = commData.results || commData;
@@ -102,22 +98,54 @@ export default function OutletDetails() {
                 });
                 setOverrides(seedOverrides);
             }
-            setCommissionsLoaded(true);
         } catch (error) {
-            console.error("Failed to load commission data:", error);
-            showToast("Failed to load commission rates", "error");
+            console.error("Failed to load commission overrides:", error);
         }
-    }, [fetchWithAuth, id, showToast, commissionsLoaded]);
+    }, [fetchWithAuth, id]);
+
+    // Fetch products with server-side pagination + search
+    const fetchCommissionProducts = useCallback(async (pageNum, searchQuery) => {
+        setCommissionsLoading(true);
+        try {
+            const params = new URLSearchParams({ page: pageNum });
+            if (searchQuery) params.set('search', searchQuery);
+            
+            const productsRes = await fetchWithAuth(`${ENDPOINTS.INVENTORY_PRODUCTS}?${params.toString()}`);
+            if (productsRes.ok) {
+                const productsData = await productsRes.json();
+                setProducts(productsData.results || []);
+                setCommissionTotalPages(Math.ceil((productsData.count || 0) / 20));
+            }
+        } catch (error) {
+            console.error("Failed to load products:", error);
+            showToast("Failed to load products", "error");
+        } finally {
+            setCommissionsLoading(false);
+            setCommissionsLoaded(true);
+        }
+    }, [fetchWithAuth, showToast]);
 
     useEffect(() => {
         fetchOutletData();
     }, [fetchOutletData, location.key]);
 
+    // Debounce commission search
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            setDebouncedCommissionSearch(commissionSearch);
+            setCommissionPage(1);
+        }, 400);
+        return () => clearTimeout(timer);
+    }, [commissionSearch]);
+
+    // Load commission data when tab is activated, or when page/search changes
     useEffect(() => {
         if (activeTab === 'commissions') {
-            fetchCommissionData();
+            fetchCommissionProducts(commissionPage, debouncedCommissionSearch);
+            // Only fetch overrides once
+            if (commissions.length === 0) fetchCommissionOverrides();
         }
-    }, [activeTab, fetchCommissionData]);
+    }, [activeTab, commissionPage, debouncedCommissionSearch, fetchCommissionProducts, fetchCommissionOverrides]);
 
     const handleDispatchTransfer = async (transferId) => {
         try {
@@ -198,16 +226,6 @@ export default function OutletDetails() {
         }
     };
 
-    // Filtered products for commission matrix search
-    const filteredProducts = useMemo(() => {
-        if (!commissionSearch.trim()) return products;
-        const q = commissionSearch.toLowerCase();
-        return products.filter(p => 
-            (p.name && p.name.toLowerCase().includes(q)) || 
-            (p.display_id && String(p.display_id).includes(q))
-        );
-    }, [products, commissionSearch]);
-
     // Count how many products have overrides
     const overrideCount = Object.keys(overrides).length;
 
@@ -266,7 +284,7 @@ export default function OutletDetails() {
             </div>
 
             {/* Tab Content */}
-            <div className="tab-content" style={{ marginTop: '1rem' }}>
+            <div className="tab-content">
                 {activeTab === 'stock' && (
                     <div className="table-card">
                         <table className="data-table">
@@ -431,13 +449,13 @@ export default function OutletDetails() {
                                 </tr>
                             </thead>
                             <tbody>
-                                {!commissionsLoaded ? (
-                                    <tr><td colSpan="7" className="text-center text-muted" style={{ padding: '2rem' }}>Loading commission data...</td></tr>
-                                ) : filteredProducts.length === 0 ? (
+                                {commissionsLoading ? (
+                                    <tr><td colSpan="7" className="text-center text-muted" style={{ padding: '2rem' }}>Loading products...</td></tr>
+                                ) : products.length === 0 ? (
                                     <tr><td colSpan="7" className="text-center text-muted" style={{ padding: '2rem' }}>
                                         {commissionSearch ? 'No products match your search.' : 'No products found.'}
                                     </td></tr>
-                                ) : filteredProducts.map(product => {
+                                ) : products.map(product => {
                                     const hasOverride = product.id in overrides;
                                     const overrideValue = hasOverride ? overrides[product.id] : '';
                                     const globalDefault = parseFloat(product.default_commission || 0).toFixed(2);
@@ -506,6 +524,13 @@ export default function OutletDetails() {
                                 })}
                             </tbody>
                         </table>
+                        <div className="pagination-bar">
+                            <Pagination 
+                                currentPage={commissionPage}
+                                totalPages={commissionTotalPages}
+                                onPageChange={setCommissionPage}
+                            />
+                        </div>
                     </div>
                 )}
             </div>
