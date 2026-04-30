@@ -20,67 +20,9 @@
   font-size: 1.125rem;
 }
 
-.offline-banner__count {
-  background: rgba(255, 255, 255, 0.2);
-  padding: 0.125rem 0.5rem;
-  border-radius: 9999px;
-  font-weight: 600;
-  font-size: 0.75rem;
-}
-
-.sync-badge {
-  position: fixed;
-  bottom: 1rem;
-  right: 1rem;
-  padding: 0.5rem 1rem;
-  border-radius: 9999px;
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  font-size: 0.875rem;
-  font-weight: 500;
-  z-index: 1000;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-  animation: slideInBottomRight 0.3s ease-out;
-}
-
-.sync-badge--pending {
-  background-color: var(--color-surface, #ffffff);
-  color: var(--color-text, #1f2937);
-  border: 1px solid var(--color-border, #e5e7eb);
-}
-
-.sync-badge--success {
-  background-color: var(--color-success, #10b981);
-  color: white;
-  animation: slideInBottomRight 0.3s ease-out, fadeOut 0.5s ease-in 3.5s forwards;
-}
-
-.sync-badge__spinner {
-  width: 1rem;
-  height: 1rem;
-  border: 2px solid var(--color-border, #e5e7eb);
-  border-top-color: var(--color-primary, #3b82f6);
-  border-radius: 50%;
-  animation: spin 1s linear infinite;
-}
-
 @keyframes slideUp {
   from { transform: translateY(100%); }
   to { transform: translateY(0); }
-}
-
-@keyframes slideInBottomRight {
-  from { transform: translate(100%, 100%); opacity: 0; }
-  to { transform: translate(0, 0); opacity: 1; }
-}
-
-@keyframes fadeOut {
-  to { opacity: 0; visibility: hidden; }
-}
-
-@keyframes spin {
-  to { transform: rotate(360deg); }
 }
 
 /* Adjust layout when banner is visible */

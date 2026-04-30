@@ -66,7 +66,34 @@ export default function NewOrder() {
     // Synchronous submission lock — prevents rapid-fire duplicate orders (VULN-3)
     const isSubmittingRef = useRef(false);
     // Idempotency key — prevents duplicate order creation from SW replay or 401 retry
+    // Key is derived from cart contents so retries of the same order reuse the same key.
     const idempotencyKeyRef = useRef(null);
+
+    // ── Deterministic idempotency key: regenerate only when cart/customer changes ──
+    // djb2 hash — fast, deterministic, collision-resistant enough for dedup (not security)
+    const djb2Hash = useCallback((str) => {
+        let hash = 5381;
+        for (let i = 0; i < str.length; i++) {
+            hash = ((hash << 5) + hash) + str.charCodeAt(i); // hash * 33 + c
+            hash = hash & hash; // Convert to 32-bit integer
+        }
+        return (hash >>> 0).toString(36); // Unsigned, base36 for compactness
+    }, []);
+
+    useEffect(() => {
+        if (cartItems.length === 0 || !selectedCustomer) {
+            idempotencyKeyRef.current = null;
+            return;
+        }
+        // Fingerprint: customer ID + sorted product:quantity pairs + 5-min time bucket
+        const timeBucket = Math.floor(Date.now() / 300000); // 5-minute windows
+        const itemFingerprint = cartItems
+            .map(i => `${i.id}:${i.quantity}`)
+            .sort()
+            .join(',');
+        const raw = `${selectedCustomer.id}|${itemFingerprint}|${timeBucket}`;
+        idempotencyKeyRef.current = djb2Hash(raw);
+    }, [cartItems, selectedCustomer, djb2Hash]);
 
     // Drawer panel ref
     const drawerRef = useRef(null);
@@ -715,8 +742,13 @@ export default function NewOrder() {
 
 
 
-            // Generate a fresh idempotency key for each submission attempt
-            idempotencyKeyRef.current = crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+            // Idempotency key is pre-computed from cart contents (see useEffect above).
+            // If somehow null (edge case: cart changed mid-submit), generate a fallback.
+            if (!idempotencyKeyRef.current) {
+                const timeBucket = Math.floor(Date.now() / 300000);
+                const itemFp = cartItems.map(i => `${i.id}:${i.quantity}`).sort().join(',');
+                idempotencyKeyRef.current = djb2Hash(`${selectedCustomer?.id}|${itemFp}|${timeBucket}`);
+            }
 
             const response = await fetchWithAuth(ENDPOINTS.ORDERS, {
                 method: 'POST',
@@ -733,6 +765,14 @@ export default function NewOrder() {
                 setQuickAddInfo({ first_name: '', phone: '' });
                 setPayments([]);
                 setOrderDiscount({ type: 'fixed', value: 0 });
+            } else if (response.status === 409) {
+                // Duplicate order detected by backend fingerprint guard
+                try {
+                    const err = await response.json();
+                    showToast(err.detail || 'A similar order was created recently. Please verify.', 'warning');
+                } catch (e) {
+                    showToast('A similar order may already exist. Please check before resubmitting.', 'warning');
+                }
             } else {
                 let errMsg = `Status ${response.status}`;
                 try {

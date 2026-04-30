@@ -148,6 +148,14 @@ class Order(DisplayIDMixin, SoftDeleteModel):
         help_text="Last overdue reminder sent (max 1/week)"
     )
     
+    # Duplicate prevention — deterministic hash of customer + sorted items
+    # Computed server-side during create; used by the DB-level duplicate guard.
+    order_fingerprint = models.CharField(
+        max_length=64, blank=True, default='',
+        db_index=True,
+        help_text="SHA-256 content hash for duplicate order detection"
+    )
+    
     created_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.SET_NULL,

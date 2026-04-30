@@ -81,36 +81,138 @@ class OrderViewSet(viewsets.ModelViewSet):
         return queryset.filter(created_by=user)
     
     def create(self, request, *args, **kwargs):
-        """Override create to enforce idempotency key for duplicate prevention."""
+        """
+        Override create with three-layer duplicate prevention:
+        1. Cache-based idempotency key (fast-path, fail-open)
+        2. DB-level fingerprint guard (definitive backstop)
+        3. Fingerprint stored on created order for future checks
+        """
+        import hashlib
+        import math
+        import time
+        from django.utils import timezone
+        from datetime import timedelta
+
+        # ── Layer 1: Cache-based idempotency key (fail-open) ──
         idempotency_key = request.headers.get('X-Idempotency-Key')
         if idempotency_key:
-            from django.core.cache import cache
-            cache_key = f"order_idempotency_{request.user.id}_{idempotency_key}"
-            cached_order_id = cache.get(cache_key)
-            if cached_order_id:
-                # Duplicate request — return the already-created order
-                try:
-                    existing_order = Order.objects.get(pk=cached_order_id)
-                    serializer = self.get_serializer(existing_order)
-                    return Response(serializer.data, status=status.HTTP_200_OK)
-                except Order.DoesNotExist:
-                    pass  # Cache stale, proceed with creation
+            try:
+                from django.core.cache import cache
+                cache_key = f"order_idempotency_{request.user.id}_{idempotency_key}"
+                cached_order_id = cache.get(cache_key)
+                if cached_order_id:
+                    # Duplicate request — return the already-created order
+                    try:
+                        existing_order = Order.objects.get(pk=cached_order_id)
+                        serializer = self.get_serializer(existing_order)
+                        return Response(serializer.data, status=status.HTTP_200_OK)
+                    except Order.DoesNotExist:
+                        pass  # Cache stale, proceed with creation
+            except Exception:
+                logger.warning(
+                    "Cache idempotency check failed for user=%s key=%s — proceeding (fail-open)",
+                    request.user.id, idempotency_key
+                )
 
+        # ── Layer 2: Compute order fingerprint ──
+        items_data = request.data.get('items', [])
+        customer_id = request.data.get('customer', '')
+        time_bucket = math.floor(time.time() / 300)  # 5-minute window
+        item_fingerprint = ','.join(sorted(
+            f"{item.get('product', '')}:{item.get('quantity', '')}"
+            for item in items_data
+        ))
+        raw_fingerprint = f"{customer_id}|{item_fingerprint}|{time_bucket}"
+        fingerprint = hashlib.sha256(raw_fingerprint.encode()).hexdigest()
+
+        # Stash fingerprint on the request so perform_create can access it
+        request._order_fingerprint = fingerprint
+
+        # ── Layer 2b + Layer 3: Atomic fingerprint check + order creation ──
+        # The select_for_update lock on the customer row prevents TOCTOU races:
+        # both the duplicate check AND the insert happen inside the same transaction,
+        # so a concurrent request blocks on the lock until this one commits.
+        if customer_id:
+            # Phase A: Guard query (fail-open — if the guard itself breaks,
+            # we still create the order, just without duplicate protection)
+            guard_failed = False
+            try:
+                from customers.models import Customer
+                Customer.objects.filter(pk=customer_id).first()  # Validate customer exists
+            except Exception:
+                guard_failed = True
+                logger.warning(
+                    "DB duplicate guard: customer query failed for fingerprint=%s — proceeding (fail-open)",
+                    fingerprint[:16]
+                )
+
+            if not guard_failed:
+                with transaction.atomic():
+                    # Lock customer row — concurrent requests for this customer will wait
+                    Customer.objects.select_for_update().filter(pk=customer_id).first()
+
+                    recent_dup = Order.objects.filter(
+                        order_fingerprint=fingerprint,
+                        is_deleted=False,
+                        created_at__gte=timezone.now() - timedelta(minutes=10),
+                    ).first()
+                    if recent_dup:
+                        logger.warning(
+                            "DB duplicate guard triggered: fingerprint=%s matches order #%s",
+                            fingerprint[:16], recent_dup.display_id
+                        )
+                        return Response(
+                            {
+                                'detail': (
+                                    f'A similar order (#{recent_dup.display_id}) was created '
+                                    f'recently. Please verify before resubmitting.'
+                                ),
+                                'existing_order_id': str(recent_dup.id),
+                                'existing_display_id': recent_dup.display_id,
+                            },
+                            status=status.HTTP_409_CONFLICT
+                        )
+
+                    # No duplicate — create inside the same atomic block (lock held).
+                    # Exceptions from super().create() (ValidationError, IntegrityError)
+                    # propagate naturally to DRF's exception handler — NOT swallowed.
+                    response = super().create(request, *args, **kwargs)
+
+                    # Cache the idempotency key inside the same atomic block
+                    if idempotency_key and response.status_code == 201:
+                        try:
+                            from django.core.cache import cache
+                            cache_key = f"order_idempotency_{request.user.id}_{idempotency_key}"
+                            order_id = response.data.get('id')
+                            if order_id:
+                                cache.set(cache_key, order_id, timeout=600)
+                        except Exception:
+                            logger.warning("Cache set failed for idempotency key=%s", idempotency_key)
+
+                    return response
+
+        # Fallback path: guest orders (no customer_id) or guard failure (fail-open)
         response = super().create(request, *args, **kwargs)
 
-        # Cache the idempotency key → order ID mapping for 5 minutes
         if idempotency_key and response.status_code == 201:
-            from django.core.cache import cache
-            cache_key = f"order_idempotency_{request.user.id}_{idempotency_key}"
-            order_id = response.data.get('id')
-            if order_id:
-                cache.set(cache_key, order_id, timeout=300)
+            try:
+                from django.core.cache import cache
+                cache_key = f"order_idempotency_{request.user.id}_{idempotency_key}"
+                order_id = response.data.get('id')
+                if order_id:
+                    cache.set(cache_key, order_id, timeout=600)
+            except Exception:
+                logger.warning("Cache set failed for idempotency key=%s", idempotency_key)
 
         return response
 
     def perform_create(self, serializer):
-        """Inject created_by and manually freeze quantities if created as confirmed."""
-        instance = serializer.save(created_by=self.request.user)
+        """Inject created_by, store fingerprint, and freeze quantities if confirmed."""
+        fingerprint = getattr(self.request, '_order_fingerprint', '')
+        instance = serializer.save(
+            created_by=self.request.user,
+            order_fingerprint=fingerprint
+        )
         if instance.order_status in ('confirmed', 'completed'):
             instance.freeze_confirmed_quantities()
             
