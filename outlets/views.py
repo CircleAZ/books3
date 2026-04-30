@@ -2,11 +2,13 @@ from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from django.db import transaction
+from django_filters.rest_framework import DjangoFilterBackend
 from .models import (Outlet, OutletStock, OutletStockTransfer, OutletStockReturn, 
-                     OutletDailySale, OutletPayment)
+                     OutletDailySale, OutletPayment, OutletProductCommission)
 from .serializers import (OutletSerializer, OutletStockSerializer, 
                           OutletStockTransferSerializer, OutletStockReturnSerializer,
-                          OutletDailySaleSerializer, OutletPaymentSerializer)
+                          OutletDailySaleSerializer, OutletPaymentSerializer,
+                          OutletProductCommissionSerializer)
 
 class OutletViewSet(viewsets.ModelViewSet):
     queryset = Outlet.objects.all()
@@ -15,11 +17,61 @@ class OutletViewSet(viewsets.ModelViewSet):
 class OutletStockViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = OutletStock.objects.select_related('outlet', 'product')
     serializer_class = OutletStockSerializer
+    filter_backends = [DjangoFilterBackend]
     filterset_fields = ['outlet', 'product']
+
+class OutletProductCommissionViewSet(viewsets.ModelViewSet):
+    """
+    CRUD for per-product commission overrides at an outlet.
+    Supports bulk upsert via POST to /bulk_upsert/
+    """
+    queryset = OutletProductCommission.objects.select_related('product')
+    serializer_class = OutletProductCommissionSerializer
+    filter_backends = [DjangoFilterBackend]
+    filterset_fields = ['outlet', 'product']
+
+    @action(detail=False, methods=['post'])
+    def bulk_upsert(self, request):
+        """
+        Accept a list of { outlet, product, commission_percentage } dicts.
+        Creates or updates each entry atomically.
+        """
+        items = request.data
+        if not isinstance(items, list):
+            return Response({'error': 'Expected a list of items'}, status=status.HTTP_400_BAD_REQUEST)
+
+        results = []
+        with transaction.atomic():
+            for item in items:
+                outlet_id = item.get('outlet')
+                product_id = item.get('product')
+                rate = item.get('commission_percentage')
+
+                if not all([outlet_id, product_id, rate is not None]):
+                    return Response(
+                        {'error': f'Missing required fields in item: {item}'},
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
+
+                obj, created = OutletProductCommission.objects.update_or_create(
+                    outlet_id=outlet_id,
+                    product_id=product_id,
+                    defaults={'commission_percentage': rate}
+                )
+                results.append({
+                    'id': str(obj.id),
+                    'product': str(product_id),
+                    'commission_percentage': str(obj.commission_percentage),
+                    'created': created
+                })
+
+        return Response(results, status=status.HTTP_200_OK)
+
 
 class OutletStockTransferViewSet(viewsets.ModelViewSet):
     queryset = OutletStockTransfer.objects.all()
     serializer_class = OutletStockTransferSerializer
+    filter_backends = [DjangoFilterBackend]
     filterset_fields = ['outlet', 'status']
 
     def perform_create(self, serializer):
@@ -39,6 +91,7 @@ class OutletStockTransferViewSet(viewsets.ModelViewSet):
 class OutletStockReturnViewSet(viewsets.ModelViewSet):
     queryset = OutletStockReturn.objects.all()
     serializer_class = OutletStockReturnSerializer
+    filter_backends = [DjangoFilterBackend]
     filterset_fields = ['outlet', 'status', 'reason']
 
     def perform_create(self, serializer):
@@ -58,6 +111,7 @@ class OutletStockReturnViewSet(viewsets.ModelViewSet):
 class OutletDailySaleViewSet(viewsets.ModelViewSet):
     queryset = OutletDailySale.objects.all()
     serializer_class = OutletDailySaleSerializer
+    filter_backends = [DjangoFilterBackend]
     filterset_fields = ['outlet', 'date']
 
     def perform_create(self, serializer):
@@ -66,6 +120,7 @@ class OutletDailySaleViewSet(viewsets.ModelViewSet):
 class OutletPaymentViewSet(viewsets.ModelViewSet):
     queryset = OutletPayment.objects.all()
     serializer_class = OutletPaymentSerializer
+    filter_backends = [DjangoFilterBackend]
     filterset_fields = ['outlet', 'payment_method', 'date']
 
     def perform_create(self, serializer):

@@ -5,6 +5,7 @@ from io import BytesIO
 from PIL import Image, ImageOps
 from django.core.files.base import ContentFile
 import os
+from decimal import Decimal
 
 
 class Category(DisplayIDMixin, SoftDeleteModel):
@@ -82,6 +83,12 @@ class Product(DisplayIDMixin, SoftDeleteModel):
     stock_quantity = models.IntegerField(default=0)
     physical_stock = models.IntegerField(default=0, help_text="Actual stock sitting in the warehouse. Deducted only upon delivery.")
     low_stock_threshold = models.PositiveIntegerField(default=10)
+    default_commission = models.DecimalField(
+        max_digits=5, 
+        decimal_places=2, 
+        default=Decimal('0.00'),
+        help_text="Global default commission percentage for this product"
+    )
 
     def __str__(self):
         return self.name

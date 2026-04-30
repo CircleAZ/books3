@@ -59,7 +59,6 @@ export default function OutletsList() {
                             <th>ID</th>
                             <th>Outlet Name</th>
                             <th>Contact Person</th>
-                            <th>Commission</th>
                             <th className="text-right">Outstanding Balance</th>
                             <th className="text-center">Status</th>
                         </tr>
@@ -74,7 +73,6 @@ export default function OutletsList() {
                                 <td>#{outlet.display_id}</td>
                                 <td className="font-medium">{outlet.name}</td>
                                 <td>{outlet.contact_person || '-'}</td>
-                                <td>{outlet.commission_percentage}%</td>
                                 <td className={`text-right font-bold ${parseFloat(outlet.outstanding_balance) > 0 ? 'text-danger' : 'text-success'}`}>
                                     {formatCurrency(outlet.outstanding_balance)}
                                 </td>
@@ -87,7 +85,7 @@ export default function OutletsList() {
                         ))}
                         {outlets.length === 0 && (
                             <tr>
-                                <td colSpan="6" className="text-center py-8 text-muted">
+                                <td colSpan="5" className="text-center py-8 text-muted">
                                     No outlets found. Add one to get started.
                                 </td>
                             </tr>

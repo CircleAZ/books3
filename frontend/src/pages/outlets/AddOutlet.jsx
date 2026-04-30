@@ -16,7 +16,6 @@ export default function AddOutlet() {
         phone: '',
         email: '',
         address: '',
-        commission_percentage: '0.00',
         is_active: true
     });
 
@@ -62,22 +61,6 @@ export default function AddOutlet() {
                             value={formData.name}
                             onChange={e => setFormData({...formData, name: e.target.value})}
                         />
-                    </div>
-
-                    <div className="form-group">
-                        <label>Commission Percentage (%) *</label>
-                        <input 
-                            type="number" 
-                            step="0.01"
-                            min="0"
-                            max="100"
-                            required 
-                            className="form-input"
-                            value={formData.commission_percentage}
-                            onChange={e => setFormData({...formData, commission_percentage: e.target.value})}
-                            title="The percentage of gross sales kept by the outlet"
-                        />
-                        <small className="text-muted">E.g. 10.00</small>
                     </div>
 
                     <div className="form-row">

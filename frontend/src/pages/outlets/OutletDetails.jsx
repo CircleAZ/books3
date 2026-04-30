@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { ENDPOINTS } from '../../config/api';
@@ -24,6 +24,14 @@ export default function OutletDetails() {
     const [loading, setLoading] = useState(true);
     
     const [activeTab, setActiveTab] = useState('stock');
+
+    // Commission Matrix State
+    const [products, setProducts] = useState([]);
+    const [commissions, setCommissions] = useState([]);
+    const [overrides, setOverrides] = useState({});      // { productId: rateString }
+    const [commissionSearch, setCommissionSearch] = useState('');
+    const [savingCommissions, setSavingCommissions] = useState(false);
+    const [commissionsLoaded, setCommissionsLoaded] = useState(false);
 
     // Modal states
     const [isTransferModalOpen, setIsTransferModalOpen] = useState(false);
@@ -69,9 +77,47 @@ export default function OutletDetails() {
         }
     }, [fetchWithAuth, id, showToast]);
 
+    // Lazy-load commission data only when the tab is activated
+    const fetchCommissionData = useCallback(async () => {
+        if (commissionsLoaded) return;
+        try {
+            const [productsRes, commissionsRes] = await Promise.all([
+                fetchWithAuth(ENDPOINTS.INVENTORY_PRODUCTS),
+                fetchWithAuth(`${ENDPOINTS.OUTLETS_COMMISSIONS}?outlet=${id}`)
+            ]);
+
+            if (productsRes.ok) {
+                const productsData = await productsRes.json();
+                setProducts(productsData.results || productsData);
+            }
+            if (commissionsRes.ok) {
+                const commData = await commissionsRes.json();
+                const commList = commData.results || commData;
+                setCommissions(commList);
+                
+                // Seed the overrides map from existing saved values
+                const seedOverrides = {};
+                commList.forEach(c => {
+                    seedOverrides[c.product] = c.commission_percentage;
+                });
+                setOverrides(seedOverrides);
+            }
+            setCommissionsLoaded(true);
+        } catch (error) {
+            console.error("Failed to load commission data:", error);
+            showToast("Failed to load commission rates", "error");
+        }
+    }, [fetchWithAuth, id, showToast, commissionsLoaded]);
+
     useEffect(() => {
         fetchOutletData();
     }, [fetchOutletData, location.key]);
+
+    useEffect(() => {
+        if (activeTab === 'commissions') {
+            fetchCommissionData();
+        }
+    }, [activeTab, fetchCommissionData]);
 
     const handleDispatchTransfer = async (transferId) => {
         try {
@@ -90,6 +136,81 @@ export default function OutletDetails() {
         }
     };
 
+    // Commission Matrix Logic
+    const handleOverrideChange = (productId, value) => {
+        setOverrides(prev => ({ ...prev, [productId]: value }));
+    };
+
+    const handleClearOverride = (productId) => {
+        setOverrides(prev => {
+            const next = { ...prev };
+            delete next[productId];
+            return next;
+        });
+    };
+
+    const handleSaveCommissions = async () => {
+        setSavingCommissions(true);
+        try {
+            // Build the payload: only send products that have a non-empty override
+            const payload = Object.entries(overrides)
+                .filter(([_, rate]) => rate !== '' && rate !== undefined && rate !== null)
+                .map(([productId, rate]) => ({
+                    outlet: id,
+                    product: productId,
+                    commission_percentage: parseFloat(rate).toFixed(2)
+                }));
+
+            // Also delete any existing commissions where the override was cleared
+            const existingProductIds = commissions.map(c => c.product);
+            const clearedProductIds = existingProductIds.filter(pid => !(pid in overrides));
+            
+            // Delete cleared overrides
+            for (const pid of clearedProductIds) {
+                const existing = commissions.find(c => c.product === pid);
+                if (existing) {
+                    await fetchWithAuth(`${ENDPOINTS.OUTLETS_COMMISSIONS}${existing.id}/`, {
+                        method: 'DELETE'
+                    });
+                }
+            }
+
+            if (payload.length > 0) {
+                const response = await fetchWithAuth(ENDPOINTS.OUTLETS_COMMISSIONS_BULK, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                
+                if (!response.ok) {
+                    const err = await response.json().catch(() => ({}));
+                    throw new Error(err.error || 'Failed to save commissions');
+                }
+            }
+
+            showToast("Commission rates saved successfully", "success");
+            // Force re-fetch to sync with server
+            setCommissionsLoaded(false);
+        } catch (error) {
+            showToast(error.message || "Failed to save commission rates", "error");
+        } finally {
+            setSavingCommissions(false);
+        }
+    };
+
+    // Filtered products for commission matrix search
+    const filteredProducts = useMemo(() => {
+        if (!commissionSearch.trim()) return products;
+        const q = commissionSearch.toLowerCase();
+        return products.filter(p => 
+            p.name.toLowerCase().includes(q) || 
+            (p.display_id && String(p.display_id).includes(q))
+        );
+    }, [products, commissionSearch]);
+
+    // Count how many products have overrides
+    const overrideCount = Object.keys(overrides).length;
+
     if (loading) return <div className="page-loading">Loading Ledger...</div>;
     if (!outlet) return <div className="page-loading">Outlet not found.</div>;
 
@@ -98,7 +219,7 @@ export default function OutletDetails() {
             <div className="page-header" style={{ marginBottom: '1rem' }}>
                 <div>
                     <h1 className="page-title">{outlet.name} (Outlet #{outlet.display_id})</h1>
-                    <p className="page-subtitle">Commission: {outlet.commission_percentage}% | Contact: {outlet.contact_person || 'N/A'}</p>
+                    <p className="page-subtitle">Contact: {outlet.contact_person || 'N/A'} | {outlet.phone || 'No phone'}</p>
                 </div>
                 <div style={{ textAlign: 'right' }}>
                     <div style={{ fontSize: '0.875rem', color: 'var(--color-text-muted)', marginBottom: '0.25rem' }}>Outstanding Balance</div>
@@ -141,6 +262,7 @@ export default function OutletDetails() {
                 <button className={`tab ${activeTab === 'sales' ? 'active' : ''}`} onClick={() => setActiveTab('sales')}>Sales Logs ({sales.length})</button>
                 <button className={`tab ${activeTab === 'payments' ? 'active' : ''}`} onClick={() => setActiveTab('payments')}>Payments ({payments.length})</button>
                 <button className={`tab ${activeTab === 'transfers' ? 'active' : ''}`} onClick={() => setActiveTab('transfers')}>Transfers ({transfers.length})</button>
+                <button className={`tab ${activeTab === 'commissions' ? 'active' : ''}`} onClick={() => setActiveTab('commissions')}>Commissions</button>
             </div>
 
             {/* Tab Content */}
@@ -259,6 +381,129 @@ export default function OutletDetails() {
                                     </tr>
                                 ))}
                                 {transfers.length === 0 && <tr><td colSpan="4" className="text-center text-muted">No transfers recorded.</td></tr>}
+                            </tbody>
+                        </table>
+                    </div>
+                )}
+
+                {activeTab === 'commissions' && (
+                    <div className="table-card">
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '1rem 1.25rem', borderBottom: '1px solid var(--color-border)' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                                <input
+                                    type="text"
+                                    className="form-input"
+                                    placeholder="Search products..."
+                                    value={commissionSearch}
+                                    onChange={(e) => setCommissionSearch(e.target.value)}
+                                    style={{ width: '250px' }}
+                                />
+                                {overrideCount > 0 && (
+                                    <span className="status-badge status-info" style={{ fontSize: '0.75rem' }}>
+                                        {overrideCount} override{overrideCount !== 1 ? 's' : ''}
+                                    </span>
+                                )}
+                            </div>
+                            <button 
+                                className="btn btn-primary"
+                                onClick={handleSaveCommissions}
+                                disabled={savingCommissions}
+                            >
+                                {savingCommissions ? 'Saving...' : 'Save Commission Rates'}
+                            </button>
+                        </div>
+                        
+                        <div style={{ padding: '0.75rem 1.25rem', background: 'var(--color-bg-tertiary)', borderBottom: '1px solid var(--color-border)', fontSize: '0.8rem', color: 'var(--color-text-muted)' }}>
+                            <strong>How it works:</strong> Each product has a Global Default rate. Enter a custom rate below to override it for this outlet. 
+                            Leave blank to use the global default. Rates are frozen at the time of each sale.
+                        </div>
+                        
+                        <table className="data-table">
+                            <thead>
+                                <tr>
+                                    <th>Product</th>
+                                    <th>ID</th>
+                                    <th className="text-right">Selling Price</th>
+                                    <th className="text-center">Global Default (%)</th>
+                                    <th className="text-center" style={{ minWidth: '160px' }}>Override for this Outlet (%)</th>
+                                    <th className="text-center">Effective Rate</th>
+                                    <th></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {!commissionsLoaded ? (
+                                    <tr><td colSpan="7" className="text-center text-muted" style={{ padding: '2rem' }}>Loading commission data...</td></tr>
+                                ) : filteredProducts.length === 0 ? (
+                                    <tr><td colSpan="7" className="text-center text-muted" style={{ padding: '2rem' }}>
+                                        {commissionSearch ? 'No products match your search.' : 'No products found.'}
+                                    </td></tr>
+                                ) : filteredProducts.map(product => {
+                                    const hasOverride = product.id in overrides;
+                                    const overrideValue = hasOverride ? overrides[product.id] : '';
+                                    const globalDefault = parseFloat(product.default_commission || 0).toFixed(2);
+                                    const effectiveRate = hasOverride && overrideValue !== '' 
+                                        ? parseFloat(overrideValue).toFixed(2)
+                                        : globalDefault;
+                                    const isCustom = hasOverride && overrideValue !== '';
+
+                                    return (
+                                        <tr key={product.id} style={isCustom ? { background: 'var(--color-bg-highlight, rgba(59, 130, 246, 0.05))' } : {}}>
+                                            <td className="font-medium">{product.name}</td>
+                                            <td style={{ color: 'var(--color-text-muted)', fontSize: '0.85rem' }}>#{product.display_id}</td>
+                                            <td className="text-right">{formatCurrency(product.selling_price)}</td>
+                                            <td className="text-center" style={{ color: 'var(--color-text-muted)' }}>
+                                                {globalDefault}%
+                                            </td>
+                                            <td className="text-center">
+                                                <input
+                                                    type="number"
+                                                    className="form-input"
+                                                    placeholder={`${globalDefault}`}
+                                                    value={overrideValue}
+                                                    onChange={(e) => handleOverrideChange(product.id, e.target.value)}
+                                                    min="0"
+                                                    max="100"
+                                                    step="0.01"
+                                                    style={{ 
+                                                        width: '100px', 
+                                                        textAlign: 'center',
+                                                        margin: '0 auto',
+                                                        display: 'block',
+                                                        border: isCustom ? '2px solid var(--color-primary)' : undefined
+                                                    }}
+                                                />
+                                            </td>
+                                            <td className="text-center font-bold" style={{ color: isCustom ? 'var(--color-primary)' : 'inherit' }}>
+                                                {effectiveRate}%
+                                                {isCustom && (
+                                                    <span style={{ 
+                                                        marginLeft: '0.35rem',
+                                                        fontSize: '0.65rem', 
+                                                        padding: '0.1rem 0.35rem',
+                                                        borderRadius: '4px',
+                                                        background: 'var(--color-primary)',
+                                                        color: '#fff',
+                                                        verticalAlign: 'middle'
+                                                    }}>
+                                                        CUSTOM
+                                                    </span>
+                                                )}
+                                            </td>
+                                            <td className="text-center">
+                                                {isCustom && (
+                                                    <button
+                                                        className="btn btn-sm btn-danger"
+                                                        onClick={() => handleClearOverride(product.id)}
+                                                        title="Remove override, revert to global default"
+                                                        style={{ padding: '0.2rem 0.5rem', fontSize: '0.75rem' }}
+                                                    >
+                                                        ✕
+                                                    </button>
+                                                )}
+                                            </td>
+                                        </tr>
+                                    );
+                                })}
                             </tbody>
                         </table>
                     </div>

@@ -1,13 +1,19 @@
 from django.contrib import admin
 from .models import (Outlet, OutletStock, OutletStockTransfer, OutletStockTransferItem, 
                      OutletStockReturn, OutletStockReturnItem, OutletDailySale, 
-                     OutletDailySaleItem, OutletPayment)
+                     OutletDailySaleItem, OutletPayment, OutletProductCommission)
 
 @admin.register(Outlet)
 class OutletAdmin(admin.ModelAdmin):
-    list_display = ('display_id', 'name', 'commission_percentage', 'is_active', 'outstanding_balance')
+    list_display = ('display_id', 'name', 'is_active', 'outstanding_balance')
     search_fields = ('name', 'contact_person', 'phone')
     list_filter = ('is_active',)
+
+@admin.register(OutletProductCommission)
+class OutletProductCommissionAdmin(admin.ModelAdmin):
+    list_display = ('outlet', 'product', 'commission_percentage')
+    list_filter = ('outlet',)
+    search_fields = ('outlet__name', 'product__name')
 
 @admin.register(OutletStock)
 class OutletStockAdmin(admin.ModelAdmin):

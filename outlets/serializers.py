@@ -1,7 +1,7 @@
 from rest_framework import serializers
 from .models import (Outlet, OutletStock, OutletStockTransfer, OutletStockTransferItem, 
                      OutletStockReturn, OutletStockReturnItem, OutletDailySale, 
-                     OutletDailySaleItem, OutletPayment)
+                     OutletDailySaleItem, OutletPayment, OutletProductCommission)
 from inventory.serializers import ProductListSerializer
 
 class OutletSerializer(serializers.ModelSerializer):
@@ -15,6 +15,24 @@ class OutletSerializer(serializers.ModelSerializer):
         model = Outlet
         fields = '__all__'
         read_only_fields = ('display_id',)
+
+
+# --- Commission Overrides ---
+class OutletProductCommissionSerializer(serializers.ModelSerializer):
+    product_name = serializers.CharField(source='product.name', read_only=True)
+    product_sku = serializers.SerializerMethodField()
+    default_commission = serializers.DecimalField(
+        source='product.default_commission', max_digits=5, decimal_places=2, read_only=True
+    )
+
+    class Meta:
+        model = OutletProductCommission
+        fields = ('id', 'outlet', 'product', 'product_name', 'product_sku', 
+                  'commission_percentage', 'default_commission')
+
+    def get_product_sku(self, obj):
+        return getattr(obj.product, 'sku', '') if obj.product else ''
+
 
 class OutletStockSerializer(serializers.ModelSerializer):
     product_details = ProductListSerializer(source='product', read_only=True)
@@ -79,8 +97,9 @@ class OutletDailySaleItemSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = OutletDailySaleItem
-        fields = ('id', 'product', 'product_details', 'quantity', 'unit_price', 'line_total')
-        read_only_fields = ('unit_price', 'line_total')
+        fields = ('id', 'product', 'product_details', 'quantity', 'unit_price', 
+                  'commission_percentage', 'commission_amount', 'line_total')
+        read_only_fields = ('unit_price', 'commission_percentage', 'commission_amount', 'line_total')
 
 class OutletDailySaleSerializer(serializers.ModelSerializer):
     items = OutletDailySaleItemSerializer(many=True, required=False)

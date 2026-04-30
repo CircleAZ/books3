@@ -85,7 +85,7 @@ class ProductListSerializer(serializers.ModelSerializer):
             'id', 'display_id', 'name', 'category_name', 'vendor_name',
             'cost_price', 'selling_price', 'stock_quantity', 'physical_stock',
             'low_stock_threshold', 'primary_image_url', 'is_low_stock',
-            'deleted_at'
+            'default_commission', 'deleted_at'
         ]
         read_only_fields = ['display_id']
 
@@ -132,7 +132,8 @@ class ProductDetailSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'display_id', 'name', 'description', 'category', 'vendor',
             'tags', 'images', 'cost_price', 'selling_price',
-            'stock_quantity', 'physical_stock', 'low_stock_threshold', 'is_low_stock'
+            'stock_quantity', 'physical_stock', 'low_stock_threshold', 'is_low_stock',
+            'default_commission'
         ]
         read_only_fields = ['display_id']
 
@@ -156,7 +157,7 @@ class ProductCreateUpdateSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'display_id', 'name', 'description', 'category', 'vendor', 'tags',
             'cost_price', 'selling_price', 'stock_quantity', 'physical_stock', 'low_stock_threshold',
-            'is_additional', 'images', 'thumbnails'
+            'is_additional', 'default_commission', 'images', 'thumbnails'
         ]
         read_only_fields = ['id', 'display_id']
     

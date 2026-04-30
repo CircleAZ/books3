@@ -15,17 +15,10 @@ class Outlet(DisplayIDMixin, SoftDeleteModel):
     phone = models.CharField(max_length=50, blank=True)
     email = models.EmailField(blank=True)
     address = models.TextField(blank=True)
-    commission_percentage = models.DecimalField(
-        max_digits=5, 
-        decimal_places=2, 
-        default=Decimal('0.00'),
-        validators=[MinValueValidator(Decimal('0.00'))],
-        help_text="Percentage of gross sales kept by the outlet"
-    )
     is_active = models.BooleanField(default=True)
 
     def __str__(self):
-        return f"{self.name} (Commission: {self.commission_percentage}%)"
+        return self.name
     
     # Financial Properties
     @property
@@ -48,6 +41,26 @@ class Outlet(DisplayIDMixin, SoftDeleteModel):
     def outstanding_balance(self):
         """The Finn Protocol: Outstanding Balance = SUM(Net Receivable) - SUM(OutletPayments)"""
         return self.total_net_sales - self.total_paid
+
+
+class OutletProductCommission(UUIDPrimaryKeyModel):
+    """
+    Override mapping for specific product commission rates at a specific outlet.
+    """
+    outlet = models.ForeignKey(Outlet, on_delete=models.CASCADE, related_name='product_commissions')
+    product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name='outlet_commissions')
+    commission_percentage = models.DecimalField(
+        max_digits=5, 
+        decimal_places=2, 
+        validators=[MinValueValidator(Decimal('0.00'))],
+        help_text="Specific commission percentage for this product at this outlet"
+    )
+
+    class Meta:
+        unique_together = ('outlet', 'product')
+
+    def __str__(self):
+        return f"{self.outlet.name} - {self.product.name}: {self.commission_percentage}%"
 
 
 class OutletStock(UUIDPrimaryKeyModel):
@@ -289,11 +302,13 @@ class OutletDailySale(DisplayIDMixin, SoftDeleteModel):
             item.soft_delete()
             
     def recalculate_totals(self):
-        gross = sum(item.line_total for item in self.items.all())
-        commission = gross * (self.outlet.commission_percentage / Decimal('100.00'))
+        """Aggregate financials from per-line-item commission calculations."""
+        items = list(self.items.all())
+        gross = sum(item.line_total for item in items)
+        commission = sum(item.commission_amount for item in items)
         net = gross - commission
         self.gross_total = gross
-        self.commission_amount = commission.quantize(Decimal('0.01'))
+        self.commission_amount = commission
         self.net_total = net.quantize(Decimal('0.01'))
         self.save(update_fields=['gross_total', 'commission_amount', 'net_total'])
 
@@ -307,6 +322,18 @@ class OutletDailySaleItem(SoftDeleteModel):
         decimal_places=2,
         help_text="Temporal Pricing: Captured exactly at the moment of sale creation"
     )
+    commission_percentage = models.DecimalField(
+        max_digits=5, 
+        decimal_places=2,
+        default=Decimal('0.00'),
+        help_text="Frozen commission percentage at the time of sale"
+    )
+    commission_amount = models.DecimalField(
+        max_digits=12, 
+        decimal_places=2,
+        default=Decimal('0.00'),
+        help_text="Calculated commission amount for this line item"
+    )
 
     @property
     def line_total(self):
@@ -315,11 +342,36 @@ class OutletDailySaleItem(SoftDeleteModel):
     def __str__(self):
         return f"{self.quantity} x {self.product.name} @ {self.unit_price}"
 
+    @staticmethod
+    def resolve_commission_rate(outlet, product):
+        """
+        Two-Tier Commission Hierarchy:
+        1. Check for outlet-specific override (OutletProductCommission)
+        2. Fall back to product's global default_commission
+        """
+        try:
+            override = OutletProductCommission.objects.get(
+                outlet=outlet, product=product
+            )
+            return override.commission_percentage
+        except OutletProductCommission.DoesNotExist:
+            return product.default_commission
+
     def save(self, *args, **kwargs):
         is_new = self._state.adding
         if is_new and not self.unit_price:
             # Temporal Pricing Constraint
             self.unit_price = self.product.selling_price
+        
+        if is_new:
+            # Freeze the commission rate at time of sale
+            self.commission_percentage = self.resolve_commission_rate(
+                self.sale.outlet, self.product
+            )
+            
+        # Calculate commission amount from frozen rate
+        line = self.quantity * self.unit_price
+        self.commission_amount = (line * self.commission_percentage / Decimal('100.00')).quantize(Decimal('0.01'))
             
         with transaction.atomic():
             super().save(*args, **kwargs)

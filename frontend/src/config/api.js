@@ -106,6 +106,8 @@ export const ENDPOINTS = {
     // Outlets
     OUTLETS: `${API_BASE}/outlets/outlets/`,
     OUTLETS_STOCK: `${API_BASE}/outlets/stock/`,
+    OUTLETS_COMMISSIONS: `${API_BASE}/outlets/commissions/`,
+    OUTLETS_COMMISSIONS_BULK: `${API_BASE}/outlets/commissions/bulk_upsert/`,
     OUTLETS_TRANSFERS: `${API_BASE}/outlets/transfers/`,
     OUTLETS_RETURNS: `${API_BASE}/outlets/returns/`,
     OUTLETS_SALES: `${API_BASE}/outlets/sales/`,
