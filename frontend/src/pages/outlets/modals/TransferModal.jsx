@@ -1,9 +1,10 @@
-import React, { useState, useEffect } from 'react';
-import axios from 'axios';
-import { API_BASE } from '../../../config/api';
+import { useState, useEffect } from 'react';
+import { useAuth } from '../../../context/AuthContext';
+import { ENDPOINTS } from '../../../config/api';
 import { useToast } from '../../../context/ToastContext';
 
 export default function TransferModal({ isOpen, onClose, outletId, onTransferComplete }) {
+    const { fetchWithAuth } = useAuth();
     const { showToast } = useToast();
     const [loading, setLoading] = useState(false);
     const [products, setProducts] = useState([]);
@@ -21,8 +22,11 @@ export default function TransferModal({ isOpen, onClose, outletId, onTransferCom
 
     const fetchProducts = async () => {
         try {
-            const res = await axios.get(`${API_BASE}/inventory/products/?is_active=true`);
-            setProducts(res.data.results || res.data);
+            const res = await fetchWithAuth(`${ENDPOINTS.INVENTORY_PRODUCTS}?is_active=true`);
+            if (res.ok) {
+                const data = await res.json();
+                setProducts(data.results || data);
+            }
         } catch (error) {
             showToast("Failed to fetch products", "error");
         }
@@ -67,10 +71,18 @@ export default function TransferModal({ isOpen, onClose, outletId, onTransferCom
                     quantity: item.quantity
                 }))
             };
-            await axios.post(`${API_BASE}/outlets/transfers/`, payload);
-            showToast("Stock Transfer drafted successfully", "success");
-            onTransferComplete();
-            onClose();
+            const response = await fetchWithAuth(ENDPOINTS.OUTLETS_TRANSFERS, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            if (response.ok) {
+                showToast("Stock Transfer drafted successfully", "success");
+                onTransferComplete();
+                onClose();
+            } else {
+                showToast("Failed to create stock transfer", "error");
+            }
         } catch (error) {
             console.error(error);
             showToast("Failed to create stock transfer", "error");

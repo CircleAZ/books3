@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
-import axios from 'axios';
-import { API_BASE } from '../../config/api';
+import { useState, useEffect, useCallback } from 'react';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
+import { useAuth } from '../../context/AuthContext';
+import { ENDPOINTS } from '../../config/api';
 import { useCurrency } from '../../context/CurrencyContext';
 import { useToast } from '../../context/ToastContext';
 import TransferModal from './modals/TransferModal';
@@ -11,6 +11,8 @@ import SaleModal from './modals/SaleModal';
 export default function OutletDetails() {
     const { id } = useParams();
     const navigate = useNavigate();
+    const location = useLocation();
+    const { fetchWithAuth } = useAuth();
     const { formatCurrency } = useCurrency();
     const { showToast } = useToast();
     
@@ -28,41 +30,63 @@ export default function OutletDetails() {
     const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
     const [isSaleModalOpen, setIsSaleModalOpen] = useState(false);
 
-    useEffect(() => {
-        fetchOutletData();
-    }, [id]);
-
-    const fetchOutletData = async () => {
+    const fetchOutletData = useCallback(async () => {
         try {
             setLoading(true);
             const [outletRes, stockRes, salesRes, paymentsRes, transferRes] = await Promise.all([
-                axios.get(`${API_BASE}/outlets/outlets/${id}/`),
-                axios.get(`${API_BASE}/outlets/stock/?outlet=${id}`),
-                axios.get(`${API_BASE}/outlets/sales/?outlet=${id}`),
-                axios.get(`${API_BASE}/outlets/payments/?outlet=${id}`),
-                axios.get(`${API_BASE}/outlets/transfers/?outlet=${id}`)
+                fetchWithAuth(`${ENDPOINTS.OUTLETS}${id}/`),
+                fetchWithAuth(`${ENDPOINTS.OUTLETS_STOCK}?outlet=${id}`),
+                fetchWithAuth(`${ENDPOINTS.OUTLETS_SALES}?outlet=${id}`),
+                fetchWithAuth(`${ENDPOINTS.OUTLETS_PAYMENTS}?outlet=${id}`),
+                fetchWithAuth(`${ENDPOINTS.OUTLETS_TRANSFERS}?outlet=${id}`)
             ]);
             
-            setOutlet(outletRes.data);
-            setStock(stockRes.data.results || stockRes.data);
-            setSales(salesRes.data.results || salesRes.data);
-            setPayments(paymentsRes.data.results || paymentsRes.data);
-            setTransfers(transferRes.data.results || transferRes.data);
+            if (outletRes.ok) {
+                const outletData = await outletRes.json();
+                setOutlet(outletData);
+            }
+            if (stockRes.ok) {
+                const stockData = await stockRes.json();
+                setStock(stockData.results || stockData);
+            }
+            if (salesRes.ok) {
+                const salesData = await salesRes.json();
+                setSales(salesData.results || salesData);
+            }
+            if (paymentsRes.ok) {
+                const paymentsData = await paymentsRes.json();
+                setPayments(paymentsData.results || paymentsData);
+            }
+            if (transferRes.ok) {
+                const transferData = await transferRes.json();
+                setTransfers(transferData.results || transferData);
+            }
         } catch (error) {
             console.error("Failed to load ledger:", error);
             showToast("Failed to load outlet ledger data", "error");
         } finally {
             setLoading(false);
         }
-    };
+    }, [fetchWithAuth, id, showToast]);
+
+    useEffect(() => {
+        fetchOutletData();
+    }, [fetchOutletData, location.key]);
 
     const handleDispatchTransfer = async (transferId) => {
         try {
-            await axios.post(`${API_BASE}/outlets/transfers/${transferId}/dispatch_transfer/`);
-            showToast("Transfer dispatched successfully", "success");
-            fetchOutletData(); // refresh
+            const response = await fetchWithAuth(`${ENDPOINTS.OUTLETS_TRANSFERS}${transferId}/dispatch_transfer/`, {
+                method: 'POST'
+            });
+            if (response.ok) {
+                showToast("Transfer dispatched successfully", "success");
+                fetchOutletData(); // refresh
+            } else {
+                const err = await response.json().catch(() => ({}));
+                showToast(err.error || "Failed to dispatch transfer", "error");
+            }
         } catch (error) {
-            showToast(error.response?.data?.error || "Failed to dispatch transfer", "error");
+            showToast("Failed to dispatch transfer", "error");
         }
     };
 

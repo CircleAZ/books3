@@ -1,9 +1,10 @@
-import React, { useState, useEffect } from 'react';
-import axios from 'axios';
-import { API_BASE } from '../../../config/api';
+import { useState, useEffect } from 'react';
+import { useAuth } from '../../../context/AuthContext';
+import { ENDPOINTS } from '../../../config/api';
 import { useToast } from '../../../context/ToastContext';
 
 export default function PaymentModal({ isOpen, onClose, outletId, outstandingBalance, onPaymentComplete }) {
+    const { fetchWithAuth } = useAuth();
     const { showToast } = useToast();
     const [loading, setLoading] = useState(false);
     
@@ -40,11 +41,17 @@ export default function PaymentModal({ isOpen, onClose, outletId, outstandingBal
     const fetchFinanceAccounts = async () => {
         try {
             const [banksRes, walletsRes] = await Promise.all([
-                axios.get(`${API_BASE}/finance/bank-accounts/`),
-                axios.get(`${API_BASE}/finance/cash-wallets/`)
+                fetchWithAuth(ENDPOINTS.FINANCE_BANK_ACCOUNTS),
+                fetchWithAuth(ENDPOINTS.FINANCE_CASH_WALLETS)
             ]);
-            setBankAccounts(banksRes.data.results || banksRes.data);
-            setCashWallets(walletsRes.data.results || walletsRes.data);
+            if (banksRes.ok) {
+                const banksData = await banksRes.json();
+                setBankAccounts(banksData.results || banksData);
+            }
+            if (walletsRes.ok) {
+                const walletsData = await walletsRes.json();
+                setCashWallets(walletsData.results || walletsData);
+            }
         } catch (error) {
             showToast("Failed to fetch finance accounts", "error");
         }
@@ -67,10 +74,18 @@ export default function PaymentModal({ isOpen, onClose, outletId, outstandingBal
         try {
             // The backend ViewSet / Serializer should handle the link to bank_transaction/wallet_transaction.
             // We pass extra context fields.
-            await axios.post(`${API_BASE}/outlets/payments/`, formData);
-            showToast("Payment recorded and injected into finance ledger", "success");
-            onPaymentComplete();
-            onClose();
+            const response = await fetchWithAuth(ENDPOINTS.OUTLETS_PAYMENTS, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(formData)
+            });
+            if (response.ok) {
+                showToast("Payment recorded and injected into finance ledger", "success");
+                onPaymentComplete();
+                onClose();
+            } else {
+                showToast("Failed to record payment", "error");
+            }
         } catch (error) {
             console.error(error);
             showToast("Failed to record payment", "error");

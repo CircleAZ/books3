@@ -1,32 +1,39 @@
-import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import axios from 'axios';
-import { API_BASE } from '../../config/api';
+import { useState, useEffect, useCallback } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
+import { useAuth } from '../../context/AuthContext';
+import { ENDPOINTS } from '../../config/api';
 import { useCurrency } from '../../context/CurrencyContext';
 import { useToast } from '../../context/ToastContext';
 
 export default function OutletsList() {
     const [outlets, setOutlets] = useState([]);
     const [loading, setLoading] = useState(true);
+    const { fetchWithAuth } = useAuth();
     const { formatCurrency } = useCurrency();
     const { showToast } = useToast();
     const navigate = useNavigate();
+    const location = useLocation();
 
-    useEffect(() => {
-        fetchOutlets();
-    }, []);
-
-    const fetchOutlets = async () => {
+    const fetchOutlets = useCallback(async () => {
         try {
-            const response = await axios.get(`${API_BASE}/outlets/outlets/`);
-            setOutlets(response.data);
+            const response = await fetchWithAuth(ENDPOINTS.OUTLETS);
+            if (response.ok) {
+                const data = await response.json();
+                setOutlets(data.results || data);
+            } else {
+                showToast("Failed to load outlets", "error");
+            }
         } catch (error) {
             console.error("Failed to fetch outlets:", error);
             showToast("Failed to load outlets", "error");
         } finally {
             setLoading(false);
         }
-    };
+    }, [fetchWithAuth, showToast]);
+
+    useEffect(() => {
+        fetchOutlets();
+    }, [fetchOutlets, location.key]);
 
     if (loading) return <div className="page-loading">Loading Outlets...</div>;
 

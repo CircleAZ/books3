@@ -1,11 +1,12 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import axios from 'axios';
-import { API_BASE } from '../../config/api';
+import { useAuth } from '../../context/AuthContext';
+import { ENDPOINTS } from '../../config/api';
 import { useToast } from '../../context/ToastContext';
 
 export default function AddOutlet() {
     const navigate = useNavigate();
+    const { fetchWithAuth } = useAuth();
     const { showToast } = useToast();
     const [loading, setLoading] = useState(false);
     
@@ -23,9 +24,19 @@ export default function AddOutlet() {
         e.preventDefault();
         setLoading(true);
         try {
-            const response = await axios.post(`${API_BASE}/outlets/outlets/`, formData);
-            showToast("Outlet created successfully!", "success");
-            navigate(`/outlets/${response.data.id}`);
+            const response = await fetchWithAuth(ENDPOINTS.OUTLETS, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(formData)
+            });
+            if (response.ok) {
+                const data = await response.json();
+                showToast("Outlet created successfully!", "success");
+                navigate(`/outlets/${data.id}`);
+            } else {
+                const err = await response.json().catch(() => ({}));
+                showToast(err.detail || "Failed to create outlet", "error");
+            }
         } catch (error) {
             console.error(error);
             showToast("Failed to create outlet", "error");

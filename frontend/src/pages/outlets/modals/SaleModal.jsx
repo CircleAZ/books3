@@ -1,9 +1,10 @@
-import React, { useState, useEffect } from 'react';
-import axios from 'axios';
-import { API_BASE } from '../../../config/api';
+import { useState, useEffect } from 'react';
+import { useAuth } from '../../../context/AuthContext';
+import { ENDPOINTS } from '../../../config/api';
 import { useToast } from '../../../context/ToastContext';
 
 export default function SaleModal({ isOpen, onClose, outletId, onSaleComplete }) {
+    const { fetchWithAuth } = useAuth();
     const { showToast } = useToast();
     const [loading, setLoading] = useState(false);
     const [outletStock, setOutletStock] = useState([]);
@@ -21,8 +22,11 @@ export default function SaleModal({ isOpen, onClose, outletId, onSaleComplete })
 
     const fetchOutletStock = async () => {
         try {
-            const res = await axios.get(`${API_BASE}/outlets/stock/?outlet=${outletId}`);
-            setOutletStock(res.data.results || res.data);
+            const res = await fetchWithAuth(`${ENDPOINTS.OUTLETS_STOCK}?outlet=${outletId}`);
+            if (res.ok) {
+                const data = await res.json();
+                setOutletStock(data.results || data);
+            }
         } catch (error) {
             showToast("Failed to fetch outlet stock", "error");
         }
@@ -75,10 +79,18 @@ export default function SaleModal({ isOpen, onClose, outletId, onSaleComplete })
                     quantity: item.quantity
                 }))
             };
-            await axios.post(`${API_BASE}/outlets/sales/`, payload);
-            showToast("Daily Sale recorded successfully", "success");
-            onSaleComplete();
-            onClose();
+            const response = await fetchWithAuth(ENDPOINTS.OUTLETS_SALES, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            if (response.ok) {
+                showToast("Daily Sale recorded successfully", "success");
+                onSaleComplete();
+                onClose();
+            } else {
+                showToast("Failed to record daily sale", "error");
+            }
         } catch (error) {
             console.error(error);
             showToast("Failed to record daily sale", "error");
