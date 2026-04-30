@@ -103,6 +103,14 @@ export const ENDPOINTS = {
     SETTINGS_PAYMENT_METHODS: `${API_BASE}/settings/payment-methods/`,
     SETTINGS_UPI_ACCOUNTS: `${API_BASE}/settings/upi-accounts/`,
 
+    // Outlets
+    OUTLETS: `${API_BASE}/outlets/outlets/`,
+    OUTLETS_STOCK: `${API_BASE}/outlets/stock/`,
+    OUTLETS_TRANSFERS: `${API_BASE}/outlets/transfers/`,
+    OUTLETS_RETURNS: `${API_BASE}/outlets/returns/`,
+    OUTLETS_SALES: `${API_BASE}/outlets/sales/`,
+    OUTLETS_PAYMENTS: `${API_BASE}/outlets/payments/`,
+
     // Messaging
     MESSAGING_GATEWAYS: `${API_BASE}/messaging/gateways/`,
     MESSAGING_TEMPLATES: `${API_BASE}/messaging/templates/`,

@@ -36,6 +36,19 @@ export const menuSections = [
         ],
     },
     {
+        id: 'outlets',
+        label: 'Outlets & Consignment',
+        title: 'Outlets',
+        path: '/outlets',
+        icon: 'store',
+        children: [
+            { label: 'Outlets Dashboard', title: 'Outlets', path: '/outlets', permission: 'outlets.view_outlet' },
+            { label: 'Add New Outlet', title: 'Add Outlet', path: '/outlets/add', permission: 'outlets.manage_outlet' },
+            { label: 'Stock Transfers', title: 'Stock Transfers', path: '/outlets/transfers', permission: 'outlets.manage_transfer' },
+            { label: 'Stock Returns', title: 'Stock Returns', path: '/outlets/returns', permission: 'outlets.manage_return' },
+        ],
+    },
+    {
         id: 'inventory',
         label: 'Inventory Management',
         title: 'Inventory',
@@ -191,6 +204,8 @@ export const dynamicPatterns = [
     { pattern: /^\/returns\/\d+/, title: 'Return Details' },
     { pattern: /^\/inventory\/product-sets\/[\w-]+\/edit/, title: 'Edit Product Set' },
     { pattern: /^\/inventory\/product-sets\/[\w-]+/, title: 'Product Set Details' },
+    { pattern: /^\/outlets\/\d+\/edit/, title: 'Edit Outlet' },
+    { pattern: /^\/outlets\/\d+/, title: 'Outlet Details' },
 ];
 
 export function getPageTitle(pathname) {

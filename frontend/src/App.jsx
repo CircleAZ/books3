@@ -82,6 +82,9 @@ import MessagingIndex from './pages/messaging/MessagingIndex';
 import GatewayManagement from './pages/messaging/GatewayManagement';
 import MessageQueue from './pages/messaging/MessageQueue';
 import MessageTemplates from './pages/messaging/MessageTemplates';
+import OutletsList from './pages/outlets/OutletsList';
+import AddOutlet from './pages/outlets/AddOutlet';
+import OutletDetails from './pages/outlets/OutletDetails';
 import PublicReceipt from './pages/public/PublicReceipt';
 import ElevatedAuthModal from './components/ElevatedAuthModal';
 import './index.css';
@@ -395,6 +398,23 @@ function AppRoutes() {
       <Route path="/messaging/templates" element={
         <PermissionRoute permission="settings.manage_store">
           <MainLayout><MessageTemplates /></MainLayout>
+        </PermissionRoute>
+      } />
+
+      {/* Outlets Routes */}
+      <Route path="/outlets" element={
+        <PermissionRoute permission="outlets.view_outlet">
+          <MainLayout><OutletsList /></MainLayout>
+        </PermissionRoute>
+      } />
+      <Route path="/outlets/add" element={
+        <PermissionRoute permission="outlets.manage_outlet">
+          <MainLayout><AddOutlet /></MainLayout>
+        </PermissionRoute>
+      } />
+      <Route path="/outlets/:id" element={
+        <PermissionRoute permission="outlets.view_outlet">
+          <MainLayout><OutletDetails /></MainLayout>
         </PermissionRoute>
       } />
 
