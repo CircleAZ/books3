@@ -2,7 +2,7 @@ from rest_framework import serializers
 from .models import (Outlet, OutletStock, OutletStockTransfer, OutletStockTransferItem, 
                      OutletStockReturn, OutletStockReturnItem, OutletDailySale, 
                      OutletDailySaleItem, OutletPayment)
-from inventory.serializers import ProductSerializer
+from inventory.serializers import ProductListSerializer
 
 class OutletSerializer(serializers.ModelSerializer):
     total_gross_sales = serializers.DecimalField(max_digits=14, decimal_places=2, read_only=True)
@@ -17,7 +17,7 @@ class OutletSerializer(serializers.ModelSerializer):
         read_only_fields = ('display_id',)
 
 class OutletStockSerializer(serializers.ModelSerializer):
-    product_details = ProductSerializer(source='product', read_only=True)
+    product_details = ProductListSerializer(source='product', read_only=True)
     
     class Meta:
         model = OutletStock
@@ -26,7 +26,7 @@ class OutletStockSerializer(serializers.ModelSerializer):
 
 # --- Transfers ---
 class OutletStockTransferItemSerializer(serializers.ModelSerializer):
-    product_details = ProductSerializer(source='product', read_only=True)
+    product_details = ProductListSerializer(source='product', read_only=True)
     
     class Meta:
         model = OutletStockTransferItem
@@ -51,7 +51,7 @@ class OutletStockTransferSerializer(serializers.ModelSerializer):
 
 # --- Returns ---
 class OutletStockReturnItemSerializer(serializers.ModelSerializer):
-    product_details = ProductSerializer(source='product', read_only=True)
+    product_details = ProductListSerializer(source='product', read_only=True)
     
     class Meta:
         model = OutletStockReturnItem
@@ -75,7 +75,7 @@ class OutletStockReturnSerializer(serializers.ModelSerializer):
 
 # --- Sales ---
 class OutletDailySaleItemSerializer(serializers.ModelSerializer):
-    product_details = ProductSerializer(source='product', read_only=True)
+    product_details = ProductListSerializer(source='product', read_only=True)
     
     class Meta:
         model = OutletDailySaleItem
