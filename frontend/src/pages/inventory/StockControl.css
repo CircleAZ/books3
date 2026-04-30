@@ -297,6 +297,36 @@
     padding-left: 0.25rem;
 }
 
+.filter-status-row {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    min-height: 1.25rem;
+    padding-left: 0.25rem;
+}
+
+/* Smooth dim effect for filter-triggered re-fetches */
+.history-table-wrapper {
+    transition: opacity 0.2s ease;
+}
+
+.history-table-wrapper.is-filtering {
+    opacity: 0.45;
+    pointer-events: none;
+}
+
+/* Subtle pulsing indicator */
+.filter-loading-indicator {
+    font-size: 0.78rem;
+    color: var(--color-primary);
+    animation: pulse-filter 1s ease-in-out infinite;
+}
+
+@keyframes pulse-filter {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.35; }
+}
+
 /* ========================================
    History Pagination
    ======================================== */

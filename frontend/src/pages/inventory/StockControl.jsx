@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { ENDPOINTS } from '../../config/api';
@@ -15,6 +15,8 @@ export default function StockControl() {
     const [negativeStockItems, setNegativeStockItems] = useState([]);
     const [historyItems, setHistoryItems] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [isFiltering, setIsFiltering] = useState(false);
+    const hasLoadedHistory = useRef(false);
 
     // Modal state
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -82,7 +84,12 @@ export default function StockControl() {
     }, [fetchWithAuth]);
 
     const fetchHistory = useCallback(async () => {
-        setLoading(true);
+        // First load → full spinner; subsequent loads → subtle dim effect
+        if (!hasLoadedHistory.current) {
+            setLoading(true);
+        } else {
+            setIsFiltering(true);
+        }
         try {
             const params = new URLSearchParams();
             params.set('page', historyPage);
@@ -104,7 +111,9 @@ export default function StockControl() {
         } catch (error) {
             console.error('Error fetching history:', error);
         } finally {
+            hasLoadedHistory.current = true;
             setLoading(false);
+            setIsFiltering(false);
         }
     }, [fetchWithAuth, historyPage, debouncedHistorySearch, historyReason, historyUser, historyDirection, historyDateFrom, historyDateTo]);
 
@@ -132,15 +141,24 @@ export default function StockControl() {
         }
     }, [fetchWithAuth]);
 
+    // Low Stock & Negative Stock — only re-fetch on tab switch or navigation
     useEffect(() => {
-        if (activeTab === 'low-stock') {
-            fetchLowStock();
-        } else if (activeTab === 'negative-stock') {
-            fetchNegativeStock();
-        } else {
-            fetchHistory();
-        }
-    }, [activeTab, fetchLowStock, fetchNegativeStock, fetchHistory, location.key]);
+        if (activeTab === 'low-stock') fetchLowStock();
+        else if (activeTab === 'negative-stock') fetchNegativeStock();
+    }, [activeTab, fetchLowStock, fetchNegativeStock, location.key]);
+
+    // History — re-fetch on tab switch, navigation, OR when any filter changes
+    // NOTE: location.key is intentionally in both effects. When the user
+    // navigates back to this page, both effects fire, but only the one
+    // matching the active tab actually calls a fetch function.
+    useEffect(() => {
+        if (activeTab === 'history') fetchHistory();
+    }, [activeTab, fetchHistory, location.key]);
+
+    // Reset filtering state when leaving history tab (prevents stuck dim)
+    useEffect(() => {
+        if (activeTab !== 'history') setIsFiltering(false);
+    }, [activeTab]);
 
     // Fetch products once for the modal
     useEffect(() => {
@@ -449,17 +467,22 @@ export default function StockControl() {
                                     </button>
                                 )}
                             </div>
-                            {historyCount > 0 && (
-                                <div className="filter-result-count">
-                                    {historyCount} record{historyCount !== 1 ? 's' : ''} found
-                                </div>
-                            )}
+                            <div className="filter-status-row">
+                                {historyCount > 0 && (
+                                    <div className="filter-result-count">
+                                        {historyCount} record{historyCount !== 1 ? 's' : ''} found
+                                    </div>
+                                )}
+                                {isFiltering && (
+                                    <span className="filter-loading-indicator">Filtering...</span>
+                                )}
+                            </div>
                         </div>
 
-                        {loading ? (
+                        {loading && !hasLoadedHistory.current ? (
                             <div className="loading-container"><div className="spinner-large"></div></div>
                         ) : (
-                            <>
+                            <div className={`history-table-wrapper${isFiltering ? ' is-filtering' : ''}`}>
                                 <table className="inventory-table">
                                     <thead>
                                         <tr>
@@ -520,7 +543,7 @@ export default function StockControl() {
                                         </button>
                                     </div>
                                 )}
-                            </>
+                            </div>
                         )}
                     </>
                 )}

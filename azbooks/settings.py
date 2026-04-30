@@ -108,6 +108,7 @@ INSTALLED_APPS = [
     'finance',
     'settings_app',
     'messaging',
+    'outlets',
 ]
 
 MIDDLEWARE = [
