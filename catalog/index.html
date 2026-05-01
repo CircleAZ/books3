@@ -475,7 +475,7 @@
             { name: 'A4 176 PAGES', price: 50, folder: 'A4 176', files: ['A4 176-01.webp', 'A4 176-02.webp', 'A4 176-03.webp', 'A4 176-04.webp'], bg: '#0d2137', blobs: ['#1a4a6e', '#2980b9', '#0e3a5c'], accent: '#8BB7F0', desc: 'Premium ruled notebook, 176 pages.', dim: '29.7 x 21 cm' },
             { name: 'A4 240 PAGES', price: 70, folder: 'A4 240', files: ['A4 240-01.webp', 'A4 240-02.webp', 'A4 240-03.webp', 'A4 240-04.webp'], bg: '#1a2e0d', blobs: ['#2d5a1e', '#4caf50', '#1b3d0f'], accent: '#B6FCA9', desc: 'Extra-thick 240 page notebook. Built for heavy note-takers.', dim: '29.7 x 21 cm' },
             { name: 'A4 392 PAGES', price: 120, folder: 'A4 392', files: ['A4 392-01.webp', 'A4 392-02.webp'], bg: '#2d1a0a', blobs: ['#5c3a1e', '#d4843e', '#3d2515'], accent: '#FADCB9', desc: 'Massive 392-page notebook. One book, one entire semester.', dim: '29.7 x 21 cm' },
-            { name: 'A4 120 PAGES', price: 35, folder: 'A4 120', files: ['books01.webp', 'books02.webp', 'books03.webp', 'books04.webp'], bg: '#2d2a0a', blobs: ['#5c551e', '#c4b83e', '#3d3815'], accent: '#FCF5B3', desc: 'Lightweight 120 pages. Ideal for quick notes.', dim: '29.7 x 21 cm' },
+            // { name: 'A4 120 PAGES', price: 35, folder: 'A4 120', files: ['books01.webp', 'books02.webp', 'books03.webp', 'books04.webp'], bg: '#2d2a0a', blobs: ['#5c551e', '#c4b83e', '#3d3815'], accent: '#FCF5B3', desc: 'Lightweight 120 pages. Ideal for quick notes.', dim: '29.7 x 21 cm' },
             { name: 'B5 176 PAGES', price: 40, folder: 'B5', files: ['B5.webp', '../PAGE/SINGAL LINE PAGE.webp', '../PAGE/FOUR LINE PAGE.webp', '../PAGE/BOX PAGE.webp'], bg: '#0d1a2d', blobs: ['#1e3a5c', '#3a7bd5', '#152d4a'], accent: '#C5DAFB', desc: 'Compact B5 format, 176 ruled pages. Swipe to see page types.', dim: '24 x 18 cm' },
             { name: 'B5 80 PAGES', price: 25, folder: 'B5', files: ['B5.webp'], bg: '#1a0d2d', blobs: ['#3a1e5c', '#7b3ad5', '#2d154a'], accent: '#E1CEF5', desc: 'Slim 80-page pocket notebook.', dim: '24 x 18 cm' },
             { name: 'SMALL 144 PAGES', price: 25, folder: 'small', files: ['small.webp', '../PAGE/SINGAL LINE PAGE.webp', '../PAGE/FOUR LINE PAGE.webp', '../PAGE/BOX PAGE.webp'], bg: '#1a2e0d', blobs: ['#2e5c1e', '#5cbf50', '#1e3d10'], accent: '#B6FCA9', desc: 'Small form factor, 144 pages. Swipe to see page types.', dim: '19.5 x 15.5 cm' },
@@ -510,7 +510,7 @@
                 const res = await fetch(API_URL, { signal: AbortSignal.timeout(3000) });
                 if (!res.ok) throw new Error('API Response not ok');
                 const data = await res.json();
-                const fetchedProducts = data.results || data;
+                const fetchedProducts = (data.results || data).filter(p => !p.name.toUpperCase().includes('A4 120 PAGES'));
 
                 productsToRender = fetchedProducts.map(p => {
                     let bg = '#1a2e0d', blobs = ['#2d5a1e', '#4caf50', '#1b3d0f'], accent = '#B6FCA9';
