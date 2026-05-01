@@ -654,9 +654,21 @@ class OrderViewSet(viewsets.ModelViewSet):
         """Add a payment to the order."""
         from decimal import Decimal
         
+        idempotency_key = request.headers.get('X-Idempotency-Key')
+        
         with transaction.atomic():
             # 1. Lock the order row to prevent TOCTOU race conditions (double-submit)
             order = Order.objects.select_for_update().get(pk=pk)
+            
+            # 2. Re-check Idempotency Key inside the lock to catch blocked threads
+            if idempotency_key:
+                from django.core.cache import cache
+                cache_key = f"payment_idemp_{request.user.id}_{pk}_{idempotency_key}"
+                if cache.get(cache_key):
+                    return Response(
+                        {'error': 'Duplicate payment request detected. Please refresh.'}, 
+                        status=status.HTTP_409_CONFLICT
+                    )
             
             # Prevent double payment - check if already fully paid
             if order.payment_status == 'paid':
@@ -716,6 +728,13 @@ class OrderViewSet(viewsets.ModelViewSet):
                         user=request.user
                     )
             order.refresh_from_db()
+            
+            if idempotency_key:
+                try:
+                    cache.set(cache_key, str(payment.id), timeout=600)
+                except Exception:
+                    pass
+                    
             return Response({
                 'payment': serializer.data,
                 'payment_status': order.payment_status,
