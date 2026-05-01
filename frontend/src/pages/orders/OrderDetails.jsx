@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useCurrency } from '../../context/CurrencyContext';
@@ -30,6 +30,8 @@ export default function OrderDetails() {
     const [availableBankAccounts, setAvailableBankAccounts] = useState([]);
     const [availableCashWallets, setAvailableCashWallets] = useState([]);
     const [paymentSubmitting, setPaymentSubmitting] = useState(false);
+    const isPaymentSubmitting = useRef(false);
+    const [paymentIdempotencyKey, setPaymentIdempotencyKey] = useState('');
     const [paymentError, setPaymentError] = useState('');
     const [showHistory, setShowHistory] = useState(false);
     const [showCancelConfirm, setShowCancelConfirm] = useState(false);
@@ -308,11 +310,14 @@ export default function OrderDetails() {
             destination_wallet: availableCashWallets.length > 0 ? availableCashWallets[0].id : ''
         });
         setPaymentError('');
+        setPaymentIdempotencyKey(`pay_${Date.now()}_${Math.random().toString(36).substring(7)}`);
         setShowPaymentModal(true);
     };
 
     const handleRecordPayment = async (e) => {
         e.preventDefault();
+        if (isPaymentSubmitting.current) return;
+        isPaymentSubmitting.current = true;
         setPaymentSubmitting(true);
         setPaymentError('');
         try {
@@ -355,6 +360,10 @@ export default function OrderDetails() {
 
             const response = await fetchWithAuth(`${ENDPOINTS.ORDERS}${id}/add_payment/`, {
                 method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-Idempotency-Key': paymentIdempotencyKey
+                },
                 body: JSON.stringify({
                     amount: paymentForm.amount,
                     method: paymentForm.method,
@@ -374,6 +383,7 @@ export default function OrderDetails() {
             setPaymentError('Error connecting to server');
             console.error('Error recording payment:', err);
         } finally {
+            isPaymentSubmitting.current = false;
             setPaymentSubmitting(false);
         }
     };
