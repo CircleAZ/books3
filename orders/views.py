@@ -653,44 +653,47 @@ class OrderViewSet(viewsets.ModelViewSet):
     def add_payment(self, request, pk=None):
         """Add a payment to the order."""
         from decimal import Decimal
-        order = self.get_object()
         
-        # Prevent double payment - check if already fully paid
-        if order.payment_status == 'paid':
-            return Response(
-                {'error': 'Order is already fully paid'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-        
-        # Validate amount doesn't exceed balance due
-        try:
-            amount = Decimal(str(request.data.get('amount', 0)))
-        except:
-            return Response(
-                {'error': 'Invalid amount'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-        
-        if amount <= 0:
-            return Response(
-                {'error': 'Amount must be positive'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-        
-        if amount > order.balance_due:
-            return Response(
-                {'error': f'Amount ({amount}) exceeds balance due ({order.balance_due})'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-        
-        serializer = PaymentSerializer(data={
-            'order': order.id,
-            'method': request.data.get('method', ''),
-            'destination_bank': request.data.get('destination_bank'),
-            'destination_wallet': request.data.get('destination_wallet'),
-            'amount': str(amount),
-            'upi_reference': request.data.get('upi_reference', '')
-        })
+        with transaction.atomic():
+            # 1. Lock the order row to prevent TOCTOU race conditions (double-submit)
+            order = Order.objects.select_for_update().get(pk=pk)
+            
+            # Prevent double payment - check if already fully paid
+            if order.payment_status == 'paid':
+                return Response(
+                    {'error': 'Order is already fully paid'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            
+            # Validate amount doesn't exceed balance due
+            try:
+                amount = Decimal(str(request.data.get('amount', 0)))
+            except:
+                return Response(
+                    {'error': 'Invalid amount'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            
+            if amount <= 0:
+                return Response(
+                    {'error': 'Amount must be positive'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            
+            if amount > order.balance_due:
+                return Response(
+                    {'error': f'Amount ({amount}) exceeds balance due ({order.balance_due})'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            
+            serializer = PaymentSerializer(data={
+                'order': order.id,
+                'method': request.data.get('method', ''),
+                'destination_bank': request.data.get('destination_bank'),
+                'destination_wallet': request.data.get('destination_wallet'),
+                'amount': str(amount),
+                'upi_reference': request.data.get('upi_reference', '')
+            })
         
         if serializer.is_valid():
             with transaction.atomic():

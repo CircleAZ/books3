@@ -260,12 +260,27 @@ class OrderCreateSerializer(serializers.ModelSerializer):
         order.update_payment_status()
 
 
-        # Snapshot receipt to R2 for edge-served receipts
-        try:
-            from messaging.r2 import update_receipt_snapshot
-            update_receipt_snapshot(order)
-        except Exception:
-            pass  # Non-critical — SWR falls back to Render
+        # Snapshot receipt to R2 asynchronously after commit
+        from django.db import transaction
+        def run_r2_create(order_id):
+            from django.db import close_old_connections
+            import logging
+            try:
+                close_old_connections()
+                from orders.models import Order
+                order = Order.objects.get(id=order_id)
+                from messaging.r2 import update_receipt_snapshot
+                update_receipt_snapshot(order)
+            except Exception:
+                logging.getLogger(__name__).exception("R2 snapshot thread failed for order #%s", order_id)
+            finally:
+                close_old_connections()
+                
+        def trigger_r2_create():
+            import threading
+            threading.Thread(target=run_r2_create, args=(order.id,), daemon=True).start()
+            
+        transaction.on_commit(trigger_r2_create)
 
         return order
     

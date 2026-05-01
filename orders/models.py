@@ -591,21 +591,44 @@ class Payment(UUIDPrimaryKeyModel):
         # Update order payment status after saving
         self.order.update_payment_status()
         
-        # Dispatch payment notification + update R2 snapshot
-        # Wrapped in try/except: payment must never fail due to messaging/R2
-        try:
-            from messaging.dispatch import dispatch_payment_update
-            dispatch_payment_update(self.order, payment=self)
-        except Exception:
-            import logging
-            logging.getLogger(__name__).exception("Payment dispatch failed for order #%s", self.order.display_id)
+        # Dispatch payment notification + update R2 snapshot asynchronously after commit
+        from django.db import transaction
         
-        try:
-            from messaging.r2 import update_receipt_snapshot
-            update_receipt_snapshot(self.order)
-        except Exception:
+        def run_dispatch(order_id, payment_id):
+            from django.db import close_old_connections
             import logging
-            logging.getLogger(__name__).exception("R2 snapshot failed for order #%s", self.order.display_id)
+            try:
+                close_old_connections()
+                from orders.models import Order, Payment
+                order = Order.objects.get(id=order_id)
+                payment = Payment.objects.get(id=payment_id)
+                from messaging.dispatch import dispatch_payment_update
+                dispatch_payment_update(order, payment=payment)
+            except Exception:
+                logging.getLogger(__name__).exception("Payment dispatch thread failed for order #%s", order_id)
+            finally:
+                close_old_connections()
+                
+        def run_r2(order_id):
+            from django.db import close_old_connections
+            import logging
+            try:
+                close_old_connections()
+                from orders.models import Order
+                order = Order.objects.get(id=order_id)
+                from messaging.r2 import update_receipt_snapshot
+                update_receipt_snapshot(order)
+            except Exception:
+                logging.getLogger(__name__).exception("R2 snapshot thread failed for order #%s", order_id)
+            finally:
+                close_old_connections()
+
+        def trigger_async_tasks():
+            import threading
+            threading.Thread(target=run_dispatch, args=(self.order.id, self.id), daemon=True).start()
+            threading.Thread(target=run_r2, args=(self.order.id,), daemon=True).start()
+
+        transaction.on_commit(trigger_async_tasks)
 
 
 class OrderStatusHistory(UUIDPrimaryKeyModel):

@@ -155,10 +155,13 @@ class DisplayIDMixin(models.Model):
         with transaction.atomic():
             model_class = self.__class__
             
-            # Lock the table exclusively on PostgreSQL to prevent concurrent max() aggregation
+            # Lock generation per-table using an advisory lock instead of a full table lock.
+            # This prevents concurrent MAX() aggregation collisions without blocking reads/updates.
             if connection.vendor == 'postgresql':
+                import zlib
+                lock_id = zlib.crc32(model_class._meta.db_table.encode('utf-8')) % 2147483648
                 with connection.cursor() as cursor:
-                    cursor.execute(f'LOCK TABLE "{model_class._meta.db_table}" IN EXCLUSIVE MODE')
+                    cursor.execute(f"SELECT pg_advisory_xact_lock({lock_id})")
             
             # Now safely calculate max
             max_id = model_class.objects.aggregate(

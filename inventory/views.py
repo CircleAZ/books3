@@ -95,9 +95,14 @@ class ProductViewSet(viewsets.ModelViewSet):
     ordering = ['-order_count', '-created_at', 'id']
 
     def get_queryset(self):
-        qs = super().get_queryset().annotate(
-            order_count=Count('order_items', distinct=True)
-        )
+        qs = super().get_queryset()
+        
+        # Only annotate order_count if explicitly used in ordering
+        # This prevents massive O(N) database JOINs on every normal product list fetch
+        ordering = self.request.query_params.get('ordering', '')
+        if 'order_count' in ordering:
+            qs = qs.annotate(order_count=Count('order_items', distinct=True))
+            
         exclude_prefix = self.request.query_params.get('exclude_category_prefix')
         if exclude_prefix:
             qs = qs.exclude(category__name__startswith=exclude_prefix)
