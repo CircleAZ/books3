@@ -232,6 +232,12 @@ export default function ProductList() {
                                     <th onClick={() => toggleSort('physical_stock')} className="sortable" style={{ cursor: 'pointer' }}>
                                         Physical {ordering.includes('physical_stock') && (ordering.startsWith('-') ? '↓' : '↑')}
                                     </th>
+                                    <th onClick={() => toggleSort('owed_quantity')} className="sortable" style={{ cursor: 'pointer', color: 'var(--color-warning)' }}>
+                                        Owed {ordering.includes('owed_quantity') && (ordering.startsWith('-') ? '↓' : '↑')}
+                                    </th>
+                                    <th onClick={() => toggleSort('delivered_quantity')} className="sortable" style={{ cursor: 'pointer', color: 'var(--color-success)' }}>
+                                        Delivered {ordering.includes('delivered_quantity') && (ordering.startsWith('-') ? '↓' : '↑')}
+                                    </th>
                                     <th>Status</th>
                                     <th>Actions</th>
                                 </tr>
@@ -263,6 +269,8 @@ export default function ProductList() {
                                                 <td>{currency}{Number(product.selling_price).toFixed(2)}</td>
                                                 <td>{product.stock_quantity}</td>
                                                 <td>{product.physical_stock}</td>
+                                                <td style={{ color: 'var(--color-warning)', fontWeight: 'bold' }}>{product.owed_quantity || 0}</td>
+                                                <td style={{ color: 'var(--color-success)', fontWeight: 'bold' }}>{product.delivered_quantity || 0}</td>
                                                 <td>
                                                     <span className={`status-badge status-${status}`}>
                                                         {getStatusLabel(status)}
@@ -283,7 +291,7 @@ export default function ProductList() {
                                     })
                                 ) : (
                                     <tr>
-                                        <td colSpan="11" style={{ textAlign: 'center', padding: '2rem' }}>
+                                        <td colSpan="13" style={{ textAlign: 'center', padding: '2rem' }}>
                                             No products found.
                                         </td>
                                     </tr>

@@ -78,6 +78,8 @@ class ProductListSerializer(serializers.ModelSerializer):
     vendor_name = serializers.CharField(source='vendor.name', read_only=True)
     primary_image_url = serializers.SerializerMethodField()
     is_low_stock = serializers.SerializerMethodField()
+    delivered_quantity = serializers.IntegerField(read_only=True, required=False)
+    owed_quantity = serializers.IntegerField(read_only=True, required=False)
 
     class Meta:
         model = Product
@@ -85,7 +87,7 @@ class ProductListSerializer(serializers.ModelSerializer):
             'id', 'display_id', 'name', 'category_name', 'vendor_name',
             'cost_price', 'selling_price', 'stock_quantity', 'physical_stock',
             'low_stock_threshold', 'primary_image_url', 'is_low_stock',
-            'default_commission', 'deleted_at'
+            'default_commission', 'deleted_at', 'delivered_quantity', 'owed_quantity'
         ]
         read_only_fields = ['display_id']
 
@@ -126,6 +128,8 @@ class ProductDetailSerializer(serializers.ModelSerializer):
     tags = TagSerializer(many=True, read_only=True)
     images = ProductImageSerializer(many=True, read_only=True)
     is_low_stock = serializers.SerializerMethodField()
+    delivered_quantity = serializers.IntegerField(read_only=True, required=False)
+    owed_quantity = serializers.IntegerField(read_only=True, required=False)
 
     class Meta:
         model = Product
@@ -133,7 +137,7 @@ class ProductDetailSerializer(serializers.ModelSerializer):
             'id', 'display_id', 'name', 'description', 'category', 'vendor',
             'tags', 'images', 'cost_price', 'selling_price',
             'stock_quantity', 'physical_stock', 'low_stock_threshold', 'is_low_stock',
-            'default_commission'
+            'default_commission', 'delivered_quantity', 'owed_quantity'
         ]
         read_only_fields = ['display_id']
 

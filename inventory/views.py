@@ -2,7 +2,8 @@ from rest_framework import viewsets, filters, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
-from django.db.models import Count, F
+from django.db.models import Count, F, Sum, Q
+from django.db.models.functions import Coalesce
 from django.core.exceptions import ValidationError
 import django_filters
 from django_filters.rest_framework import DjangoFilterBackend
@@ -91,7 +92,7 @@ class ProductViewSet(viewsets.ModelViewSet):
     filter_backends = [filters.SearchFilter, DjangoFilterBackend, filters.OrderingFilter]
     search_fields = ['name', 'display_id']
     filterset_fields = ['category', 'vendor', 'is_deleted']
-    ordering_fields = ['display_id', 'created_at', 'name', 'category__name', 'vendor__name', 'cost_price', 'selling_price', 'stock_quantity', 'order_count']
+    ordering_fields = ['display_id', 'created_at', 'name', 'category__name', 'vendor__name', 'cost_price', 'selling_price', 'stock_quantity', 'order_count', 'delivered_quantity', 'owed_quantity']
     ordering = ['-created_at', 'id']
 
     def get_queryset(self):
@@ -104,6 +105,21 @@ class ProductViewSet(viewsets.ModelViewSet):
         ordering = self.request.query_params.get('ordering', '')
         if 'order_count' in ordering:
             qs = qs.annotate(order_count=Count('order_items', distinct=True))
+            
+        # Annotate delivered_quantity and owed_quantity for frontend columns
+        qs = qs.annotate(
+            delivered_quantity=Coalesce(
+                Sum(
+                    'order_items__delivery_items__quantity',
+                    filter=Q(
+                        order_items__order__order_status__in=['confirmed', 'completed'],
+                        order_items__order__cancellation_status__in=['na', 'pending'],
+                        order_items__confirmed_quantity__isnull=False
+                    )
+                ), 0
+            ),
+            owed_quantity=F('physical_stock') - F('stock_quantity')
+        )
             
         exclude_prefix = self.request.query_params.get('exclude_category_prefix')
         if exclude_prefix:
