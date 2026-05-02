@@ -92,13 +92,15 @@ class ProductViewSet(viewsets.ModelViewSet):
     search_fields = ['name', 'display_id']
     filterset_fields = ['category', 'vendor', 'is_deleted']
     ordering_fields = ['display_id', 'created_at', 'name', 'category__name', 'vendor__name', 'cost_price', 'selling_price', 'stock_quantity', 'order_count']
-    ordering = ['-order_count', '-created_at', 'id']
+    ordering = ['-created_at', 'id']
 
     def get_queryset(self):
         qs = super().get_queryset()
         
-        # Only annotate order_count if explicitly used in ordering
-        # This prevents massive O(N) database JOINs on every normal product list fetch
+        # Annotate order_count when explicitly requested in ordering params.
+        # The default ordering no longer references order_count to prevent
+        # FieldError crashes on retrieve/detail actions where the annotation
+        # would be missing (the annotation adds a costly COUNT JOIN).
         ordering = self.request.query_params.get('ordering', '')
         if 'order_count' in ordering:
             qs = qs.annotate(order_count=Count('order_items', distinct=True))
