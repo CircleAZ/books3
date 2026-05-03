@@ -98,9 +98,8 @@ class CustomerViewSet(viewsets.ModelViewSet):
     """
     CRUD operations for customers.
     """
-    queryset = Customer.objects.all().select_related(
-        'school', 'class_obj', 'division', 'subdivision', 'customer_group', 'wallet'
-    ).prefetch_related('addresses', 'addresses__location_tags')
+    # Base queryset for router model detection
+    queryset = Customer.objects.all()
     permission_classes = [HasRequiredPermission]
     required_permission = 'customers.manage_customers'
     permission_map = {
@@ -112,6 +111,17 @@ class CustomerViewSet(viewsets.ModelViewSet):
     ordering_fields = ['created_at', 'first_name', 'last_name', 'display_id']
     filterset_fields = ['school', 'class_obj', 'division', 'customer_group']
     
+    def get_queryset(self):
+        # ── Lean path: list view — no address prefetch ──
+        if self.action == 'list':
+            return Customer.objects.select_related(
+                'school', 'class_obj', 'division', 'customer_group', 'wallet'
+            )
+        # ── Fat path: retrieve/update — full address data ──
+        return Customer.objects.select_related(
+            'school', 'class_obj', 'division', 'subdivision', 'customer_group', 'wallet'
+        ).prefetch_related('addresses', 'addresses__location_tags')
+
     def get_serializer_class(self):
         if self.action == 'list':
             return CustomerListSerializer
@@ -956,12 +966,17 @@ class CustomerLinkViewSet(viewsets.ModelViewSet):
 
 class WalletViewSet(viewsets.ReadOnlyModelViewSet):
     """Read-only view for wallets. Use Customer actions for credit/debit."""
-    queryset = Wallet.objects.all().select_related('customer').prefetch_related('transactions')
+    queryset = Wallet.objects.all()
     serializer_class = WalletSerializer
     permission_classes = [HasRequiredPermission]
     required_permission = 'customers.view_customers'
     filter_backends = [DjangoFilterBackend]
     filterset_fields = ['customer']
+
+    def get_queryset(self):
+        if self.action == 'list':
+            return Wallet.objects.select_related('customer')
+        return Wallet.objects.select_related('customer').prefetch_related('transactions')
 
 
 # ============ Settings App ViewSets ============

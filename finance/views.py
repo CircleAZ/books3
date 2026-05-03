@@ -87,7 +87,7 @@ class ExpenseCategoryViewSet(viewsets.ModelViewSet):
 
 class ExpenseViewSet(viewsets.ModelViewSet):
     """CRUD for expenses with payment support, CSV export, and approval workflow."""
-    queryset = Expense.objects.select_related('category', 'created_by', 'approved_by').prefetch_related('payments')
+    queryset = Expense.objects.all()
     permission_classes = [HasRequiredPermission]
     required_permission = 'finance.manage_expenses'
     pagination_class = FinancePagination
@@ -98,7 +98,11 @@ class ExpenseViewSet(viewsets.ModelViewSet):
         return ExpenseSerializer
     
     def get_queryset(self):
-        qs = super().get_queryset()
+        # Lean path for list — no payments prefetch
+        if self.action == 'list':
+            qs = Expense.objects.select_related('category', 'created_by', 'approved_by')
+        else:
+            qs = Expense.objects.select_related('category', 'created_by', 'approved_by').prefetch_related('payments')
         
         # Text search
         search = self.request.query_params.get('search')
@@ -587,14 +591,18 @@ class SalaryPaymentViewSet(viewsets.ModelViewSet):
 
 class LenderViewSet(viewsets.ModelViewSet):
     """CRUD for lenders."""
-    queryset = Lender.objects.prefetch_related('loans')
+    queryset = Lender.objects.all()
     serializer_class = LenderSerializer
     permission_classes = [HasRequiredPermission]
     required_permission = 'finance.manage_loans'
     pagination_class = FinancePagination
     
     def get_queryset(self):
-        qs = super().get_queryset()
+        # Lean for list — no loans prefetch
+        if self.action == 'list':
+            qs = Lender.objects.all()
+        else:
+            qs = Lender.objects.prefetch_related('loans')
         
         search = self.request.query_params.get('search')
         if search:
@@ -608,14 +616,18 @@ class LenderViewSet(viewsets.ModelViewSet):
 
 class LoanViewSet(viewsets.ModelViewSet):
     """CRUD for loans."""
-    queryset = Loan.objects.select_related('lender').prefetch_related('repayments')
+    queryset = Loan.objects.all()
     serializer_class = LoanSerializer
     permission_classes = [HasRequiredPermission]
     required_permission = 'finance.manage_loans'
     pagination_class = FinancePagination
     
     def get_queryset(self):
-        qs = super().get_queryset()
+        # Lean for list — no repayments prefetch
+        if self.action == 'list':
+            qs = Loan.objects.select_related('lender')
+        else:
+            qs = Loan.objects.select_related('lender').prefetch_related('repayments')
         
         lender = self.request.query_params.get('lender')
         if lender:
@@ -867,17 +879,21 @@ class CategoryBudgetViewSet(viewsets.ModelViewSet):
 
 class ExpenseTripViewSet(viewsets.ModelViewSet):
     """CRUD for expense trips with reimbursement actions."""
-    queryset = ExpenseTrip.objects.prefetch_related(
-        'items', 'items__category', 'items__paid_by_employee',
-        'items__expense', 'items__employee_expense'
-    ).select_related('created_by')
+    queryset = ExpenseTrip.objects.all()
     serializer_class = ExpenseTripSerializer
     permission_classes = [HasRequiredPermission]
     required_permission = 'finance.manage_expenses'
     pagination_class = FinancePagination
 
     def get_queryset(self):
-        qs = super().get_queryset()
+        # Lean for list — no item prefetch
+        if self.action == 'list':
+            qs = ExpenseTrip.objects.select_related('created_by')
+        else:
+            qs = ExpenseTrip.objects.prefetch_related(
+                'items', 'items__category', 'items__paid_by_employee',
+                'items__expense', 'items__employee_expense'
+            ).select_related('created_by')
         search = self.request.query_params.get('search')
         if search:
             qs = qs.filter(

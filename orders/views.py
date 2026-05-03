@@ -1213,9 +1213,7 @@ class ReturnViewSet(viewsets.ModelViewSet):
     """
     ViewSet for managing returns with custom actions for workflow.
     """
-    queryset = Return.objects.all().select_related(
-        'order', 'order__customer', 'created_by'
-    ).prefetch_related('items', 'items__order_item', 'items__order_item__product', 'items__reason', 'refunds')
+    queryset = Return.objects.all()
     permission_classes = [HasRequiredPermission]
     required_permission = 'orders.manage_returns'
     filter_backends = [filters.SearchFilter, filters.OrderingFilter, DjangoFilterBackend]
@@ -1223,6 +1221,16 @@ class ReturnViewSet(viewsets.ModelViewSet):
     ordering_fields = ['created_at', 'display_id']
     filterset_class = ReturnFilter
     
+    def get_queryset(self):
+        if self.action == 'list':
+            return Return.objects.select_related('order', 'order__customer', 'created_by')
+        return Return.objects.select_related(
+            'order', 'order__customer', 'created_by'
+        ).prefetch_related(
+            'items', 'items__order_item', 'items__order_item__product',
+            'items__reason', 'refunds'
+        )
+
     def get_serializer_class(self):
         if self.action == 'list':
             return ReturnListSerializer
