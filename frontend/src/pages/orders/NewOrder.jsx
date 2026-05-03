@@ -5,6 +5,7 @@ import { useCart } from '../../context/CartContext';
 import { ENDPOINTS } from '../../config/api';
 import AddCustomer from '../customers/AddCustomer';
 import { useToast } from '../../context/ToastContext';
+import { compressImage } from '../../utils/imageCompression';
 import '../NewOrder.css';
 
 export default function NewOrder() {
@@ -648,7 +649,14 @@ export default function NewOrder() {
                 formData.append('category', newProduct.category);
             }
             if (referencePhoto) {
-                formData.append('images', referencePhoto);
+                try {
+                    const { file: optimizedFile, thumbnail } = await compressImage(referencePhoto);
+                    formData.append('images', optimizedFile);
+                    formData.append('thumbnails', thumbnail);
+                } catch (imgError) {
+                    console.error('Image compression failed, using original', imgError);
+                    formData.append('images', referencePhoto);
+                }
             }
 
             const response = await fetchWithAuth(ENDPOINTS.INVENTORY_PRODUCTS, {
