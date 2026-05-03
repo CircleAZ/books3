@@ -43,24 +43,9 @@ class OrderViewSet(viewsets.ModelViewSet):
     """
     CRUD operations for orders with custom actions.
     """
-    queryset = Order.objects.all().select_related(
-        'customer', 'created_by'
-    ).prefetch_related('items', 'items__product', 'payments', 'deliveries', 'deliveries__items', 'deliveries__items__order_item__product', 'deliveries__delivered_by', 'status_history', 'order_notes').annotate(
-        item_count=Count('items'),
-        annotated_customer_name=Case(
-            When(is_guest=True, then=Coalesce('guest_name', Value('Guest'))),
-            default=Coalesce(
-                Concat('customer__first_name', Value(' '), 'customer__last_name'),
-                Value('Unknown')
-            ),
-            output_field=CharField(),
-        ),
-        customer_sort_name=Case(
-            When(is_guest=True, then=Coalesce('guest_name', Value('Guest'))),
-            default=Coalesce('customer__first_name', Value('')),
-            output_field=CharField(),
-        ),
-    )
+    # ── Base queryset: minimal, used by router for model detection ──
+    queryset = Order.objects.all()
+
     permission_classes = [HasRequiredPermission]
     required_permission = 'orders.edit_orders'
     permission_map = {
@@ -76,17 +61,55 @@ class OrderViewSet(viewsets.ModelViewSet):
     ordering_fields = ['created_at', 'total', 'display_id', 'payment_status', 'order_status', 'delivery_status', 'customer_sort_name', 'item_count']
     filterset_class = OrderFilter
     
+    # ── Shared annotations (used by both lean and fat querysets) ──
+    _shared_annotations = dict(
+        item_count=Count('items'),
+        annotated_customer_name=Case(
+            When(is_guest=True, then=Coalesce('guest_name', Value('Guest'))),
+            default=Coalesce(
+                Concat('customer__first_name', Value(' '), 'customer__last_name'),
+                Value('Unknown')
+            ),
+            output_field=CharField(),
+        ),
+        customer_sort_name=Case(
+            When(is_guest=True, then=Coalesce('guest_name', Value('Guest'))),
+            default=Coalesce('customer__first_name', Value('')),
+            output_field=CharField(),
+        ),
+    )
+
     def get_queryset(self):
-        """Restrict access to own orders unless staff."""
-        queryset = super().get_queryset()
+        """
+        Lean queryset for list views, fat queryset for detail views.
+        List views only need customer name + counts — no nested prefetches.
+        Detail views load everything for the full serializer.
+        """
+        # ── Lean path: list, drafts ──
+        if self.action in ('list', 'drafts'):
+            qs = Order.objects.select_related('customer').annotate(
+                **self._shared_annotations
+            )
+        else:
+            # ── Fat path: retrieve, create, update, custom actions ──
+            qs = Order.objects.select_related(
+                'customer', 'created_by'
+            ).prefetch_related(
+                'items', 'items__product',
+                'payments',
+                'deliveries', 'deliveries__items',
+                'deliveries__items__order_item__product',
+                'deliveries__delivered_by',
+                'status_history', 'order_notes'
+            ).annotate(**self._shared_annotations)
+
+        # ── Access control ──
         user = self.request.user
         if user.is_staff:
-            return queryset
-        # For customers, show their orders
+            return qs
         if hasattr(user, 'customer_profile'):
-             return queryset.filter(customer=user.customer_profile)
-        # For non-customer users (e.g. just a user account?), show created_by
-        return queryset.filter(created_by=user)
+             return qs.filter(customer=user.customer_profile)
+        return qs.filter(created_by=user)
     
     def create(self, request, *args, **kwargs):
         """
