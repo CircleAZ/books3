@@ -1055,12 +1055,14 @@ export default function NewOrder() {
                                         className={`product-card ${inCart ? 'in-cart' : ''}`}
                                         onClick={() => !inCart && addToCart(p)}
                                     >
-                                        {p.primary_image_url && (
-                                            <div className="product-card-image">
-                                                <img src={p.primary_image_url} alt={p.name} loading="lazy" />
-                                            </div>
-                                        )}
-                                        <div className="product-card-name">{p.name}</div>
+                                        <div className="product-card-header">
+                                            {p.primary_image_url && (
+                                                <div className="product-card-image">
+                                                    <img src={p.primary_image_url} alt={p.name} loading="lazy" />
+                                                </div>
+                                            )}
+                                            <div className="product-card-name">{p.name}</div>
+                                        </div>
                                         <div className="product-card-info">
                                             <span className="product-card-price">{currency}{Number(p.selling_price).toFixed(2)}</span>
                                             <span className={p.stock_quantity <= 5 ? 'text-danger' : ''}>
