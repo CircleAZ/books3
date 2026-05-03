@@ -271,7 +271,9 @@ class OrderCreateSerializer(serializers.ModelSerializer):
                 )
         
         order.calculate_totals()
-        order.update_payment_status()
+        # update_payment_status() intentionally omitted — already called by
+        # Payment.save() hook (models.py:615) for each payment. For zero-payment
+        # orders (drafts), the default 'pending' status is correct.
 
 
         # Snapshot receipt to R2 asynchronously after commit
