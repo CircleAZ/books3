@@ -5,10 +5,12 @@ from decimal import Decimal
 from django.db.models import Sum, Count, F
 from django.utils import timezone
 from datetime import timedelta
+import zoneinfo
 
 from inventory.models import Product
 from orders.models import Order, OrderItem
 from customers.models import Customer
+from orders.constants import VALID_SALE_STATUSES, BUSINESS_TIMEZONE
 from .serializers import (
     DashboardStatsSerializer,
     TopProductSerializer,
@@ -17,17 +19,27 @@ from .serializers import (
     AlertSerializer
 )
 
+# Business timezone object — used for "today" boundary calculations
+_biz_tz = zoneinfo.ZoneInfo(BUSINESS_TIMEZONE)
+
+
+def _business_today():
+    """Return (start_of_today, now) in business timezone, as UTC datetimes."""
+    now_biz = timezone.now().astimezone(_biz_tz)
+    today_start_biz = now_biz.replace(hour=0, minute=0, second=0, microsecond=0)
+    return today_start_biz, now_biz
+
+
 class DashboardStatsView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        now = timezone.now()
-        today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+        today_start, now_biz = _business_today()
         
-        # Today's Sales (Completed orders)
+        # Today's Sales (Confirmed + Completed orders)
         today_orders = Order.objects.filter(
             created_at__gte=today_start,
-            order_status='completed'
+            order_status__in=VALID_SALE_STATUSES
         ).aggregate(
             total_value=Sum('total'),
             count=Count('id')
@@ -46,7 +58,7 @@ class DashboardStatsView(APIView):
         
         # Recent Customers (Last 7 days)
         recent_customers_count = Customer.objects.filter(
-            created_at__gte=now - timedelta(days=7)
+            created_at__gte=timezone.now() - timedelta(days=7)
         ).count()
         
         data = {
@@ -64,8 +76,10 @@ class TopProductsView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        # Top 5 products by quantity sold (all time for now)
-        top_products = OrderItem.objects.values(
+        # Top 5 products by quantity sold — ONLY valid sales (excludes draft/cancelled)
+        top_products = OrderItem.objects.filter(
+            order__order_status__in=VALID_SALE_STATUSES
+        ).values(
             'product__name'
         ).annotate(
             quantity_sold=Sum('quantity'),
@@ -88,16 +102,17 @@ class SalesTrendView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        # Last 7 days trend
-        today = timezone.now().date()
+        # Last 7 days trend — using business timezone for day boundaries
+        now_biz = timezone.now().astimezone(_biz_tz)
+        today_biz = now_biz.date()
         data = []
         
         for i in range(7):
-            date = today - timedelta(days=6-i)
-            # Filter for orders on this specific date
+            date = today_biz - timedelta(days=6-i)
+            # Filter for valid sales on this specific business day
             day_total = Order.objects.filter(
                 created_at__date=date,
-                order_status='completed'
+                order_status__in=VALID_SALE_STATUSES
             ).aggregate(
                 total=Sum('total')
             )['total'] or Decimal("0.00")
@@ -123,7 +138,7 @@ class RecentOrdersView(APIView):
                 "id": str(order.display_id),
                 "customer_name": customer_name,
                 "total": order.total,
-                "status": order.order_status, # or derived_status if preferred
+                "status": order.derived_status,
                 "created_at": order.created_at
             })
             

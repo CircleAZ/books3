@@ -706,7 +706,7 @@ export default function NewOrder() {
         }
     };
 
-    const submitOrder = async (status = 'completed') => {
+    const submitOrder = async (status = 'confirmed') => {
         // VULN-3 fix: Synchronous lock prevents rapid-fire duplicate orders
         if (isSubmittingRef.current) return;
 
@@ -763,7 +763,7 @@ export default function NewOrder() {
             });
 
             if (response.ok) {
-                showToast(`Order ${status === 'draft' ? 'held' : 'completed'} successfully!`, 'success');
+                showToast(`Order ${status === 'draft' ? 'held' : 'confirmed'} successfully!`, 'success');
                 // Reset state
                 setCartItems([]);
                 setSelectedCustomer(null);
@@ -1366,7 +1366,7 @@ export default function NewOrder() {
                         type="button"
                         className="btn btn-success btn-full complete-btn"
                         disabled={isLoading || cartItems.length === 0 || !selectedCustomer}
-                        onClick={() => submitOrder('completed')}
+                        onClick={() => submitOrder('confirmed')}
                     >
                         {isLoading ? 'Processing...' :
                             cartItems.length === 0 ? '+ Add items to confirm' :

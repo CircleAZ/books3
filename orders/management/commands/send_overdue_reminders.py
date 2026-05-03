@@ -8,6 +8,7 @@ from django.core.management.base import BaseCommand
 from django.db import models
 from django.utils import timezone
 from orders.models import Order
+from orders.constants import VALID_SALE_STATUSES
 from messaging.dispatch import dispatch_payment_update
 
 
@@ -29,7 +30,7 @@ class Command(BaseCommand):
             payment_status__in=['pending', 'partial'],
             delivered_at__isnull=False,
             delivered_at__lt=cutoff,
-            order_status__in=['confirmed', 'completed'],
+            order_status__in=VALID_SALE_STATUSES,
         ).filter(
             # Max 1 reminder per week
             models.Q(last_reminder_sent__isnull=True) |

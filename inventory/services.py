@@ -1,5 +1,6 @@
 from django.db import transaction, OperationalError
 from .models import Product, StockAdjustment, StockHistory
+from orders.constants import VALID_SALE_STATUSES
 import time
 
 class StockService:
@@ -42,7 +43,7 @@ class StockService:
              # 1. Calculate Owed Quantity
              active_items = OrderItem.objects.filter(
                  product_id=product_id,
-                 order__order_status__in=['confirmed', 'completed'],
+                 order__order_status__in=VALID_SALE_STATUSES,
                  order__cancellation_status__in=['na', 'pending']
              ).prefetch_related('delivery_items')
              

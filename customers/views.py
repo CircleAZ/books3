@@ -8,6 +8,7 @@ from django_filters.rest_framework import DjangoFilterBackend
 from django.db.models import Sum, Q, Count, Subquery, OuterRef
 from django.db.models import Prefetch
 from django.db import transaction
+from orders.constants import VALID_SALE_STATUSES
 
 from core.permissions import HasRequiredPermission
 from .models import Customer, Address, CustomerLink, Wallet, WalletTransaction, TargetVillage, PotentialCustomer
@@ -202,7 +203,7 @@ class CustomerViewSet(viewsets.ModelViewSet):
         status_set = set(filter_status.split(',')) if filter_status else set()
 
         # Confirmed/completed orders only
-        valid_statuses = ['confirmed', 'completed']
+        valid_statuses = VALID_SALE_STATUSES
 
         # Query: customers with valid primary address coordinates
         customers = Customer.objects.filter(
@@ -489,7 +490,7 @@ class CustomerViewSet(viewsets.ModelViewSet):
         current_start, current_end = get_season_bounds(sy)
         prev_start, prev_end = get_season_bounds(sy - 1)
 
-        valid_statuses = ['confirmed', 'completed']
+        valid_statuses = VALID_SALE_STATUSES
 
         def compute_season_data(s_start, s_end):
             """Compute coverage stats for a given season."""
@@ -635,7 +636,7 @@ class CustomerViewSet(viewsets.ModelViewSet):
         season_end = datetime.date(sy + 1, 11, 30)
         season_label = f"Dec {sy} \u2013 Nov {sy + 1}"
 
-        valid_statuses = ['confirmed', 'completed']
+        valid_statuses = VALID_SALE_STATUSES
 
         customers = Customer.objects.filter(
             addresses__is_primary=True,

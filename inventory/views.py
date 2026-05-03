@@ -8,6 +8,7 @@ from django.core.exceptions import ValidationError
 import django_filters
 from django_filters.rest_framework import DjangoFilterBackend
 from .models import Category, Vendor, Tag, Product, StockAdjustment, StockHistory
+from orders.constants import VALID_SALE_STATUSES
 from .serializers import (
     CategorySerializer, VendorSerializer, TagSerializer,
     ProductListSerializer, ProductDetailSerializer, ProductCreateUpdateSerializer,
@@ -112,7 +113,7 @@ class ProductViewSet(viewsets.ModelViewSet):
                 Sum(
                     'order_items__delivery_items__quantity',
                     filter=Q(
-                        order_items__order__order_status__in=['confirmed', 'completed'],
+                        order_items__order__order_status__in=VALID_SALE_STATUSES,
                         order_items__order__cancellation_status__in=['na', 'pending'],
                         order_items__confirmed_quantity__isnull=False
                     )

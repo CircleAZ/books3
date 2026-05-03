@@ -21,6 +21,7 @@ from rest_framework.permissions import IsAuthenticated, IsAdminUser
 from rest_framework.pagination import PageNumberPagination
 from rest_framework.throttling import UserRateThrottle
 from core.permissions import HasRequiredPermission, HasElevatedAuth
+from orders.constants import VALID_SALE_STATUSES
 
 from .models import (
     ExpenseCategory, Expense, ExpensePayment, OtherIncome,
@@ -1087,13 +1088,13 @@ class FinancialDashboardView(APIView):
             revenue = Order.objects.filter(
                 created_at__date__gte=start_date,
                 created_at__date__lte=end_date,
-                order_status__in=['completed', 'confirmed']
+                order_status__in=VALID_SALE_STATUSES
             ).aggregate(total=Sum('total'))['total'] or Decimal('0.00')
             
             cogs = OrderItem.objects.filter(
                 order__created_at__date__gte=start_date,
                 order__created_at__date__lte=end_date,
-                order__order_status__in=['completed', 'confirmed']
+                order__order_status__in=VALID_SALE_STATUSES
             ).aggregate(
                 total=Sum(
                     F('cost_price') * F('quantity'),
@@ -1155,7 +1156,7 @@ class FinancialDashboardView(APIView):
         try:
             from orders.models import Order
             ar_orders = Order.objects.filter(
-                order_status__in=['confirmed', 'completed'],
+                order_status__in=VALID_SALE_STATUSES,
                 payment_status__in=['pending', 'partial']
             ).annotate(
                 paid=Coalesce(Sum('payments__amount'), Decimal('0.00'))

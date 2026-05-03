@@ -13,6 +13,7 @@ import logging
 logger = logging.getLogger(__name__)
 
 from orders.models import Order, OrderItem
+from orders.constants import VALID_SALE_STATUSES
 from inventory.models import Product, StockHistory
 from customers.models import Customer, Address
 from .models import ActivityLog
@@ -170,7 +171,7 @@ class SalesReportViewSet(ReportBaseViewSet):
         
         orders = Order.objects.filter(
             created_at__date__range=[start_date, end_date],
-            order_status__in=['confirmed', 'completed']
+            order_status__in=VALID_SALE_STATUSES
         )
         
         summary = orders.aggregate(
@@ -194,7 +195,7 @@ class SalesReportViewSet(ReportBaseViewSet):
         
         items = OrderItem.objects.filter(
             order__created_at__date__range=[start_date, end_date],
-            order__order_status__in=['confirmed', 'completed']
+            order__order_status__in=VALID_SALE_STATUSES
         )
         
         top_products = items.values(
@@ -222,7 +223,7 @@ class SalesReportViewSet(ReportBaseViewSet):
         
         orders = Order.objects.filter(
             created_at__date__range=[start_date, end_date],
-            order_status__in=['confirmed', 'completed']
+            order_status__in=VALID_SALE_STATUSES
         ).exclude(customer__isnull=True)
         
         customer_sales = orders.values(
@@ -250,7 +251,7 @@ class SalesReportViewSet(ReportBaseViewSet):
         
         trends = Order.objects.filter(
             created_at__date__range=[start_date, end_date],
-            order_status__in=['confirmed', 'completed']
+            order_status__in=VALID_SALE_STATUSES
         ).annotate(
             date=TruncDate('created_at')
         ).values('date').annotate(
@@ -270,7 +271,7 @@ class SalesReportViewSet(ReportBaseViewSet):
         
         orders = Order.objects.filter(
             created_at__date__range=[start_date, end_date],
-            order_status__in=['confirmed', 'completed']
+            order_status__in=VALID_SALE_STATUSES
         ).select_related('customer')
         
         header = ['Order ID', 'Date', 'Customer', 'Status', 'Items', 'Total Amount']
@@ -298,7 +299,7 @@ class SalesReportViewSet(ReportBaseViewSet):
         from orders.models import Payment
         payments = Payment.objects.filter(
             created_at__date__range=[start_date, end_date],
-            order__order_status__in=['confirmed', 'completed']
+            order__order_status__in=VALID_SALE_STATUSES
         ).values('method').annotate(
             total_amount=Sum('amount'),
             count=Count('id')
@@ -345,7 +346,7 @@ class InventoryReportViewSet(ReportBaseViewSet):
         # Products with 0 sales in N+ days (confirmed or completed orders)
         sold_product_ids = OrderItem.objects.filter(
             order__created_at__gte=cutoff,
-            order__order_status__in=['confirmed', 'completed']
+            order__order_status__in=VALID_SALE_STATUSES
         ).values_list('product_id', flat=True).distinct()
         
         dead_stock_qs = Product.objects.exclude(
@@ -353,7 +354,7 @@ class InventoryReportViewSet(ReportBaseViewSet):
         ).filter(stock_quantity__gt=0).annotate(
             last_order_date=Max(
                 'order_items__order__created_at',
-                filter=Q(order_items__order__order_status__in=['confirmed', 'completed'])
+                filter=Q(order_items__order__order_status__in=VALID_SALE_STATUSES)
             )
         ).values('id', 'name', 'stock_quantity', 'cost_price', 'last_order_date')
         
@@ -428,7 +429,7 @@ class InventoryReportViewSet(ReportBaseViewSet):
         
         sold_product_ids = OrderItem.objects.filter(
             order__created_at__gte=cutoff,
-            order__order_status__in=['confirmed', 'completed']
+            order__order_status__in=VALID_SALE_STATUSES
         ).values_list('product_id', flat=True).distinct()
         
         aging_products = Product.objects.exclude(
@@ -462,7 +463,7 @@ class InventoryReportViewSet(ReportBaseViewSet):
         # COGS for the period
         cogs = OrderItem.objects.filter(
             order__created_at__date__range=[start_date, end_date],
-            order__order_status__in=['confirmed', 'completed']
+            order__order_status__in=VALID_SALE_STATUSES
         ).aggregate(
             total=Sum(
                 F('cost_price') * F('quantity'),
@@ -505,7 +506,7 @@ class InventoryReportViewSet(ReportBaseViewSet):
             thirty_days_ago = timezone.now() - timedelta(days=30)
             sold_ids = OrderItem.objects.filter(
                 order__created_at__gte=thirty_days_ago,
-                order__order_status__in=['confirmed', 'completed']
+                order__order_status__in=VALID_SALE_STATUSES
             ).values_list('product_id', flat=True)
             products = Product.objects.exclude(id__in=sold_ids)
             filename = 'dead_stock_inventory'
@@ -547,19 +548,19 @@ class CustomerReportViewSet(ReportBaseViewSet):
         
         active_customer_ids = Order.objects.filter(
             created_at__date__range=[start_date, end_date],
-            order_status__in=['confirmed', 'completed']
+            order_status__in=VALID_SALE_STATUSES
         ).values_list('customer_id', flat=True).distinct()
         active_customers_count = len([id for id in active_customer_ids if id is not None])
         
         # Repeat customers: those who have more than 1 confirmed/completed order ever
         repeat_customers_count = Customer.objects.annotate(
-            order_count=Count('orders', filter=Q(orders__order_status__in=['confirmed', 'completed']))
+            order_count=Count('orders', filter=Q(orders__order_status__in=VALID_SALE_STATUSES))
         ).filter(order_count__gt=1).count()
         
         # CLV metrics
         customer_stats = Customer.objects.annotate(
-            total_spent=Sum('orders__total', filter=Q(orders__order_status__in=['confirmed', 'completed'])),
-            order_count=Count('orders', filter=Q(orders__order_status__in=['confirmed', 'completed']))
+            total_spent=Sum('orders__total', filter=Q(orders__order_status__in=VALID_SALE_STATUSES)),
+            order_count=Count('orders', filter=Q(orders__order_status__in=VALID_SALE_STATUSES))
         ).filter(order_count__gt=0)
         
         avg_order_value = customer_stats.aggregate(avg=Avg('total_spent'))['avg'] or 0
@@ -580,8 +581,8 @@ class CustomerReportViewSet(ReportBaseViewSet):
     @action(detail=False, methods=['get'])
     def top(self, request):
         top_customers = Customer.objects.annotate(
-            total_spent=Sum('orders__total', filter=Q(orders__order_status__in=['confirmed', 'completed'])),
-            order_count=Count('orders', filter=Q(orders__order_status__in=['confirmed', 'completed']))
+            total_spent=Sum('orders__total', filter=Q(orders__order_status__in=VALID_SALE_STATUSES)),
+            order_count=Count('orders', filter=Q(orders__order_status__in=VALID_SALE_STATUSES))
         ).filter(total_spent__gt=0).order_by('-total_spent')[:10]
         
         data = []
@@ -604,9 +605,9 @@ class CustomerReportViewSet(ReportBaseViewSet):
         today = timezone.now().date()
         
         customers = Customer.objects.annotate(
-            last_order_date=Max('orders__created_at', filter=Q(orders__order_status__in=['confirmed', 'completed'])),
-            frequency=Count('orders', filter=Q(orders__order_status__in=['confirmed', 'completed'])),
-            monetary=Sum('orders__total', filter=Q(orders__order_status__in=['confirmed', 'completed']))
+            last_order_date=Max('orders__created_at', filter=Q(orders__order_status__in=VALID_SALE_STATUSES)),
+            frequency=Count('orders', filter=Q(orders__order_status__in=VALID_SALE_STATUSES)),
+            monetary=Sum('orders__total', filter=Q(orders__order_status__in=VALID_SALE_STATUSES))
         ).filter(frequency__gt=0)
         
         segments = {
@@ -641,8 +642,8 @@ class CustomerReportViewSet(ReportBaseViewSet):
     def export(self, request):
         # Use annotations for performance instead of N+1 queries
         customers = Customer.objects.annotate(
-            total_spent=Sum('orders__total', filter=Q(orders__order_status__in=['confirmed', 'completed'])),
-            order_count=Count('orders', filter=Q(orders__order_status__in=['confirmed', 'completed']))
+            total_spent=Sum('orders__total', filter=Q(orders__order_status__in=VALID_SALE_STATUSES)),
+            order_count=Count('orders', filter=Q(orders__order_status__in=VALID_SALE_STATUSES))
         ).all()
         
         header = ['ID', 'Name', 'Email', 'Phone', 'Orders', 'Total Spent', 'Joined Date']
@@ -756,7 +757,7 @@ class FinanceReportViewSet(ReportBaseViewSet):
         # 1. Revenue
         sales_revenue = Order.objects.filter(
             created_at__date__range=[start_date, end_date],
-            order_status__in=['confirmed', 'completed']
+            order_status__in=VALID_SALE_STATUSES
         ).aggregate(total=Sum('total'))['total'] or Decimal('0.00')
         
         from finance.models import OtherIncome
@@ -769,7 +770,7 @@ class FinanceReportViewSet(ReportBaseViewSet):
         # 2. Cost of Goods Sold (COGS)
         cogs = OrderItem.objects.filter(
             order__created_at__date__range=[start_date, end_date],
-            order__order_status__in=['confirmed', 'completed']
+            order__order_status__in=VALID_SALE_STATUSES
         ).aggregate(
             total_cost=Sum(F('cost_price') * F('quantity'), output_field=DecimalField())
         )['total_cost'] or Decimal('0.00')
@@ -866,7 +867,7 @@ class FinanceReportViewSet(ReportBaseViewSet):
         except Exception:
              cash_from_sales = Order.objects.filter(
                 created_at__date__range=[start_date, end_date],
-                order_status__in=['confirmed', 'completed']
+                order_status__in=VALID_SALE_STATUSES
             ).aggregate(total=Sum('total'))['total'] or Decimal('0.00')
 
         other_income = OtherIncome.objects.filter(
@@ -949,7 +950,7 @@ class FinanceReportViewSet(ReportBaseViewSet):
         # Accounts Receivable (Unpaid confirmed/delivered orders)
         try:
             accounts_receivable = Order.objects.filter(
-                order_status__in=['confirmed', 'processing', 'shipped', 'delivered'],
+                order_status__in=VALID_SALE_STATUSES,
                 payment_status__in=['pending', 'partial']
             ).aggregate(total=Sum('total'))['total'] or Decimal('0.00')
         except Exception:
@@ -1091,12 +1092,12 @@ class FinanceReportViewSet(ReportBaseViewSet):
         try:
              tax_collected = Order.objects.filter(
                 created_at__date__range=[start_date, end_date],
-                order_status__in=['confirmed', 'completed']
+                order_status__in=VALID_SALE_STATUSES
             ).aggregate(total=Sum('tax_amount'))['total'] or Decimal('0.00')
              
              taxable_sales = Order.objects.filter(
                 created_at__date__range=[start_date, end_date],
-                order_status__in=['confirmed', 'completed']
+                order_status__in=VALID_SALE_STATUSES
             ).aggregate(total=Sum('subtotal'))['total'] or Decimal('0.00')
         except Exception:
              tax_collected = Decimal('0.00')
