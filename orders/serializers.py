@@ -348,15 +348,20 @@ class OrderCreateSerializer(serializers.ModelSerializer):
         if items_data is not None:
             instance.items.all().delete()
             
+            # Bulk-fetch all products in a single query (same as create)
             from inventory.models import Product
+            product_ids = [item['product'] for item in items_data]
+            products_map = {
+                p.id: p for p in Product.objects.filter(id__in=product_ids)
+            }
+            missing = [pid for pid in product_ids if pid not in products_map]
+            if missing:
+                raise serializers.ValidationError(
+                    {'items': [f"Product(s) not found: {missing}"]}
+                )
             
             for item_data in items_data:
-                try:
-                    product = Product.objects.get(pk=item_data['product'])
-                except Product.DoesNotExist:
-                    raise serializers.ValidationError(
-                        {'items': [f"Product with ID {item_data['product']} does not exist."]}
-                    )
+                product = products_map[item_data['product']]
                 OrderItem.objects.create(
                     order=instance,
                     product=product,

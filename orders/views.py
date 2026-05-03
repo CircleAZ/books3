@@ -284,54 +284,100 @@ class OrderViewSet(viewsets.ModelViewSet):
         is_active = instance.order_status in ('confirmed', 'completed')
         old_items = []
         if is_active:
-            old_items = list(instance.items.all())
+            old_items = list(instance.items.select_related('product').all())
 
         with transaction.atomic():
-            # If previously active, restore stock for old items before update
-            if is_active:
-                from inventory.services import StockService
+            # If previously active, batch-restore stock for old items
+            if is_active and old_items:
+                from collections import defaultdict
+                from inventory.models import Product, StockAdjustment, StockHistory
+                
+                # Aggregate restore quantities per product
+                restore_qty = defaultdict(int)
                 for item in old_items:
-                     StockService.adjust_stock(
-                        product_id=item.product.id,
-                        adjustment_type='increase', # Restore
-                        quantity=item.quantity,
+                    restore_qty[item.product_id] += item.quantity
+                
+                products = {
+                    p.id: p for p in
+                    Product.objects.select_for_update().filter(id__in=restore_qty.keys())
+                }
+                
+                adjustments = []
+                histories = []
+                for pid, qty in restore_qty.items():
+                    product = products[pid]
+                    product.stock_quantity += qty
+                    adjustments.append(StockAdjustment(
+                        product=product, adjustment_type='increase', quantity=qty,
                         reason='correction',
                         notes=f"Order #{instance.display_id} Edit (Restore)",
-                        user=request.user,
-                        target_ledger='available'
-                    )
+                        created_by=request.user
+                    ))
+                    histories.append(StockHistory(
+                        product=product, quantity_change=qty,
+                        quantity_after=product.stock_quantity,
+                        cost_at_time=product.cost_price, reason='adjustment',
+                        notes=f"Adjustment (increase): Order #{instance.display_id} Edit (Restore)",
+                        created_by=request.user
+                    ))
+                
+                Product.objects.bulk_update(list(products.values()), ['stock_quantity'])
+                StockAdjustment.objects.bulk_create(adjustments)
+                StockHistory.objects.bulk_create(histories)
 
             self.perform_update(serializer)
             instance.refresh_from_db()
 
             # Handle Draft -> Confirmed transition OR update of Active orders
             if instance.order_status in ('confirmed', 'completed'):
-                # For already active orders, manually freeze to set confirmed_quantity
-                # The old items were restored above. We do NOT use freeze_confirmed_quantities() 
-                # because we want to maintain the "Edit (Deduct)" audit trail notes instead of "Order Confirmed".
-                # BUT we must set confirmed_quantity!
-                
-                from inventory.services import StockService
-                for item in instance.items.all():
-                    if item.confirmed_quantity is None:
-                        item.confirmed_quantity = item.quantity
-                        item.save(update_fields=['confirmed_quantity'])
-                        
-                    # We only deduct stock here if it was ALREADY active. 
-                    # If it transitioned from draft to confirmed, we call freeze_confirmed_quantities()
-                    if is_active:
-                        StockService.adjust_stock(
-                            product_id=item.product.id,
-                            adjustment_type='decrease',
-                            quantity=item.quantity,
+                if is_active:
+                    # Batch-deduct stock for new items
+                    from collections import defaultdict
+                    from inventory.models import Product, StockAdjustment, StockHistory
+                    
+                    new_items = list(instance.items.select_related('product').all())
+                    deduct_qty = defaultdict(int)
+                    for item in new_items:
+                        deduct_qty[item.product_id] += item.quantity
+                    
+                    products = {
+                        p.id: p for p in
+                        Product.objects.select_for_update().filter(id__in=deduct_qty.keys())
+                    }
+                    
+                    adjustments = []
+                    histories = []
+                    for item in new_items:
+                        if item.confirmed_quantity is None:
+                            item.confirmed_quantity = item.quantity
+                    
+                    from orders.models import OrderItem
+                    items_to_update = [i for i in new_items if i.confirmed_quantity == i.quantity]
+                    if items_to_update:
+                        OrderItem.objects.bulk_update(items_to_update, ['confirmed_quantity'])
+                    
+                    for pid, qty in deduct_qty.items():
+                        product = products[pid]
+                        product.stock_quantity -= qty
+                        adjustments.append(StockAdjustment(
+                            product=product, adjustment_type='decrease', quantity=qty,
                             reason='sale',
                             notes=f"Order #{instance.display_id} Edit (Deduct)",
-                            user=request.user,
-                            target_ledger='available'
-                        )
-                
-                # If it transitioned from draft to confirmed during this update:
-                if not is_active:
+                            created_by=request.user
+                        ))
+                        histories.append(StockHistory(
+                            product=product, quantity_change=-qty,
+                            quantity_after=product.stock_quantity,
+                            cost_at_time=product.cost_price, reason='sale',
+                            notes=f"Adjustment (decrease): Order #{instance.display_id} Edit (Deduct)",
+                            created_by=request.user
+                        ))
+                    
+                    Product.objects.bulk_update(list(products.values()), ['stock_quantity'])
+                    StockAdjustment.objects.bulk_create(adjustments)
+                    StockHistory.objects.bulk_create(histories)
+                else:
+                    # Transitioned from draft to confirmed during this update
                     instance.freeze_confirmed_quantities()
             
             # Log history
