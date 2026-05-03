@@ -198,6 +198,20 @@ class OrderCreateSerializer(serializers.ModelSerializer):
             'items', 'payments'
         ]
         read_only_fields = ['id', 'display_id']
+
+    def validate_order_status(self, value):
+        """Only 'draft' and 'confirmed' are valid initial states.
+        
+        'completed' is auto-set when delivery is done.
+        'cancelled' is auto-set via the cancellation workflow.
+        """
+        if value not in ('draft', 'confirmed'):
+            raise serializers.ValidationError(
+                f"Cannot create order with status '{value}'. "
+                f"Only 'draft' or 'confirmed' are valid. "
+                f"'completed' and 'cancelled' are managed automatically."
+            )
+        return value
     
     def create(self, validated_data):
         items_data = validated_data.pop('items', [])

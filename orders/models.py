@@ -410,13 +410,36 @@ class Order(DisplayIDMixin, SoftDeleteModel):
             )
     
     def save(self, *args, **kwargs):
-        """Auto-refresh overall_status on every save."""
-        # Auto-set delivered_at when delivery transitions to 'delivered'
-        if self.delivery_status == 'delivered' and not self.delivered_at:
-            self.delivered_at = timezone.now()
-        # Auto-transition: delivery=delivered → order=completed
-        if self.delivery_status == 'delivered' and self.order_status in ('draft', 'confirmed'):
-            self.order_status = 'completed'
+        """Auto-configure order_status on every save.
+        
+        order_status is a DERIVED field. Its value is enforced by these
+        invariants, in priority order:
+        
+        1. Cancellation approved  →  'cancelled'   (terminal)
+        2. Delivery complete      →  'completed'   (terminal, sets delivered_at)
+        3. 'completed' without delivery  →  auto-corrects to 'confirmed'
+        4. Everything else        →  keep whatever was set (draft/confirmed)
+        
+        This makes it impossible for external code (frontend, API, admin)
+        to force an order into 'completed' without actual delivery.
+        """
+        # ── Invariant 1: Cancellation is terminal ──
+        if self.cancellation_status == 'completed':
+            self.order_status = 'cancelled'
+
+        # ── Invariant 2: Delivery complete → auto-complete ──
+        elif self.delivery_status == 'delivered':
+            if not self.delivered_at:
+                self.delivered_at = timezone.now()
+            if self.order_status in ('draft', 'confirmed'):
+                self.order_status = 'completed'
+
+        # ── Invariant 3: Guard against premature 'completed' ──
+        elif self.order_status == 'completed' and self.delivery_status != 'delivered':
+            # Someone/something tried to set 'completed' without delivery.
+            # Auto-correct to 'confirmed' — the highest valid non-terminal state.
+            self.order_status = 'confirmed'
+
         self._refresh_overall_status()
         super().save(*args, **kwargs)
 

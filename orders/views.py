@@ -1056,6 +1056,14 @@ class OrderViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST
             )
         
+        # Block manual order_status → 'completed' (auto-computed from delivery)
+        if field == 'order_status' and new_value == 'completed':
+            return Response(
+                {'error': 'Order status is auto-set to completed when delivery is done. '
+                          'Use the delivery workflow instead.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
         # Validate field name
         valid_fields = ['order_status', 
                         'return_status', 'refund_status', 'cancellation_status']
