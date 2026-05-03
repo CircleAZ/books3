@@ -62,8 +62,8 @@ class OrderItemSerializer(serializers.ModelSerializer):
 
 class OrderListSerializer(serializers.ModelSerializer):
     """Lightweight serializer for list views."""
-    customer_name = serializers.SerializerMethodField()
-    item_count = serializers.IntegerField(source='items.count', read_only=True)
+    customer_name = serializers.CharField(source='annotated_customer_name', read_only=True)
+    item_count = serializers.IntegerField(read_only=True)
     derived_status = serializers.CharField(read_only=True)
     
     class Meta:
@@ -73,11 +73,6 @@ class OrderListSerializer(serializers.ModelSerializer):
             'order_status', 'payment_status', 'delivery_status', 'derived_status',
             'total', 'item_count', 'created_at'
         ]
-    
-    def get_customer_name(self, obj):
-        if obj.is_guest:
-            return obj.guest_name or 'Guest'
-        return obj.customer.full_name if obj.customer else 'Unknown'
 
 
 class OrderStatusHistorySerializer(serializers.ModelSerializer):

@@ -5,7 +5,7 @@ import logging
 from rest_framework import viewsets, filters, status
 from rest_framework.decorators import action
 from django.db.models import Count, Case, When, Value, CharField, F
-from django.db.models.functions import Coalesce
+from django.db.models.functions import Coalesce, Concat
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from django_filters.rest_framework import DjangoFilterBackend
@@ -47,6 +47,14 @@ class OrderViewSet(viewsets.ModelViewSet):
         'customer', 'created_by'
     ).prefetch_related('items', 'items__product', 'payments', 'deliveries', 'deliveries__items', 'deliveries__items__order_item__product', 'deliveries__delivered_by', 'status_history', 'order_notes').annotate(
         item_count=Count('items'),
+        annotated_customer_name=Case(
+            When(is_guest=True, then=Coalesce('guest_name', Value('Guest'))),
+            default=Coalesce(
+                Concat('customer__first_name', Value(' '), 'customer__last_name'),
+                Value('Unknown')
+            ),
+            output_field=CharField(),
+        ),
         customer_sort_name=Case(
             When(is_guest=True, then=Coalesce('guest_name', Value('Guest'))),
             default=Coalesce('customer__first_name', Value('')),
