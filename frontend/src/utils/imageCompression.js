@@ -23,9 +23,9 @@ export const compressImage = async (file, maxWidth = 1500, maxHeight = 1500, qua
                 ctx.fillRect(0, 0, width, height);
                 ctx.drawImage(img, 0, 0, width, height);
 
-                // Generate Thumbnail (150x150)
-                const thumbMaxWidth = 150;
-                const thumbMaxHeight = 150;
+                // Generate Thumbnail (70x70)
+                const thumbMaxWidth = 70;
+                const thumbMaxHeight = 70;
                 let tWidth = img.width;
                 let tHeight = img.height;
                 if (tWidth > thumbMaxWidth || tHeight > thumbMaxHeight) {
