@@ -1030,17 +1030,19 @@ export default function NewOrder() {
                         <div className="product-grid">
                             {(productSearch ? productResults : (
                                 // When "All Categories" is active, group products by category
-                                // with uncategorized products at the end
+                                // with uncategorized products at the end, then sort by name within each category
                                 !selectedCategory
                                     ? [...popularProducts].sort((a, b) => {
                                         const catA = a.category_name || '';
                                         const catB = b.category_name || '';
-                                        // Both uncategorized — preserve original order
-                                        if (!catA && !catB) return 0;
+                                        // Both uncategorized — sort by name
+                                        if (!catA && !catB) return (a.name || '').localeCompare(b.name || '');
                                         // Uncategorized goes last
                                         if (!catA) return 1;
                                         if (!catB) return -1;
-                                        // Sort by category name
+                                        // Same category — sort by name
+                                        if (catA === catB) return (a.name || '').localeCompare(b.name || '');
+                                        // Different category — sort by category name
                                         return catA.localeCompare(catB);
                                     })
                                     : popularProducts
@@ -1053,6 +1055,11 @@ export default function NewOrder() {
                                         className={`product-card ${inCart ? 'in-cart' : ''}`}
                                         onClick={() => !inCart && addToCart(p)}
                                     >
+                                        {p.primary_image_url && (
+                                            <div className="product-card-image">
+                                                <img src={p.primary_image_url} alt={p.name} loading="lazy" />
+                                            </div>
+                                        )}
                                         <div className="product-card-name">{p.name}</div>
                                         <div className="product-card-info">
                                             <span className="product-card-price">{currency}{Number(p.selling_price).toFixed(2)}</span>
@@ -1146,8 +1153,27 @@ export default function NewOrder() {
                                 </div>
                                 <div className="cart-item-actions">
                                     <div className="qty-controls">
-                                        <button className="qty-btn" onClick={() => updateQuantity(item.id, -1)}>-</button>
-                                        <span className="qty-val">{item.quantity}</span>
+                                        <button className="qty-btn" onClick={() => {
+                                            if (item.quantity <= 1) removeFromCart(item.id);
+                                            else updateQuantity(item.id, -1);
+                                        }}>-</button>
+                                        <input
+                                            type="number"
+                                            className="qty-input-cart"
+                                            value={item.quantity}
+                                            onChange={e => {
+                                                const val = e.target.value;
+                                                if (val === '') return;
+                                                setQuantity(item.id, val);
+                                            }}
+                                            onBlur={e => {
+                                                if (!e.target.value || parseInt(e.target.value, 10) <= 0) {
+                                                    removeFromCart(item.id);
+                                                }
+                                            }}
+                                            min="1"
+                                            onClick={e => e.target.select()}
+                                        />
                                         <button className="qty-btn" onClick={() => updateQuantity(item.id, 1)}>+</button>
                                     </div>
                                     <button className="btn btn-ghost btn-sm text-danger" onClick={() => removeFromCart(item.id)}>×</button>
