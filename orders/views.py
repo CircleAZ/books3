@@ -176,7 +176,14 @@ class OrderViewSet(viewsets.ModelViewSet):
                     # No duplicate — create inside the same atomic block (lock held).
                     # Exceptions from super().create() (ValidationError, IntegrityError)
                     # propagate naturally to DRF's exception handler — NOT swallowed.
+                    import time
+                    lock_start = time.time()
                     response = super().create(request, *args, **kwargs)
+                    lock_end = time.time()
+                    logger.warning(
+                        "⚠️ [LOCK AUTOPSY] Serializer holding DB lock for %.3f seconds during order creation!",
+                        lock_end - lock_start
+                    )
 
                     # Cache the idempotency key inside the same atomic block
                     if idempotency_key and response.status_code == 201:

@@ -326,6 +326,9 @@ class CashTransfer(TimestampedModel):
     def __str__(self):
         return f"Transfer ₹{self.amount} from {self.source_wallet.name} ({self.status})"
 
+    class Meta:
+        ordering = ['-created_at']
+
 
 class CashWalletTransaction(SoftDeleteModel):
     """
