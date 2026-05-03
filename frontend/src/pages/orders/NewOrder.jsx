@@ -85,13 +85,12 @@ export default function NewOrder() {
             idempotencyKeyRef.current = null;
             return;
         }
-        // Fingerprint: customer ID + sorted product:quantity pairs + 5-min time bucket
-        const timeBucket = Math.floor(Date.now() / 300000); // 5-minute windows
+        // Fingerprint: customer ID + sorted product:quantity pairs (content-only, no time bucket)
         const itemFingerprint = cartItems
             .map(i => `${i.id}:${i.quantity}`)
             .sort()
             .join(',');
-        const raw = `${selectedCustomer.id}|${itemFingerprint}|${timeBucket}`;
+        const raw = `${selectedCustomer.id}|${itemFingerprint}`;
         idempotencyKeyRef.current = djb2Hash(raw);
     }, [cartItems, selectedCustomer, djb2Hash]);
 
@@ -751,9 +750,8 @@ export default function NewOrder() {
             // Idempotency key is pre-computed from cart contents (see useEffect above).
             // If somehow null (edge case: cart changed mid-submit), generate a fallback.
             if (!idempotencyKeyRef.current) {
-                const timeBucket = Math.floor(Date.now() / 300000);
                 const itemFp = cartItems.map(i => `${i.id}:${i.quantity}`).sort().join(',');
-                idempotencyKeyRef.current = djb2Hash(`${selectedCustomer?.id}|${itemFp}|${timeBucket}`);
+                idempotencyKeyRef.current = djb2Hash(`${selectedCustomer?.id}|${itemFp}`);
             }
 
             const response = await fetchWithAuth(ENDPOINTS.ORDERS, {

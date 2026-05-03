@@ -146,14 +146,15 @@ class OrderViewSet(viewsets.ModelViewSet):
                 )
 
         # ── Layer 2: Compute order fingerprint ──
+        # Content-only fingerprint (no time_bucket — time is handled by the
+        # sliding-window query in Layer 2b, not by the hash itself).
         items_data = request.data.get('items', [])
         customer_id = request.data.get('customer', '')
-        time_bucket = math.floor(time.time() / 300)  # 5-minute window
         item_fingerprint = ','.join(sorted(
             f"{item.get('product', '')}:{item.get('quantity', '')}"
             for item in items_data
         ))
-        raw_fingerprint = f"{customer_id}|{item_fingerprint}|{time_bucket}"
+        raw_fingerprint = f"{customer_id}|{item_fingerprint}"
         fingerprint = hashlib.sha256(raw_fingerprint.encode()).hexdigest()
 
         # Stash fingerprint on the request so perform_create can access it
