@@ -241,6 +241,10 @@ class OrderCreateSerializer(serializers.ModelSerializer):
                 discount_type=item_data.get('discount_type', ''),
                 discount_value=item_data.get('discount_value', 0)
             )
+        # Collect deferred ledger deposits (Phase 4 perf fix)
+        # Customer Wallet debits stay SYNC (balance-critical).
+        # Cash/bank deposits are just bookkeeping — safe to defer.
+        deferred_deposits = []
         
         for payment_data in payments_data:
             payment = Payment.objects.create(
@@ -253,6 +257,7 @@ class OrderCreateSerializer(serializers.ModelSerializer):
                 created_by=validated_data.get('created_by')
             )
             if payment.method == 'Customer Wallet':
+                # SYNC: must be atomic with order creation
                 if getattr(order.customer, 'wallet', None):
                     order.customer.wallet.debit(
                         payment.amount, 
@@ -260,43 +265,74 @@ class OrderCreateSerializer(serializers.ModelSerializer):
                         user=validated_data.get('created_by')
                     )
             else:
-                from finance.services import LedgerService
-                LedgerService.process_deposit(
-                    amount=payment.amount,
-                    destination_bank=payment.destination_bank,
-                    destination_wallet=payment.destination_wallet,
-                    reference=f"order_{order.display_id}",
-                    description=f"Initial Payment for Order #{order.display_id}",
-                    user=validated_data.get('created_by')
-                )
+                # DEFERRED: cash/bank deposit runs after commit
+                deferred_deposits.append({
+                    'amount': payment.amount,
+                    'destination_bank_id': payment.destination_bank_id,
+                    'destination_wallet_id': payment.destination_wallet_id,
+                    'reference': f"order_{order.display_id}",
+                    'description': f"Initial Payment for Order #{order.display_id}",
+                    'user_id': validated_data.get('created_by').id if validated_data.get('created_by') else None,
+                })
         
         order.calculate_totals()
         # update_payment_status() intentionally omitted — already called by
         # Payment.save() hook (models.py:615) for each payment. For zero-payment
         # orders (drafts), the default 'pending' status is correct.
 
-
-        # Snapshot receipt to R2 asynchronously after commit
+        # ── Post-commit async tasks: ledger deposits + R2 snapshot ──
         from django.db import transaction
-        def run_r2_create(order_id):
+        
+        def run_post_commit_tasks(order_id, deposits):
             from django.db import close_old_connections
             import logging
+            logger = logging.getLogger(__name__)
             try:
                 close_old_connections()
-                from orders.models import Order
-                order = Order.objects.get(id=order_id)
-                from messaging.r2 import update_receipt_snapshot
-                update_receipt_snapshot(order)
-            except Exception:
-                logging.getLogger(__name__).exception("R2 snapshot thread failed for order #%s", order_id)
+                
+                # Process deferred ledger deposits
+                if deposits:
+                    from finance.services import LedgerService
+                    from finance.models import BankAccount, CashWallet
+                    for dep in deposits:
+                        try:
+                            dest_bank = BankAccount.objects.get(id=dep['destination_bank_id']) if dep['destination_bank_id'] else None
+                            dest_wallet = CashWallet.objects.get(id=dep['destination_wallet_id']) if dep['destination_wallet_id'] else None
+                            from django.contrib.auth import get_user_model
+                            User = get_user_model()
+                            user = User.objects.get(id=dep['user_id']) if dep['user_id'] else None
+                            LedgerService.process_deposit(
+                                amount=dep['amount'],
+                                destination_bank=dest_bank,
+                                destination_wallet=dest_wallet,
+                                reference=dep['reference'],
+                                description=dep['description'],
+                                user=user
+                            )
+                        except Exception:
+                            logger.exception("Deferred ledger deposit failed for %s", dep['reference'])
+                
+                # R2 snapshot
+                try:
+                    from orders.models import Order
+                    order = Order.objects.get(id=order_id)
+                    from messaging.r2 import update_receipt_snapshot
+                    update_receipt_snapshot(order)
+                except Exception:
+                    logger.exception("R2 snapshot thread failed for order %s", order_id)
+                    
             finally:
                 close_old_connections()
-                
-        def trigger_r2_create():
+        
+        def trigger_post_commit():
             import threading
-            threading.Thread(target=run_r2_create, args=(order.id,), daemon=True).start()
-            
-        transaction.on_commit(trigger_r2_create)
+            threading.Thread(
+                target=run_post_commit_tasks, 
+                args=(order.id, deferred_deposits),
+                daemon=True
+            ).start()
+        
+        transaction.on_commit(trigger_post_commit)
 
         return order
     

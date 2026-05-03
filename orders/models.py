@@ -392,22 +392,75 @@ class Order(DisplayIDMixin, SoftDeleteModel):
         self.save(update_fields=['delivery_status'])
     
     def freeze_confirmed_quantities(self):
-        """Freeze all item quantities at confirmation time. Called once, immutable after."""
-        from inventory.services import StockService
-        for item in self.items.filter(confirmed_quantity__isnull=True):
+        """Freeze all item quantities and batch-deduct stock in minimal queries.
+        
+        Performance: ~5 queries total regardless of item count (was 6×N).
+        
+        Safety: Aggregates quantities per product to handle duplicate products
+        in separate line items (e.g., "Pencil ×3" + "Pencil ×5" = deduct 8).
+        """
+        from collections import defaultdict
+        from inventory.models import Product, StockAdjustment, StockHistory
+        
+        items = list(
+            self.items.filter(confirmed_quantity__isnull=True)
+                .select_related('product')
+        )
+        if not items:
+            return
+        
+        # 1. Bulk freeze confirmed_quantity on all items (1 query)
+        for item in items:
             item.confirmed_quantity = item.quantity
-            item.save(update_fields=['confirmed_quantity'])
+        from orders.models import OrderItem
+        OrderItem.objects.bulk_update(items, ['confirmed_quantity'])
+        
+        # 2. Aggregate quantities per product (handles duplicate products)
+        qty_by_product = defaultdict(int)
+        for item in items:
+            qty_by_product[item.product_id] += item.quantity
+        
+        # 3. Lock ALL affected products in one query
+        with transaction.atomic():
+            products = {
+                p.id: p for p in
+                Product.objects.select_for_update()
+                    .filter(id__in=qty_by_product.keys())
+            }
             
-            # Deduct Available Stock (stock_quantity) immediately
-            StockService.adjust_stock(
-                product_id=item.product.id,
-                adjustment_type='decrease',
-                quantity=item.quantity,
-                reason='sale',
-                notes=f"Order #{self.display_id} Confirmed",
-                user=self.created_by,
-                target_ledger='available'
+            adjustments = []
+            histories = []
+            
+            for product_id, total_qty in qty_by_product.items():
+                product = products[product_id]
+                product.stock_quantity -= total_qty
+                
+                adjustments.append(StockAdjustment(
+                    product=product,
+                    adjustment_type='decrease',
+                    quantity=total_qty,
+                    reason='sale',
+                    notes=f"Order #{self.display_id} Confirmed",
+                    created_by=self.created_by
+                ))
+                histories.append(StockHistory(
+                    product=product,
+                    quantity_change=-total_qty,
+                    quantity_after=product.stock_quantity,
+                    cost_at_time=product.cost_price,
+                    reason='sale',
+                    notes=f"Adjustment (decrease): Order #{self.display_id} Confirmed",
+                    created_by=self.created_by
+                ))
+            
+            # 4. Bulk save all products (1 query)
+            Product.objects.bulk_update(
+                list(products.values()), ['stock_quantity']
             )
+            
+            # 5. Bulk create audit records (2 queries)
+            StockAdjustment.objects.bulk_create(adjustments)
+            StockHistory.objects.bulk_create(histories)
     
     def save(self, *args, **kwargs):
         """Auto-configure order_status on every save.
