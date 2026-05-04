@@ -178,60 +178,54 @@ class OrderViewSet(viewsets.ModelViewSet):
                     fingerprint[:16]
                 )
 
-            if not guard_failed:
-                with transaction.atomic():
-                    # Lock customer row — concurrent requests for this customer will wait
-                    Customer.objects.select_for_update().filter(pk=customer_id).first()
+        # ── 1. Validate data OUTSIDE the atomic block (fast, no locks) ──
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
 
-                    recent_dup = Order.objects.filter(
-                        order_fingerprint=fingerprint,
-                        is_deleted=False,
-                        created_at__gte=timezone.now() - timedelta(minutes=10),
-                    ).first()
-                    if recent_dup:
-                        logger.warning(
-                            "DB duplicate guard triggered: fingerprint=%s matches order #%s",
-                            fingerprint[:16], recent_dup.display_id
-                        )
-                        return Response(
-                            {
-                                'detail': (
-                                    f'A similar order (#{recent_dup.display_id}) was created '
-                                    f'recently. Please verify before resubmitting.'
-                                ),
-                                'existing_order_id': str(recent_dup.id),
-                                'existing_display_id': recent_dup.display_id,
-                            },
-                            status=status.HTTP_409_CONFLICT
-                        )
+        # ── 2. Create the order inside the atomic block (if customer guard passes) ──
+        if not guard_failed:
+            with transaction.atomic():
+                # Lock customer row — concurrent requests for this customer will wait
+                Customer.objects.select_for_update().filter(pk=customer_id).first()
 
-                    # No duplicate — create inside the same atomic block (lock held).
-                    # Exceptions from super().create() (ValidationError, IntegrityError)
-                    # propagate naturally to DRF's exception handler — NOT swallowed.
-                    import time
-                    lock_start = time.time()
-                    response = super().create(request, *args, **kwargs)
-                    lock_end = time.time()
+                recent_dup = Order.objects.filter(
+                    order_fingerprint=fingerprint,
+                    is_deleted=False,
+                    created_at__gte=timezone.now() - timedelta(minutes=10),
+                ).first()
+                if recent_dup:
                     logger.warning(
-                        "⚠️ [LOCK AUTOPSY] Serializer holding DB lock for %.3f seconds during order creation!",
-                        lock_end - lock_start
+                        "DB duplicate guard triggered: fingerprint=%s matches order #%s",
+                        fingerprint[:16], recent_dup.display_id
+                    )
+                    return Response(
+                        {
+                            'detail': (
+                                f'A similar order (#{recent_dup.display_id}) was created '
+                                f'recently. Please verify before resubmitting.'
+                            ),
+                            'existing_order_id': str(recent_dup.id),
+                            'existing_display_id': recent_dup.display_id,
+                        },
+                        status=status.HTTP_409_CONFLICT
                     )
 
-                    # Cache the idempotency key inside the same atomic block
-                    if idempotency_key and response.status_code == 201:
-                        try:
-                            from django.core.cache import cache
-                            cache_key = f"order_idempotency_{request.user.id}_{idempotency_key}"
-                            order_id = response.data.get('id')
-                            if order_id:
-                                cache.set(cache_key, order_id, timeout=600)
-                        except Exception:
-                            logger.warning("Cache set failed for idempotency key=%s", idempotency_key)
+                # No duplicate — create inside the same atomic block (lock held).
+                import time
+                lock_start = time.time()
+                self.perform_create(serializer)
+                lock_end = time.time()
+                logger.warning(
+                    "⚠️ [LOCK AUTOPSY] DB lock held for %.3f seconds during order creation!",
+                    lock_end - lock_start
+                )
+        else:
+            # Fallback path: guest orders (no customer_id) or guard failure (fail-open)
+            self.perform_create(serializer)
 
-                    return response
-
-        # Fallback path: guest orders (no customer_id) or guard failure (fail-open)
-        response = super().create(request, *args, **kwargs)
+        # ── 3. Serialize response OUTSIDE the atomic block (slow, no locks) ──
+        headers = self.get_success_headers(serializer.data)
+        response = Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
 
         if idempotency_key and response.status_code == 201:
             try:

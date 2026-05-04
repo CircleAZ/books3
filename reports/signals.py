@@ -70,15 +70,8 @@ def log_order_save(sender, instance, created, **kwargs):
     diff = getattr(instance, '_activity_changes', '')
     description = f"Order #{instance.display_id} was {'created' if created else 'updated'}."
     
-    # Avoid logging every minor update if desired, or check specific fields
-    # For now, log all.
-    
-    ActivityLog.log_action(
-        user=instance.created_by, # Note: update might be by different user, need middleware for current user in signals or pass via save method. 
-        # Since signals don't have request context, we rely on created_by or modified_by fields if available.
-        # Order doesn't have modified_by. We'll use created_by for creation.
-        # For updates, this is tricky without middleware. 
-        # We will assume 'created_by' for creation. For updates, it's imperfect.
+    ActivityLog.objects.create(
+        user_id=instance.created_by_id, 
         action_type='order',
         description=description,
         details=diff,
@@ -94,11 +87,9 @@ def log_product_save(sender, instance, created, **kwargs):
     diff = getattr(instance, '_activity_changes', '')
     description = f"Product {instance.name} was {'created' if created else 'updated'}."
     
-    # Only capturing creation properly as we lack 'modified_by' in standard models, but fallback to created_by for logs where needed.
-    user = getattr(instance, 'created_by', None)
-    if user:
-         ActivityLog.log_action(
-            user=user,
+    if instance.created_by_id:
+         ActivityLog.objects.create(
+            user_id=instance.created_by_id,
             action_type=action,
             description=description,
             details=diff,
@@ -112,9 +103,9 @@ def log_product_save(sender, instance, created, **kwargs):
 def log_customer_save(sender, instance, created, **kwargs):
     diff = getattr(instance, '_activity_changes', '')
     desc = f"Customer {instance.first_name} {instance.last_name} {'added' if created else 'updated'}."
-    if instance.created_by:
-         ActivityLog.log_action(
-            user=instance.created_by,
+    if getattr(instance, 'created_by_id', None):
+         ActivityLog.objects.create(
+            user_id=instance.created_by_id,
             action_type='create' if created else 'update',
             description=desc,
             details=diff,
@@ -125,9 +116,9 @@ def log_customer_save(sender, instance, created, **kwargs):
 # --- Return Signals ---
 @receiver(post_save, sender=Return)
 def log_return_save(sender, instance, created, **kwargs):
-    if created and instance.created_by:
-        ActivityLog.log_action(
-            user=instance.created_by,
+    if created and instance.created_by_id:
+        ActivityLog.objects.create(
+            user_id=instance.created_by_id,
             action_type='return',
             description=f"Return #{instance.display_id} initiated for Order #{instance.order.display_id}",
             entity_type='Return',

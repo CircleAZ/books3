@@ -214,9 +214,52 @@ class OrderCreateSerializer(serializers.ModelSerializer):
         return value
     
     def create(self, validated_data):
+        from decimal import Decimal
         items_data = validated_data.pop('items', [])
         payments_data = validated_data.pop('payments', [])
         
+        # ── Pre-calculate totals to avoid multiple redundant saves ──
+        subtotal = Decimal('0')
+        for item_data in items_data:
+            gross = Decimal(str(item_data['unit_price'])) * int(item_data['quantity'])
+            dt = item_data.get('discount_type', '')
+            dv = Decimal(str(item_data.get('discount_value', 0)))
+            if dt == 'percent' and dv:
+                subtotal += (gross - (gross * dv / Decimal('100')).quantize(Decimal('0.01')))
+            elif dt == 'fixed' and dv:
+                subtotal += (gross - min(dv, gross))
+            else:
+                subtotal += gross
+                
+        validated_data['subtotal'] = subtotal
+        order_discount_type = validated_data.get('discount_type', '')
+        order_discount_value = Decimal(str(validated_data.get('discount_value', 0)))
+        
+        if order_discount_type == 'percent' and order_discount_value:
+            order_discount_amount = (subtotal * order_discount_value / Decimal('100')).quantize(Decimal('0.01'))
+        elif order_discount_type == 'fixed' and order_discount_value:
+            order_discount_amount = min(order_discount_value, subtotal)
+        else:
+            order_discount_amount = Decimal('0')
+            
+        validated_data['discount_amount'] = order_discount_amount
+        total = max(Decimal('0'), subtotal - order_discount_amount)
+        validated_data['total'] = total
+        
+        total_paid = sum(Decimal(str(p['amount'])) for p in payments_data)
+        if total_paid > total:
+            validated_data['payment_status'] = 'overpaid'
+        elif total_paid == total and total > 0:
+            validated_data['payment_status'] = 'paid'
+        elif total_paid > 0:
+            validated_data['payment_status'] = 'partial'
+        else:
+            validated_data['payment_status'] = 'pending'
+            
+        if total_paid > 0 and validated_data.get('order_status', 'draft') == 'draft':
+            validated_data['order_status'] = 'confirmed'
+        
+        # Now create the order with all derived fields fully populated
         order = Order.objects.create(**validated_data)
         
         # Bulk-fetch all products in a single query (Phase 1 perf fix)
@@ -231,51 +274,84 @@ class OrderCreateSerializer(serializers.ModelSerializer):
                 {'items': [f"Product(s) not found: {missing}"]}
             )
         
+        # Phase 5 perf fix: Use bulk_create to avoid N+1 save() and redundant calculate_totals()
+        order_items_to_create = []
+        from decimal import Decimal
+        
         for item_data in items_data:
             product = products_map[item_data['product']]
-            OrderItem.objects.create(
+            unit_price = item_data['unit_price']
+            quantity = item_data['quantity']
+            discount_type = item_data.get('discount_type', '')
+            discount_value = item_data.get('discount_value', 0)
+            
+            gross = unit_price * quantity
+            if discount_type == 'percent' and discount_value:
+                discount_amount = (gross * discount_value / Decimal('100')).quantize(Decimal('0.01'))
+            elif discount_type == 'fixed' and discount_value:
+                discount_amount = min(discount_value, gross)
+            else:
+                discount_amount = Decimal('0')
+            
+            line_total = gross - discount_amount
+            
+            order_items_to_create.append(OrderItem(
                 order=order,
                 product=product,
-                quantity=item_data['quantity'],
-                unit_price=item_data['unit_price'],
-                discount_type=item_data.get('discount_type', ''),
-                discount_value=item_data.get('discount_value', 0)
-            )
+                quantity=quantity,
+                unit_price=unit_price,
+                cost_price=product.cost_price,
+                discount_type=discount_type,
+                discount_value=discount_value,
+                discount_amount=discount_amount,
+                line_total=line_total
+            ))
+            
+        if order_items_to_create:
+            OrderItem.objects.bulk_create(order_items_to_create)
+
         # Collect deferred ledger deposits (Phase 4 perf fix)
         # Customer Wallet debits stay SYNC (balance-critical).
         # Cash/bank deposits are just bookkeeping — safe to defer.
         deferred_deposits = []
+        payments_to_create = []
         
         for payment_data in payments_data:
-            payment = Payment.objects.create(
+            method = payment_data.get('method', '')
+            amount = payment_data['amount']
+            
+            payments_to_create.append(Payment(
                 order=order,
-                amount=payment_data['amount'],
-                method=payment_data.get('method', ''),
+                amount=amount,
+                method=method,
                 destination_bank_id=payment_data.get('destination_bank'),
                 destination_wallet_id=payment_data.get('destination_wallet'),
                 upi_reference=payment_data.get('upi_reference', ''),
                 created_by=validated_data.get('created_by')
-            )
-            if payment.method == 'Customer Wallet':
+            ))
+            
+            if method == 'Customer Wallet':
                 # SYNC: must be atomic with order creation
                 if getattr(order.customer, 'wallet', None):
                     order.customer.wallet.debit(
-                        payment.amount, 
+                        amount, 
                         f"Payment for Order #{order.display_id}", 
                         user=validated_data.get('created_by')
                     )
             else:
                 # DEFERRED: cash/bank deposit runs after commit
                 deferred_deposits.append({
-                    'amount': payment.amount,
-                    'destination_bank_id': payment.destination_bank_id,
-                    'destination_wallet_id': payment.destination_wallet_id,
+                    'amount': amount,
+                    'destination_bank_id': payment_data.get('destination_bank'),
+                    'destination_wallet_id': payment_data.get('destination_wallet'),
                     'reference': f"order_{order.display_id}",
                     'description': f"Initial Payment for Order #{order.display_id}",
                     'user_id': validated_data.get('created_by').id if validated_data.get('created_by') else None,
                 })
         
-        order.calculate_totals()
+        if payments_to_create:
+            Payment.objects.bulk_create(payments_to_create)
+        
         # update_payment_status() intentionally omitted — already called by
         # Payment.save() hook (models.py:615) for each payment. For zero-payment
         # orders (drafts), the default 'pending' status is correct.
