@@ -15,14 +15,25 @@ export default function TransferModal({ isOpen, onClose, outletId, onTransferCom
     
     useEffect(() => {
         if (isOpen) {
-            fetchProducts();
             setSelectedItems([]);
+            setSearchTerm('');
+            fetchProducts('');
         }
     }, [isOpen]);
 
-    const fetchProducts = async () => {
+    useEffect(() => {
+        if (isOpen) {
+            const timer = setTimeout(() => {
+                fetchProducts(searchTerm);
+            }, 300);
+            return () => clearTimeout(timer);
+        }
+    }, [searchTerm, isOpen]);
+
+    const fetchProducts = async (query = '') => {
         try {
-            const res = await fetchWithAuth(`${ENDPOINTS.INVENTORY_PRODUCTS}?is_active=true`);
+            const searchParam = query ? `&search=${encodeURIComponent(query)}` : '';
+            const res = await fetchWithAuth(`${ENDPOINTS.INVENTORY_PRODUCTS}?is_active=true${searchParam}`);
             if (res.ok) {
                 const data = await res.json();
                 setProducts(data.results || data);
@@ -93,10 +104,7 @@ export default function TransferModal({ isOpen, onClose, outletId, onTransferCom
 
     if (!isOpen) return null;
 
-    const filteredProducts = products.filter(p => 
-        (p.name || '').toLowerCase().includes(searchTerm.toLowerCase()) || 
-        (p.sku || '').toLowerCase().includes(searchTerm.toLowerCase())
-    ).slice(0, 5); // Show top 5 matches
+    const filteredProducts = products.slice(0, 5);
 
     return (
         <div className="modal-overlay" style={overlayStyle}>

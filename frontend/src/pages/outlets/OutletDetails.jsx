@@ -43,44 +43,48 @@ export default function OutletDetails() {
     const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
     const [isSaleModalOpen, setIsSaleModalOpen] = useState(false);
 
-    const fetchOutletData = useCallback(async () => {
+    const fetchOutlet = useCallback(async () => {
         try {
-            setLoading(true);
-            const [outletRes, stockRes, salesRes, paymentsRes, transferRes] = await Promise.all([
-                fetchWithAuth(`${ENDPOINTS.OUTLETS}${id}/`),
-                fetchWithAuth(`${ENDPOINTS.OUTLETS_STOCK}?outlet=${id}`),
-                fetchWithAuth(`${ENDPOINTS.OUTLETS_SALES}?outlet=${id}`),
-                fetchWithAuth(`${ENDPOINTS.OUTLETS_PAYMENTS}?outlet=${id}`),
-                fetchWithAuth(`${ENDPOINTS.OUTLETS_TRANSFERS}?outlet=${id}`)
-            ]);
-            
+            const outletRes = await fetchWithAuth(`${ENDPOINTS.OUTLETS}${id}/`);
             if (outletRes.ok) {
                 const outletData = await outletRes.json();
                 setOutlet(outletData);
             }
-            if (stockRes.ok) {
-                const stockData = await stockRes.json();
-                setStock(stockData.results || stockData);
-            }
-            if (salesRes.ok) {
-                const salesData = await salesRes.json();
-                setSales(salesData.results || salesData);
-            }
-            if (paymentsRes.ok) {
-                const paymentsData = await paymentsRes.json();
-                setPayments(paymentsData.results || paymentsData);
-            }
-            if (transferRes.ok) {
-                const transferData = await transferRes.json();
-                setTransfers(transferData.results || transferData);
-            }
         } catch (error) {
-            console.error("Failed to load ledger:", error);
-            showToast("Failed to load outlet ledger data", "error");
+            console.error("Failed to load outlet:", error);
+            showToast("Failed to load outlet data", "error");
         } finally {
             setLoading(false);
         }
     }, [fetchWithAuth, id, showToast]);
+
+    const fetchStock = useCallback(async () => {
+        const res = await fetchWithAuth(`${ENDPOINTS.OUTLETS_STOCK}?outlet=${id}`);
+        if (res.ok) { const d = await res.json(); setStock(d.results || d); }
+    }, [fetchWithAuth, id]);
+
+    const fetchSales = useCallback(async () => {
+        const res = await fetchWithAuth(`${ENDPOINTS.OUTLETS_SALES}?outlet=${id}`);
+        if (res.ok) { const d = await res.json(); setSales(d.results || d); }
+    }, [fetchWithAuth, id]);
+
+    const fetchPayments = useCallback(async () => {
+        const res = await fetchWithAuth(`${ENDPOINTS.OUTLETS_PAYMENTS}?outlet=${id}`);
+        if (res.ok) { const d = await res.json(); setPayments(d.results || d); }
+    }, [fetchWithAuth, id]);
+
+    const fetchTransfers = useCallback(async () => {
+        const res = await fetchWithAuth(`${ENDPOINTS.OUTLETS_TRANSFERS}?outlet=${id}`);
+        if (res.ok) { const d = await res.json(); setTransfers(d.results || d); }
+    }, [fetchWithAuth, id]);
+
+    const refreshData = useCallback(() => {
+        fetchOutlet();
+        if (activeTab === 'stock') fetchStock();
+        else if (activeTab === 'sales') fetchSales();
+        else if (activeTab === 'payments') fetchPayments();
+        else if (activeTab === 'transfers') fetchTransfers();
+    }, [activeTab, fetchOutlet, fetchStock, fetchSales, fetchPayments, fetchTransfers]);
 
     // Fetch commission overrides once (all of them, not paginated)
     const fetchCommissionOverrides = useCallback(async () => {
@@ -126,8 +130,15 @@ export default function OutletDetails() {
     }, [fetchWithAuth, showToast]);
 
     useEffect(() => {
-        fetchOutletData();
-    }, [fetchOutletData, location.key]);
+        fetchOutlet();
+    }, [fetchOutlet, location.key]);
+
+    useEffect(() => {
+        if (activeTab === 'stock') fetchStock();
+        else if (activeTab === 'sales') fetchSales();
+        else if (activeTab === 'payments') fetchPayments();
+        else if (activeTab === 'transfers') fetchTransfers();
+    }, [activeTab, fetchStock, fetchSales, fetchPayments, fetchTransfers, location.key]);
 
     // Debounce commission search
     useEffect(() => {
@@ -154,7 +165,7 @@ export default function OutletDetails() {
             });
             if (response.ok) {
                 showToast("Transfer dispatched successfully", "success");
-                fetchOutletData(); // refresh
+                refreshData(); // refresh
             } else {
                 const err = await response.json().catch(() => ({}));
                 showToast(err.error || "Failed to dispatch transfer", "error");
@@ -540,20 +551,20 @@ export default function OutletDetails() {
                 isOpen={isTransferModalOpen} 
                 onClose={() => setIsTransferModalOpen(false)} 
                 outletId={outlet.id} 
-                onTransferComplete={fetchOutletData} 
+                onTransferComplete={refreshData} 
             />
             <PaymentModal 
                 isOpen={isPaymentModalOpen} 
                 onClose={() => setIsPaymentModalOpen(false)} 
                 outletId={outlet.id} 
                 outstandingBalance={outlet.outstanding_balance}
-                onPaymentComplete={fetchOutletData} 
+                onPaymentComplete={refreshData} 
             />
             <SaleModal 
                 isOpen={isSaleModalOpen} 
                 onClose={() => setIsSaleModalOpen(false)} 
                 outletId={outlet.id} 
-                onSaleComplete={fetchOutletData} 
+                onSaleComplete={refreshData} 
             />
         </div>
     );

@@ -57,7 +57,7 @@ class OutletStockTransferSerializer(serializers.ModelSerializer):
     class Meta:
         model = OutletStockTransfer
         fields = '__all__'
-        read_only_fields = ('display_id', 'created_by')
+        read_only_fields = ('display_id', 'created_by', 'status')
 
     def create(self, validated_data):
         items_data = validated_data.pop('items', [])
@@ -81,7 +81,7 @@ class OutletStockReturnSerializer(serializers.ModelSerializer):
     class Meta:
         model = OutletStockReturn
         fields = '__all__'
-        read_only_fields = ('display_id', 'created_by')
+        read_only_fields = ('display_id', 'created_by', 'status')
 
     def create(self, validated_data):
         items_data = validated_data.pop('items', [])

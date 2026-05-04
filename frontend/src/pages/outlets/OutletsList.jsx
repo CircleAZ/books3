@@ -4,6 +4,7 @@ import { useAuth } from '../../context/AuthContext';
 import { ENDPOINTS } from '../../config/api';
 import { useCurrency } from '../../context/CurrencyContext';
 import { useToast } from '../../context/ToastContext';
+import Pagination from '../../components/common/Pagination';
 
 export default function OutletsList() {
     const [outlets, setOutlets] = useState([]);
@@ -14,12 +15,35 @@ export default function OutletsList() {
     const navigate = useNavigate();
     const location = useLocation();
 
+    const [page, setPage] = useState(1);
+    const [totalPages, setTotalPages] = useState(1);
+    const [searchTerm, setSearchTerm] = useState('');
+    const [debouncedSearch, setDebouncedSearch] = useState('');
+
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            setDebouncedSearch(searchTerm);
+            setPage(1);
+        }, 300);
+        return () => clearTimeout(timer);
+    }, [searchTerm]);
+
     const fetchOutlets = useCallback(async () => {
         try {
-            const response = await fetchWithAuth(ENDPOINTS.OUTLETS);
+            setLoading(true);
+            let url = `${ENDPOINTS.OUTLETS}?page=${page}`;
+            if (debouncedSearch) {
+                url += `&search=${encodeURIComponent(debouncedSearch)}`;
+            }
+            const response = await fetchWithAuth(url);
             if (response.ok) {
                 const data = await response.json();
                 setOutlets(data.results || data);
+                if (data.count) {
+                    setTotalPages(Math.ceil(data.count / 25)); // assuming default 25
+                } else {
+                    setTotalPages(1);
+                }
             } else {
                 showToast("Failed to load outlets", "error");
             }
@@ -29,13 +53,13 @@ export default function OutletsList() {
         } finally {
             setLoading(false);
         }
-    }, [fetchWithAuth, showToast]);
+    }, [fetchWithAuth, showToast, page, debouncedSearch]);
 
     useEffect(() => {
         fetchOutlets();
     }, [fetchOutlets, location.key]);
 
-    if (loading) return <div className="page-loading">Loading Outlets...</div>;
+    if (loading && outlets.length === 0) return <div className="page-loading">Loading Outlets...</div>;
 
     return (
         <div className="page-container">
@@ -44,12 +68,22 @@ export default function OutletsList() {
                     <h1 className="page-title">Outlets & Consignment</h1>
                     <p className="page-subtitle">Manage B2B wholesale locations and their ledgers</p>
                 </div>
-                <button 
-                    className="btn btn-primary"
-                    onClick={() => navigate('/outlets/add')}
-                >
-                    + Add Outlet
-                </button>
+                <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
+                    <input
+                        type="text"
+                        placeholder="Search outlets..."
+                        className="form-input"
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        style={{ width: '250px' }}
+                    />
+                    <button 
+                        className="btn btn-primary"
+                        onClick={() => navigate('/outlets/add')}
+                    >
+                        + Add Outlet
+                    </button>
+                </div>
             </div>
 
             <div className="table-card">
@@ -92,6 +126,13 @@ export default function OutletsList() {
                         )}
                     </tbody>
                 </table>
+                <div className="pagination-bar">
+                    <Pagination 
+                        currentPage={page} 
+                        totalPages={totalPages} 
+                        onPageChange={setPage} 
+                    />
+                </div>
             </div>
         </div>
     );

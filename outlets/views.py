@@ -11,7 +11,7 @@ from .serializers import (OutletSerializer, OutletStockSerializer,
                           OutletProductCommissionSerializer)
 
 class OutletViewSet(viewsets.ModelViewSet):
-    queryset = Outlet.objects.all()
+    queryset = Outlet.objects.with_financials().all()
     serializer_class = OutletSerializer
 
 class OutletStockViewSet(viewsets.ReadOnlyModelViewSet):
@@ -40,27 +40,24 @@ class OutletProductCommissionViewSet(viewsets.ModelViewSet):
         if not isinstance(items, list):
             return Response({'error': 'Expected a list of items'}, status=status.HTTP_400_BAD_REQUEST)
 
+        serializer = self.get_serializer(data=items, many=True)
+        serializer.is_valid(raise_exception=True)
+
         results = []
         with transaction.atomic():
-            for item in items:
-                outlet_id = item.get('outlet')
-                product_id = item.get('product')
+            for item in serializer.validated_data:
+                outlet_obj = item.get('outlet')
+                product_obj = item.get('product')
                 rate = item.get('commission_percentage')
 
-                if not all([outlet_id, product_id, rate is not None]):
-                    return Response(
-                        {'error': f'Missing required fields in item: {item}'},
-                        status=status.HTTP_400_BAD_REQUEST
-                    )
-
                 obj, created = OutletProductCommission.objects.update_or_create(
-                    outlet_id=outlet_id,
-                    product_id=product_id,
+                    outlet=outlet_obj,
+                    product=product_obj,
                     defaults={'commission_percentage': rate}
                 )
                 results.append({
                     'id': str(obj.id),
-                    'product': str(product_id),
+                    'product': str(product_obj.id),
                     'commission_percentage': str(obj.commission_percentage),
                     'created': created
                 })

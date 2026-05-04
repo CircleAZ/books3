@@ -3,8 +3,19 @@ from django.db import models, transaction
 from django.conf import settings
 from django.core.validators import MinValueValidator
 from django.utils import timezone
+from django.db.models import Sum
+from django.db.models.functions import Coalesce
 from core.models import SoftDeleteModel, UUIDPrimaryKeyModel, DisplayIDMixin
 from inventory.models import Product
+
+class OutletManager(models.Manager):
+    def with_financials(self):
+        return self.annotate(
+            annotated_gross_sales=Coalesce(Sum('sales__gross_total'), Decimal('0.00')),
+            annotated_commission=Coalesce(Sum('sales__commission_amount'), Decimal('0.00')),
+            annotated_net_sales=Coalesce(Sum('sales__net_total'), Decimal('0.00')),
+            annotated_paid=Coalesce(Sum('payments__amount'), Decimal('0.00'))
+        )
 
 class Outlet(DisplayIDMixin, SoftDeleteModel):
     """
@@ -17,24 +28,34 @@ class Outlet(DisplayIDMixin, SoftDeleteModel):
     address = models.TextField(blank=True)
     is_active = models.BooleanField(default=True)
 
+    objects = OutletManager()
+
     def __str__(self):
         return self.name
     
     # Financial Properties
     @property
     def total_gross_sales(self):
+        if hasattr(self, 'annotated_gross_sales'):
+            return self.annotated_gross_sales
         return sum(sale.gross_total for sale in self.sales.all())
         
     @property
     def total_commission(self):
+        if hasattr(self, 'annotated_commission'):
+            return self.annotated_commission
         return sum(sale.commission_amount for sale in self.sales.all())
         
     @property
     def total_net_sales(self):
+        if hasattr(self, 'annotated_net_sales'):
+            return self.annotated_net_sales
         return sum(sale.net_total for sale in self.sales.all())
         
     @property
     def total_paid(self):
+        if hasattr(self, 'annotated_paid'):
+            return self.annotated_paid
         return sum(payment.amount for payment in self.payments.all())
         
     @property
@@ -124,7 +145,8 @@ class OutletStockTransfer(DisplayIDMixin, SoftDeleteModel):
         Deducts from 'both' ledgers in Main Inventory.
         Freezes the current cost_price on the transfer item.
         """
-        if self.status != self.Status.DRAFT:
+        locked_transfer = OutletStockTransfer.objects.select_for_update().get(id=self.id)
+        if locked_transfer.status != self.Status.DRAFT:
             raise ValueError("Only draft transfers can be dispatched.")
             
         from inventory.services import StockService
@@ -179,6 +201,11 @@ class OutletStockTransferItem(SoftDeleteModel):
 
     def __str__(self):
         return f"{self.quantity} x {self.product.name}"
+
+    def save(self, *args, **kwargs):
+        if not self._state.adding and self.transfer.status != OutletStockTransfer.Status.DRAFT:
+            raise ValueError("Cannot modify items of a dispatched transfer.")
+        super().save(*args, **kwargs)
 
 
 class OutletStockReturn(DisplayIDMixin, SoftDeleteModel):
@@ -277,6 +304,11 @@ class OutletStockReturnItem(SoftDeleteModel):
     def __str__(self):
         return f"{self.quantity} x {self.product.name}"
 
+    def save(self, *args, **kwargs):
+        if not self._state.adding and self.return_record.status != OutletStockReturn.Status.DRAFT:
+            raise ValueError("Cannot modify items of a received return.")
+        super().save(*args, **kwargs)
+
 
 class OutletDailySale(DisplayIDMixin, SoftDeleteModel):
     """
@@ -342,6 +374,10 @@ class OutletDailySaleItem(SoftDeleteModel):
     def __str__(self):
         return f"{self.quantity} x {self.product.name} @ {self.unit_price}"
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._original_quantity = self.quantity if self.pk else None
+
     @staticmethod
     def resolve_commission_rate(outlet, product):
         """
@@ -388,6 +424,24 @@ class OutletDailySaleItem(SoftDeleteModel):
                     outlet_stock.save()
                 except OutletStock.DoesNotExist:
                     raise ValueError(f"Outlet has no stock of {self.product.name}.")
+            else:
+                # Delta handling for post-sale quantity edits
+                delta = self.quantity - (self._original_quantity or 0)
+                if delta != 0:
+                    try:
+                        outlet_stock = OutletStock.objects.select_for_update().get(
+                            outlet=self.sale.outlet,
+                            product=self.product
+                        )
+                        if outlet_stock.quantity < delta:
+                            raise ValueError(f"Outlet does not have enough {self.product.name} to fulfill increased sale.")
+                        outlet_stock.quantity -= delta
+                        outlet_stock.save()
+                    except OutletStock.DoesNotExist:
+                        if delta > 0:
+                            raise ValueError(f"Outlet has no stock of {self.product.name}.")
+                            
+            self._original_quantity = self.quantity
             
             # Recalculate parent sale
             self.sale.recalculate_totals()

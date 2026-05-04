@@ -61,13 +61,7 @@ export default function SaleModal({ isOpen, onClose, outletId, onSaleComplete })
             return;
         }
 
-        // Validate quantities
-        for (const item of selectedItems) {
-            if (item.quantity > item.available) {
-                showToast(`Cannot sell ${item.quantity} of ${item.name}. Only ${item.available} in stock at outlet.`, "error");
-                return;
-            }
-        }
+        // Frontend validation deferred to backend to prevent stale stock caching race conditions.
 
         setLoading(true);
         try {
@@ -89,7 +83,10 @@ export default function SaleModal({ isOpen, onClose, outletId, onSaleComplete })
                 onSaleComplete();
                 onClose();
             } else {
-                showToast("Failed to record daily sale", "error");
+                const errData = await response.json().catch(() => ({}));
+                // Check common DRF error formats (dict or list)
+                const errMsg = errData.error || errData.detail || (Array.isArray(errData) ? errData[0] : "Failed to record daily sale");
+                showToast(typeof errMsg === 'string' ? errMsg : JSON.stringify(errMsg), "error");
             }
         } catch (error) {
             console.error(error);
@@ -154,7 +151,6 @@ export default function SaleModal({ isOpen, onClose, outletId, onSaleComplete })
                                                 type="number" 
                                                 className="form-input" 
                                                 min="1" 
-                                                max={item.available}
                                                 value={item.quantity}
                                                 onChange={(e) => handleUpdateQuantity(item.productId, e.target.value)}
                                             />
