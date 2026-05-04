@@ -310,7 +310,7 @@ export default function OutletDetails() {
                                 {stock.map(item => (
                                     <tr key={item.id}>
                                         <td className="font-medium">{item.product_details.name}</td>
-                                        <td>{item.product_details.sku}</td>
+                                        <td>#{item.product_details.display_id}</td>
                                         <td className="text-right font-bold">{item.quantity}</td>
                                     </tr>
                                 ))}

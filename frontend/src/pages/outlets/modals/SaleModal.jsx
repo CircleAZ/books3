@@ -37,7 +37,7 @@ export default function SaleModal({ isOpen, onClose, outletId, onSaleComplete })
             setSelectedItems([...selectedItems, { 
                 productId: stockItem.product,
                 name: stockItem.product_details.name,
-                sku: stockItem.product_details.sku,
+                display_id: stockItem.product_details.display_id,
                 available: stockItem.quantity,
                 quantity: 1 
             }]);
@@ -100,7 +100,7 @@ export default function SaleModal({ isOpen, onClose, outletId, onSaleComplete })
 
     const filteredStock = outletStock.filter(s => 
         (s.product_details?.name || '').toLowerCase().includes(searchTerm.toLowerCase()) || 
-        (s.product_details?.sku || '').toLowerCase().includes(searchTerm.toLowerCase())
+        String(s.product_details?.display_id || '').includes(searchTerm)
     ).filter(s => s.quantity > 0).slice(0, 5); // Only show items with positive stock
 
     return (
@@ -121,7 +121,7 @@ export default function SaleModal({ isOpen, onClose, outletId, onSaleComplete })
                         <div style={searchResultsStyle}>
                             {filteredStock.map(s => (
                                 <div key={s.id} style={searchResultItemStyle} onClick={() => handleAddItem(s)}>
-                                    <span>{s.product_details.name} ({s.product_details.sku})</span>
+                                    <span>{s.product_details.name} (#{s.product_details.display_id})</span>
                                     <span className="text-muted">Available: {s.quantity}</span>
                                 </div>
                             ))}
@@ -144,7 +144,7 @@ export default function SaleModal({ isOpen, onClose, outletId, onSaleComplete })
                             <tbody>
                                 {selectedItems.map(item => (
                                     <tr key={item.productId}>
-                                        <td>{item.name} <br/><small className="text-muted">{item.sku}</small></td>
+                                        <td>{item.name} <br/><small className="text-muted">#{item.display_id}</small></td>
                                         <td>{item.available}</td>
                                         <td>
                                             <input 

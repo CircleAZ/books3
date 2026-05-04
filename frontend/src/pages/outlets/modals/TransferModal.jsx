@@ -48,7 +48,7 @@ export default function TransferModal({ isOpen, onClose, outletId, onTransferCom
             setSelectedItems([...selectedItems, { 
                 productId: product.id, 
                 name: product.name,
-                sku: product.sku,
+                display_id: product.display_id,
                 stock: product.current_stock,
                 quantity: 1 
             }]);
@@ -114,7 +114,7 @@ export default function TransferModal({ isOpen, onClose, outletId, onTransferCom
                 <div style={{ marginBottom: '1rem' }}>
                     <input 
                         type="text" 
-                        placeholder="Search products by name or SKU..." 
+                        placeholder="Search products by name or ID..." 
                         className="form-input"
                         value={searchTerm}
                         onChange={e => setSearchTerm(e.target.value)}
@@ -123,7 +123,7 @@ export default function TransferModal({ isOpen, onClose, outletId, onTransferCom
                         <div style={searchResultsStyle}>
                             {filteredProducts.map(p => (
                                 <div key={p.id} style={searchResultItemStyle} onClick={() => handleAddItem(p)}>
-                                    <span>{p.name} ({p.sku})</span>
+                                    <span>{p.name} (#{p.display_id})</span>
                                     <span className="text-muted">Stock: {p.current_stock}</span>
                                 </div>
                             ))}
@@ -145,7 +145,7 @@ export default function TransferModal({ isOpen, onClose, outletId, onTransferCom
                             <tbody>
                                 {selectedItems.map(item => (
                                     <tr key={item.productId}>
-                                        <td>{item.name} <br/><small className="text-muted">{item.sku}</small></td>
+                                        <td>{item.name} <br/><small className="text-muted">#{item.display_id}</small></td>
                                         <td>{item.stock}</td>
                                         <td>
                                             <input 
