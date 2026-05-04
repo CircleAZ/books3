@@ -788,13 +788,17 @@ export default function NewOrder() {
             } else {
                 let errMsg = `Status ${response.status}`;
                 try {
-                    const err = await response.json();
-                    errMsg = JSON.stringify(err);
-                    console.error('Order API error:', err);
-                } catch (e) {
                     const text = await response.text();
-                    errMsg = text.slice(0, 200);
-                    console.error('Order API error (non-JSON):', text.slice(0, 500));
+                    try {
+                        const err = JSON.parse(text);
+                        errMsg = JSON.stringify(err);
+                        console.error('Order API error:', err);
+                    } catch (jsonErr) {
+                        errMsg = text.slice(0, 200);
+                        console.error('Order API error (non-JSON):', text.slice(0, 500));
+                    }
+                } catch (e) {
+                    console.error('Failed to read error response:', e);
                 }
                 showToast('Order failed: ' + errMsg, 'error');
             }
