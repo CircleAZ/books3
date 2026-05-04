@@ -401,6 +401,7 @@ class Order(DisplayIDMixin, SoftDeleteModel):
         """
         from collections import defaultdict
         from inventory.models import Product, StockAdjustment, StockHistory
+        from django.db import transaction
         
         items = list(
             self.items.filter(confirmed_quantity__isnull=True)
