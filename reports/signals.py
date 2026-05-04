@@ -87,7 +87,7 @@ def log_product_save(sender, instance, created, **kwargs):
     diff = getattr(instance, '_activity_changes', '')
     description = f"Product {instance.name} was {'created' if created else 'updated'}."
     
-    if instance.created_by_id:
+    if getattr(instance, 'created_by_id', None):
          ActivityLog.objects.create(
             user_id=instance.created_by_id,
             action_type=action,

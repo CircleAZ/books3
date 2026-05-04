@@ -161,13 +161,10 @@ class OrderViewSet(viewsets.ModelViewSet):
         request._order_fingerprint = fingerprint
 
         # ── Layer 2b + Layer 3: Atomic fingerprint check + order creation ──
-        # The select_for_update lock on the customer row prevents TOCTOU races:
-        # both the duplicate check AND the insert happen inside the same transaction,
-        # so a concurrent request blocks on the lock until this one commits.
+        guard_failed = False
         if customer_id:
             # Phase A: Guard query (fail-open — if the guard itself breaks,
             # we still create the order, just without duplicate protection)
-            guard_failed = False
             try:
                 from customers.models import Customer
                 Customer.objects.filter(pk=customer_id).first()  # Validate customer exists
@@ -182,11 +179,12 @@ class OrderViewSet(viewsets.ModelViewSet):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
-        # ── 2. Create the order inside the atomic block (if customer guard passes) ──
+        # ── 2. Create the order inside the atomic block ──
         if not guard_failed:
             with transaction.atomic():
-                # Lock customer row — concurrent requests for this customer will wait
-                Customer.objects.select_for_update().filter(pk=customer_id).first()
+                if customer_id:
+                    # Lock customer row — concurrent requests for this customer will wait
+                    Customer.objects.select_for_update().filter(pk=customer_id).first()
 
                 recent_dup = Order.objects.filter(
                     order_fingerprint=fingerprint,
