@@ -104,7 +104,7 @@ export default function TransferModal({ isOpen, onClose, outletId, onTransferCom
 
     if (!isOpen) return null;
 
-    const filteredProducts = products.slice(0, 5);
+    const filteredProducts = products.slice(0, 20);
 
     return (
         <div className="modal-overlay" style={overlayStyle}>

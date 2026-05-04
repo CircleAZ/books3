@@ -101,7 +101,7 @@ export default function SaleModal({ isOpen, onClose, outletId, onSaleComplete })
     const filteredStock = outletStock.filter(s => 
         (s.product_details?.name || '').toLowerCase().includes(searchTerm.toLowerCase()) || 
         String(s.product_details?.display_id || '').includes(searchTerm)
-    ).filter(s => s.quantity > 0).slice(0, 5); // Only show items with positive stock
+    ).filter(s => s.quantity > 0).slice(0, 20); // Only show items with positive stock, max 20
 
     return (
         <div className="modal-overlay" style={overlayStyle}>
