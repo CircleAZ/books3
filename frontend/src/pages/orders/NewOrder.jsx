@@ -18,10 +18,7 @@ export default function NewOrder() {
     const [customerSearch, setCustomerSearch] = useState('');
     const [customerResults, setCustomerResults] = useState([]);
     const [selectedCustomer, setSelectedCustomer] = useState(null);
-    const [isQuickAdd, setIsQuickAdd] = useState(false);
-    const [quickAddInfo, setQuickAddInfo] = useState({ first_name: '', phone: '' });
-    const [isQuickAddSaving, setIsQuickAddSaving] = useState(false);
-    const [quickAddPhoneWarning, setQuickAddPhoneWarning] = useState('');
+    const [showAddCustomerModal, setShowAddCustomerModal] = useState(false);
 
     const [productSearch, setProductSearch] = useState('');
     const [productResults, setProductResults] = useState([]);
@@ -102,18 +99,13 @@ export default function NewOrder() {
     // Refs for unsaved-work detection (used in event handlers to avoid stale closures)
     const cartLengthRef = useRef(cartItems.length);
     cartLengthRef.current = cartItems.length;
-    const quickAddInfoRef = useRef(quickAddInfo);
-    quickAddInfoRef.current = quickAddInfo;
-    const isQuickAddRef = useRef(isQuickAdd);
-    isQuickAddRef.current = isQuickAdd;
+    const showAddCustomerModalRef = useRef(showAddCustomerModal);
+    showAddCustomerModalRef.current = showAddCustomerModal;
 
     // Unified check: is there ANY unsaved work on this page?
     const hasUnsavedWork = () => {
         if (cartLengthRef.current > 0) return true;
-        if (isQuickAddRef.current) {
-            const qa = quickAddInfoRef.current;
-            if (qa.first_name?.trim() || qa.phone?.trim()) return true;
-        }
+        if (showAddCustomerModalRef.current) return true;
         return false;
     };
 
@@ -133,7 +125,7 @@ export default function NewOrder() {
     // Unified back-button handler: drawer close > unsaved work guard > allow navigation
     useEffect(() => {
         // Push a guard state whenever drawer opens OR there's unsaved work
-        const needsGuard = isDrawerOpen || cartItems.length > 0 || (isQuickAdd && (quickAddInfo.first_name?.trim() || quickAddInfo.phone?.trim()));
+        const needsGuard = isDrawerOpen || cartItems.length > 0 || showAddCustomerModal;
         if (!needsGuard) return;
 
         window.history.pushState({ posGuard: true }, '');
@@ -169,7 +161,7 @@ export default function NewOrder() {
 
         window.addEventListener('popstate', onPopState);
         return () => window.removeEventListener('popstate', onPopState);
-    }, [isDrawerOpen, cartItems.length > 0, isQuickAdd, quickAddInfo.first_name, quickAddInfo.phone]); // eslint-disable-line react-hooks/exhaustive-deps
+    }, [isDrawerOpen, cartItems.length > 0, showAddCustomerModal]); // eslint-disable-line react-hooks/exhaustive-deps
 
     // Debounced Customer Search (with AbortController)
     useEffect(() => {
@@ -599,8 +591,7 @@ export default function NewOrder() {
         if (window.confirm('Clear all items and reset order?')) {
             setCartItems([]);
             setSelectedCustomer(null);
-            setIsQuickAdd(false);
-            setQuickAddInfo({ first_name: '', phone: '' });
+            setShowAddCustomerModal(false);
             setPayments([]);
             setOrderDiscount({ type: 'fixed', value: 0 });
         }
@@ -666,8 +657,7 @@ export default function NewOrder() {
                 // Reset state
                 setCartItems([]);
                 setSelectedCustomer(null);
-                setIsQuickAdd(false);
-                setQuickAddInfo({ first_name: '', phone: '' });
+                setShowAddCustomerModal(false);
                 setPayments([]);
                 setOrderDiscount({ type: 'fixed', value: 0 });
             } else if (response.status === 409) {
@@ -719,10 +709,10 @@ export default function NewOrder() {
                 <section className="pos-section">
                     <div className="section-title">
                         <span>Customer</span>
-                        {!selectedCustomer && !isQuickAdd && (
+                        {!selectedCustomer && (
                             <div className="d-flex gap-2">
-                                <button type="button" className="btn btn-ghost btn-sm" onClick={() => setIsQuickAdd(true)}>
-                                    Quick Add
+                                <button type="button" className="btn btn-ghost btn-sm" onClick={() => setShowAddCustomerModal(true)}>
+                                    + Add new customer
                                 </button>
                             </div>
                         )}
@@ -738,104 +728,6 @@ export default function NewOrder() {
                                 <div className="text-muted small">{selectedCustomer.phone || 'No phone'}</div>
                             </div>
                             <button className="btn btn-ghost btn-sm" onClick={() => setSelectedCustomer(null)}>Change</button>
-                        </div>
-                    ) : isQuickAdd ? (
-                        <div className="guest-info-form">
-                            <div className="guest-inputs">
-                                <input
-                                    type="text"
-                                    placeholder="Customer Name *"
-                                    className="form-control"
-                                    value={quickAddInfo.first_name}
-                                    onChange={e => setQuickAddInfo({ ...quickAddInfo, first_name: e.target.value })}
-                                />
-                                <input
-                                    type="tel"
-                                    placeholder="Phone (10 digits) *"
-                                    className="form-control"
-                                    maxLength="10"
-                                    value={quickAddInfo.phone}
-                                    onChange={e => {
-                                        const val = e.target.value.replace(/\D/g, '').slice(0, 10);
-                                        setQuickAddInfo({ ...quickAddInfo, phone: val });
-                                        if (val.length < 10) setQuickAddPhoneWarning('');
-                                    }}
-                                    onBlur={async () => {
-                                        const phone = quickAddInfo.phone;
-                                        if (phone.length !== 10) return;
-                                        try {
-                                            const res = await fetchWithAuth(`${ENDPOINTS.CUSTOMERS}?search=${phone}`);
-                                            if (res.ok) {
-                                                const data = await res.json();
-                                                const matches = (data.results || []).filter(c => c.phone === phone);
-                                                if (matches.length > 0) {
-                                                    setQuickAddPhoneWarning(`⚠ Phone already used by: ${matches[0].full_name} (#${matches[0].display_id})`);
-                                                } else {
-                                                    setQuickAddPhoneWarning('');
-                                                }
-                                            }
-                                        } catch (e) { /* ignore */ }
-                                    }}
-                                />
-                            </div>
-                            {quickAddPhoneWarning && (
-                                <div style={{ color: '#e6a817', fontSize: '0.8rem', marginTop: '0.25rem' }}>{quickAddPhoneWarning}</div>
-                            )}
-                            <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.5rem' }}>
-                                <button
-                                    className="btn btn-primary btn-sm"
-                                    disabled={!quickAddInfo.first_name.trim() || quickAddInfo.phone.length !== 10 || isQuickAddSaving}
-                                    type="button"
-                                    onClick={async () => {
-                                        setIsQuickAddSaving(true);
-                                        try {
-                                            const res = await fetchWithAuth(ENDPOINTS.CUSTOMERS, {
-                                                method: 'POST',
-                                                headers: { 'Content-Type': 'application/json' },
-                                                body: JSON.stringify({
-                                                    first_name: quickAddInfo.first_name.trim(),
-                                                    phone: quickAddInfo.phone,
-                                                    notes: ''
-                                                })
-                                            });
-                                            if (res.ok) {
-                                                const customer = await res.json();
-                                                setSelectedCustomer({
-                                                    id: customer.id,
-                                                    display_id: customer.display_id,
-                                                    name: customer.first_name || quickAddInfo.first_name,
-                                                    phone: customer.phone || quickAddInfo.phone,
-                                                    // Education fields — Quick Add has none, but include for consistency
-                                                    school_id: null,
-                                                    effective_class_name: '',
-                                                    class_name: '',
-                                                    division_name: '',
-                                                    subdivision_name: '',
-                                                });
-                                                setIsQuickAdd(false);
-                                                setQuickAddInfo({ first_name: '', phone: '' });
-                                            } else {
-                                                const err = await res.json();
-                                                const flatten = (obj) => {
-                                                    return Object.entries(obj).flatMap(([k, v]) => {
-                                                        if (Array.isArray(v)) return v.map(item => typeof item === 'object' ? flatten(item) : `${k}: ${item}`).flat();
-                                                        if (typeof v === 'object' && v !== null) return flatten(v);
-                                                        return [`${k}: ${v}`];
-                                                    });
-                                                };
-                                                showToast('Failed: ' + flatten(err).join(', '), 'error');
-                                            }
-                                        } catch (e) {
-                                            showToast('Error creating customer', 'error');
-                                        } finally {
-                                            setIsQuickAddSaving(false);
-                                        }
-                                    }}
-                                >
-                                    {isQuickAddSaving ? 'Saving...' : 'Create & Select'}
-                                </button>
-                                <button className="btn btn-link btn-sm" onClick={() => setIsQuickAdd(false)}>Back to search</button>
-                            </div>
                         </div>
                     ) : (
                         <>
@@ -1291,6 +1183,36 @@ export default function NewOrder() {
                     </button>
                 </div>
             </div >
+
+            {/* Add Customer Modal */}
+            {showAddCustomerModal && (
+                <div className="modal-overlay" style={{ zIndex: 1000 }}>
+                    <div className="modal-content" style={{ maxWidth: '800px', width: '90%', maxHeight: '90vh', overflowY: 'auto', padding: '1rem', backgroundColor: 'var(--color-bg-primary)' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                            <h3 style={{ margin: 0 }}>Add New Customer</h3>
+                            <button type="button" className="btn btn-ghost" style={{ fontSize: '1.5rem', padding: '0 0.5rem' }} onClick={() => setShowAddCustomerModal(false)}>&times;</button>
+                        </div>
+                        <AddCustomer 
+                            isEmbedded={true}
+                            onSuccess={(newCust) => {
+                                setSelectedCustomer({
+                                    id: newCust.id,
+                                    display_id: newCust.display_id,
+                                    name: newCust.first_name,
+                                    phone: newCust.phone,
+                                    school_id: null,
+                                    effective_class_name: '',
+                                    class_name: '',
+                                    division_name: '',
+                                    subdivision_name: '',
+                                });
+                                setShowAddCustomerModal(false);
+                            }}
+                            onCancel={() => setShowAddCustomerModal(false)}
+                        />
+                    </div>
+                </div>
+            )}
 
             {/* Quick Product Modal (P4 3.3.1.2.3: Name, Estimated Price, Category, Reference Photo) */}
             {
