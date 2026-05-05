@@ -110,18 +110,18 @@ class CustomerViewSet(viewsets.ModelViewSet):
     filter_backends = [filters.SearchFilter, filters.OrderingFilter, DjangoFilterBackend]
     search_fields = ['first_name', 'middle_name', 'last_name', 'phone', 'email', 'display_id']
     ordering_fields = ['created_at', 'first_name', 'last_name', 'display_id']
-    filterset_fields = ['school', 'class_obj', 'division', 'customer_group']
+    filterset_fields = ['customer_group']
     
     def get_queryset(self):
         # ── Lean path: list view — no address prefetch ──
         if self.action == 'list':
             return Customer.objects.select_related(
-                'school', 'class_obj', 'division', 'customer_group', 'wallet'
-            )
+                'customer_group', 'wallet'
+            ).prefetch_related('students')
         # ── Fat path: retrieve/update — full address data ──
         return Customer.objects.select_related(
-            'school', 'class_obj', 'division', 'subdivision', 'customer_group', 'wallet'
-        ).prefetch_related('addresses', 'addresses__location_tags')
+            'customer_group', 'wallet'
+        ).prefetch_related('addresses', 'addresses__location_tags', 'students', 'students__school', 'students__class_obj', 'students__division', 'students__subdivision')
 
     def get_serializer_class(self):
         if self.action == 'list':
