@@ -5,7 +5,7 @@ import re
 from rest_framework import serializers
 from django.db import models
 from django.utils.html import strip_tags
-from .models import Customer, Address, CustomerLink, Wallet, WalletTransaction, PotentialCustomer
+from .models import Customer, Student, Address, CustomerLink, Wallet, WalletTransaction, PotentialCustomer
 from settings_app.models import (
     School, Class, Division, Subdivision, CustomerGroup, LinkType, LocationTag,
     ClassTemplate, DivisionTemplate, SubdivisionTemplate
@@ -213,45 +213,67 @@ class AddressSerializer(serializers.ModelSerializer):
         return rep
 
 
+# ============ Student Serializer ============
+
+class StudentSerializer(serializers.ModelSerializer):
+    id = serializers.UUIDField(required=False)
+    school_name = serializers.CharField(source='school.name', read_only=True)
+    class_name_display = serializers.SerializerMethodField()
+    division_name_display = serializers.SerializerMethodField()
+    subdivision_name_display = serializers.SerializerMethodField()
+    
+    class Meta:
+        model = Student
+        fields = [
+            'id', 'name', 'school', 'school_name', 
+            'class_obj', 'division', 'subdivision',
+            'class_name', 'division_name', 'subdivision_name',
+            'class_name_display', 'division_name_display', 'subdivision_name_display'
+        ]
+
+    def get_class_name_display(self, obj):
+        if obj.class_obj:
+            return obj.class_obj.name
+        return obj.class_name or None
+
+    def validate(self, data):
+        school = data.get('school')
+        class_name = data.get('class_name')
+        
+        if school and class_name:
+            raise serializers.ValidationError(
+                "A student cannot have both a foreign key school and an independent class_name."
+            )
+        return data
+
+    def get_division_name_display(self, obj):
+        if obj.division:
+            return obj.division.name
+        return obj.division_name or ''
+
+    def get_subdivision_name_display(self, obj):
+        if obj.subdivision:
+            return obj.subdivision.name
+        return obj.subdivision_name or ''
+
+
 # ============ Customer Serializers ============
 
 class CustomerListSerializer(serializers.ModelSerializer):
     """Lightweight serializer for list views."""
     full_name = serializers.CharField(read_only=True)
-    school_name = serializers.CharField(source='school.name', read_only=True, default=None)
-    school_id = serializers.UUIDField(source='school.id', read_only=True, default=None)
-    effective_class_name = serializers.SerializerMethodField()
-    effective_division_name = serializers.SerializerMethodField()
-    effective_subdivision_name = serializers.SerializerMethodField()
     group_name = serializers.CharField(source='customer_group.name', read_only=True, default=None)
     primary_address = serializers.SerializerMethodField()
     wallet_balance = serializers.DecimalField(max_digits=10, decimal_places=2, read_only=True)
+    students = StudentSerializer(many=True, read_only=True)
     
     class Meta:
         model = Customer
         fields = [
             'id', 'display_id', 'full_name', 'first_name', 'last_name',
-            'phone', 'email', 'school_name', 'school_id',
-            'effective_class_name', 'effective_division_name', 'effective_subdivision_name',
-            'class_name', 'division_name', 'subdivision_name',
-            'group_name', 'primary_address', 'wallet_balance', 'created_at'
+            'phone', 'email', 'group_name', 'primary_address', 'wallet_balance', 
+            'created_at', 'students'
         ]
-    
-    def get_effective_class_name(self, obj):
-        """Return class name from class_obj (school-based) or class_name (independent)."""
-        if obj.class_obj:
-            return obj.class_obj.name
-        return obj.class_name or None
-    
-    def get_effective_division_name(self, obj):
-        if obj.division:
-            return obj.division.name
-        return obj.division_name or ''
-
-    def get_effective_subdivision_name(self, obj):
-        if obj.subdivision:
-            return obj.subdivision.name
-        return obj.subdivision_name or ''
     
     def get_primary_address(self, obj):
         addresses = getattr(obj, '_prefetched_objects_cache', {}).get('addresses', None)
@@ -270,22 +292,18 @@ class CustomerDetailSerializer(serializers.ModelSerializer):
     """Full detail serializer for single customer view."""
     full_name = serializers.CharField(read_only=True)
     addresses = AddressSerializer(many=True, read_only=True)
+    students = StudentSerializer(many=True, read_only=True)
     links = serializers.SerializerMethodField()
     wallet_balance = serializers.DecimalField(max_digits=10, decimal_places=2, read_only=True)
     
     # Related object details
-    school = SchoolSerializer(read_only=True)
-    class_obj = ClassSerializer(read_only=True)
-    division = DivisionSerializer(read_only=True)
-    subdivision = SubdivisionSerializer(read_only=True)
     customer_group = CustomerGroupSerializer(read_only=True)
     
     class Meta:
         model = Customer
         fields = [
             'id', 'display_id', 'full_name', 'first_name', 'middle_name', 'last_name',
-            'phone', 'email', 'school', 'class_obj', 'division', 'subdivision',
-            'class_name', 'division_name', 'subdivision_name',
+            'phone', 'email', 'students',
             'customer_group', 'notes', 'addresses', 'links', 
             'wallet_balance', 'created_at', 'updated_at'
         ]
@@ -306,14 +324,14 @@ class CustomerDetailSerializer(serializers.ModelSerializer):
 class CustomerCreateUpdateSerializer(serializers.ModelSerializer):
     """Serializer for creating/updating customers."""
     addresses = AddressSerializer(many=True, required=False)
+    students = StudentSerializer(many=True, required=True, allow_empty=False)
     home_photo = serializers.ImageField(required=False, write_only=True)
     
     class Meta:
         model = Customer
         fields = [
             'id', 'display_id', 'first_name', 'middle_name', 'last_name',
-            'phone', 'email', 'school', 'class_obj', 'division', 'subdivision',
-            'class_name', 'division_name', 'subdivision_name',
+            'phone', 'email', 'students',
             'customer_group', 'notes', 'addresses', 'home_photo'
         ]
         read_only_fields = ['id', 'display_id']
@@ -337,10 +355,15 @@ class CustomerCreateUpdateSerializer(serializers.ModelSerializer):
             for key in data:
                 values = data.getlist(key)
                 plain_data[key] = values[0] if len(values) == 1 else values
-            # Parse JSON-encoded addresses string into actual list of dicts
+            # Parse JSON-encoded addresses and students string into actual list of dicts
             if 'addresses' in plain_data and isinstance(plain_data['addresses'], str):
                 try:
                     plain_data['addresses'] = json.loads(plain_data['addresses'])
+                except json.JSONDecodeError:
+                    pass
+            if 'students' in plain_data and isinstance(plain_data['students'], str):
+                try:
+                    plain_data['students'] = json.loads(plain_data['students'])
                 except json.JSONDecodeError:
                     pass
             return super().to_internal_value(plain_data)
@@ -355,7 +378,11 @@ class CustomerCreateUpdateSerializer(serializers.ModelSerializer):
         return value.strip()
     
     def validate_first_name(self, value):
-        return self._sanitize_text(value)
+        sanitized = self._sanitize_text(value)
+        # Prevent database overflow if multiple student names are concatenated
+        if sanitized and len(sanitized) > 100:
+            return sanitized[:97] + '...'
+        return sanitized
     
     def validate_middle_name(self, value):
         return self._sanitize_text(value)
@@ -387,14 +414,27 @@ class CustomerCreateUpdateSerializer(serializers.ModelSerializer):
                 })
         return data
     
+    def validate_students(self, value):
+        """Cap the students array to prevent resource exhaustion DoS."""
+        if value and len(value) > 20:
+            raise serializers.ValidationError(
+                "Maximum limit of 20 students per family exceeded."
+            )
+        return value
+    
     def create(self, validated_data):
         import logging
         logger = logging.getLogger(__name__)
         
         addresses_data = validated_data.pop('addresses', [])
+        students_data = validated_data.pop('students', [])
         home_photo = validated_data.pop('home_photo', None)
         customer = Customer.objects.create(**validated_data)
         
+        # Create students
+        for std_data in students_data:
+            Student.objects.create(customer=customer, **std_data)
+            
         # Create addresses
         addr_serializer = AddressSerializer()
         for i, addr_data in enumerate(addresses_data):
@@ -437,12 +477,32 @@ class CustomerCreateUpdateSerializer(serializers.ModelSerializer):
         logger = logging.getLogger(__name__)
         
         addresses_data = validated_data.pop('addresses', None)
+        students_data = validated_data.pop('students', None)
         home_photo = validated_data.pop('home_photo', None)
         
         # Update customer fields
         for attr, value in validated_data.items():
             setattr(instance, attr, value)
         instance.save()
+        
+        # Safe students upsert
+        if students_data is not None:
+            existing_std_ids = set(instance.students.values_list('id', flat=True))
+            incoming_std_ids = set()
+            for std_data in students_data:
+                std_id = std_data.pop('id', None)
+                if std_id and std_id in existing_std_ids:
+                    Student.objects.filter(pk=std_id).update(**std_data)
+                    incoming_std_ids.add(std_id)
+                else:
+                    new_student = Student.objects.create(customer=instance, **std_data)
+                    incoming_std_ids.add(new_student.pk)
+            
+            removed_stds = existing_std_ids - incoming_std_ids
+            if removed_stds:
+                # Iterate and delete to trigger SoftDeleteModel.delete() rather than raw SQL hard delete
+                for std in instance.students.filter(pk__in=removed_stds):
+                    std.delete()
         
         # Safe address upsert: update existing, create new, delete removed
         if addresses_data is not None:

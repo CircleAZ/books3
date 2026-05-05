@@ -49,7 +49,6 @@ export default function NewOrder() {
 
     // Quick Product Modal State (P4 3.3.1.2.3: Name, Estimated Price, Category, Reference Photo)
     const [showQuickProduct, setShowQuickProduct] = useState(false);
-    const [showAddCustomer, setShowAddCustomer] = useState(false);
     const [newProduct, setNewProduct] = useState({
         name: '',
         selling_price: '',
@@ -103,8 +102,6 @@ export default function NewOrder() {
     // Refs for unsaved-work detection (used in event handlers to avoid stale closures)
     const cartLengthRef = useRef(cartItems.length);
     cartLengthRef.current = cartItems.length;
-    const showAddCustomerRef = useRef(showAddCustomer);
-    showAddCustomerRef.current = showAddCustomer;
     const quickAddInfoRef = useRef(quickAddInfo);
     quickAddInfoRef.current = quickAddInfo;
     const isQuickAddRef = useRef(isQuickAdd);
@@ -113,7 +110,6 @@ export default function NewOrder() {
     // Unified check: is there ANY unsaved work on this page?
     const hasUnsavedWork = () => {
         if (cartLengthRef.current > 0) return true;
-        if (showAddCustomerRef.current) return true; // AddCustomer form is open
         if (isQuickAddRef.current) {
             const qa = quickAddInfoRef.current;
             if (qa.first_name?.trim() || qa.phone?.trim()) return true;
@@ -137,7 +133,7 @@ export default function NewOrder() {
     // Unified back-button handler: drawer close > unsaved work guard > allow navigation
     useEffect(() => {
         // Push a guard state whenever drawer opens OR there's unsaved work
-        const needsGuard = isDrawerOpen || cartItems.length > 0 || showAddCustomer || (isQuickAdd && (quickAddInfo.first_name?.trim() || quickAddInfo.phone?.trim()));
+        const needsGuard = isDrawerOpen || cartItems.length > 0 || (isQuickAdd && (quickAddInfo.first_name?.trim() || quickAddInfo.phone?.trim()));
         if (!needsGuard) return;
 
         window.history.pushState({ posGuard: true }, '');
@@ -156,9 +152,7 @@ export default function NewOrder() {
 
             // Priority 2: Unsaved work — confirm before leaving
             if (hasUnsavedWork()) {
-                const msg = cartLengthRef.current > 0 && showAddCustomerRef.current
-                    ? 'You have items in your cart and unsaved customer details. Leave this page?'
-                    : cartLengthRef.current > 0
+                const msg = cartLengthRef.current > 0
                         ? 'You have items in your cart. Leave this page?'
                         : 'You have unsaved customer details. Leave this page?';
                 if (window.confirm(msg)) {
@@ -175,7 +169,7 @@ export default function NewOrder() {
 
         window.addEventListener('popstate', onPopState);
         return () => window.removeEventListener('popstate', onPopState);
-    }, [isDrawerOpen, cartItems.length > 0, showAddCustomer, isQuickAdd, quickAddInfo.first_name, quickAddInfo.phone]); // eslint-disable-line react-hooks/exhaustive-deps
+    }, [isDrawerOpen, cartItems.length > 0, isQuickAdd, quickAddInfo.first_name, quickAddInfo.phone]); // eslint-disable-line react-hooks/exhaustive-deps
 
     // Debounced Customer Search (with AbortController)
     useEffect(() => {
@@ -828,9 +822,6 @@ export default function NewOrder() {
                         <span>Customer</span>
                         {!selectedCustomer && !isQuickAdd && (
                             <div className="d-flex gap-2">
-                                <button type="button" className="btn btn-primary btn-sm" onClick={() => setShowAddCustomer(prev => !prev)}>
-                                    {showAddCustomer ? 'Close' : 'New Customer'}
-                                </button>
                                 <button type="button" className="btn btn-ghost btn-sm" onClick={() => setIsQuickAdd(true)}>
                                     Quick Add
                                 </button>
@@ -981,17 +972,6 @@ export default function NewOrder() {
                                             </div>
                                         ))}
                                     </div>
-                                )}
-                            </div>
-
-                            {/* Collapsible Add Customer Form (P4 3.3.1.1.2: "Form is collapsible") */}
-                            <div className={`add-customer-collapsible ${showAddCustomer ? 'open' : ''}`}>
-                                {showAddCustomer && (
-                                    <AddCustomer
-                                        isEmbedded={true}
-                                        onSuccess={handleCustomerSuccess}
-                                        onCancel={() => setShowAddCustomer(false)}
-                                    />
                                 )}
                             </div>
                         </>

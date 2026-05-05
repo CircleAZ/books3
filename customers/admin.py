@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Customer, Address, CustomerLink, Wallet, WalletTransaction, TargetVillage, PotentialCustomer
+from .models import Customer, Student, Address, CustomerLink, Wallet, WalletTransaction, TargetVillage, PotentialCustomer
 
 
 class AddressInline(admin.TabularInline):
@@ -15,8 +15,8 @@ class WalletInline(admin.StackedInline):
 
 @admin.register(Customer)
 class CustomerAdmin(admin.ModelAdmin):
-    list_display = ('full_name', 'phone', 'school', 'customer_group', 'created_at')
-    list_filter = ('school', 'customer_group', 'is_deleted')
+    list_display = ('full_name', 'phone', 'customer_group', 'created_at')
+    list_filter = ('customer_group', 'is_deleted')
     search_fields = ('first_name', 'last_name', 'phone', 'email')
     readonly_fields = ('display_id', 'created_at', 'updated_at')
     inlines = [AddressInline, WalletInline]
@@ -24,6 +24,14 @@ class CustomerAdmin(admin.ModelAdmin):
     def full_name(self, obj):
         return obj.full_name
     full_name.short_description = 'Name'
+
+
+@admin.register(Student)
+class StudentAdmin(admin.ModelAdmin):
+    list_display = ('name', 'customer', 'school', 'class_obj', 'created_at')
+    list_filter = ('school', 'class_obj', 'is_deleted')
+    search_fields = ('name', 'customer__first_name', 'customer__last_name')
+    raw_id_fields = ('customer',)
 
 
 @admin.register(Address)

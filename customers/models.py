@@ -45,38 +45,6 @@ class Customer(DisplayIDMixin, SoftDeleteModel):
     phone = models.CharField(max_length=20, db_index=True)  # Required
     email = models.EmailField(blank=True, null=True)
     
-    # School/Education (Optional)
-    school = models.ForeignKey(
-        'settings_app.School', on_delete=models.SET_NULL, 
-        null=True, blank=True, related_name='customers'
-    )
-    class_obj = models.ForeignKey(
-        'settings_app.Class', on_delete=models.SET_NULL,
-        null=True, blank=True, related_name='customers'
-    )
-    division = models.ForeignKey(
-        'settings_app.Division', on_delete=models.SET_NULL,
-        null=True, blank=True, related_name='customers'
-    )
-    subdivision = models.ForeignKey(
-        'settings_app.Subdivision', on_delete=models.SET_NULL,
-        null=True, blank=True, related_name='customers'
-    )
-    # School-independent class assignment (from ClassTemplate name)
-    # Used when customer has a class but no specific school
-    class_name = models.CharField(
-        max_length=100, blank=True,
-        help_text='Class name without school (e.g. "7"). Set when independent toggle is ON.'
-    )
-    division_name = models.CharField(
-        max_length=100, blank=True,
-        help_text='Division name without school (e.g. "A"). Set when independent toggle is ON.'
-    )
-    subdivision_name = models.CharField(
-        max_length=100, blank=True,
-        help_text='Subdivision name without school (e.g. "Boys"). Set when independent toggle is ON.'
-    )
-    
     # Grouping
     customer_group = models.ForeignKey(
         'settings_app.CustomerGroup', on_delete=models.SET_NULL,
@@ -136,6 +104,61 @@ class Customer(DisplayIDMixin, SoftDeleteModel):
         """Get customer's wallet balance."""
         wallet = getattr(self, 'wallet', None)
         return wallet.balance if wallet else 0
+
+
+class Student(DisplayIDMixin, SoftDeleteModel):
+    """
+    Student entity representing a child under a Customer (Parent).
+    """
+    customer = models.ForeignKey(
+        Customer, on_delete=models.CASCADE, related_name='students'
+    )
+    name = models.CharField(max_length=100)
+    
+    # School/Education
+    school = models.ForeignKey(
+        'settings_app.School', on_delete=models.SET_NULL, 
+        null=True, blank=True, related_name='students'
+    )
+    class_obj = models.ForeignKey(
+        'settings_app.Class', on_delete=models.SET_NULL,
+        null=True, blank=True, related_name='students'
+    )
+    division = models.ForeignKey(
+        'settings_app.Division', on_delete=models.SET_NULL,
+        null=True, blank=True, related_name='students'
+    )
+    subdivision = models.ForeignKey(
+        'settings_app.Subdivision', on_delete=models.SET_NULL,
+        null=True, blank=True, related_name='students'
+    )
+    
+    # School-independent class assignment
+    class_name = models.CharField(
+        max_length=100, blank=True,
+        help_text='Class name without school (e.g. "7"). Set when independent toggle is ON.'
+    )
+    division_name = models.CharField(
+        max_length=100, blank=True,
+        help_text='Division name without school (e.g. "A"). Set when independent toggle is ON.'
+    )
+    subdivision_name = models.CharField(
+        max_length=100, blank=True,
+        help_text='Subdivision name without school (e.g. "Boys"). Set when independent toggle is ON.'
+    )
+    
+    # Audit
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL,
+        null=True, blank=True, related_name='created_students'
+    )
+    
+    class Meta:
+        ordering = ['-created_at', '-id']
+    
+    def __str__(self):
+        return f"{self.name} ({self.customer.full_name})"
+
 
 
 class Address(UUIDPrimaryKeyModel):

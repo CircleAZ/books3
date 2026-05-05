@@ -257,27 +257,36 @@ const CustomerDetails = () => {
                 {/* Education Section */}
                 <div className="customer-section">
                     <div className="customer-section-header">
-                        <h3>Education</h3>
+                        <h3>Students & Education</h3>
                     </div>
-                    <div className="customer-section-content">
-                        <div className="info-row">
-                            <span className="info-label">School</span>
-                            <span className="info-value">
-                                {customer.school?.name || (customer.class_name ? <span className="text-muted" style={{ fontStyle: 'italic' }}>Independent</span> : <span className="text-muted">-</span>)}
-                            </span>
-                        </div>
-                        <div className="info-row">
-                            <span className="info-label">Class</span>
-                            <span className="info-value">{customer.class_obj?.name || customer.class_name || <span className="text-muted">-</span>}</span>
-                        </div>
-                        <div className="info-row">
-                            <span className="info-label">Division</span>
-                            <span className="info-value">{customer.division?.name || customer.division_name || <span className="text-muted">-</span>}</span>
-                        </div>
-                        <div className="info-row">
-                            <span className="info-label">Subdivision</span>
-                            <span className="info-value">{customer.subdivision?.name || customer.subdivision_name || <span className="text-muted">-</span>}</span>
-                        </div>
+                    <div className="customer-section-content" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                        {customer.students && customer.students.length > 0 ? (
+                            customer.students.map((student, idx) => (
+                                <div key={student.id || idx} className="student-details-card" style={{ padding: '1rem', border: '1px solid var(--color-border)', borderRadius: '6px', backgroundColor: 'var(--color-bg-secondary)' }}>
+                                    <h4 style={{ margin: '0 0 0.75rem 0', color: 'var(--color-primary)' }}>{student.name}</h4>
+                                    <div className="info-row">
+                                        <span className="info-label">School</span>
+                                        <span className="info-value">
+                                            {student.school_name || (student.class_name ? <span className="text-muted" style={{ fontStyle: 'italic' }}>Independent</span> : <span className="text-muted">-</span>)}
+                                        </span>
+                                    </div>
+                                    <div className="info-row">
+                                        <span className="info-label">Class</span>
+                                        <span className="info-value">{student.class_name_display || <span className="text-muted">-</span>}</span>
+                                    </div>
+                                    <div className="info-row">
+                                        <span className="info-label">Division</span>
+                                        <span className="info-value">{student.division_name_display || <span className="text-muted">-</span>}</span>
+                                    </div>
+                                    <div className="info-row">
+                                        <span className="info-label">Subdivision</span>
+                                        <span className="info-value">{student.subdivision_name_display || <span className="text-muted">-</span>}</span>
+                                    </div>
+                                </div>
+                            ))
+                        ) : (
+                            <span className="text-muted" style={{ padding: '0.5rem 1rem' }}>No student records found.</span>
+                        )}
                     </div>
                 </div>
 

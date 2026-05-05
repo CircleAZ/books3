@@ -5,6 +5,8 @@ import { ENDPOINTS } from '../../config/api';
 import MapComponent from '../../components/MapComponent';
 import { compressImage } from '../../utils/imageCompression';
 import './AddCustomer.css';
+import StudentEducationBlock from '../../components/StudentEducationBlock';
+
 
 export default function AddCustomer({ onSuccess, onCancel, isEmbedded = false }) {
     const { id } = useParams();
@@ -100,6 +102,37 @@ export default function AddCustomer({ onSuccess, onCancel, isEmbedded = false })
     // Address Override Toggle
     const [overrideAddress, setOverrideAddress] = useState(false);
 
+    // Additional Students State
+    const [additionalStudents, setAdditionalStudents] = useState([]);
+
+    const handleAddStudent = () => {
+        setAdditionalStudents(prev => [...prev, {
+            id: null,
+            name: '',
+            school: '',
+            class_obj: '',
+            division: '',
+            subdivision: '',
+            class_name: '',
+            division_name: '',
+            subdivision_name: '',
+            independentClass: false
+        }]);
+    };
+
+    const handleRemoveStudent = (index) => {
+        setAdditionalStudents(prev => prev.filter((_, i) => i !== index));
+    };
+
+    const handleAdditionalStudentChange = (index, field, value) => {
+        setAdditionalStudents(prev => {
+            const newStudents = [...prev];
+            newStudents[index][field] = value;
+            return newStudents;
+        });
+    };
+
+
     // Fetch initial dropdown data, then customer details if in edit mode
     useEffect(() => {
         const fetchOptions = async () => {
@@ -192,6 +225,44 @@ export default function AddCustomer({ onSuccess, onCancel, isEmbedded = false })
                         };
                         setAddressId(primaryAddr.id || null);
                         setFormData(customerData);
+                        
+                        // Handle students array for Edit Mode
+                        if (data.students && data.students.length > 0) {
+                            const firstStudent = data.students[0];
+                            // Update main form with first student's education data
+                            setFormData(prev => ({
+                                ...prev,
+                                first_name: firstStudent.name,
+                                school: firstStudent.school || '',
+                                class_obj: firstStudent.class_obj || '',
+                                division: firstStudent.division || '',
+                                subdivision: firstStudent.subdivision || '',
+                                class_name: firstStudent.class_name || '',
+                                division_name: firstStudent.division_name || '',
+                                subdivision_name: firstStudent.subdivision_name || ''
+                            }));
+                            
+                            if (!firstStudent.school && (firstStudent.class_name || firstStudent.division_name || firstStudent.subdivision_name)) {
+                                setIndependentClass(true);
+                            }
+
+                            // Load the rest into additional students
+                            if (data.students.length > 1) {
+                                setAdditionalStudents(data.students.slice(1).map(s => ({
+                                    id: s.id,
+                                    name: s.name,
+                                    school: s.school || '',
+                                    class_obj: s.class_obj || '',
+                                    division: s.division || '',
+                                    subdivision: s.subdivision || '',
+                                    class_name: s.class_name || '',
+                                    division_name: s.division_name || '',
+                                    subdivision_name: s.subdivision_name || '',
+                                    independentClass: !s.school && (s.class_name || s.division_name || s.subdivision_name)
+                                })));
+                            }
+                        }
+
                         setInitialFormData(customerData);
 
                         // Restore independent class toggle from server data
@@ -585,21 +656,47 @@ export default function AddCustomer({ onSuccess, onCancel, isEmbedded = false })
             return;
         }
 
+        
+        // Combine student names for Customer.first_name
+        const allStudentNames = [formData.first_name, ...additionalStudents.map(s => s.name)].filter(Boolean);
+        const combinedFirstName = allStudentNames.join(' & ');
+
+        // Build students array payload
+        const allStudents = [
+            {
+                name: formData.first_name,
+                school: formData.school || null,
+                class_obj: formData.class_obj || null,
+                division: formData.division || null,
+                subdivision: formData.subdivision || null,
+                class_name: independentClass ? formData.class_name : '',
+                division_name: independentClass ? formData.division_name : '',
+                subdivision_name: independentClass ? formData.subdivision_name : ''
+            },
+            ...additionalStudents
+                .filter(s => s.name && s.name.trim() !== '')
+                .map(s => ({
+                id: s.id || null,
+                name: s.name.trim(),
+                school: s.school || null,
+                class_obj: s.class_obj || null,
+                division: s.division || null,
+                subdivision: s.subdivision || null,
+                class_name: s.independentClass ? s.class_name : '',
+                division_name: s.independentClass ? s.division_name : '',
+                subdivision_name: s.independentClass ? s.subdivision_name : ''
+            }))
+        ];
+
         const payload = {
-            first_name: formData.first_name,
+            first_name: combinedFirstName,
             middle_name: formData.middle_name,
             last_name: formData.last_name,
             phone: formData.phone,
             email: formData.email || null,
-            school: formData.school || null,
-            class_obj: formData.class_obj || null,
-            division: formData.division || null,
-            subdivision: formData.subdivision || null,
+            students: allStudents,
             customer_group: formData.customer_group || null,
             notes: formData.notes || '',
-            class_name: independentClass ? formData.class_name : '',
-            division_name: independentClass ? formData.division_name : '',
-            subdivision_name: independentClass ? formData.subdivision_name : '',
             addresses: []
         };
 
@@ -769,11 +866,11 @@ export default function AddCustomer({ onSuccess, onCancel, isEmbedded = false })
                         <div className="section-content open">
                             <div className="form-grid">
                                 <div className="form-group">
-                                    <label>First Name <span className="required-star">*</span></label>
+                                    <label>Student 1 Name <span className="required-star">*</span></label>
                                     <input type="text" name="first_name" value={formData.first_name} onChange={handleInputChange} required />
                                 </div>
                                 <div className="form-group">
-                                    <label>Middle Name</label>
+                                    <label>Parent First Name / Middle Name</label>
                                     <input type="text" name="middle_name" value={formData.middle_name} onChange={handleInputChange} />
                                 </div>
                                 <div className="form-group">
