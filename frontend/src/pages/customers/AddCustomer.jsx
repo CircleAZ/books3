@@ -1009,6 +1009,33 @@ export default function AddCustomer({ onSuccess, onCancel, isEmbedded = false })
                                     </div>
                                 </div>
                             )}
+
+                            {/* Dynamic Additional Students Repeater */}
+                            {additionalStudents.map((student, index) => (
+                                <StudentEducationBlock
+                                    key={index}
+                                    index={index}
+                                    student={student}
+                                    onChange={handleAdditionalStudentChange}
+                                    onRemove={handleRemoveStudent}
+                                    schools={schools}
+                                    classTemplates={classTemplatesForForm}
+                                    divisionTemplates={divisionTemplatesForForm}
+                                    subdivisionTemplates={subdivisionTemplatesForForm}
+                                    fetchWithAuth={fetchWithAuth}
+                                />
+                            ))}
+
+                            <div style={{ marginTop: '1.5rem', textAlign: 'center' }}>
+                                <button 
+                                    type="button" 
+                                    className="btn btn-secondary" 
+                                    onClick={handleAddStudent}
+                                    style={{ width: '100%', padding: '0.75rem', borderStyle: 'dashed' }}
+                                >
+                                    + Add Another Student
+                                </button>
+                            </div>
                         </div>
                     )}
                 </div>
