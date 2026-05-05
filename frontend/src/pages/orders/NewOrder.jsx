@@ -18,7 +18,7 @@ export default function NewOrder() {
     const [customerSearch, setCustomerSearch] = useState('');
     const [customerResults, setCustomerResults] = useState([]);
     const [selectedCustomer, setSelectedCustomer] = useState(null);
-    const [showAddCustomerModal, setShowAddCustomerModal] = useState(false);
+    const [showAddCustomer, setShowAddCustomer] = useState(false);
 
     const [productSearch, setProductSearch] = useState('');
     const [productResults, setProductResults] = useState([]);
@@ -99,13 +99,13 @@ export default function NewOrder() {
     // Refs for unsaved-work detection (used in event handlers to avoid stale closures)
     const cartLengthRef = useRef(cartItems.length);
     cartLengthRef.current = cartItems.length;
-    const showAddCustomerModalRef = useRef(showAddCustomerModal);
-    showAddCustomerModalRef.current = showAddCustomerModal;
+    const showAddCustomerRef = useRef(showAddCustomer);
+    showAddCustomerRef.current = showAddCustomer;
 
     // Unified check: is there ANY unsaved work on this page?
     const hasUnsavedWork = () => {
         if (cartLengthRef.current > 0) return true;
-        if (showAddCustomerModalRef.current) return true;
+        if (showAddCustomerRef.current) return true;
         return false;
     };
 
@@ -125,7 +125,7 @@ export default function NewOrder() {
     // Unified back-button handler: drawer close > unsaved work guard > allow navigation
     useEffect(() => {
         // Push a guard state whenever drawer opens OR there's unsaved work
-        const needsGuard = isDrawerOpen || cartItems.length > 0 || showAddCustomerModal;
+        const needsGuard = isDrawerOpen || cartItems.length > 0 || showAddCustomer;
         if (!needsGuard) return;
 
         window.history.pushState({ posGuard: true }, '');
@@ -161,7 +161,7 @@ export default function NewOrder() {
 
         window.addEventListener('popstate', onPopState);
         return () => window.removeEventListener('popstate', onPopState);
-    }, [isDrawerOpen, cartItems.length > 0, showAddCustomerModal]); // eslint-disable-line react-hooks/exhaustive-deps
+    }, [isDrawerOpen, cartItems.length > 0, showAddCustomer]); // eslint-disable-line react-hooks/exhaustive-deps
 
     // Debounced Customer Search (with AbortController)
     useEffect(() => {
@@ -591,7 +591,7 @@ export default function NewOrder() {
         if (window.confirm('Clear all items and reset order?')) {
             setCartItems([]);
             setSelectedCustomer(null);
-            setShowAddCustomerModal(false);
+            setShowAddCustomer(false);
             setPayments([]);
             setOrderDiscount({ type: 'fixed', value: 0 });
         }
@@ -657,7 +657,7 @@ export default function NewOrder() {
                 // Reset state
                 setCartItems([]);
                 setSelectedCustomer(null);
-                setShowAddCustomerModal(false);
+                setShowAddCustomer(false);
                 setPayments([]);
                 setOrderDiscount({ type: 'fixed', value: 0 });
             } else if (response.status === 409) {
@@ -711,8 +711,8 @@ export default function NewOrder() {
                         <span>Customer</span>
                         {!selectedCustomer && (
                             <div className="d-flex gap-2">
-                                <button type="button" className="btn btn-ghost btn-sm" onClick={() => setShowAddCustomerModal(true)}>
-                                    + Add new customer
+                                <button type="button" className="btn btn-primary btn-sm" onClick={() => setShowAddCustomer(prev => !prev)}>
+                                    {showAddCustomer ? 'Close' : 'New Customer'}
                                 </button>
                             </div>
                         )}
@@ -767,6 +767,17 @@ export default function NewOrder() {
                             </div>
                         </>
                     )}
+
+                    {/* Collapsible Add Customer Form (P4 3.3.1.1.2: "Form is collapsible") */}
+                    <div className={`add-customer-collapsible ${showAddCustomer ? 'open' : ''}`}>
+                        {showAddCustomer && (
+                            <AddCustomer
+                                isEmbedded={true}
+                                onSuccess={handleCustomerSuccess}
+                                onCancel={() => setShowAddCustomer(false)}
+                            />
+                        )}
+                    </div>
                 </section>
 
                 {/* Products Section */}
@@ -1184,35 +1195,6 @@ export default function NewOrder() {
                 </div>
             </div >
 
-            {/* Add Customer Modal */}
-            {showAddCustomerModal && (
-                <div className="modal-overlay" style={{ zIndex: 1000 }}>
-                    <div className="modal-content" style={{ maxWidth: '800px', width: '90%', maxHeight: '90vh', overflowY: 'auto', padding: '1rem', backgroundColor: 'var(--color-bg-primary)' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-                            <h3 style={{ margin: 0 }}>Add New Customer</h3>
-                            <button type="button" className="btn btn-ghost" style={{ fontSize: '1.5rem', padding: '0 0.5rem' }} onClick={() => setShowAddCustomerModal(false)}>&times;</button>
-                        </div>
-                        <AddCustomer 
-                            isEmbedded={true}
-                            onSuccess={(newCust) => {
-                                setSelectedCustomer({
-                                    id: newCust.id,
-                                    display_id: newCust.display_id,
-                                    name: newCust.first_name,
-                                    phone: newCust.phone,
-                                    school_id: null,
-                                    effective_class_name: '',
-                                    class_name: '',
-                                    division_name: '',
-                                    subdivision_name: '',
-                                });
-                                setShowAddCustomerModal(false);
-                            }}
-                            onCancel={() => setShowAddCustomerModal(false)}
-                        />
-                    </div>
-                </div>
-            )}
 
             {/* Quick Product Modal (P4 3.3.1.2.3: Name, Estimated Price, Category, Reference Photo) */}
             {
