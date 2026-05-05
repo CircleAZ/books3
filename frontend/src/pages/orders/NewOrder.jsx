@@ -57,7 +57,7 @@ export default function NewOrder() {
     });
     const [referencePhoto, setReferencePhoto] = useState(null);
     const [isCreatingProduct, setIsCreatingProduct] = useState(false);
-    const [productSetToConfirm, setProductSetToConfirm] = useState(null);
+
 
     // Refs for AbortController (fixes Chaos race condition)
     const customerAbortRef = useRef(null);
@@ -340,108 +340,7 @@ export default function NewOrder() {
         fetchSettings();
     }, [fetchWithAuth]);
 
-    // ── Product Set Auto-Load (Tribunal: auto-load when customer selected) ──
-    const lastSetLoadedForRef = useRef(null);
 
-    useEffect(() => {
-        if (!selectedCustomer) {
-            lastSetLoadedForRef.current = null;
-            return;
-        }
-
-        // Get class name from either school-based or independent assignment
-        const className = selectedCustomer.effective_class_name
-            || selectedCustomer.class_name
-            || null;
-        if (!className) return;
-
-        // Don't re-load if we already loaded for this customer
-        const customerKey = `${selectedCustomer.id}-${className}`;
-        if (lastSetLoadedForRef.current === customerKey) return;
-        lastSetLoadedForRef.current = customerKey;
-
-        const loadProductSet = async () => {
-            try {
-                let url = `${ENDPOINTS.PRODUCT_SETS_RESOLVE}?class_name=${encodeURIComponent(className)}`;
-                if (selectedCustomer.school_id) {
-                    url += `&school_id=${selectedCustomer.school_id}`;
-                }
-                // Pass division/subdivision for higher-specificity matching
-                const divName = selectedCustomer.effective_division_name || selectedCustomer.division_name || '';
-                const subName = selectedCustomer.effective_subdivision_name || selectedCustomer.subdivision_name || '';
-                if (divName) {
-                    url += `&division_name=${encodeURIComponent(divName)}`;
-                }
-                if (subName) {
-                    url += `&subdivision_name=${encodeURIComponent(subName)}`;
-                }
-
-                const res = await fetchWithAuth(url);
-                if (!res.ok) return; // No matching set
-
-                const data = await res.json();
-                const productSet = data.product_set;
-                if (!productSet?.items?.length) return;
-
-                // Prompt user instead of auto-adding
-                setProductSetToConfirm(productSet);
-            } catch (err) {
-                console.error('Product set auto-load failed:', err);
-            }
-        };
-
-        loadProductSet();
-    }, [selectedCustomer, fetchWithAuth, showToast]);
-
-    const handleConfirmProductSet = (confirmed) => {
-        if (!confirmed) {
-            setProductSetToConfirm(null);
-            return;
-        }
-
-        const productSet = productSetToConfirm;
-        let outOfStockItems = [];
-
-        setCartItems(prev => {
-            const updated = [...prev];
-            for (const setItem of productSet.items) {
-                const existing = updated.find(ci => ci.id === setItem.product);
-                if (existing) {
-                    if (setItem.quantity > existing.quantity) {
-                        existing.quantity = setItem.quantity;
-                    }
-                } else {
-                    updated.push({
-                        id: setItem.product,
-                        name: setItem.product_name,
-                        selling_price: setItem.selling_price,
-                        cost_price: setItem.cost_price,
-                        stock_quantity: setItem.stock_quantity,
-                        quantity: setItem.quantity,
-                        discountType: 'fixed',
-                        discountValue: 0,
-                    });
-                    if (setItem.stock_quantity <= 0) {
-                        outOfStockItems.push(setItem.product_name);
-                    }
-                }
-            }
-            return updated;
-        });
-
-        showToast(
-            `📦 "${productSet.name}" loaded — ${productSet.items.length} items`,
-            'success'
-        );
-        if (outOfStockItems.length > 0) {
-            showToast(
-                `⚠ Out of stock: ${outOfStockItems.join(', ')}`,
-                'warning',
-                { duration: 6000 }
-            );
-        }
-        setProductSetToConfirm(null);
-    };
 
     // Cart Logic
     const addToCart = (product) => {
@@ -1480,21 +1379,7 @@ export default function NewOrder() {
                 )
             }
 
-            {/* Product Set Confirmation Modal */}
-            {productSetToConfirm && (
-                <div className="modal-overlay">
-                    <div className="modal-content" style={{ maxWidth: '400px', textAlign: 'center' }}>
-                        <h3>Add Product Set?</h3>
-                        <p style={{ margin: '1rem 0' }}>
-                            Would you like to auto-add the product set <strong>"{productSetToConfirm.name}"</strong> ({productSetToConfirm.items.length} items) for this customer?
-                        </p>
-                        <div className="modal-actions" style={{ justifyContent: 'center', gap: '1rem' }}>
-                            <button className="btn btn-ghost" onClick={() => handleConfirmProductSet(false)}>No</button>
-                            <button className="btn btn-primary" onClick={() => handleConfirmProductSet(true)}>Yes</button>
-                        </div>
-                    </div>
-                </div>
-            )}
+
         </div >
     );
 }

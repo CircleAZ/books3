@@ -60,7 +60,7 @@ export const menuSections = [
             { label: 'Manage Categories', title: 'Categories', path: '/inventory/categories', permission: 'inventory.view_products' },
             { label: 'Manage Vendors', title: 'Vendors', path: '/inventory/vendors', permission: 'inventory.manage_vendors' },
             { label: 'Stock Adjustments', title: 'Stock Adjustments', path: '/inventory/stock', permission: 'inventory.manage_stock' },
-            { label: 'Product Sets', title: 'Product Sets', path: '/inventory/product-sets', permission: 'inventory.view_products' },
+
             { label: 'Deleted Products', title: 'Deleted Products', path: '/inventory/deleted', permission: 'inventory.manage_products' },
         ],
     },
@@ -77,7 +77,7 @@ export const menuSections = [
             { label: 'Season Report', title: 'Season Report', path: '/customers/report', permission: 'customers.view_customers' },
             { label: 'Add New Customer', title: 'Add Customer', path: '/customers/add', permission: 'customers.manage_customers' },
             { label: 'Customer Settings', title: 'Customer Settings', path: '/customers/settings', permission: 'customers.manage_schools' },
-            { label: 'Product Sets', title: 'Product Sets', path: '/inventory/product-sets', permission: 'inventory.view_products' },
+
         ],
     },
     {
@@ -202,8 +202,7 @@ export const dynamicPatterns = [
     { pattern: /^\/finance\/loans\/\d+/, title: 'Loan Details' },
     { pattern: /^\/finance\/trips\/\d+/, title: 'Trip Details' },
     { pattern: /^\/returns\/\d+/, title: 'Return Details' },
-    { pattern: /^\/inventory\/product-sets\/[\w-]+\/edit/, title: 'Edit Product Set' },
-    { pattern: /^\/inventory\/product-sets\/[\w-]+/, title: 'Product Set Details' },
+
     { pattern: /^\/outlets\/\d+\/edit/, title: 'Edit Outlet' },
     { pattern: /^\/outlets\/\d+/, title: 'Outlet Details' },
 ];

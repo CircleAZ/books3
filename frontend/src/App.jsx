@@ -15,7 +15,7 @@ import Categories from './pages/inventory/Categories';
 import Vendors from './pages/inventory/Vendors';
 import StockControl from './pages/inventory/StockControl';
 import DeletedProducts from './pages/inventory/DeletedProducts';
-import ProductSets from './pages/inventory/ProductSets';
+
 import CustomerList from './pages/customers/CustomerList';
 import AddCustomer from './pages/customers/AddCustomer';
 import CustomerDetails from './pages/customers/CustomerDetails';
@@ -455,11 +455,7 @@ function AppRoutes() {
           <MainLayout><DeletedProducts /></MainLayout>
         </PermissionRoute>
       } />
-      <Route path="/inventory/product-sets" element={
-        <PermissionRoute permission="inventory.view_products">
-          <MainLayout><ProductSets /></MainLayout>
-        </PermissionRoute>
-      } />
+
 
 
 
