@@ -354,12 +354,12 @@ export default function ProductForm({ initialData = null, isEdit = false }) {
 
     if (cType === 'percent') {
         displayPercent = formData.default_commission_value;
-        commissionAmount = sp > 0 ? (cVal / 100 * sp) : 0;
+        commissionAmount = margin > 0 ? (cVal / 100 * margin) : 0;
         displayFixed = commissionAmount.toFixed(2);
     } else {
         displayFixed = formData.default_commission_value;
         commissionAmount = cVal;
-        displayPercent = sp > 0 ? ((cVal / sp) * 100).toFixed(2) : '0.00';
+        displayPercent = margin > 0 ? ((cVal / margin) * 100).toFixed(2) : '0.00';
     }
 
     const commissionWarning = commissionAmount > margin ? `Warning: Commission (${currency}${commissionAmount.toFixed(2)}) exceeds margin (${currency}${margin.toFixed(2)})` : null;

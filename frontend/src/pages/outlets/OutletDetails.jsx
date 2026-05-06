@@ -535,12 +535,12 @@ export default function OutletDetails() {
 
                                     if (currentType === 'percent') {
                                         displayPercent = hasOverride && overrideData.type === 'percent' ? overrideData.value : globalVal;
-                                        commissionAmount = sp > 0 ? (parseFloat(currentVal) / 100 * sp) : 0;
+                                        commissionAmount = margin > 0 ? (parseFloat(currentVal) / 100 * margin) : 0;
                                         displayFixed = commissionAmount.toFixed(2);
                                     } else {
                                         displayFixed = hasOverride && overrideData.type === 'fixed' ? overrideData.value : globalVal;
                                         commissionAmount = parseFloat(currentVal);
-                                        displayPercent = sp > 0 ? ((commissionAmount / sp) * 100).toFixed(2) : '0.00';
+                                        displayPercent = margin > 0 ? ((commissionAmount / margin) * 100).toFixed(2) : '0.00';
                                     }
 
                                     const effectiveRateDisplay = currentType === 'percent' ? `${currentVal}%` : `${currency}${currentVal}`;

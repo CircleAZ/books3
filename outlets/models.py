@@ -429,11 +429,13 @@ class OutletDailySaleItem(SoftDeleteModel):
                 self.commission_value = c_val
             
         # Calculate commission amount from frozen rate
-        line = self.quantity * self.unit_price
+        margin_per_unit = max(Decimal('0.00'), self.unit_price - self.product.cost_price)
+        total_margin = self.quantity * margin_per_unit
+        
         if self.commission_type == 'fixed':
             self.commission_amount = (self.quantity * self.commission_value).quantize(Decimal('0.01'))
         else:
-            self.commission_amount = (line * self.commission_value / Decimal('100.00')).quantize(Decimal('0.01'))
+            self.commission_amount = (total_margin * self.commission_value / Decimal('100.00')).quantize(Decimal('0.01'))
             
         with transaction.atomic():
             super().save(*args, **kwargs)
