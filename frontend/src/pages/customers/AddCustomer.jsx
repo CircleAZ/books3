@@ -232,6 +232,7 @@ export default function AddCustomer({ onSuccess, onCancel, isEmbedded = false })
                             // Update main form with first student's education data
                             setFormData(prev => ({
                                 ...prev,
+                                first_student_id: firstStudent.id || null,
                                 first_name: firstStudent.name,
                                 school: firstStudent.school || '',
                                 class_obj: firstStudent.class_obj || '',
@@ -664,6 +665,7 @@ export default function AddCustomer({ onSuccess, onCancel, isEmbedded = false })
         // Build students array payload
         const allStudents = [
             {
+                ...(formData.first_student_id ? { id: formData.first_student_id } : {}),
                 name: formData.first_name,
                 school: formData.school || null,
                 class_obj: formData.class_obj || null,
@@ -726,7 +728,7 @@ export default function AddCustomer({ onSuccess, onCancel, isEmbedded = false })
             if (homePhoto) {
                 requestBody = new FormData();
                 Object.keys(payload).forEach(key => {
-                    if (key === 'addresses' || key === 'location_tags') {
+                    if (key === 'addresses' || key === 'location_tags' || key === 'students') {
                         requestBody.append(key, JSON.stringify(payload[key]));
                     } else if (payload[key] !== null && payload[key] !== undefined && payload[key] !== '') {
                         requestBody.append(key, payload[key]);
