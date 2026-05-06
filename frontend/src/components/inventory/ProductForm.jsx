@@ -496,6 +496,13 @@ export default function ProductForm({ initialData = null, isEdit = false }) {
                                         type="number"
                                         value={displayPercent}
                                         onChange={(e) => handleCommissionChange('percent', e.target.value)}
+                                        onBlur={(e) => {
+                                            let val = parseFloat(e.target.value);
+                                            if (isNaN(val) || val < 0) val = 0;
+                                            if (val > 100) val = 100;
+                                            handleCommissionChange('percent', val.toString());
+                                        }}
+                                        onKeyDown={(e) => { if (e.key === 'Enter') e.target.blur(); }}
                                         min="0"
                                         max="100"
                                         step="0.01"
@@ -511,6 +518,13 @@ export default function ProductForm({ initialData = null, isEdit = false }) {
                                         type="number"
                                         value={displayFixed}
                                         onChange={(e) => handleCommissionChange('fixed', e.target.value)}
+                                        onBlur={(e) => {
+                                            let val = parseFloat(e.target.value);
+                                            if (isNaN(val) || val < 0) val = 0;
+                                            if (sp > 0 && val > sp) val = sp;
+                                            handleCommissionChange('fixed', val.toString());
+                                        }}
+                                        onKeyDown={(e) => { if (e.key === 'Enter') e.target.blur(); }}
                                         min="0"
                                         step="0.01"
                                         style={{ borderRadius: '0 4px 4px 0' }}

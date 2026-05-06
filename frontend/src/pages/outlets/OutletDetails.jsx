@@ -565,6 +565,13 @@ export default function OutletDetails() {
                                                             style={{ border: isCustom && currentType === 'percent' ? '2px solid var(--color-primary)' : undefined, borderRadius: '0 4px 4px 0', padding: '0.2rem', textAlign: 'center' }}
                                                             value={displayPercent}
                                                             onChange={(e) => handleOverrideChange(product.id, 'percent', e.target.value)}
+                                                            onBlur={(e) => {
+                                                                let val = parseFloat(e.target.value);
+                                                                if (isNaN(val) || val < 0) val = 0;
+                                                                if (val > 100) val = 100;
+                                                                handleOverrideChange(product.id, 'percent', val.toString());
+                                                            }}
+                                                            onKeyDown={(e) => { if (e.key === 'Enter') e.target.blur(); }}
                                                             min="0" max="100" step="0.01"
                                                         />
                                                     </div>
@@ -577,6 +584,13 @@ export default function OutletDetails() {
                                                             style={{ border: isCustom && currentType === 'fixed' ? '2px solid var(--color-primary)' : undefined, borderRadius: '0 4px 4px 0', padding: '0.2rem', textAlign: 'center' }}
                                                             value={displayFixed}
                                                             onChange={(e) => handleOverrideChange(product.id, 'fixed', e.target.value)}
+                                                            onBlur={(e) => {
+                                                                let val = parseFloat(e.target.value);
+                                                                if (isNaN(val) || val < 0) val = 0;
+                                                                if (sp > 0 && val > sp) val = sp;
+                                                                handleOverrideChange(product.id, 'fixed', val.toString());
+                                                            }}
+                                                            onKeyDown={(e) => { if (e.key === 'Enter') e.target.blur(); }}
                                                             min="0" step="0.01"
                                                         />
                                                     </div>
