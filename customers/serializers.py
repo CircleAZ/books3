@@ -216,7 +216,7 @@ class AddressSerializer(serializers.ModelSerializer):
 # ============ Student Serializer ============
 
 class StudentSerializer(serializers.ModelSerializer):
-    id = serializers.UUIDField(required=False)
+    id = serializers.UUIDField(required=False, allow_null=True)
     school_name = serializers.CharField(source='school.name', read_only=True)
     class_name_display = serializers.SerializerMethodField()
     division_name_display = serializers.SerializerMethodField()

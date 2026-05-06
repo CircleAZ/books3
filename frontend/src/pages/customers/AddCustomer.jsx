@@ -678,7 +678,7 @@ export default function AddCustomer({ onSuccess, onCancel, isEmbedded = false })
             ...additionalStudents
                 .filter(s => s.name && s.name.trim() !== '')
                 .map(s => ({
-                id: s.id || null,
+                ...(s.id ? { id: s.id } : {}),
                 name: s.name.trim(),
                 school: s.school || null,
                 class_obj: s.class_obj || null,
