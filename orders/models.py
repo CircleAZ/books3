@@ -416,10 +416,13 @@ class Order(DisplayIDMixin, SoftDeleteModel):
         from orders.models import OrderItem
         OrderItem.objects.bulk_update(items, ['confirmed_quantity'])
         
-        # 2. Aggregate quantities per product (handles duplicate products)
+        # 2. Aggregate quantities per product (handles Option C pack translations)
         qty_by_product = defaultdict(int)
         for item in items:
-            qty_by_product[item.product_id] += item.quantity
+            if item.product.is_pack and item.product.base_product_id:
+                qty_by_product[item.product.base_product_id] += (item.quantity * item.product.pack_size)
+            else:
+                qty_by_product[item.product_id] += item.quantity
         
         # 3. Lock ALL affected products in one query
         with transaction.atomic():
@@ -458,6 +461,10 @@ class Order(DisplayIDMixin, SoftDeleteModel):
             Product.objects.bulk_update(
                 list(products.values()), ['stock_quantity']
             )
+            
+            # Sync pack variants (bulk_update skips save() so we do it manually)
+            for product in products.values():
+                product.sync_pack_stock()
             
             # 5. Bulk create audit records (2 queries)
             StockAdjustment.objects.bulk_create(adjustments)

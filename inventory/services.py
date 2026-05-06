@@ -31,6 +31,19 @@ class StockService:
         """
         Perform atomic stock adjustment using optimistic locking.
         """
+        # Initial non-locked fetch to check for Pack translation
+        initial_product = Product.objects.get(pk=product_id)
+        is_translation = False
+        if initial_product.is_pack and initial_product.base_product_id:
+            if adjustment_type == 'set':
+                raise ValueError("Cannot perform absolute 'set' operations on a Pack product. Adjust the Base product directly.")
+            is_translation = True
+            product_id = initial_product.base_product_id
+            quantity = quantity * initial_product.pack_size
+            if unit_cost is not None:
+                unit_cost = unit_cost / initial_product.pack_size
+            notes = f"[Pack Auto-Translate: {initial_product.name}] " + notes
+
         # Lock the row immediately
         product = Product.objects.select_for_update().get(pk=product_id)
         
@@ -102,6 +115,7 @@ class StockService:
                  product.physical_stock = new_physical
                  
         product.save()
+        product.sync_pack_stock()
         
         # Removed F() update since we are saving the full object now with lock
         
@@ -136,6 +150,10 @@ class StockService:
         Set the exact stock level. 
         Calculates the difference atomically inside the lock.
         """
+        initial_product = Product.objects.get(pk=product_id)
+        if initial_product.is_pack:
+            raise ValueError("Cannot perform absolute 'set' operations on a Pack product. Adjust the Base product directly.")
+
         product = Product.objects.select_for_update().get(pk=product_id)
         
         current_qty = product.stock_quantity
@@ -146,6 +164,7 @@ class StockService:
 
         product.stock_quantity = new_total
         product.save()
+        product.sync_pack_stock()
 
         StockHistory.objects.create(
             product=product,

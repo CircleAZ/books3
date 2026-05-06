@@ -78,6 +78,12 @@ class Product(DisplayIDMixin, SoftDeleteModel):
     tags = models.ManyToManyField(Tag, blank=True, related_name='products')
 
     is_additional = models.BooleanField(default=False)
+    
+    # Base-Unit Atomization (Option C) Fields
+    is_pack = models.BooleanField(default=False, help_text="If true, this product is a bundle of a base product.")
+    base_product = models.ForeignKey('self', on_delete=models.SET_NULL, null=True, blank=True, related_name='pack_variants')
+    pack_size = models.PositiveIntegerField(null=True, blank=True, help_text="Number of base units in this pack.")
+
     cost_price = models.DecimalField(max_digits=10, decimal_places=2)
     selling_price = models.DecimalField(max_digits=10, decimal_places=2)
     stock_quantity = models.IntegerField(default=0)
@@ -89,6 +95,23 @@ class Product(DisplayIDMixin, SoftDeleteModel):
         default=Decimal('0.00'),
         help_text="Global default commission percentage for this product"
     )
+
+    def sync_pack_stock(self):
+        """
+        Updates the stock of all pack variants that depend on this base product.
+        Called after this base product's stock is updated to ensure database columns stay in sync.
+        """
+        if self.is_pack:
+            return  # Packs don't sync downwards
+            
+        packs = self.pack_variants.all()
+        for pack in packs:
+            if pack.pack_size and pack.pack_size > 0:
+                pack.stock_quantity = self.stock_quantity // pack.pack_size
+                pack.physical_stock = self.physical_stock // pack.pack_size
+                # Pack cost price is strictly Base Cost * Pack Size. Selling price remains independent.
+                pack.cost_price = self.cost_price * pack.pack_size
+                pack.save(update_fields=['stock_quantity', 'physical_stock', 'cost_price'])
 
     def __str__(self):
         return self.name
