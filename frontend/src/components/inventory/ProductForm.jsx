@@ -34,7 +34,8 @@ export default function ProductForm({ initialData = null, isEdit = false }) {
         vendor: '',
         cost_price: '0',
         selling_price: '',
-        default_commission: '0',
+        default_commission_type: 'percent',
+        default_commission_value: '0',
         stock_quantity: '',
         low_stock_threshold: '5',
         is_additional: false
@@ -60,7 +61,8 @@ export default function ProductForm({ initialData = null, isEdit = false }) {
                 vendor: initialData.vendor?.id || initialData.vendor || '',
                 cost_price: initialData.cost_price || '',
                 selling_price: initialData.selling_price || '',
-                default_commission: initialData.default_commission ?? '0',
+                default_commission_type: initialData.default_commission_type || 'percent',
+                default_commission_value: initialData.default_commission_value ?? '0',
                 stock_quantity: initialData.stock_quantity || '',
                 low_stock_threshold: initialData.low_stock_threshold || '5',
                 is_additional: initialData.is_additional || false
@@ -105,6 +107,17 @@ export default function ProductForm({ initialData = null, isEdit = false }) {
         }
     };
 
+    const handleCommissionChange = (type, value) => {
+        setFormData(prev => ({
+            ...prev,
+            default_commission_type: type,
+            default_commission_value: value
+        }));
+        if (fieldErrors.default_commission_value) {
+            setFieldErrors(prev => ({ ...prev, default_commission_value: null }));
+        }
+    };
+
     // LENS-02 + LENS-10: Client-side validation
     const validate = () => {
         const errors = {};
@@ -125,6 +138,13 @@ export default function ProductForm({ initialData = null, isEdit = false }) {
         if (formData.low_stock_threshold && Number(formData.low_stock_threshold) < 0) {
             errors.low_stock_threshold = 'Threshold cannot be negative';
         }
+        
+        const sp = Number(formData.selling_price) || 0;
+        const cVal = Number(formData.default_commission_value) || 0;
+        if (formData.default_commission_type === 'fixed' && cVal > sp) {
+            errors.default_commission_value = 'Fixed commission cannot exceed selling price';
+        }
+
         return errors;
     };
 
@@ -273,7 +293,8 @@ export default function ProductForm({ initialData = null, isEdit = false }) {
                         vendor: '',
                         cost_price: '0',
                         selling_price: '',
-                        default_commission: '0',
+                        default_commission_type: 'percent',
+                        default_commission_value: '0',
                         stock_quantity: '',
                         low_stock_threshold: '5',
                         is_additional: false
@@ -319,6 +340,29 @@ export default function ProductForm({ initialData = null, isEdit = false }) {
             setLoading(false);
         }
     };
+
+    // Calculate derived commission values for live converter
+    const sp = Number(formData.selling_price) || 0;
+    const cp = Number(formData.cost_price) || 0;
+    const margin = Math.max(0, sp - cp);
+    const cType = formData.default_commission_type;
+    const cVal = Number(formData.default_commission_value) || 0;
+
+    let displayPercent = '';
+    let displayFixed = '';
+    let commissionAmount = 0;
+
+    if (cType === 'percent') {
+        displayPercent = formData.default_commission_value;
+        commissionAmount = sp > 0 ? (cVal / 100 * sp) : 0;
+        displayFixed = commissionAmount.toFixed(2);
+    } else {
+        displayFixed = formData.default_commission_value;
+        commissionAmount = cVal;
+        displayPercent = sp > 0 ? ((cVal / sp) * 100).toFixed(2) : '0.00';
+    }
+
+    const commissionWarning = commissionAmount > margin ? `Warning: Commission (${currency}${commissionAmount.toFixed(2)}) exceeds margin (${currency}${margin.toFixed(2)})` : null;
 
     return (
         <div className="product-form-container">
@@ -429,20 +473,41 @@ export default function ProductForm({ initialData = null, isEdit = false }) {
                         </div>
                     </div>
                     <div className="form-row">
-                        <div className="form-group">
-                            <label>Default Commission (%)</label>
-                            <input
-                                type="number"
-                                name="default_commission"
-                                value={formData.default_commission}
-                                onChange={handleInputChange}
-                                min="0"
-                                max="100"
-                                step="0.01"
-                                className={fieldErrors.default_commission ? 'input-error' : ''}
-                            />
-                            {fieldErrors.default_commission && <span className="field-error">{fieldErrors.default_commission}</span>}
-                            <small className="helper-text">Commission retained by outlets on consignment sales</small>
+                        <div className="form-group" style={{ flex: '1 1 100%' }}>
+                            <label>Default Commission (Live Converter)</label>
+                            <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
+                                <div className="input-with-action" style={{ flex: 1 }}>
+                                    <span style={{ padding: '0 10px', background: 'var(--bg-card)', border: '1px solid var(--border-color)', borderRight: 'none', borderRadius: '4px 0 0 4px', display: 'flex', alignItems: 'center' }}>%</span>
+                                    <input
+                                        type="number"
+                                        value={displayPercent}
+                                        onChange={(e) => handleCommissionChange('percent', e.target.value)}
+                                        min="0"
+                                        max="100"
+                                        step="0.01"
+                                        style={{ borderRadius: '0 4px 4px 0' }}
+                                        className={fieldErrors.default_commission_value && cType === 'percent' ? 'input-error' : ''}
+                                        placeholder="0.00"
+                                    />
+                                </div>
+                                <span>⇌</span>
+                                <div className="input-with-action" style={{ flex: 1 }}>
+                                    <span style={{ padding: '0 10px', background: 'var(--bg-card)', border: '1px solid var(--border-color)', borderRight: 'none', borderRadius: '4px 0 0 4px', display: 'flex', alignItems: 'center' }}>{currency}</span>
+                                    <input
+                                        type="number"
+                                        value={displayFixed}
+                                        onChange={(e) => handleCommissionChange('fixed', e.target.value)}
+                                        min="0"
+                                        step="0.01"
+                                        style={{ borderRadius: '0 4px 4px 0' }}
+                                        className={fieldErrors.default_commission_value && cType === 'fixed' ? 'input-error' : ''}
+                                        placeholder="0.00"
+                                    />
+                                </div>
+                            </div>
+                            {fieldErrors.default_commission_value && <span className="field-error">{fieldErrors.default_commission_value}</span>}
+                            {commissionWarning && <span className="field-warning" style={{ color: 'var(--color-warning, #f59e0b)', display: 'block', marginTop: '4px', fontSize: '0.875rem' }}>{commissionWarning}</span>}
+                            <small className="helper-text">Commission retained by outlets on consignment sales. Edit either field to sync.</small>
                         </div>
                     </div>
                     <div className="form-row">

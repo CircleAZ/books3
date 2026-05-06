@@ -21,17 +21,30 @@ class OutletSerializer(serializers.ModelSerializer):
 class OutletProductCommissionSerializer(serializers.ModelSerializer):
     product_name = serializers.CharField(source='product.name', read_only=True)
     product_sku = serializers.SerializerMethodField()
-    default_commission = serializers.DecimalField(
-        source='product.default_commission', max_digits=5, decimal_places=2, read_only=True
+    default_commission_type = serializers.CharField(
+        source='product.default_commission_type', read_only=True
+    )
+    default_commission_value = serializers.DecimalField(
+        source='product.default_commission_value', max_digits=5, decimal_places=2, read_only=True
     )
 
     class Meta:
         model = OutletProductCommission
         fields = ('id', 'outlet', 'product', 'product_name', 'product_sku', 
-                  'commission_percentage', 'default_commission')
+                  'commission_type', 'commission_value', 'default_commission_type', 'default_commission_value')
 
     def get_product_sku(self, obj):
         return getattr(obj.product, 'sku', '') if obj.product else ''
+
+    def validate(self, attrs):
+        product = attrs.get('product')
+        c_type = attrs.get('commission_type')
+        c_value = attrs.get('commission_value')
+        
+        if c_type == 'fixed' and c_value and product:
+            if c_value > product.selling_price:
+                raise serializers.ValidationError({"commission_value": "Fixed commission cannot exceed the product's selling price."})
+        return attrs
 
 
 class OutletStockSerializer(serializers.ModelSerializer):
@@ -119,8 +132,8 @@ class OutletDailySaleItemSerializer(serializers.ModelSerializer):
     class Meta:
         model = OutletDailySaleItem
         fields = ('id', 'product', 'product_details', 'quantity', 'unit_price', 
-                  'commission_percentage', 'commission_amount', 'line_total')
-        read_only_fields = ('unit_price', 'commission_percentage', 'commission_amount', 'line_total')
+                  'commission_type', 'commission_value', 'commission_amount', 'line_total')
+        read_only_fields = ('unit_price', 'commission_type', 'commission_value', 'commission_amount', 'line_total')
 
 class OutletDailySaleSerializer(serializers.ModelSerializer):
     items = OutletDailySaleItemSerializer(many=True, required=False)

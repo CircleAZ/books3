@@ -89,11 +89,22 @@ class Product(DisplayIDMixin, SoftDeleteModel):
     stock_quantity = models.IntegerField(default=0)
     physical_stock = models.IntegerField(default=0, help_text="Actual stock sitting in the warehouse. Deducted only upon delivery.")
     low_stock_threshold = models.PositiveIntegerField(default=10)
-    default_commission = models.DecimalField(
+    
+    COMMISSION_TYPES = [
+        ('percent', 'Percentage'),
+        ('fixed', 'Fixed Amount'),
+    ]
+    default_commission_type = models.CharField(
+        max_length=10, 
+        choices=COMMISSION_TYPES, 
+        default='percent',
+        help_text="Type of commission (Percentage or Fixed amount per unit)"
+    )
+    default_commission_value = models.DecimalField(
         max_digits=5, 
         decimal_places=2, 
         default=Decimal('0.00'),
-        help_text="Global default commission percentage for this product"
+        help_text="Global default commission value for this product"
     )
 
     class Meta:

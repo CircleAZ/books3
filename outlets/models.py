@@ -70,18 +70,29 @@ class OutletProductCommission(UUIDPrimaryKeyModel):
     """
     outlet = models.ForeignKey(Outlet, on_delete=models.CASCADE, related_name='product_commissions')
     product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name='outlet_commissions')
-    commission_percentage = models.DecimalField(
-        max_digits=5, 
-        decimal_places=2, 
+    COMMISSION_TYPES = [
+        ('percent', 'Percentage'),
+        ('fixed', 'Fixed Amount'),
+    ]
+    commission_type = models.CharField(
+        max_length=10, 
+        choices=COMMISSION_TYPES, 
+        default='percent',
+        help_text="Type of commission (Percentage or Fixed amount per unit)"
+    )
+    commission_value = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
         validators=[MinValueValidator(Decimal('0.00'))],
-        help_text="Specific commission percentage for this product at this outlet"
+        help_text="Specific commission value for this product at this outlet"
     )
 
     class Meta:
         unique_together = ('outlet', 'product')
 
     def __str__(self):
-        return f"{self.outlet.name} - {self.product.name}: {self.commission_percentage}%"
+        symbol = "%" if self.commission_type == 'percent' else "₹"
+        return f"{self.outlet.name} - {self.product.name}: {self.commission_value}{symbol}"
 
 
 class OutletStock(UUIDPrimaryKeyModel):
@@ -354,11 +365,21 @@ class OutletDailySaleItem(SoftDeleteModel):
         decimal_places=2,
         help_text="Temporal Pricing: Captured exactly at the moment of sale creation"
     )
-    commission_percentage = models.DecimalField(
-        max_digits=5, 
+    COMMISSION_TYPES = [
+        ('percent', 'Percentage'),
+        ('fixed', 'Fixed Amount'),
+    ]
+    commission_type = models.CharField(
+        max_length=10, 
+        choices=COMMISSION_TYPES, 
+        default='percent',
+        help_text="Frozen type of commission (Percentage or Fixed amount)"
+    )
+    commission_value = models.DecimalField(
+        max_digits=5,
         decimal_places=2,
-        default=Decimal('0.00'),
-        help_text="Frozen commission percentage at the time of sale"
+        help_text="Frozen commission value applied to this line item at time of sale",
+        null=True, blank=True
     )
     commission_amount = models.DecimalField(
         max_digits=12, 
@@ -381,17 +402,16 @@ class OutletDailySaleItem(SoftDeleteModel):
     @staticmethod
     def resolve_commission_rate(outlet, product):
         """
-        Two-Tier Commission Hierarchy:
-        1. Check for outlet-specific override (OutletProductCommission)
-        2. Fall back to product's global default_commission
+        1. Check for specific OutletProductCommission override.
+        2. Fall back to product's global default_commission_type and default_commission_value.
+        Returns a tuple: (type, value)
         """
-        try:
-            override = OutletProductCommission.objects.get(
-                outlet=outlet, product=product
-            )
-            return override.commission_percentage
-        except OutletProductCommission.DoesNotExist:
-            return product.default_commission
+        override = OutletProductCommission.objects.filter(outlet=outlet, product=product).first()
+        if override:
+            return override.commission_type, override.commission_value
+        
+        # Ensure default_commission_type is respected even if it's missing (should default to percent)
+        return getattr(product, 'default_commission_type', 'percent'), product.default_commission_value
 
     def save(self, *args, **kwargs):
         is_new = self._state.adding
@@ -401,13 +421,19 @@ class OutletDailySaleItem(SoftDeleteModel):
         
         if is_new:
             # Freeze the commission rate at time of sale
-            self.commission_percentage = self.resolve_commission_rate(
-                self.sale.outlet, self.product
-            )
+            if not self.commission_type or self.commission_value is None:
+                c_type, c_val = self.resolve_commission_rate(
+                    self.sale.outlet, self.product
+                )
+                self.commission_type = c_type
+                self.commission_value = c_val
             
         # Calculate commission amount from frozen rate
         line = self.quantity * self.unit_price
-        self.commission_amount = (line * self.commission_percentage / Decimal('100.00')).quantize(Decimal('0.01'))
+        if self.commission_type == 'fixed':
+            self.commission_amount = (self.quantity * self.commission_value).quantize(Decimal('0.01'))
+        else:
+            self.commission_amount = (line * self.commission_value / Decimal('100.00')).quantize(Decimal('0.01'))
             
         with transaction.atomic():
             super().save(*args, **kwargs)

@@ -87,7 +87,7 @@ class ProductListSerializer(serializers.ModelSerializer):
             'id', 'display_id', 'name', 'category_name', 'vendor_name',
             'cost_price', 'selling_price', 'stock_quantity', 'physical_stock',
             'low_stock_threshold', 'primary_image_url', 'is_low_stock',
-            'default_commission', 'deleted_at', 'delivered_quantity', 'owed_quantity',
+            'default_commission_type', 'default_commission_value', 'deleted_at', 'delivered_quantity', 'owed_quantity',
             'is_pack', 'base_product', 'pack_size'
         ]
         read_only_fields = ['display_id']
@@ -138,7 +138,7 @@ class ProductDetailSerializer(serializers.ModelSerializer):
             'id', 'display_id', 'name', 'description', 'category', 'vendor',
             'tags', 'images', 'cost_price', 'selling_price',
             'stock_quantity', 'physical_stock', 'low_stock_threshold', 'is_low_stock',
-            'default_commission', 'delivered_quantity', 'owed_quantity',
+            'default_commission_type', 'default_commission_value', 'delivered_quantity', 'owed_quantity',
             'is_pack', 'base_product', 'pack_size'
         ]
         read_only_fields = ['display_id']
@@ -163,10 +163,29 @@ class ProductCreateUpdateSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'display_id', 'name', 'description', 'category', 'vendor', 'tags',
             'cost_price', 'selling_price', 'stock_quantity', 'physical_stock', 'low_stock_threshold',
-            'is_additional', 'default_commission', 'images', 'thumbnails',
+            'is_additional', 'default_commission_type', 'default_commission_value', 'images', 'thumbnails',
             'is_pack', 'base_product', 'pack_size'
         ]
         read_only_fields = ['id', 'display_id']
+
+    def validate(self, attrs):
+        # On update, some fields might not be in attrs, so we fall back to self.instance
+        selling_price = attrs.get('selling_price')
+        if selling_price is None and self.instance:
+            selling_price = self.instance.selling_price
+            
+        c_type = attrs.get('default_commission_type')
+        if c_type is None and self.instance:
+            c_type = self.instance.default_commission_type
+            
+        c_value = attrs.get('default_commission_value')
+        if c_value is None and self.instance:
+            c_value = self.instance.default_commission_value
+            
+        if c_type == 'fixed' and c_value and selling_price:
+            if c_value > selling_price:
+                raise serializers.ValidationError({"default_commission_value": "Fixed commission cannot exceed the product's selling price."})
+        return attrs
     
     def validate_name(self, value):
         """Sanitize name to prevent XSS."""

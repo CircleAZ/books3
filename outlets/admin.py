@@ -11,7 +11,7 @@ class OutletAdmin(admin.ModelAdmin):
 
 @admin.register(OutletProductCommission)
 class OutletProductCommissionAdmin(admin.ModelAdmin):
-    list_display = ('outlet', 'product', 'commission_percentage')
+    list_display = ('outlet', 'product', 'commission_type', 'commission_value')
     list_filter = ('outlet',)
     search_fields = ('outlet__name', 'product__name')
 

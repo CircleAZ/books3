@@ -99,7 +99,7 @@ export default function OutletDetails() {
                 // Seed the overrides map from existing saved values
                 const seedOverrides = {};
                 commList.forEach(c => {
-                    seedOverrides[c.product] = c.commission_percentage;
+                    seedOverrides[c.product] = { type: c.commission_type || 'percent', value: c.commission_value };
                 });
                 setOverrides(seedOverrides);
             }
@@ -200,8 +200,8 @@ export default function OutletDetails() {
     };
 
     // Commission Matrix Logic
-    const handleOverrideChange = (productId, value) => {
-        setOverrides(prev => ({ ...prev, [productId]: value }));
+    const handleOverrideChange = (productId, type, value) => {
+        setOverrides(prev => ({ ...prev, [productId]: { type, value } }));
     };
 
     const handleClearOverride = (productId) => {
@@ -217,11 +217,12 @@ export default function OutletDetails() {
         try {
             // Build the payload: only send products that have a non-empty override
             const payload = Object.entries(overrides)
-                .filter(([_, rate]) => rate !== '' && rate !== undefined && rate !== null)
+                .filter(([_, rate]) => rate.value !== '' && rate.value !== undefined && rate.value !== null)
                 .map(([productId, rate]) => ({
                     outlet: id,
                     product: productId,
-                    commission_percentage: parseFloat(rate).toFixed(2)
+                    commission_type: rate.type,
+                    commission_value: parseFloat(rate.value).toFixed(2)
                 }));
 
             // Also delete any existing commissions where the override was cleared
@@ -495,60 +496,99 @@ export default function OutletDetails() {
                         <table className="data-table">
                             <thead>
                                 <tr>
-                                    <th>Product</th>
-                                    <th>ID</th>
+                                    <th>Product Name</th>
+                                    <th>Display ID</th>
                                     <th className="text-right">Selling Price</th>
-                                    <th className="text-center">Global Default (%)</th>
-                                    <th className="text-center" style={{ minWidth: '160px' }}>Override for this Outlet (%)</th>
+                                    <th className="text-right">Margin</th>
+                                    <th className="text-center">Global Default</th>
+                                    <th className="text-center" style={{ minWidth: '220px' }}>Override for this Outlet (Live)</th>
                                     <th className="text-center">Effective Rate</th>
                                     <th></th>
                                 </tr>
                             </thead>
                             <tbody>
                                 {commissionsLoading ? (
-                                    <tr><td colSpan="7" className="text-center text-muted" style={{ padding: '2rem' }}>Loading products...</td></tr>
+                                    <tr><td colSpan="9" className="text-center text-muted" style={{ padding: '2rem' }}>Loading products...</td></tr>
                                 ) : products.length === 0 ? (
-                                    <tr><td colSpan="7" className="text-center text-muted" style={{ padding: '2rem' }}>
+                                    <tr><td colSpan="9" className="text-center text-muted" style={{ padding: '2rem' }}>
                                         {commissionSearch ? 'No products match your search.' : 'No products found.'}
                                     </td></tr>
                                 ) : products.map(product => {
                                     const hasOverride = product.id in overrides;
-                                    const overrideValue = hasOverride ? overrides[product.id] : '';
-                                    const globalDefault = parseFloat(product.default_commission || 0).toFixed(2);
-                                    const effectiveRate = hasOverride && overrideValue !== '' 
-                                        ? parseFloat(overrideValue).toFixed(2)
-                                        : globalDefault;
-                                    const isCustom = hasOverride && overrideValue !== '';
+                                    const overrideData = hasOverride ? overrides[product.id] : null;
+                                    
+                                    const globalType = product.default_commission_type || 'percent';
+                                    const globalVal = parseFloat(product.default_commission_value || 0).toFixed(2);
+                                    const globalDisplay = globalType === 'percent' ? `${globalVal}%` : `${currency}${globalVal}`;
+                                    
+                                    const currentType = hasOverride && overrideData.value !== '' ? overrideData.type : globalType;
+                                    const currentVal = hasOverride && overrideData.value !== '' ? parseFloat(overrideData.value).toFixed(2) : globalVal;
+                                    const isCustom = hasOverride && overrideData.value !== '';
+
+                                    const sp = parseFloat(product.selling_price) || 0;
+                                    const cp = parseFloat(product.cost_price) || 0;
+                                    const margin = Math.max(0, sp - cp);
+
+                                    let displayPercent = '';
+                                    let displayFixed = '';
+                                    let commissionAmount = 0;
+
+                                    if (currentType === 'percent') {
+                                        displayPercent = hasOverride && overrideData.type === 'percent' ? overrideData.value : globalVal;
+                                        commissionAmount = sp > 0 ? (parseFloat(currentVal) / 100 * sp) : 0;
+                                        displayFixed = commissionAmount.toFixed(2);
+                                    } else {
+                                        displayFixed = hasOverride && overrideData.type === 'fixed' ? overrideData.value : globalVal;
+                                        commissionAmount = parseFloat(currentVal);
+                                        displayPercent = sp > 0 ? ((commissionAmount / sp) * 100).toFixed(2) : '0.00';
+                                    }
+
+                                    const effectiveRateDisplay = currentType === 'percent' ? `${currentVal}%` : `${currency}${currentVal}`;
+                                    const exceedsMargin = commissionAmount > margin;
 
                                     return (
                                         <tr key={product.id} style={isCustom ? { background: 'var(--color-bg-highlight, rgba(59, 130, 246, 0.05))' } : {}}>
                                             <td className="font-medium">{product.name}</td>
                                             <td style={{ color: 'var(--color-text-muted)', fontSize: '0.85rem' }}>#{product.display_id}</td>
                                             <td className="text-right">{formatCurrency(product.selling_price)}</td>
+                                            <td className="text-right">{formatCurrency(margin)}</td>
                                             <td className="text-center" style={{ color: 'var(--color-text-muted)' }}>
-                                                {globalDefault}%
+                                                {globalDisplay}
                                             </td>
                                             <td className="text-center">
-                                                <input
-                                                    type="number"
-                                                    className="form-input"
-                                                    placeholder={`${globalDefault}`}
-                                                    value={overrideValue}
-                                                    onChange={(e) => handleOverrideChange(product.id, e.target.value)}
-                                                    min="0"
-                                                    max="100"
-                                                    step="0.01"
-                                                    style={{ 
-                                                        width: '100px', 
-                                                        textAlign: 'center',
-                                                        margin: '0 auto',
-                                                        display: 'block',
-                                                        border: isCustom ? '2px solid var(--color-primary)' : undefined
-                                                    }}
-                                                />
+                                                <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'center', alignItems: 'center' }}>
+                                                    <div className="input-with-action" style={{ width: '90px' }}>
+                                                        <span style={{ padding: '0 5px', fontSize: '0.8rem', background: 'var(--bg-card)', border: '1px solid var(--border-color)', borderRight: 'none', borderRadius: '4px 0 0 4px', display: 'flex', alignItems: 'center' }}>%</span>
+                                                        <input
+                                                            type="number"
+                                                            className="form-input"
+                                                            style={{ border: isCustom && currentType === 'percent' ? '2px solid var(--color-primary)' : undefined, borderRadius: '0 4px 4px 0', padding: '0.2rem', textAlign: 'center' }}
+                                                            value={displayPercent}
+                                                            onChange={(e) => handleOverrideChange(product.id, 'percent', e.target.value)}
+                                                            min="0" max="100" step="0.01"
+                                                        />
+                                                    </div>
+                                                    <span style={{ color: 'var(--color-text-muted)' }}>⇌</span>
+                                                    <div className="input-with-action" style={{ width: '100px' }}>
+                                                        <span style={{ padding: '0 5px', fontSize: '0.8rem', background: 'var(--bg-card)', border: '1px solid var(--border-color)', borderRight: 'none', borderRadius: '4px 0 0 4px', display: 'flex', alignItems: 'center' }}>{currency}</span>
+                                                        <input
+                                                            type="number"
+                                                            className="form-input"
+                                                            style={{ border: isCustom && currentType === 'fixed' ? '2px solid var(--color-primary)' : undefined, borderRadius: '0 4px 4px 0', padding: '0.2rem', textAlign: 'center' }}
+                                                            value={displayFixed}
+                                                            onChange={(e) => handleOverrideChange(product.id, 'fixed', e.target.value)}
+                                                            min="0" step="0.01"
+                                                        />
+                                                    </div>
+                                                </div>
+                                                {exceedsMargin && (
+                                                    <div style={{ color: 'var(--color-warning, #f59e0b)', fontSize: '0.75rem', marginTop: '0.25rem' }}>
+                                                        Exceeds Margin!
+                                                    </div>
+                                                )}
                                             </td>
                                             <td className="text-center font-bold" style={{ color: isCustom ? 'var(--color-primary)' : 'inherit' }}>
-                                                {effectiveRate}%
+                                                {effectiveRateDisplay}
                                                 {isCustom && (
                                                     <span style={{ 
                                                         marginLeft: '0.35rem',

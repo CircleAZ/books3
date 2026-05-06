@@ -101,7 +101,7 @@ class Command(BaseCommand):
                             stock_quantity=0,
                             physical_stock=0,
                             low_stock_threshold=pack.low_stock_threshold * entry['pack_size'],
-                            default_commission=pack.default_commission,
+                            default_commission_value=pack.default_commission_value,
                         )
                         # Copy tags
                         base.tags.set(pack.tags.all())

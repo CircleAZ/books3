@@ -27,21 +27,21 @@ class CommissionSystemTests(APITestCase):
             name='Product A', category=self.category,
             cost_price=Decimal('50.00'), selling_price=Decimal('100.00'),
             stock_quantity=500, physical_stock=500,
-            default_commission=Decimal('20.00')
+            default_commission_value=Decimal('20.00')
         )
         # Product B: 5% global default commission
         self.product_b = Product.objects.create(
             name='Product B', category=self.category,
             cost_price=Decimal('80.00'), selling_price=Decimal('200.00'),
             stock_quantity=500, physical_stock=500,
-            default_commission=Decimal('5.00')
+            default_commission_value=Decimal('5.00')
         )
         # Product C: 0% commission (no commission)
         self.product_c = Product.objects.create(
             name='Product C', category=self.category,
             cost_price=Decimal('10.00'), selling_price=Decimal('50.00'),
             stock_quantity=500, physical_stock=500,
-            default_commission=Decimal('0.00')
+            default_commission_value=Decimal('0.00')
         )
 
         self.bank_account = BankAccount.objects.create(
@@ -59,36 +59,36 @@ class CommissionSystemTests(APITestCase):
     # ── 1. MODEL LAYER TESTS ──────────────────────────────────────────
 
     def test_outlet_no_commission_field(self):
-        """Legacy commission_percentage field must be completely gone from Outlet."""
-        self.assertFalse(hasattr(Outlet, 'commission_percentage') and
-                         isinstance(Outlet.commission_percentage, property) is False)
+        """Legacy commission_value field must be completely gone from Outlet."""
+        self.assertFalse(hasattr(Outlet, 'commission_value') and
+                         isinstance(Outlet.commission_value, property) is False)
 
-    def test_product_default_commission_exists(self):
-        self.assertEqual(self.product_a.default_commission, Decimal('20.00'))
-        self.assertEqual(self.product_c.default_commission, Decimal('0.00'))
+    def test_product_default_commission_value_exists(self):
+        self.assertEqual(self.product_a.default_commission_value, Decimal('20.00'))
+        self.assertEqual(self.product_c.default_commission_value, Decimal('0.00'))
 
     def test_outlet_product_commission_unique_constraint(self):
         """Duplicate (outlet, product) pair must be rejected."""
         OutletProductCommission.objects.create(
-            outlet=self.outlet_a, product=self.product_a, commission_percentage=Decimal('15.00')
+            outlet=self.outlet_a, product=self.product_a, commission_value=Decimal('15.00')
         )
         from django.db import IntegrityError
         with self.assertRaises(IntegrityError):
             OutletProductCommission.objects.create(
-                outlet=self.outlet_a, product=self.product_a, commission_percentage=Decimal('25.00')
+                outlet=self.outlet_a, product=self.product_a, commission_value=Decimal('25.00')
             )
 
     # ── 2. COMMISSION RESOLUTION HIERARCHY ─────────────────────────────
 
     def test_resolve_falls_back_to_global_default(self):
-        """No override → must use Product.default_commission."""
+        """No override → must use Product.default_commission_value."""
         rate = OutletDailySaleItem.resolve_commission_rate(self.outlet_a, self.product_a)
         self.assertEqual(rate, Decimal('20.00'))
 
     def test_resolve_uses_outlet_override(self):
         """Override exists → must use OutletProductCommission rate."""
         OutletProductCommission.objects.create(
-            outlet=self.outlet_a, product=self.product_a, commission_percentage=Decimal('15.00')
+            outlet=self.outlet_a, product=self.product_a, commission_value=Decimal('15.00')
         )
         rate = OutletDailySaleItem.resolve_commission_rate(self.outlet_a, self.product_a)
         self.assertEqual(rate, Decimal('15.00'))
@@ -96,7 +96,7 @@ class CommissionSystemTests(APITestCase):
     def test_resolve_override_is_outlet_specific(self):
         """Override on Shop Alpha must NOT affect Shop Beta."""
         OutletProductCommission.objects.create(
-            outlet=self.outlet_a, product=self.product_a, commission_percentage=Decimal('15.00')
+            outlet=self.outlet_a, product=self.product_a, commission_value=Decimal('15.00')
         )
         rate_a = OutletDailySaleItem.resolve_commission_rate(self.outlet_a, self.product_a)
         rate_b = OutletDailySaleItem.resolve_commission_rate(self.outlet_b, self.product_a)
@@ -139,7 +139,7 @@ class CommissionSystemTests(APITestCase):
     def test_sale_with_outlet_override(self):
         """Shop Alpha overrides Product A to 15%. Product B stays at global 5%."""
         OutletProductCommission.objects.create(
-            outlet=self.outlet_a, product=self.product_a, commission_percentage=Decimal('15.00')
+            outlet=self.outlet_a, product=self.product_a, commission_value=Decimal('15.00')
         )
         sale = self._create_sale_direct(self.outlet_a, [
             (self.product_a, 10),  # 10*100=1000, comm=150 (15%)
@@ -156,7 +156,7 @@ class CommissionSystemTests(APITestCase):
 
         # Now create an override changing to 50%
         OutletProductCommission.objects.create(
-            outlet=self.outlet_a, product=self.product_a, commission_percentage=Decimal('50.00')
+            outlet=self.outlet_a, product=self.product_a, commission_value=Decimal('50.00')
         )
         sale.refresh_from_db()
         self.assertEqual(sale.commission_amount, original_commission)  # Must NOT change
@@ -169,13 +169,13 @@ class CommissionSystemTests(APITestCase):
         self.assertEqual(sale.net_total, Decimal('1000.00'))
 
     def test_line_item_commission_fields_frozen(self):
-        """Individual line items must carry the frozen commission_percentage and commission_amount."""
+        """Individual line items must carry the frozen commission_value and commission_amount."""
         OutletProductCommission.objects.create(
-            outlet=self.outlet_a, product=self.product_b, commission_percentage=Decimal('12.50')
+            outlet=self.outlet_a, product=self.product_b, commission_value=Decimal('12.50')
         )
         sale = self._create_sale_direct(self.outlet_a, [(self.product_b, 4)])
         item = sale.items.first()
-        self.assertEqual(item.commission_percentage, Decimal('12.50'))
+        self.assertEqual(item.commission_value, Decimal('12.50'))
         # 4 * 200 = 800, 12.5% of 800 = 100
         self.assertEqual(item.commission_amount, Decimal('100.00'))
         self.assertEqual(item.unit_price, Decimal('200.00'))
@@ -199,7 +199,7 @@ class CommissionSystemTests(APITestCase):
             name='Ghost Product', category=self.category,
             cost_price=Decimal('10.00'), selling_price=Decimal('20.00'),
             stock_quantity=100, physical_stock=100,
-            default_commission=Decimal('10.00')
+            default_commission_value=Decimal('10.00')
         )
         with self.assertRaises(ValueError):
             self._create_sale_direct(self.outlet_a, [(new_product, 1)])
@@ -219,17 +219,17 @@ class CommissionSystemTests(APITestCase):
     # ── 6. API LAYER TESTS ─────────────────────────────────────────────
 
     def test_api_outlet_create_no_commission_field(self):
-        """Creating an outlet via API must work without commission_percentage."""
+        """Creating an outlet via API must work without commission_value."""
         resp = self.client.post('/api/outlets/outlets/', {'name': 'New Shop', 'is_active': True}, format='json')
         self.assertEqual(resp.status_code, status.HTTP_201_CREATED)
-        self.assertNotIn('commission_percentage', resp.data)
+        self.assertNotIn('commission_value', resp.data)
 
     def test_api_commission_crud(self):
         """Full CRUD cycle for OutletProductCommission via API."""
         # CREATE
         resp = self.client.post('/api/outlets/commissions/', {
             'outlet': str(self.outlet_a.id), 'product': str(self.product_a.id),
-            'commission_percentage': '18.00'
+            'commission_value': '18.00'
         }, format='json')
         self.assertEqual(resp.status_code, status.HTTP_201_CREATED)
         comm_id = resp.data['id']
@@ -237,13 +237,13 @@ class CommissionSystemTests(APITestCase):
         # READ
         resp = self.client.get(f'/api/outlets/commissions/{comm_id}/')
         self.assertEqual(resp.status_code, status.HTTP_200_OK)
-        self.assertEqual(resp.data['commission_percentage'], '18.00')
+        self.assertEqual(resp.data['commission_value'], '18.00')
         self.assertEqual(resp.data['product_name'], 'Product A')
-        self.assertEqual(resp.data['default_commission'], '20.00')
+        self.assertEqual(resp.data['default_commission_value'], '20.00')
 
         # UPDATE
         resp = self.client.patch(f'/api/outlets/commissions/{comm_id}/', {
-            'commission_percentage': '22.00'
+            'commission_value': '22.00'
         }, format='json')
         self.assertEqual(resp.status_code, status.HTTP_200_OK)
 
@@ -254,8 +254,8 @@ class CommissionSystemTests(APITestCase):
     def test_api_commission_bulk_upsert(self):
         """Bulk upsert must create and update commission overrides atomically."""
         payload = [
-            {'outlet': str(self.outlet_a.id), 'product': str(self.product_a.id), 'commission_percentage': '11.00'},
-            {'outlet': str(self.outlet_a.id), 'product': str(self.product_b.id), 'commission_percentage': '7.50'},
+            {'outlet': str(self.outlet_a.id), 'product': str(self.product_a.id), 'commission_value': '11.00'},
+            {'outlet': str(self.outlet_a.id), 'product': str(self.product_b.id), 'commission_value': '7.50'},
         ]
         resp = self.client.post('/api/outlets/commissions/bulk_upsert/', payload, format='json')
         self.assertEqual(resp.status_code, status.HTTP_200_OK)
@@ -263,25 +263,25 @@ class CommissionSystemTests(APITestCase):
         self.assertTrue(resp.data[0]['created'])
 
         # Update existing
-        payload[0]['commission_percentage'] = '13.00'
+        payload[0]['commission_value'] = '13.00'
         resp = self.client.post('/api/outlets/commissions/bulk_upsert/', payload, format='json')
         self.assertEqual(resp.status_code, status.HTTP_200_OK)
         self.assertFalse(resp.data[0]['created'])  # Updated, not created
-        self.assertEqual(resp.data[0]['commission_percentage'], '13.00')
+        self.assertEqual(resp.data[0]['commission_value'], '13.00')
 
     def test_api_commission_filter_by_outlet(self):
         """Filtering commissions by outlet must return only that outlet's overrides."""
         OutletProductCommission.objects.create(
-            outlet=self.outlet_a, product=self.product_a, commission_percentage=Decimal('15.00')
+            outlet=self.outlet_a, product=self.product_a, commission_value=Decimal('15.00')
         )
         OutletProductCommission.objects.create(
-            outlet=self.outlet_b, product=self.product_a, commission_percentage=Decimal('25.00')
+            outlet=self.outlet_b, product=self.product_a, commission_value=Decimal('25.00')
         )
         resp = self.client.get(f'/api/outlets/commissions/?outlet={self.outlet_a.id}')
         self.assertEqual(resp.status_code, status.HTTP_200_OK)
         data = resp.data if isinstance(resp.data, list) else resp.data.get('results', resp.data)
         self.assertEqual(len(data), 1)
-        self.assertEqual(data[0]['commission_percentage'], '15.00')
+        self.assertEqual(data[0]['commission_value'], '15.00')
 
     def test_api_sale_returns_commission_fields(self):
         """Sale items in API response must include frozen commission data."""
@@ -289,18 +289,18 @@ class CommissionSystemTests(APITestCase):
         resp = self.client.get(f'/api/outlets/sales/{sale.id}/')
         self.assertEqual(resp.status_code, status.HTTP_200_OK)
         item = resp.data['items'][0]
-        self.assertIn('commission_percentage', item)
+        self.assertIn('commission_value', item)
         self.assertIn('commission_amount', item)
-        self.assertEqual(item['commission_percentage'], '20.00')
+        self.assertEqual(item['commission_value'], '20.00')
 
-    def test_api_product_includes_default_commission(self):
-        """Product list API must return default_commission field."""
+    def test_api_product_includes_default_commission_value(self):
+        """Product list API must return default_commission_value field."""
         resp = self.client.get('/api/inventory/products/')
         self.assertEqual(resp.status_code, status.HTTP_200_OK)
         products = resp.data if isinstance(resp.data, list) else resp.data.get('results', resp.data)
         product_data = next(p for p in products if p['id'] == str(self.product_a.id))
-        self.assertIn('default_commission', product_data)
-        self.assertEqual(product_data['default_commission'], '20.00')
+        self.assertIn('default_commission_value', product_data)
+        self.assertEqual(product_data['default_commission_value'], '20.00')
 
     # ── 7. TRANSFER + SALE INTEGRATION ─────────────────────────────────
 

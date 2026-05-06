@@ -33,7 +33,7 @@ class OutletProductCommissionViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=['post'])
     def bulk_upsert(self, request):
         """
-        Accept a list of { outlet, product, commission_percentage } dicts.
+        Accept a list of { outlet, product, commission_type, commission_value } dicts.
         Creates or updates each entry atomically.
         """
         items = request.data
@@ -48,17 +48,19 @@ class OutletProductCommissionViewSet(viewsets.ModelViewSet):
             for item in serializer.validated_data:
                 outlet_obj = item.get('outlet')
                 product_obj = item.get('product')
-                rate = item.get('commission_percentage')
+                c_type = item.get('commission_type', 'percent')
+                c_value = item.get('commission_value')
 
                 obj, created = OutletProductCommission.objects.update_or_create(
                     outlet=outlet_obj,
                     product=product_obj,
-                    defaults={'commission_percentage': rate}
+                    defaults={'commission_type': c_type, 'commission_value': c_value}
                 )
                 results.append({
                     'id': str(obj.id),
                     'product': str(product_obj.id),
-                    'commission_percentage': str(obj.commission_percentage),
+                    'commission_type': obj.commission_type,
+                    'commission_value': str(obj.commission_value),
                     'created': created
                 })
 
