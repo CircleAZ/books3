@@ -140,9 +140,23 @@ export default function ProductForm({ initialData = null, isEdit = false }) {
         }
         
         const sp = Number(formData.selling_price) || 0;
+        const cp = Number(formData.cost_price) || 0;
+        const marginVal = Math.max(0, sp - cp);
         const cVal = Number(formData.default_commission_value) || 0;
-        if (formData.default_commission_type === 'fixed' && cVal > sp) {
-            errors.default_commission_value = 'Fixed commission cannot exceed selling price';
+        
+        if (formData.default_commission_type === 'fixed') {
+            if (cVal > sp) {
+                errors.default_commission_value = `Fixed commission (${currency}${cVal.toFixed(2)}) cannot exceed selling price (${currency}${sp.toFixed(2)})`;
+            }
+        } else {
+            // Percent mode: cap at 100% of margin
+            if (cVal > 100) {
+                errors.default_commission_value = 'Commission percentage cannot exceed 100%';
+            }
+            const computedAmount = marginVal > 0 ? (cVal / 100 * marginVal) : 0;
+            if (computedAmount > sp) {
+                errors.default_commission_value = `Resulting commission (${currency}${computedAmount.toFixed(2)}) exceeds selling price (${currency}${sp.toFixed(2)})`;
+            }
         }
 
         return errors;

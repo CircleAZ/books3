@@ -37,13 +37,23 @@ class OutletProductCommissionSerializer(serializers.ModelSerializer):
         return getattr(obj.product, 'sku', '') if obj.product else ''
 
     def validate(self, attrs):
+        from decimal import Decimal
         product = attrs.get('product')
         c_type = attrs.get('commission_type')
         c_value = attrs.get('commission_value')
         
-        if c_type == 'fixed' and c_value and product:
-            if c_value > product.selling_price:
-                raise serializers.ValidationError({"commission_value": "Fixed commission cannot exceed the product's selling price."})
+        if c_value and product:
+            sp = product.selling_price
+            if c_type == 'fixed':
+                if c_value > sp:
+                    raise serializers.ValidationError({"commission_value": "Fixed commission cannot exceed the product's selling price."})
+            else:
+                if c_value > Decimal('100.00'):
+                    raise serializers.ValidationError({"commission_value": "Commission percentage cannot exceed 100%."})
+                margin = max(Decimal('0.00'), sp - (product.cost_price or Decimal('0.00')))
+                computed = margin * c_value / Decimal('100.00')
+                if computed > sp:
+                    raise serializers.ValidationError({"commission_value": "Resulting commission amount exceeds the product's selling price."})
         return attrs
 
 

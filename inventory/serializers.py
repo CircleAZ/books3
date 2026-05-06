@@ -169,10 +169,15 @@ class ProductCreateUpdateSerializer(serializers.ModelSerializer):
         read_only_fields = ['id', 'display_id']
 
     def validate(self, attrs):
+        from decimal import Decimal
         # On update, some fields might not be in attrs, so we fall back to self.instance
         selling_price = attrs.get('selling_price')
         if selling_price is None and self.instance:
             selling_price = self.instance.selling_price
+        
+        cost_price = attrs.get('cost_price')
+        if cost_price is None and self.instance:
+            cost_price = self.instance.cost_price
             
         c_type = attrs.get('default_commission_type')
         if c_type is None and self.instance:
@@ -181,10 +186,19 @@ class ProductCreateUpdateSerializer(serializers.ModelSerializer):
         c_value = attrs.get('default_commission_value')
         if c_value is None and self.instance:
             c_value = self.instance.default_commission_value
-            
-        if c_type == 'fixed' and c_value and selling_price:
-            if c_value > selling_price:
-                raise serializers.ValidationError({"default_commission_value": "Fixed commission cannot exceed the product's selling price."})
+        
+        if c_value and selling_price:
+            if c_type == 'fixed':
+                if c_value > selling_price:
+                    raise serializers.ValidationError({"default_commission_value": "Fixed commission cannot exceed the product's selling price."})
+            else:
+                # Percent mode
+                if c_value > Decimal('100.00'):
+                    raise serializers.ValidationError({"default_commission_value": "Commission percentage cannot exceed 100%."})
+                margin = max(Decimal('0.00'), selling_price - (cost_price or Decimal('0.00')))
+                computed = margin * c_value / Decimal('100.00')
+                if computed > selling_price:
+                    raise serializers.ValidationError({"default_commission_value": "Resulting commission amount exceeds the product's selling price."})
         return attrs
     
     def validate_name(self, value):
