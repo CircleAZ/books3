@@ -84,6 +84,7 @@ import MessageQueue from './pages/messaging/MessageQueue';
 import MessageTemplates from './pages/messaging/MessageTemplates';
 import OutletsList from './pages/outlets/OutletsList';
 import AddOutlet from './pages/outlets/AddOutlet';
+import EditOutlet from './pages/outlets/EditOutlet';
 import OutletDetails from './pages/outlets/OutletDetails';
 import PublicReceipt from './pages/public/PublicReceipt';
 import ElevatedAuthModal from './components/ElevatedAuthModal';

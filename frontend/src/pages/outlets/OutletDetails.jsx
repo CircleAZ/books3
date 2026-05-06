@@ -40,6 +40,7 @@ export default function OutletDetails() {
 
     // Modal states
     const [isTransferModalOpen, setIsTransferModalOpen] = useState(false);
+    const [editingTransfer, setEditingTransfer] = useState(null);
     const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
     const [isSaleModalOpen, setIsSaleModalOpen] = useState(false);
 
@@ -175,6 +176,29 @@ export default function OutletDetails() {
         }
     };
 
+    const handleDeleteTransfer = async (transferId) => {
+        if (!window.confirm("Are you sure you want to delete this draft transfer?")) return;
+        try {
+            const response = await fetchWithAuth(`${ENDPOINTS.OUTLETS_TRANSFERS}${transferId}/`, {
+                method: 'DELETE'
+            });
+            if (response.ok) {
+                showToast("Transfer deleted successfully", "success");
+                refreshData();
+            } else {
+                const err = await response.json().catch(() => ({}));
+                showToast(err.error || "Failed to delete transfer", "error");
+            }
+        } catch (error) {
+            showToast("Failed to delete transfer", "error");
+        }
+    };
+
+    const openEditTransferModal = (transfer) => {
+        setEditingTransfer(transfer);
+        setIsTransferModalOpen(true);
+    };
+
     // Commission Matrix Logic
     const handleOverrideChange = (productId, value) => {
         setOverrides(prev => ({ ...prev, [productId]: value }));
@@ -245,9 +269,17 @@ export default function OutletDetails() {
 
     return (
         <div className="page-container">
-            <div className="page-header" style={{ marginBottom: '1rem' }}>
+            <div className="page-header" style={{ marginBottom: '1rem', alignItems: 'flex-start' }}>
                 <div>
-                    <h1 className="page-title">{outlet.name} (Outlet #{outlet.display_id})</h1>
+                    <h1 className="page-title" style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                        {outlet.name} (Outlet #{outlet.display_id})
+                        <button 
+                            className="btn btn-sm btn-secondary" 
+                            onClick={() => navigate(`/outlets/${outlet.id}/edit`)}
+                        >
+                            Edit Outlet
+                        </button>
+                    </h1>
                     <p className="page-subtitle">Contact: {outlet.contact_person || 'N/A'} | {outlet.phone || 'No phone'}</p>
                 </div>
                 <div style={{ textAlign: 'right' }}>
@@ -398,13 +430,26 @@ export default function OutletDetails() {
                                                 {(transfer.status || 'unknown').toUpperCase()}
                                             </span>
                                             {transfer.status === 'draft' && (
-                                                <button 
-                                                    className="btn btn-sm btn-primary ml-2" 
-                                                    onClick={() => handleDispatchTransfer(transfer.id)}
-                                                    style={{ marginLeft: '0.5rem' }}
-                                                >
-                                                    Dispatch Now
-                                                </button>
+                                                <div style={{ display: 'inline-flex', gap: '0.5rem', marginLeft: '1rem', verticalAlign: 'middle' }}>
+                                                    <button 
+                                                        className="btn btn-sm btn-primary" 
+                                                        onClick={() => handleDispatchTransfer(transfer.id)}
+                                                    >
+                                                        Dispatch Now
+                                                    </button>
+                                                    <button 
+                                                        className="btn btn-sm btn-secondary" 
+                                                        onClick={() => openEditTransferModal(transfer)}
+                                                    >
+                                                        Edit
+                                                    </button>
+                                                    <button 
+                                                        className="btn btn-sm btn-danger" 
+                                                        onClick={() => handleDeleteTransfer(transfer.id)}
+                                                    >
+                                                        Delete
+                                                    </button>
+                                                </div>
                                             )}
                                         </td>
                                     </tr>
@@ -549,9 +594,10 @@ export default function OutletDetails() {
             {/* Modals */}
             <TransferModal 
                 isOpen={isTransferModalOpen} 
-                onClose={() => setIsTransferModalOpen(false)} 
+                onClose={() => { setIsTransferModalOpen(false); setEditingTransfer(null); }} 
                 outletId={outlet.id} 
                 onTransferComplete={refreshData} 
+                initialData={editingTransfer}
             />
             <PaymentModal 
                 isOpen={isPaymentModalOpen} 

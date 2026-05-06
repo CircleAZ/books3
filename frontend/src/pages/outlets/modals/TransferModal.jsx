@@ -1,9 +1,9 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../../../context/AuthContext';
 import { ENDPOINTS } from '../../../config/api';
 import { useToast } from '../../../context/ToastContext';
 
-export default function TransferModal({ isOpen, onClose, outletId, onTransferComplete }) {
+export default function TransferModal({ isOpen, onClose, outletId, onTransferComplete, initialData = null }) {
     const { fetchWithAuth } = useAuth();
     const { showToast } = useToast();
     const [loading, setLoading] = useState(false);
@@ -12,14 +12,28 @@ export default function TransferModal({ isOpen, onClose, outletId, onTransferCom
     
     // items will be an array of { productId, quantity }
     const [selectedItems, setSelectedItems] = useState([]);
+    const isSubmittingRef = useRef(false);
     
     useEffect(() => {
         if (isOpen) {
-            setSelectedItems([]);
+            isSubmittingRef.current = false;
             setSearchTerm('');
             fetchProducts('');
+            
+            if (initialData && initialData.items) {
+                // Populate existing items
+                setSelectedItems(initialData.items.map(item => ({
+                    productId: item.product,
+                    name: item.product_details?.name || 'Unknown Product',
+                    display_id: item.product_details?.display_id || '',
+                    stock: item.product_details?.current_stock || 0,
+                    quantity: item.quantity
+                })));
+            } else {
+                setSelectedItems([]);
+            }
         }
-    }, [isOpen]);
+    }, [isOpen, initialData]);
 
     useEffect(() => {
         if (isOpen) {
@@ -72,7 +86,10 @@ export default function TransferModal({ isOpen, onClose, outletId, onTransferCom
             return;
         }
 
+        if (isSubmittingRef.current) return;
+        isSubmittingRef.current = true;
         setLoading(true);
+
         try {
             const payload = {
                 outlet: outletId,
@@ -82,21 +99,32 @@ export default function TransferModal({ isOpen, onClose, outletId, onTransferCom
                     quantity: item.quantity
                 }))
             };
-            const response = await fetchWithAuth(ENDPOINTS.OUTLETS_TRANSFERS, {
-                method: 'POST',
+            
+            const url = initialData 
+                ? `${ENDPOINTS.OUTLETS_TRANSFERS}${initialData.id}/`
+                : ENDPOINTS.OUTLETS_TRANSFERS;
+            
+            const method = initialData ? 'PUT' : 'POST';
+
+            const response = await fetchWithAuth(url, {
+                method: method,
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(payload)
             });
+            
             if (response.ok) {
-                showToast("Stock Transfer drafted successfully", "success");
+                showToast(`Stock Transfer ${initialData ? 'updated' : 'drafted'} successfully`, "success");
                 onTransferComplete();
                 onClose();
             } else {
-                showToast("Failed to create stock transfer", "error");
+                const err = await response.json().catch(() => ({}));
+                showToast(err.error || `Failed to ${initialData ? 'update' : 'create'} stock transfer`, "error");
+                isSubmittingRef.current = false;
             }
         } catch (error) {
             console.error(error);
-            showToast("Failed to create stock transfer", "error");
+            showToast(`Failed to ${initialData ? 'update' : 'create'} stock transfer`, "error");
+            isSubmittingRef.current = false;
         } finally {
             setLoading(false);
         }
@@ -109,7 +137,7 @@ export default function TransferModal({ isOpen, onClose, outletId, onTransferCom
     return (
         <div className="modal-overlay" style={overlayStyle}>
             <div className="modal-content" style={contentStyle}>
-                <h2>Transfer Stock to Outlet</h2>
+                <h2>{initialData ? 'Edit Transfer Draft' : 'Transfer Stock to Outlet'}</h2>
                 
                 <div style={{ marginBottom: '1rem' }}>
                     <input 
@@ -172,7 +200,7 @@ export default function TransferModal({ isOpen, onClose, outletId, onTransferCom
                     <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.5rem' }}>
                         <button type="button" className="btn btn-secondary" onClick={onClose}>Cancel</button>
                         <button type="submit" className="btn btn-primary" disabled={loading || selectedItems.length === 0}>
-                            {loading ? 'Drafting...' : 'Create Draft Transfer'}
+                            {loading ? 'Saving...' : (initialData ? 'Save Changes' : 'Create Draft Transfer')}
                         </button>
                     </div>
                 </form>

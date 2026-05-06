@@ -66,6 +66,27 @@ class OutletStockTransferSerializer(serializers.ModelSerializer):
             OutletStockTransferItem.objects.create(transfer=transfer, **item_data)
         return transfer
 
+    def update(self, instance, validated_data):
+        from django.db import transaction
+        if instance.status != OutletStockTransfer.Status.DRAFT:
+            raise serializers.ValidationError("Only draft transfers can be modified.")
+            
+        items_data = validated_data.pop('items', None)
+        
+        with transaction.atomic():
+            # Update basic fields if any
+            for attr, value in validated_data.items():
+                setattr(instance, attr, value)
+            instance.save()
+            
+            # Recreate nested items if provided
+            if items_data is not None:
+                instance.items.all().delete()
+                for item_data in items_data:
+                    OutletStockTransferItem.objects.create(transfer=instance, **item_data)
+                    
+        return instance
+
 
 # --- Returns ---
 class OutletStockReturnItemSerializer(serializers.ModelSerializer):
