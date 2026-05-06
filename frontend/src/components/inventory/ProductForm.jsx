@@ -149,10 +149,7 @@ export default function ProductForm({ initialData = null, isEdit = false }) {
                 errors.default_commission_value = `Fixed commission (${currency}${cVal.toFixed(2)}) cannot exceed selling price (${currency}${sp.toFixed(2)})`;
             }
         } else {
-            // Percent mode: cap at 100% of margin
-            if (cVal > 100) {
-                errors.default_commission_value = 'Commission percentage cannot exceed 100%';
-            }
+            // Percent mode: cap at maximum amount (selling price)
             const computedAmount = marginVal > 0 ? (cVal / 100 * marginVal) : 0;
             if (computedAmount > sp) {
                 errors.default_commission_value = `Resulting commission (${currency}${computedAmount.toFixed(2)}) exceeds selling price (${currency}${sp.toFixed(2)})`;
@@ -499,12 +496,17 @@ export default function ProductForm({ initialData = null, isEdit = false }) {
                                         onBlur={(e) => {
                                             let val = parseFloat(e.target.value);
                                             if (isNaN(val) || val < 0) val = 0;
-                                            if (val > 100) val = 100;
+                                            
+                                            // Max percentage is whatever reaches the selling price
+                                            if (margin > 0) {
+                                                const maxPercent = (sp / margin) * 100;
+                                                if (val > maxPercent) val = maxPercent;
+                                            }
+                                            
                                             handleCommissionChange('percent', val.toString());
                                         }}
                                         onKeyDown={(e) => { if (e.key === 'Enter') e.target.blur(); }}
                                         min="0"
-                                        max="100"
                                         step="0.01"
                                         style={{ borderRadius: '0 4px 4px 0' }}
                                         className={fieldErrors.default_commission_value && cType === 'percent' ? 'input-error' : ''}

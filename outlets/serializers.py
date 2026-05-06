@@ -48,8 +48,6 @@ class OutletProductCommissionSerializer(serializers.ModelSerializer):
                 if c_value > sp:
                     raise serializers.ValidationError({"commission_value": "Fixed commission cannot exceed the product's selling price."})
             else:
-                if c_value > Decimal('100.00'):
-                    raise serializers.ValidationError({"commission_value": "Commission percentage cannot exceed 100%."})
                 margin = max(Decimal('0.00'), sp - (product.cost_price or Decimal('0.00')))
                 computed = margin * c_value / Decimal('100.00')
                 if computed > sp:

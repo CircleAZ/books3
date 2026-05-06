@@ -568,11 +568,16 @@ export default function OutletDetails() {
                                                             onBlur={(e) => {
                                                                 let val = parseFloat(e.target.value);
                                                                 if (isNaN(val) || val < 0) val = 0;
-                                                                if (val > 100) val = 100;
+                                                                
+                                                                if (margin > 0) {
+                                                                    const maxPercent = (sp / margin) * 100;
+                                                                    if (val > maxPercent) val = maxPercent;
+                                                                }
+                                                                
                                                                 handleOverrideChange(product.id, 'percent', val.toString());
                                                             }}
                                                             onKeyDown={(e) => { if (e.key === 'Enter') e.target.blur(); }}
-                                                            min="0" max="100" step="0.01"
+                                                            min="0" step="0.01"
                                                         />
                                                     </div>
                                                     <span style={{ color: 'var(--color-text-muted)' }}>⇌</span>
