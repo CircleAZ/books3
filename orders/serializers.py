@@ -422,6 +422,9 @@ class OrderCreateSerializer(serializers.ModelSerializer):
         
         # Replace items if provided
         if items_data is not None:
+            # ZERO-TRUST FIX: Cache historical cost prices before deletion
+            historical_costs = {item.product_id: item.cost_price for item in instance.items.all()}
+            
             instance.items.all().delete()
             
             # Bulk-fetch all products in a single query (same as create)
@@ -438,11 +441,17 @@ class OrderCreateSerializer(serializers.ModelSerializer):
             
             for item_data in items_data:
                 product = products_map[item_data['product']]
+                
+                # Zero-Trust Cost Price Injection
+                historical_cost = historical_costs.get(product.id)
+                final_cost_price = historical_cost if historical_cost is not None else product.cost_price
+                
                 OrderItem.objects.create(
                     order=instance,
                     product=product,
                     quantity=item_data['quantity'],
                     unit_price=item_data['unit_price'],
+                    cost_price=final_cost_price,
                     discount_type=item_data.get('discount_type', ''),
                     discount_value=item_data.get('discount_value', 0)
                 )
