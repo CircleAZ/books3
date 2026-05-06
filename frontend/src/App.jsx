@@ -413,6 +413,11 @@ function AppRoutes() {
           <MainLayout><AddOutlet /></MainLayout>
         </PermissionRoute>
       } />
+      <Route path="/outlets/:id/edit" element={
+        <PermissionRoute permission="outlets.manage_outlet">
+          <MainLayout><EditOutlet /></MainLayout>
+        </PermissionRoute>
+      } />
       <Route path="/outlets/:id" element={
         <PermissionRoute permission="outlets.view_outlet">
           <MainLayout><OutletDetails /></MainLayout>
