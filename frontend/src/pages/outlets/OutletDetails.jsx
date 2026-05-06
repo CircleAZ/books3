@@ -14,7 +14,7 @@ export default function OutletDetails() {
     const navigate = useNavigate();
     const location = useLocation();
     const { fetchWithAuth } = useAuth();
-    const { formatCurrency } = useCurrency();
+    const { formatCurrency, currency } = useCurrency();
     const { showToast } = useToast();
     
     const [outlet, setOutlet] = useState(null);
