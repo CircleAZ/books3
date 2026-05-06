@@ -526,8 +526,8 @@ class OrderItem(UUIDPrimaryKeyModel):
         null=True, blank=True,
         help_text="Frozen copy of quantity at order confirmation. Immutable after set."
     )
-    unit_price = models.DecimalField(max_digits=10, decimal_places=2)
-    cost_price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True, help_text="Product cost at time of sale")
+    unit_price = models.DecimalField(max_digits=10, decimal_places=4)
+    cost_price = models.DecimalField(max_digits=10, decimal_places=4, null=True, blank=True, help_text="Product cost at time of sale")
     
     # Line discount
     discount_type = models.CharField(max_length=10, choices=DISCOUNT_TYPE, blank=True)

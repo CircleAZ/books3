@@ -461,7 +461,7 @@ export default function ProductForm({ initialData = null, isEdit = false }) {
                                     value={formData.cost_price}
                                     onChange={handleInputChange}
                                     min="0"
-                                    step="0.01"
+                                    step="0.0001"
                                     className={fieldErrors.cost_price ? 'input-error' : ''}
                                 />
                                 {fieldErrors.cost_price && <span className="field-error">{fieldErrors.cost_price}</span>}
@@ -476,7 +476,7 @@ export default function ProductForm({ initialData = null, isEdit = false }) {
                                 value={formData.selling_price}
                                 onChange={handleInputChange}
                                 min="0"
-                                step="0.01"
+                                step="0.0001"
                                 className={fieldErrors.selling_price ? 'input-error' : ''}
                             />
                             {fieldErrors.selling_price && <span className="field-error">{fieldErrors.selling_price}</span>}
@@ -507,7 +507,7 @@ export default function ProductForm({ initialData = null, isEdit = false }) {
                                         }}
                                         onKeyDown={(e) => { if (e.key === 'Enter') e.target.blur(); }}
                                         min="0"
-                                        step="0.01"
+                                        step="0.0001"
                                         style={{ borderRadius: '0 4px 4px 0' }}
                                         className={fieldErrors.default_commission_value && cType === 'percent' ? 'input-error' : ''}
                                         placeholder="0.00"
@@ -528,7 +528,7 @@ export default function ProductForm({ initialData = null, isEdit = false }) {
                                         }}
                                         onKeyDown={(e) => { if (e.key === 'Enter') e.target.blur(); }}
                                         min="0"
-                                        step="0.01"
+                                        step="0.0001"
                                         style={{ borderRadius: '0 4px 4px 0' }}
                                         className={fieldErrors.default_commission_value && cType === 'fixed' ? 'input-error' : ''}
                                         placeholder="0.00"

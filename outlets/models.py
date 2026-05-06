@@ -204,7 +204,7 @@ class OutletStockTransferItem(SoftDeleteModel):
     quantity = models.PositiveIntegerField(validators=[MinValueValidator(1)])
     frozen_cost_price = models.DecimalField(
         max_digits=10, 
-        decimal_places=2, 
+        decimal_places=4, 
         null=True, 
         blank=True,
         help_text="AVCO Protection: Cost price at the exact moment of dispatch"
@@ -362,7 +362,7 @@ class OutletDailySaleItem(SoftDeleteModel):
     quantity = models.PositiveIntegerField(validators=[MinValueValidator(1)])
     unit_price = models.DecimalField(
         max_digits=10, 
-        decimal_places=2,
+        decimal_places=4,
         help_text="Temporal Pricing: Captured exactly at the moment of sale creation"
     )
     COMMISSION_TYPES = [
