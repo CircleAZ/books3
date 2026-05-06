@@ -59,6 +59,8 @@ export default function NewOrder() {
     // Refs for AbortController (fixes Chaos race condition)
     const customerAbortRef = useRef(null);
     const productAbortRef = useRef(null);
+    const isSubmittingOrderRef = useRef(false);
+    const isSubmittingProductRef = useRef(false);
 
     // Synchronous submission lock — prevents rapid-fire duplicate orders (VULN-3)
     const isSubmittingRef = useRef(false);
@@ -521,6 +523,8 @@ export default function NewOrder() {
     // Quick Product Creation (P4 3.3.1.2.3 — FormData for photo upload)
     const handleCreateProduct = async (e) => {
         e.preventDefault();
+        if (isSubmittingProductRef.current) return;
+        isSubmittingProductRef.current = true;
         setIsCreatingProduct(true);
         try {
             const formData = new FormData();
@@ -565,6 +569,7 @@ export default function NewOrder() {
             showToast('Error creating product', 'error');
         } finally {
             setIsCreatingProduct(false);
+            isSubmittingProductRef.current = false;
         }
     };
 

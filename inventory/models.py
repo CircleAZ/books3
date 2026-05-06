@@ -96,6 +96,14 @@ class Product(DisplayIDMixin, SoftDeleteModel):
         help_text="Global default commission percentage for this product"
     )
 
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=['name', 'category'],
+                name='unique_product_name_per_category'
+            )
+        ]
+
     def sync_pack_stock(self):
         """
         Updates the stock of all pack variants that depend on this base product.
