@@ -27,6 +27,7 @@ ICON_SIZES = {
     'store/pwa-icon-192.png': 192,
     'store/pwa-icon-512.png': 512,
     'store/apple-touch-icon.png': 180,
+    'store/favicon.png': 32,
 }
 
 # Branding constants for fallback icon
