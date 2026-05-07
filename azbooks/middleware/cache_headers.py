@@ -1,37 +1,51 @@
 """
 SWR Cache Middleware for Cloudflare Edge Caching.
 
-Adds Cache-Control headers with stale-while-revalidate to safe,
-business-scoped GET endpoints. Cloudflare's native SWR support
-handles background revalidation automatically.
+Adds Cloudflare-CDN-Cache-Control headers with stale-while-revalidate
+to safe, business-scoped GET endpoints. Cloudflare reads these headers
+for edge caching decisions, then STRIPS them before forwarding to the
+browser — preventing browser-level shared caching of authenticated data.
 
-Security constraints (V.O.R.T.E.X. approved):
+Security constraints:
 - Only 200 OK responses are cached
 - Responses with Set-Cookie are never cached
 - Only GET requests are cached
-- Never caches auth endpoints, health checks, or write-heavy endpoints
+- Never caches auth, orders, finance, messaging, or outlet endpoints
+- Browser sees Cache-Control: private, no-cache (always revalidates)
+- Cloudflare sees Cloudflare-CDN-Cache-Control: public, max-age=X
+
+History:
+- 2026-05-07: Switched from Cache-Control: public to Cloudflare-CDN-Cache-Control
+              to prevent cross-user CDN cache leakage via Authorization header bypass.
+              Split routes into exact-match and prefix-match categories.
+              Added /api/outlets/ and /api/inventory/stock to exclusions.
+              Reduced /api/inventory/products/ TTL from 120s to 30s.
 """
 
 
 class SWRCacheMiddleware:
-    """Add stale-while-revalidate Cache-Control headers for Cloudflare."""
+    """Add Cloudflare-CDN-Cache-Control headers for edge caching."""
 
-    # Prefix → max-age (seconds fresh at edge)
-    # stale-while-revalidate is always 1 hour (3600s)
-    CACHEABLE_ROUTES = {
+    # Exact-match routes: only the exact path gets cached (not sub-paths)
+    # e.g., /api/inventory/products/ is cached, /api/inventory/products/42/ is NOT
+    CACHEABLE_EXACT_ROUTES = {
         '/api/dashboard/stats/': 60,
         '/api/dashboard/top-products/': 120,
         '/api/dashboard/sales-trend/': 120,
         '/api/dashboard/alerts/': 60,
-        '/api/inventory/products/': 120,
+        '/api/inventory/products/': 30,       # Reduced from 120s — prices change mid-season
         '/api/inventory/categories/': 300,
         '/api/inventory/vendors/': 300,
         '/api/customers/customers/map_data/': 300,
-        '/api/reports/': 120,
-        # '/api/settings/store/' removed: changes must propagate immediately (currency symbol, etc.)
     }
 
-    # NEVER cache these (V.O.R.T.E.X. directive)
+    # Prefix-match routes: any path starting with this prefix gets cached
+    # Used for report sub-endpoints (/api/reports/sales/, /api/reports/inventory/, etc.)
+    CACHEABLE_PREFIX_ROUTES = {
+        '/api/reports/': 120,
+    }
+
+    # NEVER cache these
     EXCLUDED_PREFIXES = (
         '/api/account/',
         '/api/token/',
@@ -39,6 +53,8 @@ class SWRCacheMiddleware:
         '/api/orders/',       # Write-heavy, real-time
         '/api/finance/',      # Sensitive financial data
         '/api/messaging/',    # Stateful
+        '/api/outlets/',      # Consignment data, real-time
+        '/api/inventory/stock',  # stock-history, stock-adjustments — real-time
         '/admin/',
     )
 
@@ -70,7 +86,10 @@ class SWRCacheMiddleware:
         # Check if path matches a cacheable route
         max_age = self._get_max_age(path)
         if max_age is not None:
-            response['Cache-Control'] = (
+            # Browser: always revalidate, never use shared cache
+            response['Cache-Control'] = 'private, no-cache'
+            # Cloudflare: cache at edge, stripped before reaching browser
+            response['Cloudflare-CDN-Cache-Control'] = (
                 f'public, max-age={max_age}, '
                 f'stale-while-revalidate={self.STALE_TTL}'
             )
@@ -79,8 +98,22 @@ class SWRCacheMiddleware:
         return response
 
     def _get_max_age(self, path):
-        """Match path against cacheable routes. Supports prefix matching."""
-        for prefix, ttl in self.CACHEABLE_ROUTES.items():
+        """Match path against cacheable routes.
+
+        Exact routes match only the exact path (with optional query string).
+        Prefix routes match any path starting with the prefix.
+        """
+        # Check exact routes first (higher priority)
+        if path in self.CACHEABLE_EXACT_ROUTES:
+            return self.CACHEABLE_EXACT_ROUTES[path]
+
+        # Check prefix routes
+        for prefix, ttl in self.CACHEABLE_PREFIX_ROUTES.items():
             if path.startswith(prefix):
                 return ttl
+
         return None
+"""
+    Cloudflare strips these headers because of the "Cloudflare-" prefix:
+    https://developers.cloudflare.com/cache/concepts/cache-control/
+"""

@@ -109,7 +109,7 @@ const PublicReceipt = () => {
 
     const fetchReceipt = async () => {
         try {
-            const response = await fetch(`${API_BASE}/orders/receipts/${uuid}/`);
+            const response = await fetch(`${API_BASE}/orders/receipts/${uuid}/`, { cache: 'no-store' });
             if (!response.ok) throw new Error('Receipt not found');
             const data = await response.json();
             setReceipt(data);

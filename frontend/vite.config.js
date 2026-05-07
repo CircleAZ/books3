@@ -10,29 +10,12 @@ export default defineConfig({
       registerType: 'autoUpdate',
       workbox: {
         navigateFallbackDenylist: [/^\/api/],
-        runtimeCaching: [
-          // ── GET requests: NetworkFirst with 5s timeout ──
-          // Serves cached API data when offline (read-only offline)
-          {
-            urlPattern: /\/api\//i,
-            handler: 'NetworkFirst',
-            method: 'GET',
-            options: {
-              cacheName: 'api-cache',
-              networkTimeoutSeconds: 5,
-              expiration: {
-                maxEntries: 200,
-                maxAgeSeconds: 24 * 60 * 60, // 24 hours
-              },
-            },
-          },
-          // ── Mutating requests: NetworkOnly, NO BackgroundSync ──
-          // BackgroundSync is UNSAFE for non-idempotent operations.
-          // It replays requests on network recovery without knowing if the
-          // server already processed the original — causing duplicate orders,
-          // payments, and stock deductions. Failed mutations must surface
-          // errors to the user so they can retry manually with full context.
-        ],
+        // runtimeCaching REMOVED (2026-05-07):
+        // Workbox NetworkFirst cached ALL /api/ GET responses in CacheStorage
+        // for 24 hours. cache:'no-store' in fetchWithAuth does NOT prevent
+        // CacheStorage writes (only browser HTTP cache). During Render cold
+        // starts (>5s), Workbox served stale prices/stock/balances silently.
+        // Static asset precaching (index.html, CSS, JS) is unaffected.
       },
       includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'masked-icon.svg'],
       manifest: {
