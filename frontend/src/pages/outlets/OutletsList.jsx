@@ -5,6 +5,7 @@ import { ENDPOINTS } from '../../config/api';
 import { useCurrency } from '../../context/CurrencyContext';
 import { useToast } from '../../context/ToastContext';
 import Pagination from '../../components/common/Pagination';
+import './OutletsList.css';
 
 export default function OutletsList() {
     const [outlets, setOutlets] = useState([]);
@@ -62,20 +63,19 @@ export default function OutletsList() {
     if (loading && outlets.length === 0) return <div className="page-loading">Loading Outlets...</div>;
 
     return (
-        <div className="page-container">
-            <div className="page-header">
+        <div className="outlets-container">
+            <div className="outlets-header">
                 <div>
-                    <h1 className="page-title">Outlets & Consignment</h1>
-                    <p className="page-subtitle">Manage B2B wholesale locations and their ledgers</p>
+                    <h1 className="outlets-title">Outlets & Consignment</h1>
+                    <p className="outlets-subtitle">Manage B2B wholesale locations and their ledgers</p>
                 </div>
-                <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
+                <div className="outlets-actions">
                     <input
                         type="text"
                         placeholder="Search outlets..."
-                        className="form-input"
+                        className="form-input outlets-search"
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
-                        style={{ width: '250px' }}
                     />
                     <button 
                         className="btn btn-primary"
@@ -86,8 +86,8 @@ export default function OutletsList() {
                 </div>
             </div>
 
-            <div className="table-card">
-                <table className="data-table">
+            <div className="outlets-table-container">
+                <table className="outlets-table">
                     <thead>
                         <tr>
                             <th>ID</th>
@@ -102,10 +102,9 @@ export default function OutletsList() {
                             <tr 
                                 key={outlet.id} 
                                 onClick={() => navigate(`/outlets/${outlet.id}`)}
-                                style={{ cursor: 'pointer' }}
                             >
-                                <td>#{outlet.display_id}</td>
-                                <td className="font-medium">{outlet.name}</td>
+                                <td className="outlet-id">#{outlet.display_id}</td>
+                                <td className="outlet-name">{outlet.name}</td>
                                 <td>{outlet.contact_person || '-'}</td>
                                 <td className={`text-right font-bold ${parseFloat(outlet.outstanding_balance) > 0 ? 'text-danger' : 'text-success'}`}>
                                     {formatCurrency(outlet.outstanding_balance)}
@@ -119,7 +118,7 @@ export default function OutletsList() {
                         ))}
                         {outlets.length === 0 && (
                             <tr>
-                                <td colSpan="5" className="text-center py-8 text-muted">
+                                <td colSpan="5" className="outlets-empty">
                                     No outlets found. Add one to get started.
                                 </td>
                             </tr>
