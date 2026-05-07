@@ -17,7 +17,10 @@ export default defineConfig({
         // starts (>5s), Workbox served stale prices/stock/balances silently.
         // Static asset precaching (index.html, CSS, JS) is unaffected.
       },
-      includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'masked-icon.svg'],
+      // includeAssets: add here when brand icons land in public/
+      // ── PWA Manifest (SINGLE SOURCE OF TRUTH) ──
+      // DO NOT create public/manifest.json — Vite copies public/ to dist/
+      // and it would conflict with the auto-generated manifest.webmanifest.
       manifest: {
         name: 'AZ Books',
         short_name: 'AZ Books',
