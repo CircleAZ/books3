@@ -10,12 +10,12 @@ export default defineConfig({
       registerType: 'prompt',
       workbox: {
         navigateFallbackDenylist: [/^\/api/],
+        // Only precache the shell — lazy route chunks use browser HTTP cache.
+        // Without this, Workbox would precache ALL 70+ chunks on first visit.
+        globPatterns: ['**/*.html', '**/workbox-*.js'],
+        maximumFileSizeToCacheInBytes: 3 * 1024 * 1024,
         // runtimeCaching REMOVED (2026-05-07):
-        // Workbox NetworkFirst cached ALL /api/ GET responses in CacheStorage
-        // for 24 hours. cache:'no-store' in fetchWithAuth does NOT prevent
-        // CacheStorage writes (only browser HTTP cache). During Render cold
-        // starts (>5s), Workbox served stale prices/stock/balances silently.
-        // Static asset precaching (index.html, CSS, JS) is unaffected.
+        // See commit dabf0aa for full rationale.
       },
       // ── PWA Manifest (SINGLE SOURCE OF TRUTH) ──
       // DO NOT create public/manifest.json — Vite copies public/ to dist/

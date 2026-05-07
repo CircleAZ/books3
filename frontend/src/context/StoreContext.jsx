@@ -26,16 +26,10 @@ export const StoreProvider = ({ children }) => {
         fetchStoreSettings();
     }, [fetchStoreSettings]);
 
-    // Update favicon dynamically when logo changes
-    useEffect(() => {
-        if (storeSettings?.logo) {
-            const link = document.querySelector("link[rel*='icon']") || document.createElement('link');
-            link.type = 'image/x-icon';
-            link.rel = 'shortcut icon';
-            link.href = storeSettings.logo;
-            document.getElementsByTagName('head')[0].appendChild(link);
-        }
-    }, [storeSettings?.logo]);
+    // Favicon is set statically in index.html (points to CDN favicon.png).
+    // Do NOT dynamically override it with storeSettings.logo — that's the
+    // full-size 600px image, not the 32px favicon, and causes a 27KB
+    // redundant fetch on every page load.
 
     return (
         <StoreContext.Provider value={{ storeSettings, fetchStoreSettings }}>

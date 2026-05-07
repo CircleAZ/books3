@@ -1,0 +1,25 @@
+.page-skeleton {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-md);
+    padding: var(--page-padding);
+    animation: pulse 1.5s ease-in-out infinite;
+}
+
+.page-skeleton__header {
+    height: 28px;
+    width: 40%;
+    background: var(--color-bg-tertiary);
+    border-radius: var(--radius-sm);
+}
+
+.page-skeleton__row {
+    height: 48px;
+    width: 100%;
+    background: var(--color-bg-tertiary);
+    border-radius: var(--radius-md);
+}
+
+.page-skeleton__row:nth-child(3) { width: 90%; }
+.page-skeleton__row:nth-child(4) { width: 75%; }
+.page-skeleton__row:nth-child(5) { width: 85%; }
