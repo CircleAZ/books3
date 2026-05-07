@@ -6,6 +6,7 @@ import { ToastProvider } from './context/ToastContext';
 import { StoreProvider } from './context/StoreContext';
 import PermissionRoute from './components/PermissionRoute';
 import MainLayout from './components/layout/MainLayout';
+import PWAPrompt from './components/common/PWAPrompt';
 import Dashboard from './pages/Dashboard';
 import ProductList from './pages/inventory/ProductList';
 import AddProduct from './pages/inventory/AddProduct';
@@ -548,6 +549,7 @@ export default function App() {
           <StoreProvider>
             <CartProvider>
               <ToastProvider>
+                <PWAPrompt />
                 <AppRoutes />
               </ToastProvider>
             </CartProvider>
