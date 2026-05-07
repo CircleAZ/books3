@@ -90,7 +90,7 @@ export default function OmniSearch({ isOpen, onClose }) {
             const products = productsRes.status === 'fulfilled' && productsRes.value.ok
                 ? (await productsRes.value.json()).results?.map(p => ({
                     id: `product-${p.id}`, label: p.name, path: `/inventory/${p.id}`,
-                    icon: '📦', category: 'products', subtitle: `₹${p.selling_price || 0}`
+                    icon: '📦', category: 'products', subtitle: `₹${Number(p.selling_price || 0).toFixed(2)}`
                 })) || []
                 : [];
 

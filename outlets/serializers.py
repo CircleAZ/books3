@@ -66,6 +66,8 @@ class OutletStockSerializer(serializers.ModelSerializer):
 # --- Transfers ---
 class OutletStockTransferItemSerializer(serializers.ModelSerializer):
     product_details = ProductListSerializer(source='product', read_only=True)
+    # Override 4dp model field for display
+    frozen_cost_price = serializers.DecimalField(max_digits=10, decimal_places=2, read_only=True)
     
     class Meta:
         model = OutletStockTransferItem
@@ -136,6 +138,8 @@ class OutletStockReturnSerializer(serializers.ModelSerializer):
 # --- Sales ---
 class OutletDailySaleItemSerializer(serializers.ModelSerializer):
     product_details = ProductListSerializer(source='product', read_only=True)
+    # Override 4dp model field for display
+    unit_price = serializers.DecimalField(max_digits=10, decimal_places=2, read_only=True)
     
     class Meta:
         model = OutletDailySaleItem

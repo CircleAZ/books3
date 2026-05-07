@@ -352,6 +352,7 @@ export default function NewOrder() {
             }
             return [...prev, {
                 ...product,
+                selling_price: Number(product.selling_price),
                 quantity: 1,
                 discountType: 'fixed',
                 discountValue: 0

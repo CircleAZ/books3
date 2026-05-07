@@ -159,16 +159,16 @@ export default function ProductDetails() {
                     <div className="pricing-section">
                         <div className="price-item">
                             <span className="label">Cost Price</span>
-                            <span className="value">{currency}{product.cost_price}</span>
+                            <span className="value">{currency}{Number(product.cost_price).toFixed(2)}</span>
                         </div>
                         <div className="price-item">
                             <span className="label">Selling Price</span>
-                            <span className="value">{currency}{product.selling_price}</span>
+                            <span className="value">{currency}{Number(product.selling_price).toFixed(2)}</span>
                         </div>
                         <div className="price-item">
                             {/* Calculated Margin could go here */}
                             <span className="label">Margin</span>
-                            <span className="value">{currency}{(product.selling_price - product.cost_price).toFixed(2)}</span>
+                            <span className="value">{currency}{(Number(product.selling_price) - Number(product.cost_price)).toFixed(2)}</span>
                         </div>
                     </div>
                 </div>
@@ -244,7 +244,7 @@ export default function ProductDetails() {
                             </div>
                             <div className="delete-detail-item">
                                 <span>Selling Price:</span>
-                                <strong>{currency}{product.selling_price}</strong>
+                                <strong>{currency}{Number(product.selling_price).toFixed(2)}</strong>
                             </div>
                         </div>
                         <p className="delete-caution">⚠️ This action cannot be undone. Stock history and associated data will be lost.</p>

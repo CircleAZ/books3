@@ -137,7 +137,7 @@ export default function EditOrder() {
                     const mappedItems = data.items.map(item => ({
                         id: item.product, // Product ID
                         name: item.product_name,
-                        selling_price: parseFloat(item.unit_price),
+                        selling_price: Number(parseFloat(item.unit_price)),
                         quantity: item.quantity,
                         discountType: item.discount_type || 'fixed',
                         discountValue: parseFloat(item.discount_value) || 0,
@@ -276,7 +276,7 @@ export default function EditOrder() {
             if (existing) {
                 return prev.map(item => item.id === product.id ? { ...item, quantity: item.quantity + 1 } : item);
             }
-            return [...prev, { ...product, quantity: 1, discountType: 'fixed', discountValue: 0 }];
+            return [...prev, { ...product, selling_price: Number(product.selling_price), quantity: 1, discountType: 'fixed', discountValue: 0 }];
         });
         setProductSearch('');
         setProductResults([]);

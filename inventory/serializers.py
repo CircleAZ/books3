@@ -74,6 +74,10 @@ class ProductImageSerializer(serializers.ModelSerializer):
         fields = ['id', 'image', 'thumbnail', 'is_primary']
 
 class ProductListSerializer(serializers.ModelSerializer):
+    # Override model's decimal_places=4 → 2dp for API display.
+    # Model keeps 4dp for AVCO storage precision.
+    cost_price = serializers.DecimalField(max_digits=10, decimal_places=2)
+    selling_price = serializers.DecimalField(max_digits=10, decimal_places=2)
     category_name = serializers.CharField(source='category.name', read_only=True)
     vendor_name = serializers.CharField(source='vendor.name', read_only=True)
     primary_image_url = serializers.SerializerMethodField()
@@ -124,6 +128,9 @@ class ProductListSerializer(serializers.ModelSerializer):
         return obj.stock_quantity <= obj.low_stock_threshold
 
 class ProductDetailSerializer(serializers.ModelSerializer):
+    # Override model's decimal_places=4 → 2dp for API display.
+    cost_price = serializers.DecimalField(max_digits=10, decimal_places=2)
+    selling_price = serializers.DecimalField(max_digits=10, decimal_places=2)
     category = CategorySerializer(read_only=True)
     vendor = VendorSerializer(read_only=True)
     tags = TagSerializer(many=True, read_only=True)
@@ -284,6 +291,8 @@ class ProductCreateUpdateSerializer(serializers.ModelSerializer):
 class StockHistorySerializer(serializers.ModelSerializer):
     product_name = serializers.CharField(source='product.name', read_only=True)
     created_by_name = serializers.CharField(source='created_by.username', read_only=True)
+    # Override model's decimal_places=4 → 2dp for API display
+    cost_at_time = serializers.DecimalField(max_digits=10, decimal_places=2, read_only=True)
 
     class Meta:
         model = StockHistory

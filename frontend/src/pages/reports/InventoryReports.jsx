@@ -164,8 +164,8 @@ export default function InventoryReports() {
                                     <tr key={idx}>
                                         <td>{item.name}</td>
                                         <td>{item.stock}</td>
-                                        <td>{currency}{item.cost_price}</td>
-                                        <td>{currency}{item.selling_price}</td>
+                                        <td>{currency}{Number(item.cost_price).toFixed(2)}</td>
+                                        <td>{currency}{Number(item.selling_price).toFixed(2)}</td>
                                         <td>{currency}{item.cost_value?.toLocaleString()}</td>
                                         <td>{currency}{item.sell_value?.toLocaleString()}</td>
                                     </tr>
@@ -335,7 +335,7 @@ export default function InventoryReports() {
                                         <td>{p.name}</td>
                                         <td>{p.sku}</td>
                                         <td>{p.stock_quantity}</td>
-                                        <td>{currency}{Number(p.cost_price).toLocaleString()}</td>
+                                        <td>{currency}{Number(p.cost_price).toFixed(2)}</td>
                                         <td>{currency}{Number(p.inventory_value).toLocaleString()}</td>
                                     </tr>
                                 ))}
