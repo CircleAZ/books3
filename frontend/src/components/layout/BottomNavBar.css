@@ -20,7 +20,7 @@
     justify-content: center;
     gap: 2px;
     padding: var(--space-xs) var(--space-sm);
-    color: var(--color-text-muted);
+    color: var(--color-text-secondary);
     text-decoration: none;
     border-radius: var(--radius-md);
     transition: all var(--transition-fast);

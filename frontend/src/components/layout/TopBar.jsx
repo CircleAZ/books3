@@ -47,7 +47,7 @@ export default function TopBar({ title, storeLogo, onMenuClick, onSearchClick, o
                 <button
                     className="profile-btn"
                     onClick={onProfileClick}
-                    aria-label="Open user menu"
+                    aria-label={`${user?.first_name && user?.last_name ? `${user.first_name[0]}${user.last_name[0]}`.toUpperCase() : user?.username?.slice(0, 2).toUpperCase() || 'U'} - Open user menu`}
                 >
                     <div className="avatar">
                         <span>{user?.first_name && user?.last_name ? `${user.first_name[0]}${user.last_name[0]}`.toUpperCase() : user?.username?.slice(0, 2).toUpperCase() || 'U'}</span>

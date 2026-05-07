@@ -81,7 +81,7 @@ export default function Breadcrumbs({ items }) {
                                     {hasChildren ? (
                                         /* Non-last crumb WITH children: link + dropdown trigger */
                                         <span className="breadcrumb-with-dropdown">
-                                            <Link to={crumb.path} className="breadcrumb-link">
+                                            <Link to={crumb.path} className="breadcrumb-link" aria-label={i === 0 ? "Home" : undefined}>
                                                 {i === 0 ? (
                                                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                                                         <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
@@ -114,7 +114,7 @@ export default function Breadcrumbs({ items }) {
                                             )}
                                         </span>
                                     ) : (
-                                        <Link to={crumb.path} className="breadcrumb-link">
+                                        <Link to={crumb.path} className="breadcrumb-link" aria-label={i === 0 ? "Home" : undefined}>
                                             {i === 0 ? (
                                                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                                                     <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />

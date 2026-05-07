@@ -192,7 +192,7 @@ export default function NavigationDrawer({ drawerMode, overlayOpen, onClose, onM
                 ref={drawerRef}
                 className={drawerClasses}
                 aria-label="Main navigation sidebar"
-                aria-hidden={!isPersistent && !overlayOpen ? true : undefined}
+                inert={!isPersistent && !overlayOpen ? "" : undefined}
             >
                 <div className="drawer-header">
                     {/* Hamburger lives in sidebar — stays fixed like YouTube Music */}

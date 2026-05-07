@@ -32,7 +32,7 @@
 
 .outlet-balance-label {
     font-size: var(--font-size-sm);
-    color: var(--color-text-muted);
+    color: var(--color-text-secondary);
     margin-bottom: var(--space-xs);
 }
 
