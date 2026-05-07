@@ -12,6 +12,10 @@
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <title>AZ Books</title>
+    
+    <!-- Preconnect to API and CDN to save 100-200ms on TLS handshakes -->
+    <link rel="preconnect" href="https://api.circleaz.in" crossorigin />
+    <link rel="dns-prefetch" href="https://api.circleaz.in" />
     <!-- ISSUE #8: Synchronous trap for beforeinstallprompt.
          Must live here (not in main.jsx) because Vite loads modules async.
          Chrome fires the event during HTML parse, before React hydrates. -->

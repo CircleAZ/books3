@@ -1,0 +1,15 @@
+# Force Cloudflare Pages to cache index.html at the edge to bypass Render cold-start latency.
+# The CDN caches it for 1 hour, but the browser must revalidate so updates aren't stale.
+# Cloudflare automatically purges this cache on every deploy.
+
+/*
+  X-Frame-Options: DENY
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
+
+/index.html
+  Cache-Control: public, max-age=0, s-maxage=3600, must-revalidate
+  CDN-Cache-Control: public, max-age=3600
+
+/assets/*
+  Cache-Control: public, max-age=31536000, immutable
