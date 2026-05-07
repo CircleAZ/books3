@@ -1,0 +1,8 @@
+/* Shared styles for AddOutlet and EditOutlet forms */
+.outlet-form-container {
+    padding: var(--page-padding);
+    max-width: 600px;
+    display: flex;
+    flex-direction: column;
+    gap: var(--page-gap);
+}

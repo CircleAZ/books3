@@ -349,6 +349,22 @@ input::placeholder {
   font-size: var(--font-size-xs);
 }
 
+/* ── Color utilities (moved from page CSS to global for code splitting) ── */
+.text-danger { color: var(--color-danger, #f87171); }
+.text-success { color: var(--color-success, #34d399); }
+.text-warning { color: var(--color-warning, #fbbf24); }
+.text-primary { color: var(--color-primary); }
+
+/* ── Alignment ── */
+.text-center { text-align: center; }
+.text-right { text-align: right; }
+.text-left { text-align: left; }
+.text-capitalize { text-transform: capitalize; }
+
+/* ── Font weight ── */
+.font-bold { font-weight: 700; }
+.font-medium { font-weight: 500; }
+
 .sr-only {
   position: absolute;
   width: 1px;

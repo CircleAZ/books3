@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { ENDPOINTS } from '../../config/api';
 import { useToast } from '../../context/ToastContext';
+import './OutletForm.css';
 
 export default function AddOutlet() {
     const navigate = useNavigate();
@@ -45,7 +46,7 @@ export default function AddOutlet() {
     };
 
     return (
-        <div className="page-container" style={{ maxWidth: '600px' }}>
+        <div className="outlet-form-container">
             <div className="page-header">
                 <h1 className="page-title">Add New Outlet</h1>
             </div>

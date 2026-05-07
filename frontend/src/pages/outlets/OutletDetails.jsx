@@ -5,6 +5,7 @@ import { ENDPOINTS } from '../../config/api';
 import { useCurrency } from '../../context/CurrencyContext';
 import { useToast } from '../../context/ToastContext';
 import Pagination from '../../components/common/Pagination';
+import './OutletDetails.css';
 import TransferModal from './modals/TransferModal';
 import PaymentModal from './modals/PaymentModal';
 import SaleModal from './modals/SaleModal';
@@ -269,10 +270,10 @@ export default function OutletDetails() {
     if (!outlet) return <div className="page-loading">Outlet not found.</div>;
 
     return (
-        <div className="page-container">
-            <div className="page-header" style={{ marginBottom: '1rem', alignItems: 'flex-start' }}>
+        <div className="outlet-detail-container">
+            <div className="outlet-detail-header">
                 <div>
-                    <h1 className="page-title" style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                    <h1 className="page-title">
                         {outlet.name} (Outlet #{outlet.display_id})
                         <button 
                             className="btn btn-sm btn-secondary" 
@@ -283,23 +284,23 @@ export default function OutletDetails() {
                     </h1>
                     <p className="page-subtitle">Contact: {outlet.contact_person || 'N/A'} | {outlet.phone || 'No phone'}</p>
                 </div>
-                <div style={{ textAlign: 'right' }}>
-                    <div style={{ fontSize: '0.875rem', color: 'var(--color-text-muted)', marginBottom: '0.25rem' }}>Outstanding Balance</div>
-                    <div style={{ fontSize: '1.5rem', fontWeight: 'bold' }} className={parseFloat(outlet.outstanding_balance) > 0 ? 'text-danger' : 'text-success'}>
+                <div className="outlet-balance-block">
+                    <div className="outlet-balance-label">Outstanding Balance</div>
+                    <div className={`outlet-balance-value ${parseFloat(outlet.outstanding_balance) > 0 ? 'text-danger' : 'text-success'}`}>
                         {formatCurrency(outlet.outstanding_balance)}
                     </div>
                 </div>
             </div>
 
             {/* Quick Action Bar */}
-            <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '2rem' }}>
+            <div className="outlet-actions-bar">
                 <button className="btn btn-primary" onClick={() => setIsSaleModalOpen(true)}>Record Daily Sale</button>
                 <button className="btn btn-success" onClick={() => setIsPaymentModalOpen(true)}>Log Payment</button>
                 <button className="btn btn-secondary" onClick={() => setIsTransferModalOpen(true)}>Transfer Stock</button>
             </div>
 
             {/* Financial Summary Cards */}
-            <div className="stats-grid" style={{ marginBottom: '2rem' }}>
+            <div className="outlet-stats">
                 <div className="stat-card">
                     <div className="stat-title">Gross Sales</div>
                     <div className="stat-value">{formatCurrency(outlet.total_gross_sales)}</div>
@@ -319,18 +320,18 @@ export default function OutletDetails() {
             </div>
 
             {/* Tabs */}
-            <div className="tabs">
-                <button className={`tab ${activeTab === 'stock' ? 'active' : ''}`} onClick={() => setActiveTab('stock')}>Consignment Stock ({stock.length})</button>
-                <button className={`tab ${activeTab === 'sales' ? 'active' : ''}`} onClick={() => setActiveTab('sales')}>Sales Logs ({sales.length})</button>
-                <button className={`tab ${activeTab === 'payments' ? 'active' : ''}`} onClick={() => setActiveTab('payments')}>Payments ({payments.length})</button>
-                <button className={`tab ${activeTab === 'transfers' ? 'active' : ''}`} onClick={() => setActiveTab('transfers')}>Transfers ({transfers.length})</button>
-                <button className={`tab ${activeTab === 'commissions' ? 'active' : ''}`} onClick={() => setActiveTab('commissions')}>Commissions</button>
+            <div className="outlet-tabs">
+                <button className={`outlet-tab ${activeTab === 'stock' ? 'active' : ''}`} onClick={() => setActiveTab('stock')}>Consignment Stock ({stock.length})</button>
+                <button className={`outlet-tab ${activeTab === 'sales' ? 'active' : ''}`} onClick={() => setActiveTab('sales')}>Sales Logs ({sales.length})</button>
+                <button className={`outlet-tab ${activeTab === 'payments' ? 'active' : ''}`} onClick={() => setActiveTab('payments')}>Payments ({payments.length})</button>
+                <button className={`outlet-tab ${activeTab === 'transfers' ? 'active' : ''}`} onClick={() => setActiveTab('transfers')}>Transfers ({transfers.length})</button>
+                <button className={`outlet-tab ${activeTab === 'commissions' ? 'active' : ''}`} onClick={() => setActiveTab('commissions')}>Commissions</button>
             </div>
 
             {/* Tab Content */}
-            <div className="tab-content">
+            <div className="outlet-tab-content">
                 {activeTab === 'stock' && (
-                    <div className="table-card">
+                    <div>
                         <table className="data-table">
                             <thead>
                                 <tr>
@@ -398,7 +399,7 @@ export default function OutletDetails() {
                                     <tr key={payment.id}>
                                         <td>#{payment.display_id}</td>
                                         <td>{payment.date}</td>
-                                        <td style={{textTransform: 'capitalize'}}>{payment.payment_method}</td>
+                                        <td className="text-capitalize">{payment.payment_method}</td>
                                         <td>{payment.reference_id || '-'}</td>
                                         <td className="font-bold text-success">{formatCurrency(payment.amount)}</td>
                                     </tr>
@@ -431,7 +432,7 @@ export default function OutletDetails() {
                                                 {(transfer.status || 'unknown').toUpperCase()}
                                             </span>
                                             {transfer.status === 'draft' && (
-                                                <div style={{ display: 'inline-flex', gap: '0.5rem', marginLeft: '1rem', verticalAlign: 'middle' }}>
+                                                <div className="transfer-actions">
                                                     <button 
                                                         className="btn btn-sm btn-primary" 
                                                         onClick={() => handleDispatchTransfer(transfer.id)}
@@ -463,8 +464,8 @@ export default function OutletDetails() {
 
                 {activeTab === 'commissions' && (
                     <div className="table-card">
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '1rem 1.25rem', borderBottom: '1px solid var(--color-border)' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                        <div className="commission-toolbar">
+                            <div className="commission-toolbar-left">
                                 <input
                                     type="text"
                                     className="form-input"
@@ -488,7 +489,7 @@ export default function OutletDetails() {
                             </button>
                         </div>
                         
-                        <div style={{ padding: '0.75rem 1.25rem', background: 'var(--color-bg-tertiary)', borderBottom: '1px solid var(--color-border)', fontSize: '0.8rem', color: 'var(--color-text-muted)' }}>
+                        <div className="commission-hint">
                             <strong>How it works:</strong> Each product has a Global Default rate. Enter a custom rate below to override it for this outlet. 
                             Leave blank to use the global default. Rates are frozen at the time of each sale.
                         </div>
@@ -556,13 +557,12 @@ export default function OutletDetails() {
                                                 {globalDisplay}
                                             </td>
                                             <td className="text-center">
-                                                <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'center', alignItems: 'center' }}>
-                                                    <div className="input-with-action" style={{ width: '90px' }}>
-                                                        <span style={{ padding: '0 5px', fontSize: '0.8rem', background: 'var(--bg-card)', border: '1px solid var(--border-color)', borderRight: 'none', borderRadius: '4px 0 0 4px', display: 'flex', alignItems: 'center' }}>%</span>
+                                                <div className="commission-inputs">
+                                                    <div className="commission-input-group">
+                                                        <span className="input-prefix">%</span>
                                                         <input
                                                             type="number"
-                                                            className="form-input"
-                                                            style={{ border: isCustom && currentType === 'percent' ? '2px solid var(--color-primary)' : undefined, borderRadius: '0 4px 4px 0', padding: '0.2rem', textAlign: 'center' }}
+                                                            className={`form-input ${isCustom && currentType === 'percent' ? 'is-custom' : ''}`}
                                                             value={displayPercent}
                                                             onChange={(e) => handleOverrideChange(product.id, 'percent', e.target.value)}
                                                             onBlur={(e) => {
@@ -580,13 +580,12 @@ export default function OutletDetails() {
                                                             min="0" step="0.01"
                                                         />
                                                     </div>
-                                                    <span style={{ color: 'var(--color-text-muted)' }}>⇌</span>
-                                                    <div className="input-with-action" style={{ width: '100px' }}>
-                                                        <span style={{ padding: '0 5px', fontSize: '0.8rem', background: 'var(--bg-card)', border: '1px solid var(--border-color)', borderRight: 'none', borderRadius: '4px 0 0 4px', display: 'flex', alignItems: 'center' }}>{currency}</span>
+                                                    <span className="commission-swap">⇌</span>
+                                                    <div className="commission-input-group">
+                                                        <span className="input-prefix">{currency}</span>
                                                         <input
                                                             type="number"
-                                                            className="form-input"
-                                                            style={{ border: isCustom && currentType === 'fixed' ? '2px solid var(--color-primary)' : undefined, borderRadius: '0 4px 4px 0', padding: '0.2rem', textAlign: 'center' }}
+                                                            className={`form-input ${isCustom && currentType === 'fixed' ? 'is-custom' : ''}`}
                                                             value={displayFixed}
                                                             onChange={(e) => handleOverrideChange(product.id, 'fixed', e.target.value)}
                                                             onBlur={(e) => {
@@ -601,23 +600,15 @@ export default function OutletDetails() {
                                                     </div>
                                                 </div>
                                                 {exceedsMargin && (
-                                                    <div style={{ color: 'var(--color-warning, #f59e0b)', fontSize: '0.75rem', marginTop: '0.25rem' }}>
+                                                    <div className="commission-warning">
                                                         Exceeds Margin!
                                                     </div>
                                                 )}
                                             </td>
-                                            <td className="text-center font-bold" style={{ color: isCustom ? 'var(--color-primary)' : 'inherit' }}>
+                                            <td className={`text-center font-bold ${isCustom ? 'text-primary' : ''}`}>
                                                 {effectiveRateDisplay}
                                                 {isCustom && (
-                                                    <span style={{ 
-                                                        marginLeft: '0.35rem',
-                                                        fontSize: '0.65rem', 
-                                                        padding: '0.1rem 0.35rem',
-                                                        borderRadius: '4px',
-                                                        background: 'var(--color-primary)',
-                                                        color: '#fff',
-                                                        verticalAlign: 'middle'
-                                                    }}>
+                                                    <span className="commission-custom-badge">
                                                         CUSTOM
                                                     </span>
                                                 )}
@@ -628,7 +619,7 @@ export default function OutletDetails() {
                                                         className="btn btn-sm btn-danger"
                                                         onClick={() => handleClearOverride(product.id)}
                                                         title="Remove override, revert to global default"
-                                                        style={{ padding: '0.2rem 0.5rem', fontSize: '0.75rem' }}
+
                                                     >
                                                         ✕
                                                     </button>

@@ -1,0 +1,256 @@
+/* ================================================
+   OutletDetails — Consignment outlet ledger page
+   ================================================ */
+
+.outlet-detail-container {
+    padding: var(--page-padding);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-lg);
+}
+
+/* ── Header: name + balance ── */
+.outlet-detail-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: var(--space-lg);
+    flex-wrap: wrap;
+}
+
+.outlet-detail-header .page-title {
+    display: flex;
+    align-items: center;
+    gap: var(--space-md);
+    flex-wrap: wrap;
+}
+
+.outlet-balance-block {
+    text-align: right;
+    flex-shrink: 0;
+}
+
+.outlet-balance-label {
+    font-size: var(--font-size-sm);
+    color: var(--color-text-muted);
+    margin-bottom: var(--space-xs);
+}
+
+.outlet-balance-value {
+    font-size: 1.5rem;
+    font-weight: 700;
+}
+
+/* ── Quick Action Bar ── */
+.outlet-actions-bar {
+    display: flex;
+    gap: var(--space-sm);
+    flex-wrap: wrap;
+}
+
+/* ── Summary stat cards ── */
+.outlet-stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: var(--space-md);
+}
+
+/* ── Tabs ── */
+.outlet-tabs {
+    display: flex;
+    gap: var(--space-xs);
+    padding: var(--space-xs);
+    background: var(--color-bg-secondary);
+    border: 1px solid var(--color-border-light);
+    border-radius: var(--radius-lg);
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+}
+
+.outlet-tabs::-webkit-scrollbar {
+    display: none;
+}
+
+.outlet-tab {
+    padding: var(--space-sm) var(--space-md);
+    border-radius: var(--radius-md);
+    color: var(--color-text-secondary);
+    font-weight: 500;
+    font-size: var(--font-size-sm);
+    white-space: nowrap;
+    transition: all var(--transition-fast);
+    border: none;
+    background: transparent;
+    cursor: pointer;
+}
+
+.outlet-tab:hover {
+    background: var(--color-bg-hover);
+    color: var(--color-text-primary);
+}
+
+.outlet-tab.active {
+    background: var(--color-primary);
+    color: white;
+}
+
+/* ── Tab content area ── */
+.outlet-tab-content {
+    background: var(--color-bg-secondary);
+    border: 1px solid var(--color-border-light);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+}
+
+.outlet-tab-content .data-table {
+    width: 100%;
+    border-collapse: collapse;
+    text-align: left;
+}
+
+.outlet-tab-content .data-table th,
+.outlet-tab-content .data-table td {
+    padding: var(--content-padding);
+    border-bottom: 1px solid var(--color-border-light);
+}
+
+.outlet-tab-content .data-table th {
+    background-color: var(--color-bg-tertiary);
+    color: var(--color-text-secondary);
+    font-weight: 500;
+    font-size: var(--font-size-sm);
+    white-space: nowrap;
+}
+
+.outlet-tab-content .data-table tr:last-child td {
+    border-bottom: none;
+}
+
+@media (hover: hover) {
+    .outlet-tab-content .data-table tbody tr:hover {
+        background-color: var(--color-bg-hover);
+    }
+}
+
+/* ── Commission tab toolbar ── */
+.commission-toolbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: var(--content-padding);
+    border-bottom: 1px solid var(--color-border-light);
+    gap: var(--space-md);
+    flex-wrap: wrap;
+}
+
+.commission-toolbar-left {
+    display: flex;
+    align-items: center;
+    gap: var(--space-md);
+}
+
+.commission-hint {
+    padding: var(--space-sm) var(--content-padding);
+    background: var(--color-bg-tertiary);
+    border-bottom: 1px solid var(--color-border-light);
+    font-size: var(--font-size-sm);
+    color: var(--color-text-muted);
+}
+
+/* ── Commission dual-input ── */
+.commission-inputs {
+    display: flex;
+    gap: var(--space-sm);
+    justify-content: center;
+    align-items: center;
+}
+
+.commission-input-group {
+    display: flex;
+    width: 100px;
+}
+
+.commission-input-group .input-prefix {
+    padding: 0 5px;
+    font-size: var(--font-size-sm);
+    background: var(--color-bg-tertiary);
+    border: 1px solid var(--color-border-light);
+    border-right: none;
+    border-radius: var(--radius-sm) 0 0 var(--radius-sm);
+    display: flex;
+    align-items: center;
+    color: var(--color-text-muted);
+}
+
+.commission-input-group .form-input {
+    border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+    padding: var(--space-xs);
+    text-align: center;
+}
+
+.commission-input-group .form-input.is-custom {
+    border: 2px solid var(--color-primary);
+}
+
+.commission-swap {
+    color: var(--color-text-muted);
+}
+
+.commission-warning {
+    color: var(--color-warning, #f59e0b);
+    font-size: 0.75rem;
+    margin-top: var(--space-xs);
+}
+
+.commission-custom-badge {
+    margin-left: var(--space-xs);
+    font-size: 0.65rem;
+    padding: 0.1rem 0.35rem;
+    border-radius: var(--radius-sm);
+    background: var(--color-primary);
+    color: #fff;
+    vertical-align: middle;
+}
+
+/* ── Transfer draft actions ── */
+.transfer-actions {
+    display: inline-flex;
+    gap: var(--space-sm);
+    margin-left: var(--space-md);
+    vertical-align: middle;
+}
+
+/* ── Responsive ── */
+@media (max-width: 768px) {
+    .outlet-detail-header {
+        flex-direction: column;
+    }
+
+    .outlet-balance-block {
+        text-align: left;
+    }
+
+    .outlet-actions-bar {
+        flex-direction: column;
+    }
+
+    .outlet-actions-bar .btn {
+        width: 100%;
+    }
+
+    .outlet-tabs {
+        gap: 2px;
+        padding: 2px;
+    }
+
+    .outlet-tab {
+        padding: var(--space-xs) var(--space-sm);
+        font-size: var(--font-size-xs);
+    }
+
+    .commission-toolbar {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+}

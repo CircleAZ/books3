@@ -3,6 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { ENDPOINTS } from '../../config/api';
 import { useToast } from '../../context/ToastContext';
+import './OutletForm.css';
 
 export default function EditOutlet() {
     const { id } = useParams();
@@ -78,7 +79,7 @@ export default function EditOutlet() {
     }
 
     return (
-        <div className="page-container" style={{ maxWidth: '600px' }}>
+        <div className="outlet-form-container">
             <div className="page-header">
                 <h1 className="page-title">Edit Outlet</h1>
             </div>
