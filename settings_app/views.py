@@ -60,6 +60,15 @@ class StoreSettingsViewSet(viewsets.GenericViewSet):
             )
         instance.logo = logo
         instance.save()
+
+        # Generate PWA icons from the new logo (non-blocking side effect)
+        try:
+            from .pwa_icons import generate_pwa_icons
+            generate_pwa_icons(logo_field=instance.logo, store_name=instance.name)
+        except Exception as e:
+            import logging
+            logging.getLogger(__name__).error(f"PWA icon generation failed: {e}")
+
         return Response(StoreSettingsSerializer(instance).data)
 
 class UserViewSet(viewsets.ModelViewSet):

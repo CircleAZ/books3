@@ -17,7 +17,6 @@ export default defineConfig({
         // starts (>5s), Workbox served stale prices/stock/balances silently.
         // Static asset precaching (index.html, CSS, JS) is unaffected.
       },
-      // includeAssets: add here when brand icons land in public/
       // ── PWA Manifest (SINGLE SOURCE OF TRUTH) ──
       // DO NOT create public/manifest.json — Vite copies public/ to dist/
       // and it would conflict with the auto-generated manifest.webmanifest.
@@ -25,17 +24,23 @@ export default defineConfig({
         name: 'AZ Books',
         short_name: 'AZ Books',
         description: 'AZ Books Management System',
-        theme_color: '#ffffff',
+        theme_color: '#111322',
+        background_color: '#111322',
+        display: 'standalone',
+        // Icons served from R2 CDN — generated dynamically from store logo
+        // via `python manage.py generate_pwa_icons` or on logo upload.
+        // See: settings_app/pwa_icons.py
         icons: [
           {
-            src: 'pwa-192x192.png',
+            src: 'https://media.circleaz.in/store/pwa-icon-192.png',
             sizes: '192x192',
             type: 'image/png'
           },
           {
-            src: 'pwa-512x512.png',
+            src: 'https://media.circleaz.in/store/pwa-icon-512.png',
             sizes: '512x512',
-            type: 'image/png'
+            type: 'image/png',
+            purpose: 'any maskable'
           }
         ]
       }
