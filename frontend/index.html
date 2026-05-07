@@ -12,6 +12,17 @@
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <title>AZ Books</title>
+    <!-- ISSUE #8: Synchronous trap for beforeinstallprompt.
+         Must live here (not in main.jsx) because Vite loads modules async.
+         Chrome fires the event during HTML parse, before React hydrates. -->
+    <script>
+      window.deferredInstallPrompt = null;
+      window.addEventListener('beforeinstallprompt', function(e) {
+        e.preventDefault();
+        window.deferredInstallPrompt = e;
+        window.dispatchEvent(new Event('app-install-prompt-ready'));
+      });
+    </script>
   </head>
   <body>
     <div id="root"></div>
