@@ -42,6 +42,15 @@ export default function OutletDetails() {
     const [commissionsLoaded, setCommissionsLoaded] = useState(false);
     const [commissionsLoading, setCommissionsLoading] = useState(false);
 
+    // Commission Filter State
+    const [filterCategory, setFilterCategory] = useState('');
+    const [filterVendor, setFilterVendor] = useState('');
+    const [filterCommissionStatus, setFilterCommissionStatus] = useState('');  // '' | 'override' | 'default'
+    const [filterSentToOutlet, setFilterSentToOutlet] = useState('');
+    const [categories, setCategories] = useState([]);
+    const [vendors, setVendors] = useState([]);
+    const [allOutlets, setAllOutlets] = useState([]);
+
     // Modal states
     const [isTransferModalOpen, setIsTransferModalOpen] = useState(false);
     const [editingTransfer, setEditingTransfer] = useState(null);
@@ -86,11 +95,12 @@ export default function OutletDetails() {
 
     const refreshData = useCallback(() => {
         fetchOutlet();
+        fetchCommissionOverrides();
         if (activeTab === 'stock') fetchStock();
         else if (activeTab === 'sales') fetchSales();
         else if (activeTab === 'payments') fetchPayments();
         else if (activeTab === 'transfers') fetchTransfers();
-    }, [activeTab, fetchOutlet, fetchStock, fetchSales, fetchPayments, fetchTransfers]);
+    }, [activeTab, fetchOutlet, fetchStock, fetchSales, fetchPayments, fetchTransfers, fetchCommissionOverrides]);
 
     // Fetch commission overrides once (all of them, not paginated)
     const fetchCommissionOverrides = useCallback(async () => {
@@ -113,12 +123,19 @@ export default function OutletDetails() {
         }
     }, [fetchWithAuth, id]);
 
-    // Fetch products with server-side pagination + search
+    // Fetch products with server-side pagination + search + filters
     const fetchCommissionProducts = useCallback(async (pageNum, searchQuery) => {
         setCommissionsLoading(true);
         try {
             const params = new URLSearchParams({ page: pageNum });
             if (searchQuery) params.set('search', searchQuery);
+            if (filterCategory) params.set('category', filterCategory);
+            if (filterVendor) params.set('vendor', filterVendor);
+            if (filterSentToOutlet) params.set('sent_to_outlet', filterSentToOutlet);
+            if (filterCommissionStatus) {
+                params.set('has_override_for', id);
+                params.set('commission_status', filterCommissionStatus);
+            }
             
             const productsRes = await fetchWithAuth(`${ENDPOINTS.INVENTORY_PRODUCTS}?${params.toString()}`);
             if (productsRes.ok) {
@@ -133,11 +150,31 @@ export default function OutletDetails() {
             setCommissionsLoading(false);
             setCommissionsLoaded(true);
         }
-    }, [fetchWithAuth, showToast]);
+    }, [fetchWithAuth, showToast, id, filterCategory, filterVendor, filterSentToOutlet, filterCommissionStatus]);
+
+    // Fetch filter options (categories, vendors, outlets) once
+    useEffect(() => {
+        const fetchFilterOptions = async () => {
+            try {
+                const [catRes, vendorRes, outletRes] = await Promise.all([
+                    fetchWithAuth(ENDPOINTS.INVENTORY_CATEGORIES),
+                    fetchWithAuth(ENDPOINTS.INVENTORY_VENDORS),
+                    fetchWithAuth(ENDPOINTS.OUTLETS)
+                ]);
+                if (catRes.ok) { const d = await catRes.json(); setCategories(d.results || d); }
+                if (vendorRes.ok) { const d = await vendorRes.json(); setVendors(d.results || d); }
+                if (outletRes.ok) { const d = await outletRes.json(); setAllOutlets((d.results || d).filter(o => o.id !== id)); }
+            } catch (e) {
+                console.error('Failed to fetch filter options:', e);
+            }
+        };
+        fetchFilterOptions();
+    }, [fetchWithAuth, id]);
 
     useEffect(() => {
         fetchOutlet();
-    }, [fetchOutlet, location.key]);
+        fetchCommissionOverrides();
+    }, [fetchOutlet, fetchCommissionOverrides, location.key]);
 
     useEffect(() => {
         if (activeTab === 'stock') fetchStock();
@@ -159,10 +196,8 @@ export default function OutletDetails() {
     useEffect(() => {
         if (activeTab === 'commissions') {
             fetchCommissionProducts(commissionPage, debouncedCommissionSearch);
-            // Only fetch overrides once
-            if (commissions.length === 0) fetchCommissionOverrides();
         }
-    }, [activeTab, commissionPage, debouncedCommissionSearch, fetchCommissionProducts, fetchCommissionOverrides]);
+    }, [activeTab, commissionPage, debouncedCommissionSearch, fetchCommissionProducts]);
 
     const handleDispatchTransfer = async (transferId) => {
         try {
@@ -342,17 +377,40 @@ export default function OutletDetails() {
                                     <th>Product</th>
                                     <th>SKU</th>
                                     <th className="text-right">Quantity at Outlet</th>
+                                    <th className="text-right">Effective Commission</th>
                                 </tr>
                             </thead>
                             <tbody>
-                                {stock.map(item => (
-                                    <tr key={item.id}>
-                                        <td className="font-medium">{item.product_details.name}</td>
-                                        <td>#{item.product_details.display_id}</td>
-                                        <td className="text-right font-bold">{item.quantity}</td>
-                                    </tr>
-                                ))}
-                                {stock.length === 0 && <tr><td colSpan="3" className="text-center text-muted">No stock currently held at this outlet.</td></tr>}
+                                {stock.map(item => {
+                                    const pid = item.product_details.id;
+                                    const hasOverride = pid in overrides;
+                                    const overrideData = hasOverride ? overrides[pid] : null;
+                                    
+                                    const globalType = item.product_details.default_commission_type || 'percent';
+                                    const globalVal = parseFloat(item.product_details.default_commission_value || 0).toFixed(2);
+                                    
+                                    const currentType = hasOverride && overrideData.value !== '' ? overrideData.type : globalType;
+                                    const currentVal = hasOverride && overrideData.value !== '' ? parseFloat(overrideData.value).toFixed(2) : globalVal;
+                                    
+                                    const effectiveRateDisplay = currentType === 'percent' ? `${currentVal}%` : `${currency}${currentVal}`;
+                                    
+                                    return (
+                                        <tr key={item.id}>
+                                            <td className="font-medium">{item.product_details.name}</td>
+                                            <td>#{item.product_details.display_id}</td>
+                                            <td className="text-right font-bold">{item.quantity}</td>
+                                            <td className="text-right">
+                                                {effectiveRateDisplay}
+                                                {hasOverride && overrideData.value !== '' && (
+                                                    <span className="commission-custom-badge" style={{ marginLeft: '6px' }}>
+                                                        CUSTOM
+                                                    </span>
+                                                )}
+                                            </td>
+                                        </tr>
+                                    );
+                                })}
+                                {stock.length === 0 && <tr><td colSpan="4" className="text-center text-muted">No stock currently held at this outlet.</td></tr>}
                             </tbody>
                         </table>
                     </div>
@@ -496,6 +554,68 @@ export default function OutletDetails() {
                             >
                                 {savingCommissions ? 'Saving...' : 'Save Commission Rates'}
                             </button>
+                        </div>
+
+                        {/* Filter Bar */}
+                        <div className="commission-filter-bar">
+                            <select
+                                className="form-input"
+                                value={filterCategory}
+                                onChange={(e) => { setFilterCategory(e.target.value); setCommissionPage(1); }}
+                            >
+                                <option value="">All Categories</option>
+                                {categories.map(c => (
+                                    <option key={c.id} value={c.id}>{c.name}</option>
+                                ))}
+                            </select>
+
+                            <select
+                                className="form-input"
+                                value={filterVendor}
+                                onChange={(e) => { setFilterVendor(e.target.value); setCommissionPage(1); }}
+                            >
+                                <option value="">All Vendors</option>
+                                {vendors.map(v => (
+                                    <option key={v.id} value={v.id}>{v.name}</option>
+                                ))}
+                            </select>
+
+                            <select
+                                className="form-input"
+                                value={filterCommissionStatus}
+                                onChange={(e) => { setFilterCommissionStatus(e.target.value); setCommissionPage(1); }}
+                            >
+                                <option value="">All Commission Status</option>
+                                <option value="override">Has Custom Override</option>
+                                <option value="default">Using Global Default</option>
+                            </select>
+
+                            <select
+                                className="form-input"
+                                value={filterSentToOutlet}
+                                onChange={(e) => { setFilterSentToOutlet(e.target.value); setCommissionPage(1); }}
+                            >
+                                <option value="">All Products</option>
+                                <option value={id}>Sent to This Outlet</option>
+                                {allOutlets.map(o => (
+                                    <option key={o.id} value={o.id}>Sent to {o.name}</option>
+                                ))}
+                            </select>
+
+                            {(filterCategory || filterVendor || filterCommissionStatus || filterSentToOutlet) && (
+                                <button
+                                    className="btn btn-sm btn-secondary"
+                                    onClick={() => {
+                                        setFilterCategory('');
+                                        setFilterVendor('');
+                                        setFilterCommissionStatus('');
+                                        setFilterSentToOutlet('');
+                                        setCommissionPage(1);
+                                    }}
+                                >
+                                    Clear Filters
+                                </button>
+                            )}
                         </div>
                         
                         <div className="commission-hint">

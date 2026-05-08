@@ -125,6 +125,33 @@ class ProductViewSet(viewsets.ModelViewSet):
         exclude_prefix = self.request.query_params.get('exclude_category_prefix')
         if exclude_prefix:
             qs = qs.exclude(category__name__startswith=exclude_prefix)
+        
+        # --- Commission & Transfer Filters (used by Outlet Commissions tab) ---
+        
+        # Filter: products previously sent to a specific outlet
+        sent_to_outlet = self.request.query_params.get('sent_to_outlet')
+        if sent_to_outlet:
+            from outlets.models import OutletStockTransferItem
+            sent_product_ids = OutletStockTransferItem.objects.filter(
+                transfer__outlet_id=sent_to_outlet,
+                transfer__status='dispatched',
+                transfer__is_deleted=False
+            ).values_list('product_id', flat=True).distinct()
+            qs = qs.filter(id__in=sent_product_ids)
+        
+        # Filter: products that have a commission override at a specific outlet
+        has_override_for = self.request.query_params.get('has_override_for')
+        commission_filter = self.request.query_params.get('commission_status')  # 'override' | 'default'
+        if has_override_for and commission_filter:
+            from outlets.models import OutletProductCommission
+            override_product_ids = OutletProductCommission.objects.filter(
+                outlet_id=has_override_for
+            ).values_list('product_id', flat=True)
+            if commission_filter == 'override':
+                qs = qs.filter(id__in=override_product_ids)
+            elif commission_filter == 'default':
+                qs = qs.exclude(id__in=override_product_ids)
+        
         return qs
 
     def get_serializer_class(self):
