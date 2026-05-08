@@ -93,15 +93,6 @@ export default function OutletDetails() {
         if (res.ok) { const d = await res.json(); setTransfers(d.results || d); }
     }, [fetchWithAuth, id]);
 
-    const refreshData = useCallback(() => {
-        fetchOutlet();
-        fetchCommissionOverrides();
-        if (activeTab === 'stock') fetchStock();
-        else if (activeTab === 'sales') fetchSales();
-        else if (activeTab === 'payments') fetchPayments();
-        else if (activeTab === 'transfers') fetchTransfers();
-    }, [activeTab, fetchOutlet, fetchStock, fetchSales, fetchPayments, fetchTransfers, fetchCommissionOverrides]);
-
     // Fetch commission overrides once (all of them, not paginated)
     const fetchCommissionOverrides = useCallback(async () => {
         try {
@@ -122,6 +113,15 @@ export default function OutletDetails() {
             console.error("Failed to load commission overrides:", error);
         }
     }, [fetchWithAuth, id]);
+
+    const refreshData = useCallback(() => {
+        fetchOutlet();
+        fetchCommissionOverrides();
+        if (activeTab === 'stock') fetchStock();
+        else if (activeTab === 'sales') fetchSales();
+        else if (activeTab === 'payments') fetchPayments();
+        else if (activeTab === 'transfers') fetchTransfers();
+    }, [activeTab, fetchOutlet, fetchStock, fetchSales, fetchPayments, fetchTransfers, fetchCommissionOverrides]);
 
     // Fetch products with server-side pagination + search + filters
     const fetchCommissionProducts = useCallback(async (pageNum, searchQuery) => {
