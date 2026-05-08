@@ -15,7 +15,9 @@ class OutletViewSet(viewsets.ModelViewSet):
     serializer_class = OutletSerializer
 
 class OutletStockViewSet(viewsets.ReadOnlyModelViewSet):
-    queryset = OutletStock.objects.select_related('outlet', 'product')
+    queryset = OutletStock.objects.select_related(
+        'outlet', 'product', 'product__category', 'product__vendor'
+    ).prefetch_related('product__images')
     serializer_class = OutletStockSerializer
     filter_backends = [DjangoFilterBackend]
     filterset_fields = ['outlet', 'product']
@@ -68,7 +70,10 @@ class OutletProductCommissionViewSet(viewsets.ModelViewSet):
 
 
 class OutletStockTransferViewSet(viewsets.ModelViewSet):
-    queryset = OutletStockTransfer.objects.all()
+    queryset = OutletStockTransfer.objects.prefetch_related(
+        'items__product', 'items__product__category',
+        'items__product__vendor', 'items__product__images'
+    )
     serializer_class = OutletStockTransferSerializer
     filter_backends = [DjangoFilterBackend]
     filterset_fields = ['outlet', 'status']
@@ -88,7 +93,10 @@ class OutletStockTransferViewSet(viewsets.ModelViewSet):
             return Response({'error': 'Internal Server Error'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 class OutletStockReturnViewSet(viewsets.ModelViewSet):
-    queryset = OutletStockReturn.objects.all()
+    queryset = OutletStockReturn.objects.prefetch_related(
+        'items__product', 'items__product__category',
+        'items__product__vendor', 'items__product__images'
+    )
     serializer_class = OutletStockReturnSerializer
     filter_backends = [DjangoFilterBackend]
     filterset_fields = ['outlet', 'status', 'reason']
@@ -108,7 +116,10 @@ class OutletStockReturnViewSet(viewsets.ModelViewSet):
             return Response({'error': 'Internal Server Error'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 class OutletDailySaleViewSet(viewsets.ModelViewSet):
-    queryset = OutletDailySale.objects.all()
+    queryset = OutletDailySale.objects.prefetch_related(
+        'items__product', 'items__product__category',
+        'items__product__vendor', 'items__product__images'
+    )
     serializer_class = OutletDailySaleSerializer
     filter_backends = [DjangoFilterBackend]
     filterset_fields = ['outlet', 'date']

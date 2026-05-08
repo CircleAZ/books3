@@ -71,8 +71,9 @@ class OutletStockTransferItemSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = OutletStockTransferItem
-        fields = ('id', 'product', 'product_details', 'quantity', 'frozen_cost_price')
-        read_only_fields = ('frozen_cost_price',)
+        fields = ('id', 'product', 'product_details', 'quantity', 'frozen_cost_price',
+                  'frozen_commission_type', 'frozen_commission_value')
+        read_only_fields = ('frozen_cost_price', 'frozen_commission_type', 'frozen_commission_value')
 
 class OutletStockTransferSerializer(serializers.ModelSerializer):
     items = OutletStockTransferItemSerializer(many=True, required=False)
