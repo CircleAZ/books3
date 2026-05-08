@@ -32,6 +32,7 @@ class OutletProductCommissionSerializer(serializers.ModelSerializer):
         model = OutletProductCommission
         fields = ('id', 'outlet', 'product', 'product_name', 'product_sku', 
                   'commission_type', 'commission_value', 'default_commission_type', 'default_commission_value')
+        validators = []  # Disable implicit UniqueTogetherValidator to allow bulk upserts
 
     def get_product_sku(self, obj):
         return getattr(obj.product, 'sku', '') if obj.product else ''
