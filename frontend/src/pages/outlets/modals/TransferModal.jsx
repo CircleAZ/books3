@@ -36,7 +36,7 @@ export default function TransferModal({ isOpen, onClose, outletId, onTransferCom
                     productId: item.product,
                     name: item.product_details?.name || 'Unknown Product',
                     display_id: item.product_details?.display_id || '',
-                    stock: item.product_details?.current_stock || 0,
+                    stock: item.product_details?.stock_quantity || 0,
                     quantity: item.quantity
                 })));
             } else {
@@ -73,7 +73,7 @@ export default function TransferModal({ isOpen, onClose, outletId, onTransferCom
                 productId: product.id, 
                 name: product.name,
                 display_id: product.display_id,
-                stock: product.current_stock,
+                stock: product.stock_quantity || 0,
                 quantity: 1 
             }]);
         }
@@ -166,7 +166,7 @@ export default function TransferModal({ isOpen, onClose, outletId, onTransferCom
                             {filteredProducts.map(p => (
                                 <div key={p.id} style={searchResultItemStyle} onClick={() => handleAddItem(p)}>
                                     <span>{p.name} (#{p.display_id})</span>
-                                    <span className="text-muted">Stock: {p.current_stock}</span>
+                                    <span className="text-muted">Stock: {p.stock_quantity}</span>
                                 </div>
                             ))}
                         </div>
