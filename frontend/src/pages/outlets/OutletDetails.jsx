@@ -11,6 +11,7 @@ import ReturnModal from './modals/ReturnModal';
 import PaymentModal from './modals/PaymentModal';
 import SaleModal from './modals/SaleModal';
 import TransferDetailsModal from './modals/TransferDetailsModal';
+import ReturnDetailsModal from './modals/ReturnDetailsModal';
 
 import '../../styles/components/page-layout.css';
 import '../../styles/components/data-table.css';
@@ -60,6 +61,7 @@ export default function OutletDetails() {
     const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
     const [isSaleModalOpen, setIsSaleModalOpen] = useState(false);
     const [isReturnModalOpen, setIsReturnModalOpen] = useState(false);
+    const [selectedReturn, setSelectedReturn] = useState(null);
 
     const fetchOutlet = useCallback(async () => {
         try {
@@ -589,7 +591,7 @@ export default function OutletDetails() {
                                             season_end: 'Season End', other: 'Other'
                                         };
                                         return (
-                                            <tr key={`r-${item.id}`} className="table-row-hover">
+                                            <tr key={`r-${item.id}`} className="table-row-hover" onClick={() => setSelectedReturn(item)} style={{ cursor: 'pointer' }}>
                                                 <td>#{item.display_id}</td>
                                                 <td>
                                                     <span className="status-badge status-warning" style={{ fontSize: '0.7rem' }}>← IN</span>
@@ -899,6 +901,11 @@ export default function OutletDetails() {
                 onClose={() => setIsReturnModalOpen(false)}
                 outletId={outlet.id}
                 onReturnComplete={refreshData}
+            />
+            <ReturnDetailsModal
+                isOpen={!!selectedReturn}
+                onClose={() => setSelectedReturn(null)}
+                returnRecord={selectedReturn}
             />
         </div>
     );
