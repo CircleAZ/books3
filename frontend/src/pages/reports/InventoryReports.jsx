@@ -163,7 +163,7 @@ export default function InventoryReports() {
                                 {(valuation?.products || []).slice(0, 20).map((item, idx) => (
                                     <tr key={idx}>
                                         <td>{item.name}</td>
-                                        <td>{item.stock}</td>
+                                        <td>{item.stock_quantity}</td>
                                         <td>{currency}{Number(item.cost_price).toFixed(2)}</td>
                                         <td>{currency}{Number(item.selling_price).toFixed(2)}</td>
                                         <td>{currency}{item.cost_value?.toLocaleString()}</td>
