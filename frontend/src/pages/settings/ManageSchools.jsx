@@ -6,6 +6,7 @@ import { useToast } from '../../context/ToastContext';
 import SchoolStructureTree from '../../components/common/SchoolStructureTree';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
 
+import '../../styles/components/form-layout.css';
 export default function ManageSchools() {
     const { fetchWithAuth } = useAuth();
     const { showToast } = useToast();

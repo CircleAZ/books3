@@ -5,6 +5,7 @@ import { ENDPOINTS } from '../../config/api';
 import './DeletedProducts.css';
 import '../inventory/ProductList.css';
 
+import '../../styles/components/modal-system.css';
 export default function DeletedProducts() {
     const { fetchWithAuth } = useAuth();
     const navigate = useNavigate();

@@ -4,6 +4,7 @@ import { API_BASE } from '../config/api';
 import { secureStorage } from '../utils/secureStorage';
 import './ElevatedAuthModal.css';
 
+import '../styles/components/modal-system.css';
 export default function ElevatedAuthModal() {
     const { elevatedAuthRequest, setElevatedAuthRequest } = useAuth();
     const [otp, setOtp] = useState(['', '', '', '', '', '']);

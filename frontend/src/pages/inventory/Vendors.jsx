@@ -4,6 +4,7 @@ import { ENDPOINTS } from '../../config/api';
 import VendorModal from '../../components/inventory/VendorModal';
 import './ProductList.css';
 
+import '../../styles/components/modal-system.css';
 export default function Vendors() {
     const { fetchWithAuth } = useAuth();
     const [vendors, setVendors] = useState([]);

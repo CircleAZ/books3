@@ -5,6 +5,8 @@ import CategoryModal from '../../components/inventory/CategoryModal';
 import GuardedAction from '../../components/GuardedAction';
 import './ProductList.css'; // Reusing table styles
 
+import '../../styles/components/form-layout.css';
+import '../../styles/components/modal-system.css';
 export default function Categories() {
     const { fetchWithAuth } = useAuth();
     const [categories, setCategories] = useState([]);

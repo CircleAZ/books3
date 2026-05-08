@@ -4,6 +4,8 @@ import { useCurrency } from '../../context/CurrencyContext';
 import { ENDPOINTS } from '../../config/api';
 import './CashManagement.css';
 
+import '../../styles/components/form-layout.css';
+import '../../styles/components/modal-system.css';
 export default function CashManagement() {
     const { fetchWithAuth, user } = useAuth();
     const { currency } = useCurrency();

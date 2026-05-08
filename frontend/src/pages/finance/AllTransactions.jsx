@@ -6,6 +6,8 @@ import { ENDPOINTS } from '../../config/api';
 import { Filter, ChevronUp, ChevronDown, Search, X } from 'lucide-react';
 import './AllTransactions.css';
 
+import '../../styles/components/modal-system.css';
+import '../../styles/components/data-table.css';
 export default function AllTransactions() {
     const { fetchWithAuth } = useAuth();
     const { currency } = useCurrency();

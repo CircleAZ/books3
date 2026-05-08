@@ -5,6 +5,7 @@ import { ENDPOINTS } from '../../config/api';
 import { useToast } from '../../context/ToastContext';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
 
+import '../../styles/components/form-layout.css';
 export default function ManageLinkTypes() {
     const { fetchWithAuth } = useAuth();
     const { showToast } = useToast();

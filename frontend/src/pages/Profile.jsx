@@ -4,6 +4,8 @@ import { ENDPOINTS } from '../config/api';
 import API_BASE from '../config/api';
 import './Profile.css';
 
+import '../styles/components/form-layout.css';
+import '../styles/components/modal-system.css';
 export default function Profile() {
     const { fetchWithAuth } = useAuth();
 

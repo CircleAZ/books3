@@ -4,6 +4,7 @@ import { useAuth } from '../../context/AuthContext';
 import { ENDPOINTS } from '../../config/api';
 import './MessageQueue.css';
 
+import '../../styles/components/data-table.css';
 const MessageQueue = () => {
     const { fetchWithAuth } = useAuth();
     const location = useLocation();

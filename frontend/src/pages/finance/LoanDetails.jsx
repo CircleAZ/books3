@@ -6,6 +6,8 @@ import { useToast } from '../../context/ToastContext';
 import { ENDPOINTS } from '../../config/api';
 import './LoanDetails.css';
 
+import '../../styles/components/form-layout.css';
+import '../../styles/components/modal-system.css';
 export default function LoanDetails() {
     const { id } = useParams();
     const { fetchWithAuth } = useAuth();

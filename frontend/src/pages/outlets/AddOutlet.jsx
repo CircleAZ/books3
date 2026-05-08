@@ -5,6 +5,8 @@ import { ENDPOINTS } from '../../config/api';
 import { useToast } from '../../context/ToastContext';
 import './OutletForm.css';
 
+import '../../styles/components/page-layout.css';
+import '../../styles/components/form-layout.css';
 export default function AddOutlet() {
     const navigate = useNavigate();
     const { fetchWithAuth } = useAuth();

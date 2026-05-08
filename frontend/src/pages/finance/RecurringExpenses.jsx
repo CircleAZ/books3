@@ -7,6 +7,9 @@ import { formatINR, parseApiError } from '../../utils/financeUtils';
 import './ExpenseCategories.css'; // Shared card-grid styles
 import LoadingSpinner from '../../components/common/LoadingSpinner';
 
+import '../../styles/components/page-layout.css';
+import '../../styles/components/form-layout.css';
+import '../../styles/components/modal-system.css';
 const FREQUENCY_OPTIONS = [
     { value: 'daily', label: 'Daily' },
     { value: 'weekly', label: 'Weekly' },

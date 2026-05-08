@@ -5,6 +5,8 @@ import { ENDPOINTS } from '../../config/api';
 import './ProductList.css';
 import './StockControl.css';
 
+import '../../styles/components/form-layout.css';
+import '../../styles/components/modal-system.css';
 const HISTORY_PAGE_SIZE = 50;
 
 export default function StockControl() {

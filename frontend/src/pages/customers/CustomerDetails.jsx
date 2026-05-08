@@ -6,6 +6,8 @@ import { ENDPOINTS } from '../../config/api';
 import MapComponent from '../../components/MapComponent';
 import './CustomerDetails.css';
 
+import '../../styles/components/form-layout.css';
+import '../../styles/components/modal-system.css';
 const CustomerDetails = () => {
     const { id } = useParams();
     const navigate = useNavigate();

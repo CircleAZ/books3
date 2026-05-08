@@ -8,6 +8,8 @@ import { useToast } from '../../context/ToastContext';
 import { compressImage } from '../../utils/imageCompression';
 import '../NewOrder.css';
 
+import '../../styles/components/form-layout.css';
+import '../../styles/components/modal-system.css';
 export default function NewOrder() {
     const { fetchWithAuth } = useAuth();
     const { currency } = useCurrency();

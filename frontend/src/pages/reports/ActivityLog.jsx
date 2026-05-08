@@ -3,6 +3,7 @@ import { useAuth } from '../../context/AuthContext';
 import { ENDPOINTS } from '../../config/api';
 import './ActivityLog.css';
 
+import '../../styles/components/modal-system.css';
 export default function ActivityLog() {
     const { fetchWithAuth } = useAuth();
     const [activities, setActivities] = useState([]);

@@ -7,6 +7,7 @@ import { ENDPOINTS } from '../../config/api';
 import { formatINR } from '../../utils/financeUtils';
 import './ExpenseCategories.css';
 
+import '../../styles/components/page-layout.css';
 const STATUS_BADGES = {
     unsettled: { label: 'Unsettled', bg: '#ef444422', color: '#ef4444' },
     partial: { label: 'Partial', bg: '#f59e0b22', color: '#f59e0b' },

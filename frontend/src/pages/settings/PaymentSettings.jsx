@@ -5,6 +5,8 @@ import { ENDPOINTS } from '../../config/api';
 import './FinancialSettings.css';
 import '../settings/SettingsIndex.css';
 
+import '../../styles/components/form-layout.css';
+import '../../styles/components/modal-system.css';
 const PaymentSettings = () => {
     const { fetchWithAuth } = useAuth();
 

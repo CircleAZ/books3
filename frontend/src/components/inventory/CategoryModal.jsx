@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { ENDPOINTS } from '../../config/api';
 
+import '../../styles/components/form-layout.css';
+import '../../styles/components/modal-system.css';
 export default function CategoryModal({ isOpen, onClose, category, onSuccess }) {
     const { fetchWithAuth } = useAuth();
     const [formData, setFormData] = useState({ name: '', description: '' });

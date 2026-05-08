@@ -3,6 +3,8 @@ import { useAuth } from '../../context/AuthContext';
 import { ENDPOINTS } from '../../config/api';
 import usePermissions from '../../utils/usePermissions';
 
+import '../../styles/components/form-layout.css';
+import '../../styles/components/modal-system.css';
 export default function VendorModal({ isOpen, onClose, vendor, onSuccess }) {
     const { fetchWithAuth } = useAuth();
     const { hasPermission } = usePermissions();

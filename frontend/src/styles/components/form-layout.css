@@ -1,0 +1,49 @@
+/* 
+ * Canonical Form Layout
+ * Extracted from common monolithic patterns to serve as the baseline for orphaned pages.
+ */
+
+.form-group {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-xs, 0.5rem);
+    margin-bottom: var(--space-md, 1rem);
+}
+
+.form-group label {
+    font-size: var(--font-size-sm, 0.85rem);
+    color: var(--color-text-secondary, #94a3b8);
+    font-weight: 500;
+}
+
+.form-group.full-width {
+    grid-column: 1 / -1;
+}
+
+.form-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: var(--space-md, 1rem);
+    margin-bottom: var(--space-md, 1rem);
+}
+
+.form-row {
+    display: flex;
+    gap: var(--space-md, 1rem);
+    margin-bottom: var(--space-md, 1rem);
+}
+
+.form-row > * {
+    flex: 1;
+}
+
+@media (max-width: 640px) {
+    .form-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .form-row {
+        flex-direction: column;
+        gap: var(--space-sm, 0.5rem);
+    }
+}

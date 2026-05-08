@@ -7,6 +7,9 @@ import { formatINR, parseApiError } from '../../utils/financeUtils';
 import './ExpenseCategories.css';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
 
+import '../../styles/components/page-layout.css';
+import '../../styles/components/form-layout.css';
+import '../../styles/components/modal-system.css';
 export default function CategoryBudgets() {
     const { fetchWithAuth } = useAuth();
     const { currency } = useCurrency();

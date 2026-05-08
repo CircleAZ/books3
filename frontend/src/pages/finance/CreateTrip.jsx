@@ -7,6 +7,8 @@ import { ENDPOINTS } from '../../config/api';
 import { formatINR, parseApiError } from '../../utils/financeUtils';
 import './ExpenseCategories.css';
 
+import '../../styles/components/page-layout.css';
+import '../../styles/components/form-layout.css';
 export default function CreateTrip() {
     const { fetchWithAuth } = useAuth();
     const { currency } = useCurrency();

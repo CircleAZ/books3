@@ -5,6 +5,8 @@ import { useCurrency } from '../../context/CurrencyContext';
 import { ENDPOINTS } from '../../config/api';
 import './LenderDetails.css';
 
+import '../../styles/components/form-layout.css';
+import '../../styles/components/modal-system.css';
 export default function LenderDetails() {
     const { id } = useParams();
     const { fetchWithAuth } = useAuth();

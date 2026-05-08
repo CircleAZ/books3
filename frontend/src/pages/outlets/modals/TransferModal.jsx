@@ -3,6 +3,8 @@ import { useAuth } from '../../../context/AuthContext';
 import { ENDPOINTS } from '../../../config/api';
 import { useToast } from '../../../context/ToastContext';
 
+import '../../../styles/components/modal-system.css';
+import '../../../styles/components/data-table.css';
 export default function TransferModal({ isOpen, onClose, outletId, onTransferComplete, initialData = null }) {
     const { fetchWithAuth } = useAuth();
     const { showToast } = useToast();

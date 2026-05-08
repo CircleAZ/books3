@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { ENDPOINTS } from '../config/api';
 
+import '../styles/components/form-layout.css';
 export default function StudentEducationBlock({ 
     student, 
     index, 

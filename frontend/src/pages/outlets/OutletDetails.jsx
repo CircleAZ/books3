@@ -10,6 +10,8 @@ import TransferModal from './modals/TransferModal';
 import PaymentModal from './modals/PaymentModal';
 import SaleModal from './modals/SaleModal';
 
+import '../../styles/components/page-layout.css';
+import '../../styles/components/data-table.css';
 export default function OutletDetails() {
     const { id } = useParams();
     const navigate = useNavigate();

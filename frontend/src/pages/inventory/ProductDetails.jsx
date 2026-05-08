@@ -6,6 +6,8 @@ import { ENDPOINTS } from '../../config/api';
 import './ProductDetails.css';
 import './StockControl.css';
 
+import '../../styles/components/form-layout.css';
+import '../../styles/components/modal-system.css';
 export default function ProductDetails() {
     const { id } = useParams();
     const { fetchWithAuth } = useAuth();

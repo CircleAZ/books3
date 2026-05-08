@@ -8,6 +8,8 @@ import { useCart } from '../../context/CartContext';
 import '../NewOrder.css';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
 
+import '../../styles/components/form-layout.css';
+import '../../styles/components/modal-system.css';
 export default function EditOrder() {
     const { id } = useParams();
     const navigate = useNavigate();
