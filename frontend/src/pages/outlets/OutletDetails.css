@@ -100,11 +100,14 @@
     background: var(--color-bg-secondary);
     border: 1px solid var(--color-border-light);
     border-radius: var(--radius-lg);
-    overflow: hidden;
+    overflow-x: auto;
+    overflow-y: hidden;
+    -webkit-overflow-scrolling: touch;
 }
 
 .outlet-tab-content .data-table {
     width: 100%;
+    min-width: 600px;
     border-collapse: collapse;
     text-align: left;
 }
