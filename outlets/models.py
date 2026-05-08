@@ -259,6 +259,13 @@ class OutletStockReturn(DisplayIDMixin, SoftDeleteModel):
         UNSOLD = 'unsold', 'Unsold'
         DAMAGE = 'damage', 'Damaged'
         RECALL = 'recall', 'Recalled'
+        OVERSTOCK = 'overstock', 'Overstock / Rebalancing'
+        EXPIRED = 'expired', 'Expired'
+        DEFECTIVE = 'defective', 'Defective / Manufacturing Fault'
+        WRONG_SHIPMENT = 'wrong_shipment', 'Wrong Shipment'
+        DISCONTINUED = 'discontinued', 'Discontinued'
+        SEASON_END = 'season_end', 'Season End / Clearance'
+        OTHER = 'other', 'Other'
 
     outlet = models.ForeignKey(Outlet, on_delete=models.PROTECT, related_name='returns')
     date = models.DateField(default=timezone.localdate)

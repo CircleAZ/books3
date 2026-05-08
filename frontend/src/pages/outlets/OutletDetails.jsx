@@ -7,6 +7,7 @@ import { useToast } from '../../context/ToastContext';
 import Pagination from '../../components/common/Pagination';
 import './OutletDetails.css';
 import TransferModal from './modals/TransferModal';
+import ReturnModal from './modals/ReturnModal';
 import PaymentModal from './modals/PaymentModal';
 import SaleModal from './modals/SaleModal';
 import TransferDetailsModal from './modals/TransferDetailsModal';
@@ -26,6 +27,7 @@ export default function OutletDetails() {
     const [sales, setSales] = useState([]);
     const [payments, setPayments] = useState([]);
     const [transfers, setTransfers] = useState([]);
+    const [returns, setReturns] = useState([]);
     const [loading, setLoading] = useState(true);
     
     const [activeTab, setActiveTab] = useState('stock');
@@ -57,6 +59,7 @@ export default function OutletDetails() {
     const [selectedTransfer, setSelectedTransfer] = useState(null);
     const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
     const [isSaleModalOpen, setIsSaleModalOpen] = useState(false);
+    const [isReturnModalOpen, setIsReturnModalOpen] = useState(false);
 
     const fetchOutlet = useCallback(async () => {
         try {
@@ -93,6 +96,11 @@ export default function OutletDetails() {
         if (res.ok) { const d = await res.json(); setTransfers(d.results || d); }
     }, [fetchWithAuth, id]);
 
+    const fetchReturns = useCallback(async () => {
+        const res = await fetchWithAuth(`${ENDPOINTS.OUTLETS_RETURNS}?outlet=${id}`);
+        if (res.ok) { const d = await res.json(); setReturns(d.results || d); }
+    }, [fetchWithAuth, id]);
+
     // Fetch commission overrides once (all of them, not paginated)
     const fetchCommissionOverrides = useCallback(async () => {
         try {
@@ -120,8 +128,8 @@ export default function OutletDetails() {
         if (activeTab === 'stock') fetchStock();
         else if (activeTab === 'sales') fetchSales();
         else if (activeTab === 'payments') fetchPayments();
-        else if (activeTab === 'transfers') fetchTransfers();
-    }, [activeTab, fetchOutlet, fetchStock, fetchSales, fetchPayments, fetchTransfers, fetchCommissionOverrides]);
+        else if (activeTab === 'transfers') { fetchTransfers(); fetchReturns(); }
+    }, [activeTab, fetchOutlet, fetchStock, fetchSales, fetchPayments, fetchTransfers, fetchReturns, fetchCommissionOverrides]);
 
     // Fetch products with server-side pagination + search + filters
     const fetchCommissionProducts = useCallback(async (pageNum, searchQuery) => {
@@ -180,8 +188,8 @@ export default function OutletDetails() {
         if (activeTab === 'stock') fetchStock();
         else if (activeTab === 'sales') fetchSales();
         else if (activeTab === 'payments') fetchPayments();
-        else if (activeTab === 'transfers') fetchTransfers();
-    }, [activeTab, fetchStock, fetchSales, fetchPayments, fetchTransfers, location.key]);
+        else if (activeTab === 'transfers') { fetchTransfers(); fetchReturns(); }
+    }, [activeTab, fetchStock, fetchSales, fetchPayments, fetchTransfers, fetchReturns, location.key]);
 
     // Debounce commission search
     useEffect(() => {
@@ -237,6 +245,42 @@ export default function OutletDetails() {
     const openEditTransferModal = (transfer) => {
         setEditingTransfer(transfer);
         setIsTransferModalOpen(true);
+    };
+
+    const handleReceiveReturn = async (returnId) => {
+        if (!window.confirm("Receive this return? Stock will be added back to main inventory.")) return;
+        try {
+            const response = await fetchWithAuth(`${ENDPOINTS.OUTLETS_RETURNS}${returnId}/receive_return/`, {
+                method: 'POST'
+            });
+            if (response.ok) {
+                showToast("Return received — stock restored to inventory", "success");
+                refreshData();
+            } else {
+                const err = await response.json().catch(() => ({}));
+                showToast(err.error || "Failed to receive return", "error");
+            }
+        } catch (error) {
+            showToast("Failed to receive return", "error");
+        }
+    };
+
+    const handleDeleteReturn = async (returnId) => {
+        if (!window.confirm("Delete this draft return?")) return;
+        try {
+            const response = await fetchWithAuth(`${ENDPOINTS.OUTLETS_RETURNS}${returnId}/`, {
+                method: 'DELETE'
+            });
+            if (response.ok) {
+                showToast("Return deleted", "success");
+                refreshData();
+            } else {
+                const err = await response.json().catch(() => ({}));
+                showToast(err.error || "Failed to delete return", "error");
+            }
+        } catch (error) {
+            showToast("Failed to delete return", "error");
+        }
     };
 
     // Commission Matrix Logic
@@ -336,6 +380,7 @@ export default function OutletDetails() {
                 <button className="btn btn-primary" onClick={() => setIsSaleModalOpen(true)}>Record Daily Sale</button>
                 <button className="btn btn-success" onClick={() => setIsPaymentModalOpen(true)}>Log Payment</button>
                 <button className="btn btn-secondary" onClick={() => setIsTransferModalOpen(true)}>Transfer Stock</button>
+                <button className="btn btn-warning" onClick={() => setIsReturnModalOpen(true)}>Return Stock</button>
             </div>
 
             {/* Financial Summary Cards */}
@@ -363,7 +408,7 @@ export default function OutletDetails() {
                 <button className={`outlet-tab ${activeTab === 'stock' ? 'active' : ''}`} onClick={() => setActiveTab('stock')}>Consignment Stock ({stock.length})</button>
                 <button className={`outlet-tab ${activeTab === 'sales' ? 'active' : ''}`} onClick={() => setActiveTab('sales')}>Sales Logs ({sales.length})</button>
                 <button className={`outlet-tab ${activeTab === 'payments' ? 'active' : ''}`} onClick={() => setActiveTab('payments')}>Payments ({payments.length})</button>
-                <button className={`outlet-tab ${activeTab === 'transfers' ? 'active' : ''}`} onClick={() => setActiveTab('transfers')}>Transfers ({transfers.length})</button>
+                <button className={`outlet-tab ${activeTab === 'transfers' ? 'active' : ''}`} onClick={() => setActiveTab('transfers')}>Transfers & Returns ({transfers.length + returns.length})</button>
                 <button className={`outlet-tab ${activeTab === 'commissions' ? 'active' : ''}`} onClick={() => setActiveTab('commissions')}>Commissions</button>
             </div>
 
@@ -478,52 +523,105 @@ export default function OutletDetails() {
                             <thead>
                                 <tr>
                                     <th>ID</th>
+                                    <th>Type</th>
                                     <th>Date</th>
-                                    <th>Reference</th>
+                                    <th>Detail</th>
                                     <th>Status</th>
                                 </tr>
                             </thead>
                             <tbody>
-                                {transfers.map(transfer => (
-                                    <tr 
-                                        key={transfer.id} 
-                                        onClick={() => setSelectedTransfer(transfer)} 
-                                        style={{ cursor: 'pointer' }} 
-                                        className="table-row-hover"
-                                    >
-                                        <td>#{transfer.display_id}</td>
-                                        <td>{transfer.date}</td>
-                                        <td>{transfer.reference_number || '-'}</td>
-                                        <td>
-                                            <span className={`status-badge status-${transfer.status === 'dispatched' ? 'completed' : 'draft'}`}>
-                                                {(transfer.status || 'unknown').toUpperCase()}
-                                            </span>
-                                            {transfer.status === 'draft' && (
-                                                <div className="transfer-actions">
-                                                    <button 
-                                                        className="btn btn-sm btn-primary" 
-                                                        onClick={(e) => { e.stopPropagation(); handleDispatchTransfer(transfer.id); }}
-                                                    >
-                                                        Dispatch Now
-                                                    </button>
-                                                    <button 
-                                                        className="btn btn-sm btn-secondary" 
-                                                        onClick={(e) => { e.stopPropagation(); openEditTransferModal(transfer); }}
-                                                    >
-                                                        Edit
-                                                    </button>
-                                                    <button 
-                                                        className="btn btn-sm btn-danger" 
-                                                        onClick={(e) => { e.stopPropagation(); handleDeleteTransfer(transfer.id); }}
-                                                    >
-                                                        Delete
-                                                    </button>
-                                                </div>
-                                            )}
-                                        </td>
-                                    </tr>
-                                ))}
-                                {transfers.length === 0 && <tr><td colSpan="4" className="text-center text-muted">No transfers recorded.</td></tr>}
+                                {/* Merge transfers and returns, sorted by date desc */}
+                                {[
+                                    ...transfers.map(t => ({ ...t, _type: 'transfer', _sortDate: t.date })),
+                                    ...returns.map(r => ({ ...r, _type: 'return', _sortDate: r.date }))
+                                ]
+                                .sort((a, b) => b._sortDate > a._sortDate ? 1 : -1)
+                                .map(item => {
+                                    if (item._type === 'transfer') {
+                                        return (
+                                            <tr 
+                                                key={`t-${item.id}`}
+                                                onClick={() => setSelectedTransfer(item)} 
+                                                style={{ cursor: 'pointer' }} 
+                                                className="table-row-hover"
+                                            >
+                                                <td>#{item.display_id}</td>
+                                                <td>
+                                                    <span className="status-badge status-info" style={{ fontSize: '0.7rem' }}>→ OUT</span>
+                                                </td>
+                                                <td>{item.date}</td>
+                                                <td>{item.reference_number || '-'}</td>
+                                                <td>
+                                                    <span className={`status-badge status-${item.status === 'dispatched' ? 'completed' : 'draft'}`}>
+                                                        {(item.status || 'unknown').toUpperCase()}
+                                                    </span>
+                                                    {item.status === 'draft' && (
+                                                        <div className="transfer-actions">
+                                                            <button 
+                                                                className="btn btn-sm btn-primary" 
+                                                                onClick={(e) => { e.stopPropagation(); handleDispatchTransfer(item.id); }}
+                                                            >
+                                                                Dispatch Now
+                                                            </button>
+                                                            <button 
+                                                                className="btn btn-sm btn-secondary" 
+                                                                onClick={(e) => { e.stopPropagation(); openEditTransferModal(item); }}
+                                                            >
+                                                                Edit
+                                                            </button>
+                                                            <button 
+                                                                className="btn btn-sm btn-danger" 
+                                                                onClick={(e) => { e.stopPropagation(); handleDeleteTransfer(item.id); }}
+                                                            >
+                                                                Delete
+                                                            </button>
+                                                        </div>
+                                                    )}
+                                                </td>
+                                            </tr>
+                                        );
+                                    } else {
+                                        // Return entry
+                                        const reasonLabels = {
+                                            unsold: 'Unsold', damage: 'Damaged', recall: 'Recalled',
+                                            overstock: 'Overstock', expired: 'Expired', defective: 'Defective',
+                                            wrong_shipment: 'Wrong Shipment', discontinued: 'Discontinued',
+                                            season_end: 'Season End', other: 'Other'
+                                        };
+                                        return (
+                                            <tr key={`r-${item.id}`} className="table-row-hover">
+                                                <td>#{item.display_id}</td>
+                                                <td>
+                                                    <span className="status-badge status-warning" style={{ fontSize: '0.7rem' }}>← IN</span>
+                                                </td>
+                                                <td>{item.date}</td>
+                                                <td>{reasonLabels[item.reason] || item.reason}</td>
+                                                <td>
+                                                    <span className={`status-badge status-${item.status === 'received' ? 'completed' : 'draft'}`}>
+                                                        {(item.status || 'unknown').toUpperCase()}
+                                                    </span>
+                                                    {item.status === 'draft' && (
+                                                        <div className="transfer-actions">
+                                                            <button 
+                                                                className="btn btn-sm btn-success" 
+                                                                onClick={(e) => { e.stopPropagation(); handleReceiveReturn(item.id); }}
+                                                            >
+                                                                Receive Now
+                                                            </button>
+                                                            <button 
+                                                                className="btn btn-sm btn-danger" 
+                                                                onClick={(e) => { e.stopPropagation(); handleDeleteReturn(item.id); }}
+                                                            >
+                                                                Delete
+                                                            </button>
+                                                        </div>
+                                                    )}
+                                                </td>
+                                            </tr>
+                                        );
+                                    }
+                                })}
+                                {(transfers.length + returns.length) === 0 && <tr><td colSpan="5" className="text-center text-muted">No transfers or returns recorded.</td></tr>}
                             </tbody>
                         </table>
                     </div>
@@ -795,6 +893,12 @@ export default function OutletDetails() {
                 isOpen={!!selectedTransfer}
                 onClose={() => setSelectedTransfer(null)}
                 transfer={selectedTransfer}
+            />
+            <ReturnModal
+                isOpen={isReturnModalOpen}
+                onClose={() => setIsReturnModalOpen(false)}
+                outletId={outlet.id}
+                onReturnComplete={refreshData}
             />
         </div>
     );
