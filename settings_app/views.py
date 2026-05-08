@@ -100,7 +100,7 @@ class UserViewSet(viewsets.ModelViewSet):
         return Response({'status': 'updated', 'is_active': user.is_active})
 
 class RoleViewSet(viewsets.ModelViewSet):
-    queryset = Role.objects.all()
+    queryset = Role.objects.prefetch_related('role_permissions__permission')
     permission_classes = [HasRequiredPermission]
     required_permission = 'settings.manage_roles'
     

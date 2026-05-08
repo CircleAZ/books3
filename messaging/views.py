@@ -83,7 +83,7 @@ class MessageTemplateViewSet(viewsets.ModelViewSet):
 
 class MessageQueueViewSet(viewsets.ModelViewSet):
     """Message queue management."""
-    queryset = MessageQueue.objects.all()
+    queryset = MessageQueue.objects.select_related('gateway', 'template')
     permission_classes = [permissions.IsAuthenticated]
     
     def get_serializer_class(self):
@@ -121,15 +121,22 @@ class MessageQueueViewSet(viewsets.ModelViewSet):
         """Get queue statistics."""
         today = timezone.now().date()
         
+        agg_stats = MessageQueue.objects.aggregate(
+            pending_count=Count('id', filter=Q(status='pending')),
+            processing_count=Count('id', filter=Q(status='processing')),
+            sent_count=Count('id', filter=Q(status='sent')),
+            delivered_count=Count('id', filter=Q(status='delivered')),
+            failed_count=Count('id', filter=Q(status='failed')),
+            total_today_count=Count('id', filter=Q(created_at__date=today))
+        )
+        
         stats = {
-            'pending': MessageQueue.objects.filter(status='pending').count(),
-            'processing': MessageQueue.objects.filter(status='processing').count(),
-            'sent': MessageQueue.objects.filter(status='sent').count(),
-            'delivered': MessageQueue.objects.filter(status='delivered').count(),
-            'failed': MessageQueue.objects.filter(status='failed').count(),
-            'total_today': MessageQueue.objects.filter(
-                created_at__date=today
-            ).count()
+            'pending': agg_stats['pending_count'],
+            'processing': agg_stats['processing_count'],
+            'sent': agg_stats['sent_count'],
+            'delivered': agg_stats['delivered_count'],
+            'failed': agg_stats['failed_count'],
+            'total_today': agg_stats['total_today_count']
         }
         
         serializer = QueueStatsSerializer(stats)

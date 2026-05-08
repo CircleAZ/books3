@@ -760,7 +760,7 @@ class CustomerViewSet(viewsets.ModelViewSet):
         from settings_app.models import Permission, RolePermission, Role
 
         if request.method == 'GET':
-            targets = TargetVillage.objects.all()
+            targets = TargetVillage.objects.select_related('created_by')
             data = [
                 {
                     'id': str(t.id),
@@ -1040,18 +1040,21 @@ class SchoolViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=['get'], url_path='structure')
     def structure(self, request, pk=None):
-        """Return full nested tree for a school."""
+        """Return full nested tree for a school (Hyper-Optimized 3-Query Execution)."""
         school = self.get_object()
-        classes = Class.objects.filter(school=school).order_by('order', 'name')
+        classes = Class.objects.filter(school=school).prefetch_related(
+            Prefetch('divisions', queryset=Division.objects.prefetch_related(
+                Prefetch('subdivisions', queryset=Subdivision.objects.order_by('name'))
+            ).order_by('name'))
+        ).order_by('order', 'name')
+        
         tree = []
         for cls in classes:
-            divisions = Division.objects.filter(class_obj=cls).order_by('name')
             div_list = []
-            for div in divisions:
-                subdivs = Subdivision.objects.filter(division=div).order_by('name')
+            for div in cls.divisions.all():
                 div_list.append({
                     'id': str(div.id), 'name': div.name,
-                    'subdivisions': [{'id': str(s.id), 'name': s.name} for s in subdivs]
+                    'subdivisions': [{'id': str(s.id), 'name': s.name} for s in div.subdivisions.all()]
                 })
             tree.append({
                 'id': str(cls.id), 'name': cls.name, 'order': cls.order,

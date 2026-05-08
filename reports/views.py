@@ -2,8 +2,8 @@ from rest_framework import viewsets, permissions, status
 from core.permissions import HasRequiredPermission
 from rest_framework.decorators import action
 from rest_framework.response import Response
-from django.db.models import Sum, Count, Avg, F, Q, ExpressionWrapper, DecimalField, Max
-from django.db.models.functions import TruncDate
+from django.db.models import Sum, Count, Avg, F, Q, ExpressionWrapper, DecimalField, Max, Case, When, Value, CharField
+from django.db.models.functions import TruncDate, Coalesce, Concat
 from django.utils import timezone
 from django.utils.dateparse import parse_date
 from datetime import timedelta
@@ -269,21 +269,33 @@ class SalesReportViewSet(ReportBaseViewSet):
         start_date, end_date = result
         period = request.query_params.get('period', 'custom')
         
-        orders = Order.objects.filter(
+        orders_data = Order.objects.filter(
             created_at__date__range=[start_date, end_date],
             order_status__in=VALID_SALE_STATUSES
-        ).select_related('customer')
+        ).annotate(
+            item_count=Count('items'),
+            cust_name=Case(
+                When(is_guest=True, then=Coalesce('guest_name', Value('Guest'))),
+                default=Coalesce(
+                    Concat('customer__first_name', Value(' '), 'customer__last_name'),
+                    Value('Unknown')
+                ),
+                output_field=CharField(),
+            )
+        ).values_list(
+            'display_id', 'created_at', 'cust_name', 'order_status', 'item_count', 'total'
+        )
         
         header = ['Order ID', 'Date', 'Customer', 'Status', 'Items', 'Total Amount']
         rows = []
-        for order in orders:
+        for row in orders_data:
             rows.append([
-                order.display_id,
-                order.created_at.strftime('%Y-%m-%d %H:%M'),
-                order.customer.full_name if order.customer else 'Guest',
-                order.order_status,
-                order.items.count(),
-                order.total
+                row[0],
+                row[1].strftime('%Y-%m-%d %H:%M'),
+                row[2],
+                row[3],
+                row[4],
+                row[5]
             ])
             
         return self.export_file(request, f'sales_report_{period}', header, rows)
@@ -710,7 +722,7 @@ class CustomerReportViewSet(ReportBaseViewSet):
         })
 
 class ActivityLogViewSet(viewsets.ReadOnlyModelViewSet):
-    queryset = ActivityLog.objects.all()
+    queryset = ActivityLog.objects.select_related('user')
     serializer_class = ActivityLogSerializer
     permission_classes = [HasRequiredPermission]
     required_permission = 'settings.view_audit_logs'
@@ -835,10 +847,12 @@ class FinanceReportViewSet(ReportBaseViewSet):
         )['total'] or Decimal('0.00')
         
         # Loans Outstanding
-        loans_outstanding = Decimal('0.00')
-        lenders = Lender.objects.prefetch_related('loans')
-        for lender in lenders:
-            loans_outstanding += lender.total_outstanding
+        from finance.models import Loan
+        loans_outstanding = Loan.objects.filter(
+            is_active=True, is_deleted=False
+        ).aggregate(
+            total=Coalesce(Sum(F('principal_amount') - F('total_paid'), output_field=DecimalField()), Decimal('0.00'))
+        )['total']
             
         return Response({
             'accounts_payable': accounts_payable,
@@ -970,9 +984,12 @@ class FinanceReportViewSet(ReportBaseViewSet):
         ).aggregate(total=Sum(F('total_amount') - F('paid_amount'), output_field=DecimalField()))['total'] or Decimal('0.00')
         
         # Loans Payable
-        loans_payable = Decimal('0.00')
-        for lender in Lender.objects.prefetch_related('loans'):
-             loans_payable += lender.total_outstanding
+        from finance.models import Loan
+        loans_payable = Loan.objects.filter(
+            is_active=True, is_deleted=False
+        ).aggregate(
+            total=Coalesce(Sum(F('principal_amount') - F('total_paid'), output_field=DecimalField()), Decimal('0.00'))
+        )['total']
 
         total_liabilities = payables + loans_payable
         

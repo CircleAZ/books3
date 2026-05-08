@@ -8,7 +8,7 @@ import csv
 import logging
 from decimal import Decimal
 from datetime import date, timedelta
-from django.db.models import Sum, Q, F, DecimalField, Subquery, OuterRef
+from django.db.models import Sum, Q, F, DecimalField, Subquery, OuterRef, Prefetch, Count
 from django.db.models.functions import Coalesce
 from django.http import HttpResponse, StreamingHttpResponse
 from django.core.cache import cache
@@ -73,7 +73,13 @@ class FinanceActionThrottle(UserRateThrottle):
 
 class ExpenseCategoryViewSet(viewsets.ModelViewSet):
     """CRUD for expense categories."""
-    queryset = ExpenseCategory.objects.all()
+    queryset = ExpenseCategory.objects.annotate(
+        _expenses_count=Count('expenses', distinct=True)
+    ).prefetch_related(
+        Prefetch('budgets', queryset=CategoryBudget.objects.filter(
+            period_start__lte=date.today(), period_end__gte=date.today()
+        ))
+    )
     serializer_class = ExpenseCategorySerializer
     permission_classes = [HasRequiredPermission]
     required_permission = 'finance.manage_expenses'
@@ -931,11 +937,15 @@ class ExpenseTripViewSet(viewsets.ModelViewSet):
 
     def perform_destroy(self, instance):
         """Soft-delete trip AND all linked Expense/EmployeeExpense records."""
-        for item in instance.items.filter(is_deleted=False):
-            if item.expense:
-                item.expense.soft_delete()
-            if item.employee_expense:
-                item.employee_expense.soft_delete()
+        expense_ids = instance.items.filter(is_deleted=False, expense__isnull=False).values_list('expense_id', flat=True)
+        employee_expense_ids = instance.items.filter(is_deleted=False, employee_expense__isnull=False).values_list('employee_expense_id', flat=True)
+        
+        now = timezone.now()
+        if expense_ids:
+            Expense.objects.filter(id__in=expense_ids).update(is_deleted=True, deleted_at=now)
+        if employee_expense_ids:
+            EmployeeExpense.objects.filter(id__in=employee_expense_ids).update(is_deleted=True, deleted_at=now)
+            
         self._log('trip_deleted', instance, {'name': instance.name})
         instance.soft_delete()
 

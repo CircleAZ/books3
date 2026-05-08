@@ -3,6 +3,7 @@ from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from decimal import Decimal
 from django.db.models import Sum, Count, F
+from django.db.models.functions import TruncDate
 from django.utils import timezone
 from datetime import timedelta
 import zoneinfo
@@ -105,22 +106,24 @@ class SalesTrendView(APIView):
         # Last 7 days trend — using business timezone for day boundaries
         now_biz = timezone.now().astimezone(_biz_tz)
         today_biz = now_biz.date()
-        data = []
+        seven_days_ago = today_biz - timedelta(days=6)
         
-        for i in range(7):
-            date = today_biz - timedelta(days=6-i)
-            # Filter for valid sales on this specific business day
-            day_total = Order.objects.filter(
-                created_at__date=date,
-                order_status__in=VALID_SALE_STATUSES
-            ).aggregate(
-                total=Sum('total')
-            )['total'] or Decimal("0.00")
-            
-            data.append({
-                "date": date,
-                "value": day_total
-            })
+        daily_totals = Order.objects.filter(
+            created_at__date__gte=seven_days_ago,
+            created_at__date__lte=today_biz,
+            order_status__in=VALID_SALE_STATUSES
+        ).annotate(
+            day=TruncDate('created_at')
+        ).values('day').annotate(
+            total=Sum('total')
+        ).order_by('day')
+        
+        totals_map = {row['day']: row['total'] for row in daily_totals}
+        data = [
+            {'date': today_biz - timedelta(days=6 - i),
+             'value': totals_map.get(today_biz - timedelta(days=6 - i), Decimal('0.00'))}
+            for i in range(7)
+        ]
             
         serializer = SalesTrendSerializer(data, many=True)
         return Response(serializer.data)

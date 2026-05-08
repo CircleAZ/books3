@@ -36,15 +36,20 @@ class ExpenseCategorySerializer(serializers.ModelSerializer):
         read_only_fields = ['id', 'created_at']
     
     def get_expenses_count(self, obj):
-        return obj.expenses.count()
+        return getattr(obj, '_expenses_count', obj.expenses.count())
 
     def get_budget_info(self, obj):
-        """Return current period budget utilization if any."""
-        from datetime import date
-        today = date.today()
-        budget = obj.budgets.filter(
-            period_start__lte=today, period_end__gte=today
-        ).first()
+        """Return current period budget utilization from prefetched budgets if any."""
+        budgets = getattr(obj, '_prefetched_objects_cache', {}).get('budgets')
+        if budgets is not None:
+            budget = budgets[0] if budgets else None
+        else:
+            from datetime import date
+            today = date.today()
+            budget = obj.budgets.filter(
+                period_start__lte=today, period_end__gte=today
+            ).first()
+            
         if budget:
             return {
                 'budget_amount': str(budget.budget_amount),

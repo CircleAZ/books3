@@ -128,7 +128,7 @@ class OutletDailySaleViewSet(viewsets.ModelViewSet):
         serializer.save(recorded_by=self.request.user)
 
 class OutletPaymentViewSet(viewsets.ModelViewSet):
-    queryset = OutletPayment.objects.all()
+    queryset = OutletPayment.objects.select_related('outlet', 'recorded_by')
     serializer_class = OutletPaymentSerializer
     filter_backends = [DjangoFilterBackend]
     filterset_fields = ['outlet', 'payment_method', 'date']
