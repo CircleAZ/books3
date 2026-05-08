@@ -5,7 +5,9 @@
 .table-card {
     margin-top: var(--space-xl);
     padding: 0;
-    overflow: hidden;
+    overflow-x: auto;
+    overflow-y: hidden;
+    -webkit-overflow-scrolling: touch;
     background: rgba(30, 35, 60, 0.95);
     backdrop-filter: blur(12px);
 }
