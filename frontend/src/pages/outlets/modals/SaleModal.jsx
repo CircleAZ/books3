@@ -15,6 +15,12 @@ export default function SaleModal({ isOpen, onClose, outletId, onSaleComplete })
     
     // items will be an array of { stockId, productId, name, sku, available, quantity }
     const [selectedItems, setSelectedItems] = useState([]);
+    const [idempotencyKey, setIdempotencyKey] = useState('');
+
+    // Regenerate idempotency key when items change
+    useEffect(() => {
+        setIdempotencyKey(Math.random().toString(36).substring(2, 15) + Date.now().toString(36));
+    }, [selectedItems]);
     
     useEffect(() => {
         if (isOpen) {
@@ -71,6 +77,7 @@ export default function SaleModal({ isOpen, onClose, outletId, onSaleComplete })
             const payload = {
                 outlet: outletId,
                 date: new Date().toISOString().split('T')[0],
+                idempotency_key: idempotencyKey,
                 items: selectedItems.map(item => ({
                     product: item.productId,
                     quantity: item.quantity

@@ -12,6 +12,7 @@ import PaymentModal from './modals/PaymentModal';
 import SaleModal from './modals/SaleModal';
 import TransferDetailsModal from './modals/TransferDetailsModal';
 import ReturnDetailsModal from './modals/ReturnDetailsModal';
+import SaleDetailsModal from './modals/SaleDetailsModal';
 
 import '../../styles/components/page-layout.css';
 import '../../styles/components/data-table.css';
@@ -62,6 +63,7 @@ export default function OutletDetails() {
     const [isSaleModalOpen, setIsSaleModalOpen] = useState(false);
     const [isReturnModalOpen, setIsReturnModalOpen] = useState(false);
     const [selectedReturn, setSelectedReturn] = useState(null);
+    const [selectedSale, setSelectedSale] = useState(null);
     const [processingAction, setProcessingAction] = useState(null);
 
     const fetchOutlet = useCallback(async () => {
@@ -484,7 +486,12 @@ export default function OutletDetails() {
                             </thead>
                             <tbody>
                                 {sales.map(sale => (
-                                    <tr key={sale.id}>
+                                    <tr 
+                                        key={sale.id}
+                                        onClick={() => setSelectedSale(sale)}
+                                        style={{ cursor: 'pointer' }}
+                                        className="table-row-hover"
+                                    >
                                         <td>#{sale.display_id}</td>
                                         <td>{sale.date}</td>
                                         <td>{formatCurrency(sale.gross_total)}</td>
@@ -918,6 +925,12 @@ export default function OutletDetails() {
                 isOpen={!!selectedReturn}
                 onClose={() => setSelectedReturn(null)}
                 returnRecord={selectedReturn}
+            />
+
+            <SaleDetailsModal
+                isOpen={!!selectedSale}
+                onClose={() => setSelectedSale(null)}
+                sale={selectedSale}
             />
         </div>
     );

@@ -368,6 +368,9 @@ class OutletDailySale(DisplayIDMixin, SoftDeleteModel):
     notes = models.TextField(blank=True)
     recorded_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, related_name='recorded_outlet_sales')
     
+    # Idempotency
+    idempotency_key = models.CharField(max_length=255, null=True, blank=True, unique=True, help_text="Prevents duplicate creation on network retries")
+
     # Financials (Calculated and cached on item save)
     gross_total = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal('0.00'))
     commission_amount = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal('0.00'))

@@ -188,10 +188,27 @@ class OutletDailySaleSerializer(serializers.ModelSerializer):
         read_only_fields = ('display_id', 'recorded_by', 'gross_total', 'commission_amount', 'net_total')
 
     def create(self, validated_data):
+        from django.db import IntegrityError
+        idempotency_key = validated_data.get('idempotency_key')
+        
+        if idempotency_key:
+            existing = OutletDailySale.objects.filter(idempotency_key=idempotency_key).first()
+            if existing:
+                return existing
+
         items_data = validated_data.pop('items', [])
-        sale = OutletDailySale.objects.create(**validated_data)
+        
+        try:
+            sale = OutletDailySale.objects.create(**validated_data)
+        except IntegrityError:
+            if idempotency_key:
+                return OutletDailySale.objects.get(idempotency_key=idempotency_key)
+            raise
+            
         for item_data in items_data:
             OutletDailySaleItem.objects.create(sale=sale, **item_data)
+            
+        sale.recalculate_totals() # ensure totals are accurate based on new items
         return sale
 
 
