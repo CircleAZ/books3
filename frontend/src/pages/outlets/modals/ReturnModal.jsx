@@ -29,6 +29,12 @@ export default function ReturnModal({ isOpen, onClose, outletId, onReturnComplet
     const [notes, setNotes] = useState('');
     const [selectedItems, setSelectedItems] = useState([]);
     const isSubmittingRef = useRef(false);
+    const [idempotencyKey, setIdempotencyKey] = useState('');
+
+    // Regenerate idempotency key when payload dependencies change
+    useEffect(() => {
+        setIdempotencyKey(Math.random().toString(36).substring(2, 15) + Date.now().toString(36));
+    }, [selectedItems, reason, notes]);
 
     useEffect(() => {
         if (isOpen) {
@@ -99,7 +105,8 @@ export default function ReturnModal({ isOpen, onClose, outletId, onReturnComplet
                 items: selectedItems.map(item => ({
                     product: item.productId,
                     quantity: item.quantity
-                }))
+                })),
+                idempotency_key: idempotencyKey
             };
 
             const response = await fetchWithAuth(ENDPOINTS.OUTLETS_RETURNS, {

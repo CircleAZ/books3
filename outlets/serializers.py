@@ -85,8 +85,23 @@ class OutletStockTransferSerializer(serializers.ModelSerializer):
         read_only_fields = ('display_id', 'created_by', 'status')
 
     def create(self, validated_data):
+        from django.db import IntegrityError
+        idempotency_key = validated_data.get('idempotency_key')
+        
+        if idempotency_key:
+            existing = OutletStockTransfer.objects.filter(idempotency_key=idempotency_key).first()
+            if existing:
+                return existing
+
         items_data = validated_data.pop('items', [])
-        transfer = OutletStockTransfer.objects.create(**validated_data)
+        
+        try:
+            transfer = OutletStockTransfer.objects.create(**validated_data)
+        except IntegrityError:
+            if idempotency_key:
+                return OutletStockTransfer.objects.get(idempotency_key=idempotency_key)
+            raise
+            
         for item_data in items_data:
             OutletStockTransferItem.objects.create(transfer=transfer, **item_data)
         return transfer
@@ -130,8 +145,23 @@ class OutletStockReturnSerializer(serializers.ModelSerializer):
         read_only_fields = ('display_id', 'created_by', 'status')
 
     def create(self, validated_data):
+        from django.db import IntegrityError
+        idempotency_key = validated_data.get('idempotency_key')
+        
+        if idempotency_key:
+            existing = OutletStockReturn.objects.filter(idempotency_key=idempotency_key).first()
+            if existing:
+                return existing
+
         items_data = validated_data.pop('items', [])
-        return_rec = OutletStockReturn.objects.create(**validated_data)
+        
+        try:
+            return_rec = OutletStockReturn.objects.create(**validated_data)
+        except IntegrityError:
+            if idempotency_key:
+                return OutletStockReturn.objects.get(idempotency_key=idempotency_key)
+            raise
+            
         for item_data in items_data:
             OutletStockReturnItem.objects.create(return_record=return_rec, **item_data)
         return return_rec

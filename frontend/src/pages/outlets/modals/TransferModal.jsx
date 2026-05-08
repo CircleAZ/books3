@@ -15,6 +15,14 @@ export default function TransferModal({ isOpen, onClose, outletId, onTransferCom
     // items will be an array of { productId, quantity }
     const [selectedItems, setSelectedItems] = useState([]);
     const isSubmittingRef = useRef(false);
+    const [idempotencyKey, setIdempotencyKey] = useState('');
+    
+    // Regenerate idempotency key when items change to prevent "Silent Betrayal"
+    useEffect(() => {
+        if (!initialData) {
+            setIdempotencyKey(Math.random().toString(36).substring(2, 15) + Date.now().toString(36));
+        }
+    }, [selectedItems, initialData]);
     
     useEffect(() => {
         if (isOpen) {
@@ -101,6 +109,10 @@ export default function TransferModal({ isOpen, onClose, outletId, onTransferCom
                     quantity: item.quantity
                 }))
             };
+            
+            if (!initialData) {
+                payload.idempotency_key = idempotencyKey;
+            }
             
             const url = initialData 
                 ? `${ENDPOINTS.OUTLETS_TRANSFERS}${initialData.id}/`

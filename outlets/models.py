@@ -133,6 +133,7 @@ class OutletStockTransfer(DisplayIDMixin, SoftDeleteModel):
     reference_number = models.CharField(max_length=100, blank=True)
     notes = models.TextField(blank=True)
     created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, related_name='created_outlet_transfers')
+    idempotency_key = models.CharField(max_length=255, null=True, blank=True, unique=True, help_text="Prevents duplicate creation on network retries")
     
     def __str__(self):
         return f"Transfer #{self.display_id} to {self.outlet.name} ({self.status})"
@@ -273,6 +274,7 @@ class OutletStockReturn(DisplayIDMixin, SoftDeleteModel):
     reason = models.CharField(max_length=20, choices=Reason.choices, default=Reason.UNSOLD)
     notes = models.TextField(blank=True)
     created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, related_name='created_outlet_returns')
+    idempotency_key = models.CharField(max_length=255, null=True, blank=True, unique=True, help_text="Prevents duplicate creation on network retries")
 
     def __str__(self):
         return f"Return #{self.display_id} from {self.outlet.name} ({self.status})"
