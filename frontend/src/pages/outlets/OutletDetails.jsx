@@ -9,6 +9,7 @@ import './OutletDetails.css';
 import TransferModal from './modals/TransferModal';
 import PaymentModal from './modals/PaymentModal';
 import SaleModal from './modals/SaleModal';
+import TransferDetailsModal from './modals/TransferDetailsModal';
 
 import '../../styles/components/page-layout.css';
 import '../../styles/components/data-table.css';
@@ -44,6 +45,7 @@ export default function OutletDetails() {
     // Modal states
     const [isTransferModalOpen, setIsTransferModalOpen] = useState(false);
     const [editingTransfer, setEditingTransfer] = useState(null);
+    const [selectedTransfer, setSelectedTransfer] = useState(null);
     const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
     const [isSaleModalOpen, setIsSaleModalOpen] = useState(false);
 
@@ -425,7 +427,12 @@ export default function OutletDetails() {
                             </thead>
                             <tbody>
                                 {transfers.map(transfer => (
-                                    <tr key={transfer.id}>
+                                    <tr 
+                                        key={transfer.id} 
+                                        onClick={() => setSelectedTransfer(transfer)} 
+                                        style={{ cursor: 'pointer' }} 
+                                        className="table-row-hover"
+                                    >
                                         <td>#{transfer.display_id}</td>
                                         <td>{transfer.date}</td>
                                         <td>{transfer.reference_number || '-'}</td>
@@ -437,19 +444,19 @@ export default function OutletDetails() {
                                                 <div className="transfer-actions">
                                                     <button 
                                                         className="btn btn-sm btn-primary" 
-                                                        onClick={() => handleDispatchTransfer(transfer.id)}
+                                                        onClick={(e) => { e.stopPropagation(); handleDispatchTransfer(transfer.id); }}
                                                     >
                                                         Dispatch Now
                                                     </button>
                                                     <button 
                                                         className="btn btn-sm btn-secondary" 
-                                                        onClick={() => openEditTransferModal(transfer)}
+                                                        onClick={(e) => { e.stopPropagation(); openEditTransferModal(transfer); }}
                                                     >
                                                         Edit
                                                     </button>
                                                     <button 
                                                         className="btn btn-sm btn-danger" 
-                                                        onClick={() => handleDeleteTransfer(transfer.id)}
+                                                        onClick={(e) => { e.stopPropagation(); handleDeleteTransfer(transfer.id); }}
                                                     >
                                                         Delete
                                                     </button>
@@ -663,6 +670,11 @@ export default function OutletDetails() {
                 onClose={() => setIsSaleModalOpen(false)} 
                 outletId={outlet.id} 
                 onSaleComplete={refreshData} 
+            />
+            <TransferDetailsModal
+                isOpen={!!selectedTransfer}
+                onClose={() => setSelectedTransfer(null)}
+                transfer={selectedTransfer}
             />
         </div>
     );

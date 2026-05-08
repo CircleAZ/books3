@@ -102,6 +102,8 @@ class OutletStock(UUIDPrimaryKeyModel):
     outlet = models.ForeignKey(Outlet, on_delete=models.CASCADE, related_name='stock')
     product = models.ForeignKey(Product, on_delete=models.PROTECT, related_name='outlet_stock')
     quantity = models.IntegerField(default=0)
+    commission_queue = models.JSONField(default=list, help_text="FIFO Queue of batches: [{'qty': int, 'type': str, 'val': float}]")
+
     
     class Meta:
         unique_together = ('outlet', 'product')
@@ -185,13 +187,33 @@ class OutletStockTransfer(DisplayIDMixin, SoftDeleteModel):
                 target_ledger='both'
             )
             
-            # 3. Add to Outlet Stock
+            # 3. Add to Outlet Stock and Push to Commission Queue
             outlet_stock, created = OutletStock.objects.select_for_update().get_or_create(
                 outlet=self.outlet,
                 product_id=item.product_id,
-                defaults={'quantity': 0}
+                defaults={'quantity': 0, 'commission_queue': []}
             )
+            
+            # Freeze the commission rate at time of dispatch
+            from .models import OutletDailySaleItem
+            c_type, c_val = OutletDailySaleItem.resolve_commission_rate(self.outlet, product)
+            item.frozen_commission_type = c_type
+            item.frozen_commission_value = c_val
+            item.save(update_fields=['frozen_cost_price', 'frozen_commission_type', 'frozen_commission_value'])
+
+            # Push to Queue
+            queue = outlet_stock.commission_queue if outlet_stock.commission_queue is not None else []
+            if queue and queue[-1]['type'] == c_type and Decimal(str(queue[-1]['val'])) == c_val:
+                queue[-1]['qty'] += item.quantity
+            else:
+                queue.append({
+                    "qty": item.quantity,
+                    "type": c_type,
+                    "val": float(c_val)
+                })
+
             outlet_stock.quantity += item.quantity
+            outlet_stock.commission_queue = queue
             outlet_stock.save()
             
         self.status = self.Status.DISPATCHED
@@ -209,6 +231,12 @@ class OutletStockTransferItem(SoftDeleteModel):
         blank=True,
         help_text="AVCO Protection: Cost price at the exact moment of dispatch"
     )
+    COMMISSION_TYPES = [
+        ('percent', 'Percentage'),
+        ('fixed', 'Fixed Amount'),
+    ]
+    frozen_commission_type = models.CharField(max_length=10, choices=COMMISSION_TYPES, null=True, blank=True)
+    frozen_commission_value = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
 
     def __str__(self):
         return f"{self.quantity} x {self.product.name}"
@@ -387,6 +415,10 @@ class OutletDailySaleItem(SoftDeleteModel):
         default=Decimal('0.00'),
         help_text="Calculated commission amount for this line item"
     )
+    commission_breakdown = models.JSONField(
+        default=list, 
+        help_text="Records the specific FIFO batches consumed by this sale line item for rollback capability"
+    )
 
     @property
     def line_total(self):
@@ -416,31 +448,11 @@ class OutletDailySaleItem(SoftDeleteModel):
     def save(self, *args, **kwargs):
         is_new = self._state.adding
         if is_new and not self.unit_price:
-            # Temporal Pricing Constraint
             self.unit_price = self.product.selling_price
         
-        if is_new:
-            # Freeze the commission rate at time of sale
-            if not self.commission_type or self.commission_value is None:
-                c_type, c_val = self.resolve_commission_rate(
-                    self.sale.outlet, self.product
-                )
-                self.commission_type = c_type
-                self.commission_value = c_val
-            
-        # Calculate commission amount from frozen rate
-        margin_per_unit = max(Decimal('0.00'), self.unit_price - self.product.cost_price)
-        total_margin = self.quantity * margin_per_unit
-        
-        if self.commission_type == 'fixed':
-            self.commission_amount = (self.quantity * self.commission_value).quantize(Decimal('0.01'))
-        else:
-            self.commission_amount = (total_margin * self.commission_value / Decimal('100.00')).quantize(Decimal('0.01'))
-            
         with transaction.atomic():
-            super().save(*args, **kwargs)
             if is_new:
-                # Deduct from Outlet Stock
+                # Deduct from Outlet Stock and resolve commission via FIFO Queue
                 try:
                     outlet_stock = OutletStock.objects.select_for_update().get(
                         outlet=self.sale.outlet,
@@ -448,35 +460,77 @@ class OutletDailySaleItem(SoftDeleteModel):
                     )
                     if outlet_stock.quantity < self.quantity:
                         raise ValueError(f"Outlet does not have enough {self.product.name} to sell.")
+                    
+                    # FIFO Commission Resolution
+                    queue = outlet_stock.commission_queue if outlet_stock.commission_queue is not None else []
+                    remaining_q = self.quantity
+                    popped_batches = []
+                    total_commission = Decimal('0.00')
+                    margin_per_unit = max(Decimal('0.00'), self.unit_price - self.product.cost_price)
+
+                    while remaining_q > 0 and queue:
+                        batch = queue[0]
+                        if batch['qty'] <= remaining_q:
+                            q_taken = batch['qty']
+                            popped_batches.append({"qty": q_taken, "type": batch['type'], "val": batch['val']})
+                            queue.pop(0)
+                        else:
+                            q_taken = remaining_q
+                            popped_batches.append({"qty": q_taken, "type": batch['type'], "val": batch['val']})
+                            queue[0]['qty'] -= q_taken
+
+                        remaining_q -= q_taken
+                        b_val = Decimal(str(batch['val']))
+                        if batch['type'] == 'fixed':
+                            total_commission += q_taken * b_val
+                        else:
+                            total_commission += (q_taken * margin_per_unit) * b_val / Decimal('100.00')
+
+                    if remaining_q > 0:
+                        # Fallback if queue runs out but stock exists (legacy data protection)
+                        c_type, c_val = self.resolve_commission_rate(self.sale.outlet, self.product)
+                        popped_batches.append({"qty": remaining_q, "type": c_type, "val": float(c_val)})
+                        if c_type == 'fixed':
+                            total_commission += remaining_q * c_val
+                        else:
+                            total_commission += (remaining_q * margin_per_unit) * c_val / Decimal('100.00')
+
+                    self.commission_amount = total_commission.quantize(Decimal('0.01'))
+                    self.commission_breakdown = popped_batches
+                    
+                    # Calculate AVCO Blended Commission Rate for display/legacy compat
+                    if self.quantity > 0:
+                        # For simplicity, if all batches were percent, we calculate the implied percent
+                        # If mixed, we store it as 'percent' representing the total margin cut
+                        self.commission_type = 'percent'
+                        total_possible_margin = self.quantity * margin_per_unit
+                        if total_possible_margin > 0:
+                            self.commission_value = ((self.commission_amount / total_possible_margin) * Decimal('100')).quantize(Decimal('0.01'))
+                        else:
+                            self.commission_value = Decimal('0.00')
+
                     outlet_stock.quantity -= self.quantity
+                    outlet_stock.commission_queue = queue
                     outlet_stock.save()
+                    
                 except OutletStock.DoesNotExist:
                     raise ValueError(f"Outlet has no stock of {self.product.name}.")
+                
+                super().save(*args, **kwargs)
+                
             else:
-                # Delta handling for post-sale quantity edits
+                # Delta handling for post-sale edits
                 delta = self.quantity - (self._original_quantity or 0)
                 if delta != 0:
-                    try:
-                        outlet_stock = OutletStock.objects.select_for_update().get(
-                            outlet=self.sale.outlet,
-                            product=self.product
-                        )
-                        if outlet_stock.quantity < delta:
-                            raise ValueError(f"Outlet does not have enough {self.product.name} to fulfill increased sale.")
-                        outlet_stock.quantity -= delta
-                        outlet_stock.save()
-                    except OutletStock.DoesNotExist:
-                        if delta > 0:
-                            raise ValueError(f"Outlet has no stock of {self.product.name}.")
-                            
+                    raise ValueError("Cannot edit quantity of an existing sale. Void the sale and create a new one.")
+                super().save(*args, **kwargs)
+
             self._original_quantity = self.quantity
-            
-            # Recalculate parent sale
             self.sale.recalculate_totals()
 
     def soft_delete(self):
         """
-        Void Protocol: Restores the OutletStock upon deletion.
+        Void Protocol: Restores the OutletStock and prepends the popped batches back to the FIFO queue.
         """
         with transaction.atomic():
             super().soft_delete()
@@ -485,6 +539,17 @@ class OutletDailySaleItem(SoftDeleteModel):
                 product=self.product
             )
             outlet_stock.quantity += self.quantity
+            queue = outlet_stock.commission_queue if outlet_stock.commission_queue is not None else []
+            
+            # Prepend the batches back to the front of the queue to restore original FIFO state
+            if hasattr(self, 'commission_breakdown') and self.commission_breakdown:
+                queue = self.commission_breakdown + queue
+            else:
+                # Legacy fallback
+                c_type, c_val = self.resolve_commission_rate(self.sale.outlet, self.product)
+                queue.insert(0, {"qty": self.quantity, "type": c_type, "val": float(c_val)})
+                
+            outlet_stock.commission_queue = queue
             outlet_stock.save()
             self.sale.recalculate_totals()
 
