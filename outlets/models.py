@@ -293,7 +293,8 @@ class OutletStockReturn(DisplayIDMixin, SoftDeleteModel):
         Restores to 'both' ledgers in Main Inventory.
         Injects the frozen_cost_price back into StockService to prevent AVCO skew.
         """
-        if self.status != self.Status.DRAFT:
+        locked_return = OutletStockReturn.objects.select_for_update().get(id=self.id)
+        if locked_return.status != self.Status.DRAFT:
             raise ValueError("Only draft returns can be received.")
             
         from inventory.services import StockService

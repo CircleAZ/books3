@@ -62,6 +62,7 @@ export default function OutletDetails() {
     const [isSaleModalOpen, setIsSaleModalOpen] = useState(false);
     const [isReturnModalOpen, setIsReturnModalOpen] = useState(false);
     const [selectedReturn, setSelectedReturn] = useState(null);
+    const [processingAction, setProcessingAction] = useState(null);
 
     const fetchOutlet = useCallback(async () => {
         try {
@@ -210,6 +211,7 @@ export default function OutletDetails() {
     }, [activeTab, commissionPage, debouncedCommissionSearch, fetchCommissionProducts]);
 
     const handleDispatchTransfer = async (transferId) => {
+        setProcessingAction(`dispatch-${transferId}`);
         try {
             const response = await fetchWithAuth(`${ENDPOINTS.OUTLETS_TRANSFERS}${transferId}/dispatch_transfer/`, {
                 method: 'POST'
@@ -223,6 +225,8 @@ export default function OutletDetails() {
             }
         } catch (error) {
             showToast("Failed to dispatch transfer", "error");
+        } finally {
+            setProcessingAction(null);
         }
     };
 
@@ -251,6 +255,7 @@ export default function OutletDetails() {
 
     const handleReceiveReturn = async (returnId) => {
         if (!window.confirm("Receive this return? Stock will be added back to main inventory.")) return;
+        setProcessingAction(`receive-${returnId}`);
         try {
             const response = await fetchWithAuth(`${ENDPOINTS.OUTLETS_RETURNS}${returnId}/receive_return/`, {
                 method: 'POST'
@@ -264,6 +269,8 @@ export default function OutletDetails() {
             }
         } catch (error) {
             showToast("Failed to receive return", "error");
+        } finally {
+            setProcessingAction(null);
         }
     };
 
@@ -562,18 +569,21 @@ export default function OutletDetails() {
                                                             <button 
                                                                 className="btn btn-sm btn-primary" 
                                                                 onClick={(e) => { e.stopPropagation(); handleDispatchTransfer(item.id); }}
+                                                                disabled={processingAction === `dispatch-${item.id}`}
                                                             >
-                                                                Dispatch Now
+                                                                {processingAction === `dispatch-${item.id}` ? 'Dispatching...' : 'Dispatch Now'}
                                                             </button>
                                                             <button 
                                                                 className="btn btn-sm btn-secondary" 
                                                                 onClick={(e) => { e.stopPropagation(); openEditTransferModal(item); }}
+                                                                disabled={!!processingAction}
                                                             >
                                                                 Edit
                                                             </button>
                                                             <button 
                                                                 className="btn btn-sm btn-danger" 
                                                                 onClick={(e) => { e.stopPropagation(); handleDeleteTransfer(item.id); }}
+                                                                disabled={!!processingAction}
                                                             >
                                                                 Delete
                                                             </button>
@@ -607,12 +617,14 @@ export default function OutletDetails() {
                                                             <button 
                                                                 className="btn btn-sm btn-success" 
                                                                 onClick={(e) => { e.stopPropagation(); handleReceiveReturn(item.id); }}
+                                                                disabled={processingAction === `receive-${item.id}`}
                                                             >
-                                                                Receive Now
+                                                                {processingAction === `receive-${item.id}` ? 'Receiving...' : 'Receive Now'}
                                                             </button>
                                                             <button 
                                                                 className="btn btn-sm btn-danger" 
                                                                 onClick={(e) => { e.stopPropagation(); handleDeleteReturn(item.id); }}
+                                                                disabled={!!processingAction}
                                                             >
                                                                 Delete
                                                             </button>
