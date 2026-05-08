@@ -388,12 +388,15 @@ class OutletDailySale(DisplayIDMixin, SoftDeleteModel):
     def recalculate_totals(self):
         """Aggregate financials from per-line-item commission calculations."""
         items = list(self.items.all())
-        gross = sum(item.line_total for item in items)
-        commission = sum(item.commission_amount for item in items)
+        gross = sum((item.line_total for item in items), Decimal('0.00'))
+        commission = sum((item.commission_amount for item in items), Decimal('0.00'))
         net = gross - commission
         self.gross_total = gross
         self.commission_amount = commission
-        self.net_total = net.quantize(Decimal('0.01'))
+        if isinstance(net, Decimal):
+            self.net_total = net.quantize(Decimal('0.01'))
+        else:
+            self.net_total = Decimal('0.00')
         self.save(update_fields=['gross_total', 'commission_amount', 'net_total'])
 
 

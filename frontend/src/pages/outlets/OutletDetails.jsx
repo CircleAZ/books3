@@ -294,6 +294,24 @@ export default function OutletDetails() {
         }
     };
 
+    const handleVoidSale = async (saleId) => {
+        try {
+            const response = await fetchWithAuth(`${ENDPOINTS.OUTLETS_SALES}${saleId}/`, {
+                method: 'DELETE'
+            });
+            if (response.ok) {
+                showToast("Sale voided. Stock restored to outlet.", "success");
+                setSelectedSale(null); // Close modal
+                refreshData(); // Refresh stock and sales
+            } else {
+                const err = await response.json().catch(() => ({}));
+                showToast(err.error || "Failed to void sale", "error");
+            }
+        } catch (error) {
+            showToast("Failed to void sale", "error");
+        }
+    };
+
     // Commission Matrix Logic
     const handleOverrideChange = (productId, type, value) => {
         setOverrides(prev => ({ ...prev, [productId]: { type, value } }));
@@ -930,7 +948,7 @@ export default function OutletDetails() {
             <SaleDetailsModal
                 isOpen={!!selectedSale}
                 onClose={() => setSelectedSale(null)}
-                sale={selectedSale}
+                sale={selectedSale ? { ...selectedSale, onVoid: handleVoidSale } : null}
             />
         </div>
     );

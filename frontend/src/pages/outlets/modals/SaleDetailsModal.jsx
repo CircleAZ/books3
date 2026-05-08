@@ -78,7 +78,18 @@ export default function SaleDetailsModal({ isOpen, onClose, sale }) {
                     </div>
                 )}
 
-                <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <button 
+                        type="button" 
+                        className="btn btn-danger" 
+                        onClick={() => {
+                            if (window.confirm('Are you sure you want to void this sale? This will restore the stock to the outlet.')) {
+                                sale.onVoid(sale.id);
+                            }
+                        }}
+                    >
+                        Void Sale
+                    </button>
                     <button type="button" className="btn btn-secondary" onClick={onClose}>Close</button>
                 </div>
             </div>
