@@ -67,6 +67,7 @@ export const ENDPOINTS = {
     ORDERS: `${API_BASE}/orders/orders/`,
     RETURNS: `${API_BASE}/orders/returns/`,
     RETURN_REASONS: `${API_BASE}/orders/return-reasons/`,
+    ORDERS_REFUNDS: `${API_BASE}/orders/refunds/`,
 
     // Finance
     FINANCE_DASHBOARD: `${API_BASE}/finance/dashboard/`,
