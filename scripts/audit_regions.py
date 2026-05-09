@@ -1,43 +1,28 @@
-"""Audit current region assignments and test spatial containment."""
-import os, sys, django
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'books2.settings')
-django.setup()
+from customers.models import GeographicRegion, Address
+from django.db import connection
 
-from customers.models import Address, GeographicRegion
-from django.db.models import Count
+expected = ['Krushnapur', 'Machhiwad', 'Choramalabhatha', 'Ranabhatha', 'Onjal', 'Kaniyet', 'Movasa', 'Bhat', 'Mendhar']
 
-# Count addresses with location
-total_with_loc = Address.objects.filter(is_primary=True, location__isnull=False).count()
-print(f"Primary addresses with GPS: {total_with_loc}")
+orphans = GeographicRegion.objects.exclude(name__in=expected)
+orphan_count = orphans.count()
 
-# Count boundaries
-boundaries = GeographicRegion.objects.filter(layer='village', boundary__isnull=False)
-print(f"Villages with boundaries: {boundaries.count()}")
-for b in boundaries:
-    print(f"  - {b.name}")
+# Step 1: Nullify the 2 address FK references to orphan regions
+nullified = Address.objects.filter(region__in=orphans).update(region=None)
+print(f"Step 1: Nullified {nullified} address FK references to orphan regions")
 
-# Current region distribution
-regions = Address.objects.filter(
-    is_primary=True, location__isnull=False, region__isnull=False
-).values('region__name', 'region__layer').annotate(c=Count('id')).order_by('-c')
-print(f"\nCurrent region assignments:")
-for r in regions:
-    print(f"  {r['region__name']} ({r['region__layer']}): {r['c']}")
+# Step 2: Hard-delete (not soft-delete) all 603 orphan records
+# We use _raw_delete via the queryset's internal delete to bypass SoftDeleteModel
+with connection.cursor() as cursor:
+    orphan_ids = list(orphans.values_list('id', flat=True))
+    if orphan_ids:
+        # Format UUIDs for SQL IN clause
+        id_list = ",".join([f"'{str(uid)}'" for uid in orphan_ids])
+        cursor.execute(f"DELETE FROM customers_geographicregion WHERE id IN ({id_list})")
+        print(f"Step 2: Hard-deleted {cursor.rowcount} orphan GeographicRegion records")
 
-no_region = Address.objects.filter(is_primary=True, location__isnull=False, region__isnull=True).count()
-print(f"  (no region): {no_region}")
-
-# Test spatial containment: how many addresses fall inside each boundary?
-print(f"\n--- Spatial containment test ---")
-addresses_with_loc = Address.objects.filter(is_primary=True, location__isnull=False)
-for region in boundaries:
-    contained = addresses_with_loc.filter(location__within=region.boundary).count()
-    print(f"  {region.name}: {contained} addresses fall inside")
-
-# Check for addresses that fall in NO boundary
-from django.db.models import Q
-outside_all = addresses_with_loc
-for region in boundaries:
-    outside_all = outside_all.exclude(location__within=region.boundary)
-print(f"\n  Outside all boundaries: {outside_all.count()}")
+# Step 3: Verify
+remaining = GeographicRegion.objects.count()
+print(f"Step 3: Verification — {remaining} records remain in DB")
+for r in GeographicRegion.objects.all().order_by('name'):
+    has_b = 'YES' if r.boundary else 'NO'
+    print(f"  {r.name} | {r.layer} | boundary={has_b}")
