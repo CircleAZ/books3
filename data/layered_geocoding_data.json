@@ -1,20 +1,8 @@
 [
   {
-    "id": 9011,
     "name": "Krushnapur",
-    "label": "Krushnapur",
-    "lat": 20.8069548,
-    "lng": 72.8648404,
     "layer": "village",
-    "priority": 3,
-    "minZoom": 15,
-    "sub_type": "village",
-    "icon": "icon-village",
     "color": "#4ade80",
-    "category": "village",
-    "url": "",
-    "osm_id": null,
-    "tags": {},
     "pincode": "396460",
     "boundary": {
       "type": "Polygon",
@@ -46,7 +34,7 @@
           ],
           [
             20.810473,
-            72.862540
+            72.86254
           ],
           [
             20.810907,
@@ -98,26 +86,12 @@
           ]
         ]
       ]
-    },
-    "boundary_source": "removed_inaccurate",
-    "coord_source": "google_maps_verified"
+    }
   },
   {
-    "id": 9017,
     "name": "Machhiwad",
-    "label": "Machhiwad",
-    "lat": 20.810686,
-    "lng": 72.835456,
     "layer": "village",
-    "priority": 3,
-    "minZoom": 15,
-    "sub_type": "village",
-    "icon": "icon-village",
     "color": "#4ade80",
-    "category": "village",
-    "url": "",
-    "osm_id": null,
-    "tags": {},
     "pincode": "396412",
     "boundary": {
       "type": "Polygon",
@@ -125,7 +99,7 @@
         [
           [
             20.804403,
-            72.840160
+            72.84016
           ],
           [
             20.805285,
@@ -133,7 +107,7 @@
           ],
           [
             20.814091,
-            72.826360
+            72.82636
           ],
           [
             20.818543,
@@ -145,33 +119,19 @@
           ]
         ]
       ]
-    },
-    "boundary_source": "removed_inaccurate",
-    "coord_source": "google_maps_verified"
+    }
   },
   {
-    "id": 9018,
     "name": "Choramalabhatha",
-    "label": "Choramalabhatha",
-    "lat": 20.813590,
-    "lng": 72.861876,
     "layer": "village",
-    "priority": 3,
-    "minZoom": 15,
-    "sub_type": "village",
-    "icon": "icon-village",
     "color": "#4ade80",
-    "category": "village",
-    "url": "",
-    "osm_id": null,
-    "tags": {},
     "pincode": "396412",
     "boundary": {
       "type": "Polygon",
       "coordinates": [
         [
           [
-            20.810530,
+            20.81053,
             72.860504
           ],
           [
@@ -204,26 +164,12 @@
           ]
         ]
       ]
-    },
-    "boundary_source": "removed_inaccurate",
-    "coord_source": "google_maps_verified"
+    }
   },
   {
-    "id": 9019,
     "name": "Ranabhatha",
-    "label": "Ranabhatha",
-    "lat": 20.824345,
-    "lng": 72.859691,
     "layer": "village",
-    "priority": 3,
-    "minZoom": 15,
-    "sub_type": "village",
-    "icon": "icon-village",
     "color": "#4ade80",
-    "category": "village",
-    "url": "",
-    "osm_id": null,
-    "tags": {},
     "pincode": "396412",
     "boundary": {
       "type": "Polygon",
@@ -242,7 +188,7 @@
             72.859068
           ],
           [
-            20.821060,
+            20.82106,
             72.859368
           ],
           [
@@ -255,26 +201,12 @@
           ]
         ]
       ]
-    },
-    "boundary_source": "removed_inaccurate",
-    "coord_source": "google_maps_verified"
+    }
   },
   {
-    "id": 99001,
     "name": "Onjal",
-    "label": "Onjal",
-    "lat": 20.831152,
-    "lng": 72.840099,
     "layer": "village",
-    "priority": 3,
-    "minZoom": 14,
-    "sub_type": "village",
-    "icon": "icon-village",
     "color": "#10b981",
-    "category": "village",
-    "url": "",
-    "osm_id": null,
-    "tags": {},
     "pincode": "396460",
     "boundary": {
       "type": "Polygon",
@@ -282,14 +214,14 @@
         [
           [
             20.826425,
-            72.833220
+            72.83322
           ],
           [
             20.830908,
             72.831953
           ],
           [
-            20.839250,
+            20.83925,
             72.845336
           ],
           [
@@ -310,25 +242,12 @@
           ]
         ]
       ]
-    },
-    "boundary_source": "synthetic"
+    }
   },
   {
-    "id": 99003,
     "name": "Kaniyet",
-    "label": "Kaniyet",
-    "lat": 20.818945,
-    "lng": 72.859213,
     "layer": "village",
-    "priority": 3,
-    "minZoom": 14,
-    "sub_type": "village",
-    "icon": "icon-village",
     "color": "#10b981",
-    "category": "village",
-    "url": "",
-    "osm_id": null,
-    "tags": {},
     "pincode": "396460",
     "boundary": {
       "type": "Polygon",
@@ -347,7 +266,7 @@
             72.857423
           ],
           [
-            20.817390,
+            20.81739,
             72.859773
           ],
           [
@@ -356,25 +275,12 @@
           ]
         ]
       ]
-    },
-    "boundary_source": "synthetic"
+    }
   },
   {
-    "id": 99005,
     "name": "Movasa",
-    "label": "Movasa",
-    "lat": 20.795185,
-    "lng": 72.883610,
     "layer": "village",
-    "priority": 3,
-    "minZoom": 14,
-    "sub_type": "village",
-    "icon": "icon-village",
     "color": "#10b981",
-    "category": "village",
-    "url": "",
-    "osm_id": null,
-    "tags": {},
     "pincode": "396460",
     "boundary": {
       "type": "Polygon",
@@ -386,7 +292,7 @@
           ],
           [
             20.788134,
-            72.888160
+            72.88816
           ],
           [
             20.795777,
@@ -402,25 +308,12 @@
           ]
         ]
       ]
-    },
-    "boundary_source": "synthetic"
+    }
   },
   {
-    "id": 99006,
     "name": "Bhat",
-    "label": "Bhat",
-    "lat": 20.774093,
-    "lng": 72.849043,
     "layer": "village",
-    "priority": 3,
-    "minZoom": 14,
-    "sub_type": "village",
-    "icon": "icon-village",
     "color": "#10b981",
-    "category": "village",
-    "url": "",
-    "osm_id": null,
-    "tags": {},
     "pincode": "396460",
     "boundary": {
       "type": "Polygon",
@@ -444,7 +337,7 @@
           ],
           [
             20.779829,
-            72.846760
+            72.84676
           ],
           [
             20.775174,
@@ -452,25 +345,12 @@
           ]
         ]
       ]
-    },
-    "boundary_source": "synthetic"
+    }
   },
   {
-    "id": 99007,
     "name": "Mendhar",
-    "label": "Mendhar",
-    "lat": 20.765821,
-    "lng": 72.874501,
     "layer": "village",
-    "priority": 3,
-    "minZoom": 14,
-    "sub_type": "village",
-    "icon": "icon-village",
     "color": "#10b981",
-    "category": "village",
-    "url": "",
-    "osm_id": null,
-    "tags": {},
     "pincode": "396460",
     "boundary": {
       "type": "Polygon",
@@ -482,11 +362,11 @@
           ],
           [
             20.769547,
-            72.873560
+            72.87356
           ],
           [
-            20.764360,
-            72.870910
+            20.76436,
+            72.87091
           ],
           [
             20.759364,
@@ -502,7 +382,6 @@
           ]
         ]
       ]
-    },
-    "boundary_source": "synthetic"
+    }
   }
 ]

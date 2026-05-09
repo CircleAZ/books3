@@ -29,7 +29,6 @@ class Command(BaseCommand):
 
         for item in data:
             name = item.get('name', 'Unknown')
-            label = item.get('label', '')
             layer = item.get('layer', 'village')
             pincode = item.get('pincode', '')
             color = item.get('color', '')
@@ -60,7 +59,6 @@ class Command(BaseCommand):
                     name=name,
                     layer=layer,
                     defaults={
-                        'label': label,
                         'pincode': pincode,
                         'color': color,
                         'boundary': boundary_geom,
@@ -70,9 +68,7 @@ class Command(BaseCommand):
                 # Concurrency race condition caused duplicates in the past.
                 # Find all matching duplicates
                 duplicates = list(GeographicRegion.objects.filter(name=name, layer=layer).order_by('id'))
-                # Keep the first one, update it
                 region = duplicates[0]
-                region.label = label
                 region.pincode = pincode
                 region.color = color
                 region.boundary = boundary_geom
