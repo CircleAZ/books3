@@ -883,7 +883,10 @@ class Refund(UUIDPrimaryKeyModel):
     ]
     REFUND_METHOD = [
         ('cash', 'Cash'),
+        ('bank', 'Bank Transfer'),
         ('upi', 'UPI'),
+        ('cheque', 'Cheque'),
+        ('customer_wallet', 'Customer Wallet'),
     ]
     
     return_request = models.ForeignKey(
@@ -897,8 +900,13 @@ class Refund(UUIDPrimaryKeyModel):
     # Phase 1 Migration Fields
     source_bank = models.ForeignKey('finance.BankAccount', on_delete=models.PROTECT, null=True, blank=True, related_name='refunds_issued')
     source_wallet = models.ForeignKey('finance.CashWallet', on_delete=models.PROTECT, null=True, blank=True, related_name='refunds_issued')
-    method = models.CharField(max_length=100, null=True, blank=True)
-    transaction_id = models.CharField(max_length=100, blank=True, help_text="UPI reference or transaction ID")
+    method = models.CharField(max_length=100, choices=REFUND_METHOD, null=True, blank=True)
+    transaction_id = models.CharField(max_length=100, blank=True, help_text="Reference or transaction ID")
+    
+    # Ledger Hard-Links
+    bank_transaction = models.OneToOneField('finance.BankTransaction', on_delete=models.SET_NULL, null=True, blank=True)
+    wallet_transaction = models.OneToOneField('finance.CashWalletTransaction', on_delete=models.SET_NULL, null=True, blank=True)
+    customer_wallet_transaction = models.OneToOneField('customers.WalletTransaction', on_delete=models.SET_NULL, null=True, blank=True)
     note = models.TextField(blank=True)
     status = models.CharField(max_length=20, choices=REFUND_STATUS, default='completed')
     
@@ -917,9 +925,58 @@ class Refund(UUIDPrimaryKeyModel):
         return f"Refund ₹{self.amount} for Order #{self.order.display_id}"
     
     def save(self, *args, **kwargs):
+        is_new = self._state.adding
+        orig_status = None
+        if not is_new:
+            try:
+                orig_status = Refund.objects.get(pk=self.pk).status
+            except Refund.DoesNotExist:
+                pass
+                
         super().save(*args, **kwargs)
+        
+        # Handle Reversal if Cancelled
+        if not is_new and orig_status != 'cancelled' and self.status == 'cancelled':
+            self._reverse_ledgers()
+            
         # Update order refund status
         self._update_order_refund_status()
+        
+    def _reverse_ledgers(self):
+        """Reverse any linked financial transactions due to refund cancellation."""
+        if self.bank_transaction:
+            from finance.models import BankTransaction
+            # Issue a reversing deposit
+            BankTransaction.objects.create(
+                account=self.bank_transaction.account,
+                date=self.bank_transaction.date,
+                transaction_type='deposit',
+                amount=self.bank_transaction.amount,
+                reference=f"Reversal of {self.transaction_id}",
+                description=f"Refund Reversal for Order #{self.order.display_id}",
+                is_reconciled=False
+            )
+            
+        if self.wallet_transaction:
+            from finance.models import CashWalletTransaction, CashWallet
+            wallet = CashWallet.objects.select_for_update().get(pk=self.wallet_transaction.wallet.pk)
+            new_balance = wallet.balance + self.wallet_transaction.amount
+            CashWalletTransaction.objects.create(
+                wallet=wallet,
+                transaction_type='deposit',
+                amount=self.wallet_transaction.amount,
+                reference_id=f"Reversal of {self.transaction_id}",
+                description=f"Refund Reversal for Order #{self.order.display_id}",
+                balance_after=new_balance,
+                created_by=self.created_by
+            )
+            wallet.balance = new_balance
+            wallet.save(update_fields=['balance'])
+            
+        if self.customer_wallet_transaction:
+            from customers.models import Wallet
+            wallet = Wallet.objects.select_for_update().get(pk=self.customer_wallet_transaction.wallet.pk)
+            wallet.debit(self.customer_wallet_transaction.amount, f"Refund Reversal for Order #{self.order.display_id}", self.created_by)
     
     def _update_order_refund_status(self):
         """Update the order's refund_status based on total refunds."""

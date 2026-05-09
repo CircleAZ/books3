@@ -3,6 +3,7 @@ import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useCurrency } from '../../context/CurrencyContext';
 import { ENDPOINTS } from '../../config/api';
+import RefundModal from './modals/RefundModal';
 import './ReturnDetails.css';
 
 export default function ReturnDetails() {
@@ -15,6 +16,7 @@ export default function ReturnDetails() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [actionLoading, setActionLoading] = useState(false);
+    const [isRefundModalOpen, setIsRefundModalOpen] = useState(false);
 
     const [availablePaymentMethods, setAvailablePaymentMethods] = useState([]);
 
@@ -135,6 +137,15 @@ export default function ReturnDetails() {
                             disabled={actionLoading}
                         >
                             Complete Return
+                        </button>
+                    )}
+                    {returnData.status === 'completed' && !isFullyRefunded && (
+                        <button
+                            className="btn btn-primary"
+                            onClick={() => setIsRefundModalOpen(true)}
+                            disabled={actionLoading}
+                        >
+                            Record Refund
                         </button>
                     )}
                 </div>
@@ -262,6 +273,16 @@ export default function ReturnDetails() {
                     </div>
                 </div>
             </div>
+
+            <RefundModal 
+                isOpen={isRefundModalOpen}
+                onClose={() => setIsRefundModalOpen(false)}
+                returnId={returnData.id}
+                orderId={returnData.order}
+                orderDisplayId={returnData.order_display_id}
+                outstandingBalance={(Number(returnData.total_refund_amount) - Number(returnData.total_refunded)).toFixed(2)}
+                onRefundComplete={fetchReturnDetails}
+            />
         </div>
     );
 }

@@ -1354,47 +1354,9 @@ class ReturnViewSet(viewsets.ModelViewSet):
             
             order.return_status = 'completed'
             order.save(update_fields=['return_status'])
-            
-            # --- Automated Wallet Refund ---
-            refund_amount = return_request.total_refund_amount
-            total_refunded_for_this_return = sum(r.amount for r in return_request.refunds.filter(status='completed'))
-            remaining_to_refund = refund_amount - total_refunded_for_this_return
-            
-            if remaining_to_refund > 0:
-                # Handle Guest conversion
-                if order.is_guest:
-                    from customers.models import Customer
-                    cust = Customer.objects.create(
-                        first_name=order.guest_name or f"Guest {order.id}",
-                        phone=order.guest_phone or f"0000000000{order.id}"[:15],
-                        notes=f"Auto-converted from guest for Return #{return_request.display_id} wallet refund"
-                    )
-                    order.customer = cust
-                    order.is_guest = False
-                    order.save(update_fields=['customer', 'is_guest'])
-                
-                # Credit Customer Wallet
-                from customers.models import Wallet
-                customer_wallet, _ = Wallet.objects.get_or_create(customer=order.customer)
-                customer_wallet.credit(
-                    remaining_to_refund,
-                    f"Refund for Return #{return_request.display_id}",
-                    user=request.user
-                )
-                
-                # Create Refund record
-                Refund.objects.create(
-                    return_request=return_request,
-                    order=order,
-                    amount=remaining_to_refund,
-                    method='Customer Wallet',
-                    status='completed',
-                    note='Automated wallet refund on return completion',
-                    created_by=request.user
-                )
         
         return Response({
-            'status': 'Return completed and wallet credited automatically',
+            'status': 'Return completed. Awaiting manual refund record.',
             'return_status': return_request.status
         })
     

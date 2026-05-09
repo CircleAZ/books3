@@ -276,7 +276,7 @@ class Wallet(UUIDPrimaryKeyModel):
         """Add credit to wallet."""
         self.balance += amount
         self.save()
-        WalletTransaction.objects.create(
+        return WalletTransaction.objects.create(
             wallet=self,
             amount=amount,
             transaction_type='credit',
@@ -289,15 +289,14 @@ class Wallet(UUIDPrimaryKeyModel):
         if self.balance >= amount:
             self.balance -= amount
             self.save()
-            WalletTransaction.objects.create(
+            return WalletTransaction.objects.create(
                 wallet=self,
                 amount=amount,
                 transaction_type='debit',
                 reason=reason,
                 created_by=user
             )
-            return True
-        return False
+        return None
 
 
 class WalletTransaction(UUIDPrimaryKeyModel):

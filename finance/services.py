@@ -51,7 +51,7 @@ class LedgerService:
                 if bank.current_balance - Decimal(str(amount)) < 0:
                     raise ValidationError(f"Insufficient funds in bank account: {bank.name}")
                 
-                BankTransaction.objects.create(
+                return BankTransaction.objects.create(
                     account=bank,
                     date=timezone.now().date(),
                     transaction_type='withdrawal',
@@ -66,7 +66,7 @@ class LedgerService:
                 if wallet.balance < 0:
                     raise ValidationError(f"Insufficient funds in cash wallet: {wallet.name}")
                 wallet.save(update_fields=['balance'])
-                CashWalletTransaction.objects.create(
+                return CashWalletTransaction.objects.create(
                     wallet=wallet,
                     transaction_type='withdrawal',
                     amount=amount,
@@ -75,3 +75,4 @@ class LedgerService:
                     balance_after=wallet.balance,
                     created_by=user
                 )
+            return None

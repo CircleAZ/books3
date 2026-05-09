@@ -695,17 +695,61 @@ class RefundSerializer(serializers.ModelSerializer):
         return data
         
     def create(self, validated_data):
-        refund = super().create(validated_data)
-        from finance.services import LedgerService
-        LedgerService.process_withdrawal(
-            amount=refund.amount,
-            source_bank=refund.source_bank,
-            source_wallet=refund.source_wallet,
-            reference=f"refund_{refund.id}",
-            description=f"Refund for Order #{refund.order.display_id}",
-            user=validated_data.get('created_by')
-        )
-        return refund
+        from django.db import transaction
+        with transaction.atomic():
+            # Idempotency Lock
+            order = Order.objects.select_for_update().get(pk=validated_data['order'].pk)
+            amount = validated_data.get('amount', Decimal('0'))
+            existing_refunds = sum(r.amount for r in order.refunds.filter(status='completed'))
+            if existing_refunds + amount > order.total:
+                raise serializers.ValidationError({
+                    'amount': f'Concurrent refund attempt blocked. Total refunds would exceed order total.'
+                })
+            
+            refund = super().create(validated_data)
+            method = validated_data.get('method')
+            
+            if method == 'customer_wallet':
+                from customers.models import Customer, Wallet
+                # Guest Conversion
+                if order.is_guest:
+                    cust = Customer.objects.create(
+                        first_name=order.guest_name or f"Guest {order.id}",
+                        phone=order.guest_phone or f"0000000000{order.id}"[:15],
+                        notes=f"Auto-converted from guest for Refund #{refund.id} wallet credit"
+                    )
+                    order.customer = cust
+                    order.is_guest = False
+                    order.save(update_fields=['customer', 'is_guest'])
+                    
+                customer_wallet, _ = Wallet.objects.select_for_update().get_or_create(customer=order.customer)
+                cwt = customer_wallet.credit(
+                    amount,
+                    f"Refund for Order #{order.display_id}",
+                    user=validated_data.get('created_by')
+                )
+                refund.customer_wallet_transaction = cwt
+                refund.save(update_fields=['customer_wallet_transaction'])
+                
+            elif method in ['bank', 'cash', 'upi', 'cheque']:
+                from finance.services import LedgerService
+                transaction_obj = LedgerService.process_withdrawal(
+                    amount=refund.amount,
+                    source_bank=refund.source_bank,
+                    source_wallet=refund.source_wallet,
+                    reference=f"refund_{refund.id}",
+                    description=f"Refund for Order #{refund.order.display_id}",
+                    user=validated_data.get('created_by')
+                )
+                if transaction_obj:
+                    if refund.source_bank:
+                        refund.bank_transaction = transaction_obj
+                        refund.save(update_fields=['bank_transaction'])
+                    elif refund.source_wallet:
+                        refund.wallet_transaction = transaction_obj
+                        refund.save(update_fields=['wallet_transaction'])
+                        
+            return refund
 
 
 class CreditNoteSerializer(serializers.ModelSerializer):
