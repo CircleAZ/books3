@@ -357,22 +357,13 @@ class CustomerViewSet(viewsets.ModelViewSet):
             })
 
         # ── Phase 2: filter_options for frontend dropdowns ──
-        # Get villages that have customers mapped to them
-        customer_villages = Address.objects.filter(
-            is_primary=True, 
-            customer__isnull=False,
-            location__isnull=False,
-            region__isnull=False,
-            region__layer='village'  # Exclude talukas/districts
-        ).values_list('region__name', flat=True)
-        
-        # Get all villages that have a defined geographic boundary (the new data)
-        boundary_villages = GeographicRegion.objects.filter(
-            layer='village', 
-            boundary__isnull=False
-        ).values_list('name', flat=True)
-
-        all_village_names = sorted(set(list(customer_villages) + list(boundary_villages)), key=str.lower)
+        all_village_names = sorted(set(
+            Address.objects.filter(
+                is_primary=True, customer__isnull=False,
+                location__isnull=False,
+                region__isnull=False,
+            ).values_list('region__name', flat=True)
+        ), key=str.lower)
 
         all_groups = list(
             CustomerGroup.objects.all()
@@ -434,21 +425,16 @@ class CustomerViewSet(viewsets.ModelViewSet):
                 'dissolved_at': pc.dissolved_at.isoformat() if pc.dissolved_at else None,
             })
 
-        # ── Phase 5: Village Boundaries (Optimized) ──
-        # Only fetch and transmit the boundary for the currently selected village.
-        # Sending ALL village boundaries on every API request causes massive payload bloat.
+        # ── Phase 5: Village Boundaries ──
+        # Build dictionary of { lowercase_name: [[lat, lng], [lat, lng]] }
         boundary_dict = {}
-        if filter_village:
-            region = GeographicRegion.objects.filter(
-                layer='village', 
-                name__iexact=filter_village, 
-                boundary__isnull=False
-            ).first()
-            
-            if region and region.boundary and len(region.boundary.coords) > 0:
+        regions_with_boundary = GeographicRegion.objects.filter(layer='village', boundary__isnull=False)
+        for r in regions_with_boundary:
+            if r.boundary and len(r.boundary.coords) > 0:
+                # r.boundary.coords[0] is the exterior ring
                 # PostGIS stores (lng, lat) -> we need [lat, lng] for Leaflet
-                inverted = [[pt[1], pt[0]] for pt in region.boundary.coords[0]]
-                boundary_dict[region.name.lower()] = inverted
+                inverted = [[pt[1], pt[0]] for pt in r.boundary.coords[0]]
+                boundary_dict[r.name.lower()] = inverted
 
         return Response({
             'season': {
