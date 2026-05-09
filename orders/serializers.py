@@ -583,9 +583,9 @@ class ReturnCreateSerializer(serializers.ModelSerializer):
         read_only_fields = ['id', 'display_id']
     
     def validate_order(self, value):
-        """Validate order is delivered and not cancelled."""
-        if value.delivery_status != 'delivered':
-            raise serializers.ValidationError('Can only return items from delivered orders.')
+        """Validate order is delivered or partially delivered and not cancelled."""
+        if value.delivery_status not in ['delivered', 'partial']:
+            raise serializers.ValidationError('Can only return items from delivered or partially delivered orders.')
         if value.cancellation_status == 'completed':
             raise serializers.ValidationError('Cannot return items from cancelled orders.')
         return value

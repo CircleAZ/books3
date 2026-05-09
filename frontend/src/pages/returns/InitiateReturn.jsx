@@ -58,8 +58,8 @@ export default function InitiateReturn() {
         const timer = setTimeout(async () => {
             setIsSearching(true);
             try {
-                // We only want delivered orders for returns
-                const response = await fetchWithAuth(`${ENDPOINTS.ORDERS}?search=${searchQuery}&delivery_status=delivered`);
+                // We only want delivered or partial orders for returns
+                const response = await fetchWithAuth(`${ENDPOINTS.ORDERS}?search=${searchQuery}&delivery_status__in=delivered,partial`);
                 if (response.ok) {
                     const data = await response.json();
                     setSearchResults(data.results || []);
@@ -81,7 +81,7 @@ export default function InitiateReturn() {
         const fetchRecent = async () => {
             setIsLoadingRecent(true);
             try {
-                const response = await fetchWithAuth(`${ENDPOINTS.ORDERS}?delivery_status=delivered&page=${currentPage}`);
+                const response = await fetchWithAuth(`${ENDPOINTS.ORDERS}?delivery_status__in=delivered,partial&page=${currentPage}`);
                 if (response.ok) {
                     const data = await response.json();
                     setRecentOrders(data.results || []);

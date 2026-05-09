@@ -35,8 +35,17 @@ class OrderFilter(django_filters.FilterSet):
     
     class Meta:
         model = Order
-        fields = ['order_status', 'payment_status', 'delivery_status', 'return_status', 
-                  'refund_status', 'cancellation_status', 'overall_status', 'customer', 'is_guest']
+        fields = {
+            'order_status': ['exact'],
+            'payment_status': ['exact'],
+            'delivery_status': ['exact', 'in'],
+            'return_status': ['exact'],
+            'refund_status': ['exact'],
+            'cancellation_status': ['exact'],
+            'overall_status': ['exact'],
+            'customer': ['exact'],
+            'is_guest': ['exact']
+        }
 
 
 class OrderViewSet(viewsets.ModelViewSet):
