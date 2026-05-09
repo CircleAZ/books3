@@ -1,8 +1,8 @@
 [
   {
     "id": 9011,
-    "name": "Krishnapur Village",
-    "label": "Krishnapur",
+    "name": "Krushnapur",
+    "label": "Krushnapur",
     "lat": 20.8069548,
     "lng": 72.8648404,
     "layer": "village",
@@ -104,7 +104,7 @@
   },
   {
     "id": 9017,
-    "name": "Machhiwad Village",
+    "name": "Machhiwad",
     "label": "Machhiwad",
     "lat": 20.810686,
     "lng": 72.835456,
@@ -261,7 +261,7 @@
   },
   {
     "id": 99001,
-    "name": "Onjal Village",
+    "name": "Onjal",
     "label": "Onjal",
     "lat": 20.831152,
     "lng": 72.840099,
@@ -315,7 +315,7 @@
   },
   {
     "id": 99003,
-    "name": "Kaniyet Village",
+    "name": "Kaniyet",
     "label": "Kaniyet",
     "lat": 20.818945,
     "lng": 72.859213,
@@ -361,7 +361,7 @@
   },
   {
     "id": 99005,
-    "name": "Movasa Village",
+    "name": "Movasa",
     "label": "Movasa",
     "lat": 20.795185,
     "lng": 72.883610,
@@ -407,7 +407,7 @@
   },
   {
     "id": 99006,
-    "name": "Bhat Village",
+    "name": "Bhat",
     "label": "Bhat",
     "lat": 20.774093,
     "lng": 72.849043,
@@ -457,7 +457,7 @@
   },
   {
     "id": 99007,
-    "name": "Mendhar Village",
+    "name": "Mendhar",
     "label": "Mendhar",
     "lat": 20.765821,
     "lng": 72.874501,
