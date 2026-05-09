@@ -633,13 +633,6 @@ export default function CustomerMap() {
                         direction: 'top',
                         offset: [0, -8],
                     });
-                    // Hover highlight
-                    layer.on('mouseover', () => {
-                        layer.setStyle({ fillOpacity: style.fillOpacity + 0.12, weight: style.weight + 1.5 });
-                    });
-                    layer.on('mouseout', () => {
-                        geoLayer.resetStyle(layer);
-                    });
                 },
             });
 
