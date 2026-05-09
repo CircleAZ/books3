@@ -18,7 +18,7 @@ from .serializers import (
     SchoolSerializer, ClassSerializer, DivisionSerializer, SubdivisionSerializer,
     CustomerGroupSerializer, LinkTypeSerializer, LocationTagSerializer,
     ClassTemplateSerializer, DivisionTemplateSerializer, SubdivisionTemplateSerializer,
-    PotentialCustomerSerializer
+    PotentialCustomerSerializer, GeographicRegionSerializer
 )
 from settings_app.models import (
     School, Class, Division, Subdivision, CustomerGroup, LinkType, LocationTag,
@@ -1387,6 +1387,78 @@ class GeoRegionListView(APIView):
 
         data = list(qs.values('id', 'name', 'layer').order_by('name'))
         return Response(data)
+
+class GeographicRegionViewSet(viewsets.ModelViewSet):
+    """
+    CRUD for GeographicRegion. Requires settings.manage_store permission.
+    """
+    queryset = GeographicRegion.objects.all().order_by('layer', 'name')
+    serializer_class = GeographicRegionSerializer
+    permission_classes = [HasRequiredPermission]
+    required_permission = 'settings.manage_store'
+    pagination_class = None
+
+    def get_queryset(self):
+        # Exclude soft-deleted implicitly via manager, or explicitly if needed
+        # SoftDeleteModel manager already excludes deleted_at is not null
+        qs = GeographicRegion.objects.all().order_by('layer', 'name')
+        layer = self.request.query_params.get('layer', '').strip().lower()
+        if layer in ('district', 'taluka', 'village'):
+            qs = qs.filter(layer=layer)
+        return qs
+
+    def perform_destroy(self, instance):
+        # The region is soft-deleted, but Address.region has SET_NULL on_delete.
+        # SET_NULL only triggers on hard SQL deletes. We must manually nullify the references
+        # so they don't point to a ghost record, which causes RelatedObjectDoesNotExist crashes.
+        from customers.models import Address
+        Address.objects.filter(region=instance).update(region=None)
+        
+        # Soft delete is handled by the model's delete() method
+        instance.delete()
+
+    @action(detail=False, methods=['post'])
+    def sync_customers(self, request):
+        """
+        Manually trigger the reassignment of customers to regions based on their GPS coordinates.
+        Runs in a background thread to prevent timeouts.
+        """
+        import threading
+        from django.db import transaction
+        from customers.models import Address
+
+        def run_sync():
+            from django.db import connection
+            try:
+                # Use raw SQL to bulk update addresses using PostGIS ST_Contains.
+                # This solves both the N+1 query problem and the O(N*M) Python geometry evaluation bottleneck.
+                with connection.cursor() as cursor:
+                    cursor.execute("""
+                        UPDATE customers_address a
+                        SET region_id = r.id
+                        FROM customers_geographicregion r
+                        WHERE r.layer = 'village'
+                          AND r.is_deleted = False
+                          AND r.boundary IS NOT NULL
+                          AND a.location IS NOT NULL
+                          AND ST_Contains(r.boundary, a.location)
+                          AND (a.region_id IS NULL OR a.region_id != r.id)
+                    """)
+            except Exception as e:
+                import logging
+                logging.getLogger(__name__).error(f"Error in background sync_customers: {e}")
+            finally:
+                # CRITICAL: Since this is a detached thread, Django will NOT automatically close
+                # the database connection when the thread exits. We must explicitly close it
+                # to prevent exhausting the PostgreSQL connection pool.
+                connection.close()
+
+        # Spawn thread to avoid blocking Gunicorn/Nginx
+        thread = threading.Thread(target=run_sync)
+        thread.daemon = True
+        thread.start()
+
+        return Response({"status": "Sync started in background. It may take a minute or two to reflect."})
 
 
 # ═══════════════════════════════════════════════════════

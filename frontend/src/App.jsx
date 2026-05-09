@@ -105,6 +105,7 @@ const PaymentSettings = lazy(() => import('./pages/settings/PaymentSettings'));
 const NotificationSettings = lazy(() => import('./pages/settings/NotificationSettings'));
 const IntegrationSettings = lazy(() => import('./pages/settings/IntegrationSettings'));
 const CustomerSettings = lazy(() => import('./pages/settings/CustomerSettings'));
+const GeographicBoundaries = lazy(() => import('./pages/settings/GeographicBoundaries'));
 
 // Messaging
 const MessagingIndex = lazy(() => import('./pages/messaging/MessagingIndex'));
@@ -541,6 +542,11 @@ function AppRoutes() {
       <Route path="/settings/data" element={
         <PermissionRoute permission="settings.manage_store">
           <LazyPage><DataManagement /></LazyPage>
+        </PermissionRoute>
+      } />
+      <Route path="/settings/boundaries" element={
+        <PermissionRoute permission="settings.manage_store">
+          <LazyPage><GeographicBoundaries /></LazyPage>
         </PermissionRoute>
       } />
 

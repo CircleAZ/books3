@@ -29,6 +29,12 @@ const settingsItems = [
         summary: 'Backup and restore data'
     },
     {
+        to: '/settings/boundaries',
+        icon: '🗺️',
+        title: 'Geocoding Boundaries',
+        summary: 'Manage village and district maps'
+    },
+    {
         to: '/settings/payments',
         icon: '💳',
         title: 'Payment Methods',

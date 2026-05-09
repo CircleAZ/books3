@@ -6,7 +6,7 @@ from django.contrib.gis.db import models as gis_models
 from django.conf import settings
 from core.models import SoftDeleteModel, UUIDPrimaryKeyModel, DisplayIDMixin
 
-class GeographicRegion(UUIDPrimaryKeyModel):
+class GeographicRegion(SoftDeleteModel):
     """
     Strict mapping layer from geocoding data.
     Provides polygon boundaries for District, Taluka, and Village.

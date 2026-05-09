@@ -5,7 +5,7 @@ import re
 from rest_framework import serializers
 from django.db import models
 from django.utils.html import strip_tags
-from .models import Customer, Student, Address, CustomerLink, Wallet, WalletTransaction, PotentialCustomer
+from .models import Customer, Student, Address, CustomerLink, Wallet, WalletTransaction, PotentialCustomer, GeographicRegion
 from settings_app.models import (
     School, Class, Division, Subdivision, CustomerGroup, LinkType, LocationTag,
     ClassTemplate, DivisionTemplate, SubdivisionTemplate
@@ -701,3 +701,73 @@ class PotentialCustomerSerializer(serializers.ModelSerializer):
             rep['longitude'] = None
         return rep
 
+
+# ============ Geographic Region Serializers ============
+import json
+from django.contrib.gis.geos import GEOSGeometry
+
+class GeographicRegionSerializer(serializers.ModelSerializer):
+    """Serializer for GeographicRegion allowing GeoJSON read/write with overlap validation."""
+    boundary = serializers.JSONField(required=True)
+
+    class Meta:
+        model = GeographicRegion
+        fields = ['id', 'name', 'layer', 'pincode', 'color', 'boundary']
+
+    def validate_boundary(self, value):
+        """Convert GeoJSON dictionary to PostGIS Polygon and validate it."""
+        try:
+            # Convert dict back to JSON string for GEOSGeometry
+            geojson_str = json.dumps(value)
+            geom = GEOSGeometry(geojson_str)
+            
+            if geom.geom_type != 'Polygon':
+                raise serializers.ValidationError("Boundary must be a Polygon.")
+            
+            if not geom.valid:
+                raise serializers.ValidationError(f"Invalid geometry: {geom.valid_reason}")
+                
+            return geom
+        except Exception as e:
+            raise serializers.ValidationError(f"Invalid GeoJSON: {str(e)}")
+
+    def validate(self, data):
+        """Check for spatial overlaps within the same layer, excluding touches."""
+        layer = data.get('layer') or (self.instance.layer if self.instance else None)
+        boundary = data.get('boundary')
+        
+        if layer and boundary:
+            # Check for intersections against active (non-deleted) regions in the same layer
+            qs = GeographicRegion.objects.filter(layer=layer, boundary__isnull=False)
+            if self.instance:
+                qs = qs.exclude(pk=self.instance.pk)
+                
+            # Filter to intersecting geometries, then exclude pure topological touches
+            intersecting_qs = qs.filter(boundary__intersects=boundary).exclude(boundary__touches=boundary)
+            
+            overlapping_names = []
+            for region in intersecting_qs:
+                # Calculate the actual area of the intersection
+                # Due to Leaflet snapping imperfections, adjacent polygons might slightly overlap.
+                # If the intersection area is practically zero (e.g., less than 1e-8 degrees squared),
+                # we consider it a shared border artifact, not a true overlap.
+                intersection = region.boundary.intersection(boundary)
+                if intersection.area > 1e-8:
+                    overlapping_names.append(region.name)
+            
+            if overlapping_names:
+                overlap_names_str = ", ".join(overlapping_names)
+                raise serializers.ValidationError({
+                    'boundary': f"Boundary overlaps with existing region(s): {overlap_names_str}. Shared borders are allowed, but true overlaps are not."
+                })
+                
+        return data
+
+    def to_representation(self, instance):
+        """Convert PostGIS geometry back to GeoJSON dict for frontend."""
+        rep = super().to_representation(instance)
+        if instance.boundary:
+            rep['boundary'] = json.loads(instance.boundary.geojson)
+        else:
+            rep['boundary'] = None
+        return rep
