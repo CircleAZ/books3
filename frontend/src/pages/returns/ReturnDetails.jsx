@@ -16,13 +16,6 @@ export default function ReturnDetails() {
     const [error, setError] = useState(null);
     const [actionLoading, setActionLoading] = useState(false);
 
-    // Refund form state
-    const [refundForm, setRefundForm] = useState({
-        amount: '',
-        method: '',
-        transaction_id: '',
-        note: ''
-    });
     const [availablePaymentMethods, setAvailablePaymentMethods] = useState([]);
 
     const fetchReturnDetails = useCallback(async () => {
@@ -32,12 +25,6 @@ export default function ReturnDetails() {
             if (response.ok) {
                 const data = await response.json();
                 setReturnData(data);
-                // Pre-fill refund amount with remaining balance
-                const remaining = (data.total_refund_amount || 0) - (data.total_refunded || 0);
-                setRefundForm(prev => ({
-                    ...prev,
-                    amount: remaining > 0 ? remaining.toFixed(2) : ''
-                }));
                 setError(null);
             } else {
                 setError('Failed to fetch return details');
@@ -77,33 +64,6 @@ export default function ReturnDetails() {
             }
         } catch (err) {
             console.error(`Error during ${action}:`, err);
-        } finally {
-            setActionLoading(false);
-        }
-    };
-
-    const handleAddRefund = async (e) => {
-        e.preventDefault();
-        setActionLoading(true);
-        try {
-            const response = await fetchWithAuth(`${ENDPOINTS.RETURNS}${id}/add_refund/`, {
-                method: 'POST',
-                body: JSON.stringify(refundForm)
-            });
-            if (response.ok) {
-                setRefundForm({
-                    amount: '',
-                    method: 'cash',
-                    transaction_id: '',
-                    note: ''
-                });
-                fetchReturnDetails();
-            } else {
-                const data = await response.json();
-                alert(data.error || 'Failed to record refund');
-            }
-        } catch (err) {
-            console.error('Error adding refund:', err);
         } finally {
             setActionLoading(false);
         }
@@ -299,64 +259,6 @@ export default function ReturnDetails() {
                             </div>
                         </div>
 
-                        {!isFullyRefunded && returnData.status !== 'cancelled' && (
-                            <div className="record-refund-form">
-                                <h4>Record New Refund</h4>
-                                <form onSubmit={handleAddRefund} className="refund-form">
-                                    <div className="form-row">
-                                        <div className="form-group">
-                                            <label>Amount</label>
-                                            <input
-                                                type="number"
-                                                step="0.01"
-                                                required
-                                                value={refundForm.amount}
-                                                onChange={e => setRefundForm({ ...refundForm, amount: e.target.value })}
-                                            />
-                                        </div>
-                                        <div className="form-group">
-                                            <label>Method</label>
-                                            <select
-                                                value={refundForm.method}
-                                                onChange={e => setRefundForm({ ...refundForm, method: e.target.value })}
-                                                required
-                                            >
-                                                <option value="">-- Select Method --</option>
-                                                {availablePaymentMethods.length > 0 ? (
-                                                    availablePaymentMethods.map(method => (
-                                                        <option key={method.id} value={method.type}>{method.type}</option>
-                                                    ))
-                                                ) : (
-                                                    <>
-                                                        <option value="Cash">Cash</option>
-                                                        <option value="UPI">UPI</option>
-                                                    </>
-                                                )}
-                                            </select>
-                                        </div>
-                                    </div>
-                                    <div className="form-group">
-                                        <label>Transaction ID (Optional)</label>
-                                        <input
-                                            type="text"
-                                            value={refundForm.transaction_id}
-                                            onChange={e => setRefundForm({ ...refundForm, transaction_id: e.target.value })}
-                                        />
-                                    </div>
-                                    <div className="form-group">
-                                        <label>Note</label>
-                                        <textarea
-                                            rows="2"
-                                            value={refundForm.note}
-                                            onChange={e => setRefundForm({ ...refundForm, note: e.target.value })}
-                                        ></textarea>
-                                    </div>
-                                    <button type="submit" className="btn btn-primary" disabled={actionLoading}>
-                                        Record Refund
-                                    </button>
-                                </form>
-                            </div>
-                        )}
                     </div>
                 </div>
             </div>

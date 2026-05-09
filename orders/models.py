@@ -807,11 +807,20 @@ class Return(DisplayIDMixin, SoftDeleteModel):
     
     @property
     def total_refund_amount(self):
-        """Calculate total refund amount for items in this return."""
-        return sum(
-            item.order_item.unit_price * item.quantity
-            for item in self.items.all()
+        """Calculate total refund amount for items, factoring in line discounts and order-level discounts."""
+        from decimal import Decimal
+        base_refund = sum(
+            (item.order_item.line_total / item.order_item.quantity) * item.quantity
+            for item in self.items.all() if item.order_item.quantity > 0
         )
+        
+        # Apply order-level discount proportion
+        order = self.order
+        if order.subtotal > 0 and order.discount_amount > 0:
+            ratio = order.total / order.subtotal
+            return (base_refund * ratio).quantize(Decimal('0.01'))
+            
+        return Decimal(str(base_refund)).quantize(Decimal('0.01'))
     
     @property
     def item_count(self):

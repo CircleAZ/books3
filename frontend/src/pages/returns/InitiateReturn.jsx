@@ -225,19 +225,19 @@ export default function InitiateReturn() {
                         )}
 
                         {searchResults.length > 0 && (
-                            <div className="order-search-results">
+                            <div className="search-results-dropdown">
                                 {searchResults.map(order => (
                                     <div
                                         key={order.id}
-                                        className="order-result-item"
+                                        className="search-result-item"
                                         onClick={() => handleSelectOrder(order.id)}
                                     >
-                                        <div className="order-result-info">
-                                            <div>#{order.id.split('-')[0].toUpperCase()}</div>
-                                            <div className="small text-muted">{order.customer_name || 'Guest'} • {new Date(order.created_at).toLocaleDateString()}</div>
+                                        <div>
+                                            <span className="text-muted small" style={{ marginRight: '6px' }}>#{order.id.split('-')[0].toUpperCase()}</span>
+                                            <strong>{order.customer_name || 'Guest'}</strong>
                                         </div>
-                                        <div className="order-result-status status-delivered" style={{ textTransform: 'capitalize' }}>
-                                            {order.derived_status || order.delivery_status}
+                                        <div className="small text-muted">
+                                            {new Date(order.created_at).toLocaleDateString()} • <span style={{ textTransform: 'capitalize' }}>{order.derived_status || order.delivery_status}</span>
                                         </div>
                                     </div>
                                 ))}
