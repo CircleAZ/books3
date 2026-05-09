@@ -1463,16 +1463,25 @@ class AllTransactionsViewSet(viewsets.ViewSet):
         can_view_loans = HasRequiredPermission._check_rbac(request.user, 'finance.manage_loans') or request.user.is_superuser
 
         order_display_ids = set()
+        refund_ids = set()
         expense_ids = set()
         salary_ids = set()
         loan_ids = set()
         
         for item in page:
             ref = item.get('ref', '') or ''
-            if (ref.startswith('order_') or ref.startswith('refund_')) and can_view_orders:
-                display_id = ref.replace('order_', '').replace('refund_', '')
-                if display_id:
+            if ref.startswith('order_') and can_view_orders:
+                display_id = ref.replace('order_', '')
+                if display_id.isdigit():
                     order_display_ids.add(display_id)
+            elif ref.startswith('refund_') and can_view_orders:
+                ref_id = ref.replace('refund_', '')
+                import uuid
+                try:
+                    uuid.UUID(ref_id)
+                    refund_ids.add(ref_id)
+                except ValueError:
+                    pass
             elif ref.startswith('expense_') and can_view_expenses:
                 exp_id = ref.replace('expense_', '')
                 if exp_id.isdigit():
@@ -1489,7 +1498,13 @@ class AllTransactionsViewSet(viewsets.ViewSet):
         orders_map = {}
         if order_display_ids:
             orders = Order.objects.filter(display_id__in=order_display_ids).select_related('customer')
-            orders_map = {order.display_id: order for order in orders}
+            orders_map = {str(order.display_id): order for order in orders}
+            
+        refund_orders_map = {}
+        if refund_ids:
+            from orders.models import Refund
+            refunds = Refund.objects.filter(id__in=refund_ids).select_related('order__customer')
+            refund_orders_map = {str(refund.id): refund.order for refund in refunds}
             
         expenses_map = {}
         if expense_ids:
@@ -1514,17 +1529,29 @@ class AllTransactionsViewSet(viewsets.ViewSet):
             linked_data = None
             
             try:
-                if (ref.startswith('order_') or ref.startswith('refund_')) and can_view_orders:
-                    display_id = ref.replace('order_', '').replace('refund_', '')
+                if ref.startswith('order_') and can_view_orders:
+                    display_id = ref.replace('order_', '')
                     order = orders_map.get(display_id)
                     if order:
                         linked_data = {
-                            'type': 'order' if ref.startswith('order_') else 'refund',
+                            'type': 'order',
                             'id': str(order.id),
                             'display_id': order.display_id,
                             'customer_name': order.guest_name if order.is_guest else (order.customer.full_name if order.customer else 'Guest'),
                             'customer_id': order.customer.display_id if order.customer else None,
-                            'status': order.payment_status if ref.startswith('order_') else None
+                            'status': order.payment_status
+                        }
+                elif ref.startswith('refund_') and can_view_orders:
+                    ref_id = ref.replace('refund_', '')
+                    order = refund_orders_map.get(ref_id)
+                    if order:
+                        linked_data = {
+                            'type': 'refund',
+                            'id': str(order.id),
+                            'display_id': order.display_id,
+                            'customer_name': order.guest_name if order.is_guest else (order.customer.full_name if order.customer else 'Guest'),
+                            'customer_id': order.customer.display_id if order.customer else None,
+                            'status': None
                         }
                 elif ref.startswith('expense_') and can_view_expenses:
                     exp_id = ref.replace('expense_', '')
