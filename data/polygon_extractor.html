@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Lloyd's Boundary Extractor</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css" />
+    <style>
+        body { margin: 0; padding: 0; display: flex; font-family: monospace; }
+        #map { width: 70vw; height: 100vh; }
+        #sidebar { width: 30vw; height: 100vh; padding: 20px; box-sizing: border-box; background: #111; color: #fff; overflow-y: auto; }
+        textarea { width: 100%; height: 70%; background: #222; color: #0f0; border: 1px solid #444; font-family: monospace; padding: 10px; box-sizing: border-box; resize: vertical;}
+        button { background: #d32f2f; color: white; border: none; padding: 10px 20px; cursor: pointer; margin-top: 10px; font-weight: bold; width: 100%; }
+        button:hover { background: #b71c1c; }
+        h2 { color: #d32f2f; }
+        p { font-size: 14px; line-height: 1.5; color: #ccc; }
+    </style>
+</head>
+<body>
+    <div id="map"></div>
+    <div id="sidebar">
+        <h2>Ironclad Extractor</h2>
+        <p>Draw a polygon using the controls on the left of the map.<br><br>The exact `[lat, lng]` array format required by your Ironclad Contract will automatically generate below.</p>
+        <textarea id="output" readonly></textarea>
+        <button onclick="copyToClipboard()">Copy to Clipboard</button>
+    </div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.js"></script>
+    <script>
+        // Initialize map centered near Navsari/Gujarat
+        var map = L.map('map').setView([20.8, 72.9], 10);
+
+        var osmMap = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '© OpenStreetMap contributors',
+            maxZoom: 19
+        });
+
+        var googleHybrid = L.tileLayer('http://mt0.google.com/vt/lyrs=y&hl=en&x={x}&y={y}&z={z}', {
+            attribution: '© Google',
+            maxZoom: 20
+        });
+
+        var googleStreets = L.tileLayer('http://mt0.google.com/vt/lyrs=m&hl=en&x={x}&y={y}&z={z}', {
+            attribution: '© Google',
+            maxZoom: 20
+        });
+
+        googleHybrid.addTo(map);
+
+        var baseMaps = {
+            "Google Satellite (Hybrid)": googleHybrid,
+            "Google Streets": googleStreets,
+            "OpenStreetMap": osmMap
+        };
+
+        L.control.layers(baseMaps).addTo(map);
+
+        var drawnItems = new L.FeatureGroup();
+        map.addLayer(drawnItems);
+
+        var drawControl = new L.Control.Draw({
+            draw: {
+                polyline: false,
+                circle: false,
+                circlemarker: false,
+                marker: false,
+                rectangle: true,
+                polygon: true
+            },
+            edit: {
+                featureGroup: drawnItems
+            }
+        });
+        map.addControl(drawControl);
+
+        map.on(L.Draw.Event.CREATED, function (e) {
+            drawnItems.clearLayers(); 
+            var layer = e.layer;
+            drawnItems.addLayer(layer);
+
+            var latlngs = layer.getLatLngs();
+            if(latlngs && latlngs.length > 0) {
+                var points = latlngs[0];
+                if (layer instanceof L.Rectangle) {
+                    points = latlngs[0];
+                }
+                
+                // Format explicitly to [lat, lng] array with specific whitespace matching user request
+                var formatted = points.map(function(pt) {
+                    return "          [\n            " + pt.lat.toFixed(6) + ",\n            " + pt.lng.toFixed(6) + "\n          ]";
+                });
+
+                var jsonStr = "        [\n" + formatted.join(",\n") + "\n        ]";
+                document.getElementById('output').value = jsonStr;
+            }
+        });
+
+        function copyToClipboard() {
+            var copyText = document.getElementById("output");
+            if (!copyText.value) return;
+            copyText.select();
+            document.execCommand("copy");
+            alert("Boundary Extracted. Execute your plan without failure.");
+        }
+    </script>
+</body>
+</html>

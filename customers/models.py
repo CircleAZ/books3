@@ -21,6 +21,7 @@ class GeographicRegion(UUIDPrimaryKeyModel):
     layer = models.CharField(max_length=20, choices=LAYER_CHOICES)
     pincode = models.CharField(max_length=10, blank=True)
     color = models.CharField(max_length=10, blank=True)
+    boundary = gis_models.PolygonField(srid=4326, null=True, blank=True, help_text="Village boundary coordinates")
     parent = models.ForeignKey(
         'self', on_delete=models.SET_NULL, null=True, blank=True, related_name='children'
     )

@@ -2,6 +2,7 @@ import json
 import os
 from django.core.management.base import BaseCommand
 from django.db import transaction
+from django.contrib.gis.geos import Polygon
 from customers.models import GeographicRegion
 
 class Command(BaseCommand):
@@ -33,6 +34,25 @@ class Command(BaseCommand):
             pincode = item.get('pincode', '')
             color = item.get('color', '')
 
+            # Parse boundary
+            boundary_geom = None
+            boundary_data = item.get('boundary')
+            if boundary_data and boundary_data.get('type') == 'Polygon':
+                coords = boundary_data.get('coordinates', [])
+                if coords and len(coords) > 0:
+                    try:
+                        # GeoJSON/PostGIS expects (longitude, latitude) -> (x, y)
+                        # Extracted coords are [lat, lng]
+                        linear_ring = [(float(pt[1]), float(pt[0])) for pt in coords[0]]
+                        
+                        # GEOS requires a closed ring
+                        if linear_ring and linear_ring[0] != linear_ring[-1]:
+                            linear_ring.append(linear_ring[0])
+                            
+                        boundary_geom = Polygon(linear_ring)
+                    except Exception as e:
+                        self.stderr.write(self.style.WARNING(f"Error parsing geometry for {name}: {e}"))
+
             # Robust Update or Create (handles duplicates from concurrent boots)
             try:
                 # Try standard update_or_create
@@ -43,6 +63,7 @@ class Command(BaseCommand):
                         'label': label,
                         'pincode': pincode,
                         'color': color,
+                        'boundary': boundary_geom,
                     }
                 )
             except GeographicRegion.MultipleObjectsReturned:
@@ -54,6 +75,7 @@ class Command(BaseCommand):
                 region.label = label
                 region.pincode = pincode
                 region.color = color
+                region.boundary = boundary_geom
                 region.save()
                 
                 # Delete the rest

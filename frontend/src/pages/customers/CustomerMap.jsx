@@ -122,6 +122,7 @@ export default function CustomerMap() {
     const mapInstanceRef = useRef(null);
     const clusterGroupRef = useRef(null);
     const targetLayerRef = useRef(null);
+    const boundaryLayerRef = useRef(null);
 
 
     const [loading, setLoading] = useState(true);
@@ -579,7 +580,37 @@ export default function CustomerMap() {
         targetLayerRef.current = targetLayer;
     }, [mapData, canManageTargets, fetchWithAuth, filters]);
 
+    // ── Phase 5: Render Village Boundary ──
+    useEffect(() => {
+        const map = mapInstanceRef.current;
+        if (!map) return;
 
+        // Clean up previous boundary
+        if (boundaryLayerRef.current) {
+            map.removeLayer(boundaryLayerRef.current);
+            boundaryLayerRef.current = null;
+        }
+
+        // Only draw if a specific village is filtered
+        if (filters.village && mapData?.village_boundaries) {
+            const boundaryCoords = mapData.village_boundaries[filters.village.toLowerCase()];
+            if (boundaryCoords && boundaryCoords.length > 0) {
+                const polygon = L.polygon(boundaryCoords, {
+                    color: '#3b82f6',     // Tailwind blue-500
+                    fillColor: '#3b82f6',
+                    fillOpacity: 0.15,
+                    weight: 2,
+                    dashArray: '5, 5',
+                });
+                
+                polygon.addTo(map);
+                boundaryLayerRef.current = polygon;
+                
+                // Fit bounds to polygon with some padding
+                map.fitBounds(polygon.getBounds(), { padding: [20, 20], maxZoom: 16 });
+            }
+        }
+    }, [mapData, filters.village]);
 
     // Removed: Potential pins are now handled in the main cluster useEffect
 

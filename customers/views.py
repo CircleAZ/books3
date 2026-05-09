@@ -11,7 +11,7 @@ from django.db import transaction
 from orders.constants import VALID_SALE_STATUSES
 
 from core.permissions import HasRequiredPermission
-from .models import Customer, Address, CustomerLink, Wallet, WalletTransaction, TargetVillage, PotentialCustomer
+from .models import Customer, Address, CustomerLink, Wallet, WalletTransaction, TargetVillage, PotentialCustomer, GeographicRegion
 from .serializers import (
     CustomerListSerializer, CustomerDetailSerializer, CustomerCreateUpdateSerializer,
     AddressSerializer, CustomerLinkSerializer, WalletSerializer, WalletTransactionSerializer,
@@ -425,6 +425,17 @@ class CustomerViewSet(viewsets.ModelViewSet):
                 'dissolved_at': pc.dissolved_at.isoformat() if pc.dissolved_at else None,
             })
 
+        # ── Phase 5: Village Boundaries ──
+        # Build dictionary of { lowercase_name: [[lat, lng], [lat, lng]] }
+        boundary_dict = {}
+        regions_with_boundary = GeographicRegion.objects.filter(layer='village', boundary__isnull=False)
+        for r in regions_with_boundary:
+            if r.boundary and len(r.boundary.coords) > 0:
+                # r.boundary.coords[0] is the exterior ring
+                # PostGIS stores (lng, lat) -> we need [lat, lng] for Leaflet
+                inverted = [[pt[1], pt[0]] for pt in r.boundary.coords[0]]
+                boundary_dict[r.name.lower()] = inverted
+
         return Response({
             'season': {
                 'start': season_start.isoformat(),
@@ -441,6 +452,7 @@ class CustomerViewSet(viewsets.ModelViewSet):
             'customers': customer_list,
             'target_villages': target_village_list,
             'potential_customers': potential_list,
+            'village_boundaries': boundary_dict,
             'filter_options': {
                 'villages': all_village_names,
                 'customer_groups': all_groups,
