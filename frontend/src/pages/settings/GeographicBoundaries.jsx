@@ -149,17 +149,25 @@ export default function GeographicBoundaries() {
                 closeModal();
                 fetchRegions();
             } else {
-                const data = await response.json();
+                const text = await response.text();
+                console.error(`[Boundaries] Save failed: ${response.status}`, text);
+                let data;
+                try { data = JSON.parse(text); } catch { data = {}; }
                 // Extract error message
                 let errorMsg = 'Failed to save region';
                 if (data.boundary) {
                     errorMsg = Array.isArray(data.boundary) ? data.boundary[0] : data.boundary;
+                } else if (data.non_field_errors) {
+                    errorMsg = Array.isArray(data.non_field_errors) ? data.non_field_errors[0] : data.non_field_errors;
                 } else if (data.detail) {
                     errorMsg = data.detail;
+                } else if (text) {
+                    errorMsg = text.substring(0, 200);
                 }
                 showToast(errorMsg, 'error');
             }
         } catch (err) {
+            console.error('[Boundaries] Network error:', err);
             showToast('Network error while saving', 'error');
         }
     };
