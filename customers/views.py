@@ -425,17 +425,6 @@ class CustomerViewSet(viewsets.ModelViewSet):
                 'dissolved_at': pc.dissolved_at.isoformat() if pc.dissolved_at else None,
             })
 
-        # ── Phase 5: Village Boundaries ──
-        # Build dictionary of { lowercase_name: [[lat, lng], [lat, lng]] }
-        boundary_dict = {}
-        regions_with_boundary = GeographicRegion.objects.filter(layer='village', boundary__isnull=False)
-        for r in regions_with_boundary:
-            if r.boundary and len(r.boundary.coords) > 0:
-                # r.boundary.coords[0] is the exterior ring
-                # PostGIS stores (lng, lat) -> we need [lat, lng] for Leaflet
-                inverted = [[pt[1], pt[0]] for pt in r.boundary.coords[0]]
-                boundary_dict[r.name.lower()] = inverted
-
         return Response({
             'season': {
                 'start': season_start.isoformat(),
@@ -452,7 +441,6 @@ class CustomerViewSet(viewsets.ModelViewSet):
             'customers': customer_list,
             'target_villages': target_village_list,
             'potential_customers': potential_list,
-            'village_boundaries': boundary_dict,
             'filter_options': {
                 'villages': all_village_names,
                 'customer_groups': all_groups,
@@ -1339,6 +1327,46 @@ class LocationTagViewSet(viewsets.ModelViewSet):
 # ═══════════════════════════════════════════════════════
 # Phase 4: GeoJSON Boundary API
 # ═══════════════════════════════════════════════════════
+
+class GeoBoundaryView(APIView):
+    """
+    Serves GeographicRegion boundaries as GeoJSON FeatureCollection.
+    
+    GET /api/customers/geo/boundaries/?layer=district
+    GET /api/customers/geo/boundaries/?layer=taluka
+    GET /api/customers/geo/boundaries/?layer=village
+    GET /api/customers/geo/boundaries/  (all layers)
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        import json
+
+        layer = request.query_params.get('layer', '').strip().lower()
+        qs = GeographicRegion.objects.all()
+        if layer in ('district', 'taluka', 'village'):
+            qs = qs.filter(layer=layer)
+
+        features = []
+        for region in qs.select_related('parent'):
+            if not region.boundary:
+                continue
+            feature = {
+                'type': 'Feature',
+                'geometry': json.loads(region.boundary.geojson),
+                'properties': {
+                    'id': str(region.id),
+                    'name': region.name,
+                    'layer': region.layer,
+                    'parent_name': region.parent.name if region.parent else None,
+                }
+            }
+            features.append(feature)
+
+        return Response({
+            'type': 'FeatureCollection',
+            'features': features,
+        })
 
 
 class GeoRegionListView(APIView):

@@ -47,6 +47,7 @@ export const ENDPOINTS = {
     SEASON_REPORT: `${API_BASE}/customers/customers/season_report/`,
     COVERAGE_PDF: `${API_BASE}/customers/customers/coverage_pdf/`,
 
+    GEO_BOUNDARIES: `${API_BASE}/customers/geo/boundaries/`,
     GEO_REGIONS: `${API_BASE}/customers/geo/regions/`,
     POTENTIAL_CUSTOMERS: `${API_BASE}/customers/potential-customers/`,
 
