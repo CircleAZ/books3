@@ -17,7 +17,7 @@ export default function GeographicBoundaries() {
     const [loading, setLoading] = useState(true);
     const [syncing, setSyncing] = useState(false);
     const { fetchWithAuth } = useAuth();
-    const { addToast } = useToast();
+    const { showToast } = useToast();
 
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingRegion, setEditingRegion] = useState(null);
@@ -38,10 +38,10 @@ export default function GeographicBoundaries() {
                 const data = await response.json();
                 setRegions(data);
             } else {
-                addToast('Failed to fetch regions', 'error');
+                showToast('Failed to fetch regions', 'error');
             }
         } catch (error) {
-            addToast('Error fetching regions', 'error');
+            showToast('Error fetching regions', 'error');
         } finally {
             setLoading(false);
         }
@@ -62,12 +62,12 @@ export default function GeographicBoundaries() {
                 method: 'POST'
             });
             if (response.ok) {
-                addToast('Background sync started successfully.', 'success');
+                showToast('Background sync started successfully.', 'success');
             } else {
-                addToast('Failed to trigger sync', 'error');
+                showToast('Failed to trigger sync', 'error');
             }
         } catch (err) {
-            addToast('Error triggering sync', 'error');
+            showToast('Error triggering sync', 'error');
         } finally {
             setSyncing(false);
         }
@@ -82,13 +82,13 @@ export default function GeographicBoundaries() {
                 method: 'DELETE'
             });
             if (response.ok) {
-                addToast('Region deleted', 'success');
+                showToast('Region deleted', 'success');
                 fetchRegions();
             } else {
-                addToast('Failed to delete', 'error');
+                showToast('Failed to delete', 'error');
             }
         } catch (err) {
-            addToast('Error deleting region', 'error');
+            showToast('Error deleting region', 'error');
         }
     };
 
@@ -123,11 +123,11 @@ export default function GeographicBoundaries() {
 
     const handleSave = async () => {
         if (!formData.name) {
-            addToast('Name is required', 'error');
+            showToast('Name is required', 'error');
             return;
         }
         if (!formData.boundary) {
-            addToast('Please draw a boundary on the map', 'error');
+            showToast('Please draw a boundary on the map', 'error');
             return;
         }
 
@@ -145,7 +145,7 @@ export default function GeographicBoundaries() {
             });
 
             if (response.ok) {
-                addToast(`Region ${editingRegion ? 'updated' : 'created'} successfully`, 'success');
+                showToast(`Region ${editingRegion ? 'updated' : 'created'} successfully`, 'success');
                 closeModal();
                 fetchRegions();
             } else {
@@ -157,10 +157,10 @@ export default function GeographicBoundaries() {
                 } else if (data.detail) {
                     errorMsg = data.detail;
                 }
-                addToast(errorMsg, 'error');
+                showToast(errorMsg, 'error');
             }
         } catch (err) {
-            addToast('Network error while saving', 'error');
+            showToast('Network error while saving', 'error');
         }
     };
 
@@ -459,3 +459,4 @@ function MapBoundsUpdater({ editingRegion }) {
     }, [editingRegion, map]);
     return null;
 }
+
