@@ -75,12 +75,21 @@ export default function PaymentModal({ isOpen, onClose, outletId, outstandingBal
 
         setLoading(true);
         try {
+            const payload = { ...formData };
+            const requiresBank = ['bank', 'cheque', 'upi'].includes(payload.payment_method);
+            if (requiresBank) {
+                payload.destination_bank = payload.finance_account_id;
+            } else {
+                payload.destination_wallet = payload.finance_account_id;
+            }
+            delete payload.finance_account_id;
+
             // The backend ViewSet / Serializer should handle the link to bank_transaction/wallet_transaction.
             // We pass extra context fields.
             const response = await fetchWithAuth(ENDPOINTS.OUTLETS_PAYMENTS, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(formData)
+                body: JSON.stringify(payload)
             });
             if (response.ok) {
                 showToast("Payment recorded and injected into finance ledger", "success");

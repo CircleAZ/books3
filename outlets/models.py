@@ -577,6 +577,8 @@ class OutletPayment(DisplayIDMixin, SoftDeleteModel):
     class PaymentMethod(models.TextChoices):
         CASH = 'cash', 'Cash'
         BANK = 'bank', 'Bank Transfer'
+        CHEQUE = 'cheque', 'Cheque'
+        UPI = 'upi', 'UPI'
 
     outlet = models.ForeignKey(Outlet, on_delete=models.PROTECT, related_name='payments')
     date = models.DateField(default=timezone.localdate)
@@ -604,7 +606,7 @@ class OutletPayment(DisplayIDMixin, SoftDeleteModel):
         
         if is_new:
             # Finance Ledger Integration
-            if self.payment_method == self.PaymentMethod.BANK and self.destination_bank:
+            if self.payment_method in [self.PaymentMethod.BANK, self.PaymentMethod.CHEQUE, self.PaymentMethod.UPI] and self.destination_bank:
                 from finance.models import BankTransaction
                 bt = BankTransaction.objects.create(
                     account=self.destination_bank,
