@@ -52,12 +52,12 @@ class OrderItemSerializer(serializers.ModelSerializer):
         model = OrderItem
         fields = [
             'id', 'product', 'product_name', 'product_display_id', 'product_stock',
-            'quantity', 'confirmed_quantity', 'delivered_quantity', 'remaining_quantity',
+            'quantity', 'confirmed_quantity', 'delivered_quantity', 'remaining_quantity', 'returned_quantity',
             'unit_price', 
             'discount_type', 'discount_value', 'discount_amount',
             'line_total'
         ]
-        read_only_fields = ['id', 'confirmed_quantity', 'delivered_quantity', 'remaining_quantity', 'discount_amount', 'line_total']
+        read_only_fields = ['id', 'confirmed_quantity', 'delivered_quantity', 'remaining_quantity', 'returned_quantity', 'discount_amount', 'line_total']
 
 
 class OrderListSerializer(serializers.ModelSerializer):

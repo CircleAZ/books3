@@ -775,6 +775,7 @@ export default function OrderDetails() {
                                     <th>Price</th>
                                     <th>Ordered</th>
                                     <th>Delivered</th>
+                                    <th>Returned</th>
                                     <th>Remaining</th>
                                     <th>Discount</th>
                                     <th>Total</th>
@@ -797,6 +798,14 @@ export default function OrderDetails() {
                                                 fontWeight: item.delivered_quantity > 0 ? 600 : 400
                                             }}>
                                                 {item.delivered_quantity ?? 0}
+                                            </span>
+                                        </td>
+                                        <td>
+                                            <span style={{
+                                                color: item.returned_quantity > 0 ? 'var(--color-danger, #dc3545)' : 'inherit',
+                                                fontWeight: item.returned_quantity > 0 ? 600 : 400
+                                            }}>
+                                                {item.returned_quantity ?? 0}
                                             </span>
                                         </td>
                                         <td>

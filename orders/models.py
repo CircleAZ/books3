@@ -546,6 +546,11 @@ class OrderItem(UUIDPrimaryKeyModel):
         """Quantity still awaiting delivery."""
         base = self.confirmed_quantity if self.confirmed_quantity is not None else self.quantity
         return max(0, base - self.delivered_quantity)
+        
+    @property
+    def returned_quantity(self):
+        """Quantity returned for this item."""
+        return sum(ri.quantity for ri in self.return_items.filter(return_request__status='completed'))
     
     def __str__(self):
         return f"{self.product.name} x {self.quantity}"
