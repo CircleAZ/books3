@@ -1399,16 +1399,6 @@ class ReturnViewSet(viewsets.ModelViewSet):
                 # Create credit note
                 CreditNote.objects.create(refund=refund)
 
-                # Process withdrawal
-                from finance.services import LedgerService
-                LedgerService.process_withdrawal(
-                    amount=refund.amount,
-                    source_bank=refund.source_bank,
-                    source_wallet=refund.source_wallet,
-                    reference=f"refund_{return_request.display_id}",
-                    description=f"Refund for Return #{return_request.display_id}",
-                    user=request.user
-                )
                 
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
@@ -1428,14 +1418,3 @@ class RefundViewSet(viewsets.ModelViewSet):
             refund = serializer.save(created_by=self.request.user)
             # Auto-create credit note
             CreditNote.objects.create(refund=refund)
-            
-            # Process withdrawal
-            from finance.services import LedgerService
-            LedgerService.process_withdrawal(
-                amount=refund.amount,
-                source_bank=refund.source_bank,
-                source_wallet=refund.source_wallet,
-                reference=f"refund_{refund.order.display_id}",
-                description=f"Refund for Order #{refund.order.display_id}",
-                user=self.request.user
-            )
