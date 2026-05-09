@@ -1417,6 +1417,69 @@ class GeographicRegionViewSet(viewsets.ModelViewSet):
         # Soft delete is handled by the model's delete() method
         instance.delete()
 
+    @action(detail=False, methods=['get'])
+    def reverse_geocode(self, request):
+        """
+        Takes lat/lng and returns the authoritative PostGIS matching region data.
+        Bypasses OSM Nominatim to enforce internal boundary hierarchy.
+        """
+        from django.contrib.gis.geos import Point
+        from rest_framework.response import Response
+        
+        lat_str = request.query_params.get('lat')
+        lng_str = request.query_params.get('lng')
+        
+        if not lat_str or not lng_str:
+            return Response({"error": "lat and lng parameters are required"}, status=400)
+            
+        try:
+            lat = float(lat_str)
+            lng = float(lng_str)
+        except ValueError:
+            return Response({"error": "Invalid lat or lng"}, status=400)
+            
+        # 1. Create strict WGS84 point
+        point = Point(lng, lat, srid=4326)
+        
+        # 2. Query against all active bounds, ordered by smallest layer first (village)
+        # Note: If there are overlaps within a layer, order by -id picks latest created.
+        qs = GeographicRegion.objects.filter(
+            boundary__intersects=point,
+            is_deleted=False
+        ).order_by(
+            models.Case(
+                models.When(layer='village', then=1),
+                models.When(layer='taluka', then=2),
+                models.When(layer='district', then=3),
+                default=4,
+                output_field=models.IntegerField(),
+            ),
+            '-id'
+        )
+        
+        result = {
+            "village": "",
+            "taluka": "",
+            "district": "",
+            "pincode": ""
+        }
+        
+        # We might hit multiple overlapping layers (e.g., a village is inside a taluka).
+        # We extract names for each layer found.
+        for region in qs:
+            if region.layer == 'village' and not result["village"]:
+                result["village"] = region.name
+                if region.pincode and not result["pincode"]:
+                    result["pincode"] = region.pincode
+            elif region.layer == 'taluka' and not result["taluka"]:
+                result["taluka"] = region.name
+                if region.pincode and not result["pincode"]:
+                    result["pincode"] = region.pincode
+            elif region.layer == 'district' and not result["district"]:
+                result["district"] = region.name
+                
+        return Response(result)
+
     @action(detail=False, methods=['post'])
     def sync_customers(self, request):
         """

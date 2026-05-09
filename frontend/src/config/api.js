@@ -50,6 +50,7 @@ export const ENDPOINTS = {
     GEO_BOUNDARIES: `${API_BASE}/customers/geo/boundaries/`,
     GEO_REGIONS: `${API_BASE}/customers/geo/regions/`,
     GEO_REGIONS_CRUD: `${API_BASE}/customers/georegions/`,
+    GEO_REGIONS_REVERSE_GEOCODE: `${API_BASE}/customers/georegions/reverse_geocode/`,
     POTENTIAL_CUSTOMERS: `${API_BASE}/customers/potential-customers/`,
 
     // Template Catalogs (reusable name pools)

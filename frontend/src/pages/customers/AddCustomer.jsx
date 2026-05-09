@@ -443,25 +443,58 @@ export default function AddCustomer({ onSuccess, onCancel, isEmbedded = false })
     };
 
     const handleLocationSelect = async (latlng) => {
+        const lat = parseFloat(latlng.lat.toFixed(6));
+        const lng = parseFloat(latlng.lng.toFixed(6));
+        
         setFormData(prev => ({
             ...prev,
-            latitude: parseFloat(latlng.lat.toFixed(6)),
-            longitude: parseFloat(latlng.lng.toFixed(6))
+            latitude: lat,
+            longitude: lng
         }));
 
         if (!overrideAddress) {
             try {
-                const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${latlng.lat}&lon=${latlng.lng}&zoom=18&addressdetails=1`);
-                const data = await response.json();
-                if (data && data.address) {
-                    setFormData(prev => ({
-                        ...prev,
-                        village: data.address.village || data.address.hamlet || data.address.town || data.address.city || data.address.municipality || data.address.county || data.address.suburb || prev.village,
-                        pincode: data.address.postcode || prev.pincode,
-                        address_line: data.display_name || prev.address_line,
-                        landmark: data.address.neighbourhood || data.address.road || prev.landmark
-                    }));
-                }
+                // Fire both requests concurrently
+                const [nominatimRes, internalRes] = await Promise.allSettled([
+                    // 1. Nominatim with a strict 3-second timeout via AbortController
+                    new Promise((resolve, reject) => {
+                        const controller = new AbortController();
+                        const id = setTimeout(() => controller.abort(), 3000);
+                        fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1`, {
+                            signal: controller.signal
+                        })
+                        .then(res => { clearTimeout(id); return res.json(); })
+                        .then(resolve)
+                        .catch(err => { clearTimeout(id); reject(err); });
+                    }),
+                    // 2. Internal PostGIS ST_Contains (Primary Authority)
+                    fetchWithAuth(`${ENDPOINTS.GEO_REGIONS_REVERSE_GEOCODE}?lat=${lat}&lng=${lng}`).then(res => res.json())
+                ]);
+
+                setFormData(prev => {
+                    const next = { ...prev };
+                    
+                    // First, apply Nominatim data (lowest priority, only for display text)
+                    if (nominatimRes.status === 'fulfilled' && nominatimRes.value?.address) {
+                        const nData = nominatimRes.value;
+                        next.address_line = nData.display_name || prev.address_line;
+                        next.landmark = nData.address.neighbourhood || nData.address.road || prev.landmark;
+                    }
+                    
+                    // Second, strictly overwrite administrative fields with internal authoritative data
+                    if (internalRes.status === 'fulfilled' && !internalRes.value.error) {
+                        const iData = internalRes.value;
+                        // ONLY set village if it was found in OUR database. Otherwise, it must be empty.
+                        next.village = iData.village || '';
+                        if (iData.pincode) next.pincode = iData.pincode;
+                    } else if (nominatimRes.status === 'fulfilled' && nominatimRes.value?.address) {
+                        // Fallback: If internal API failed (e.g. 500 error), DO NOT fallback to OSM village.
+                        // Wait, the plan says: "If internal API returns no village, village = ''. If OSM returns an address, we append it."
+                        // So we NEVER use OSM for village/pincode.
+                    }
+
+                    return next;
+                });
             } catch (err) {
                 console.error("Geocoding failed:", err);
             }
