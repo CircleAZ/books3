@@ -145,7 +145,6 @@ export default function CustomerMap() {
     // Phase 4: Boundary overlay state
     const [boundaryLayer, setBoundaryLayer] = useState('village');
     const [showBoundaries, setShowBoundaries] = useState(true);
-    const [boundaryCache, setBoundaryCache] = useState({});
 
     // Phase 5: Potential Customer pins
     const [placingPotentialPin, setPlacingPotentialPin] = useState(false);
@@ -642,26 +641,19 @@ export default function CustomerMap() {
             boundaryLayerRef.current = geoLayer;
         };
 
-        // Use cache if available
-        if (boundaryCache[layerKey]) {
-            renderBoundaries(boundaryCache[layerKey]);
-            return;
-        }
-
-        // Fetch from API
+        // Always fetch fresh from API (no cache — ensures names stay in sync with DB)
         (async () => {
             try {
                 const res = await fetchWithAuth(`${ENDPOINTS.GEO_BOUNDARIES}?layer=${layerKey}`);
                 if (res.ok) {
                     const data = await res.json();
-                    setBoundaryCache(prev => ({ ...prev, [layerKey]: data }));
                     renderBoundaries(data);
                 }
             } catch (err) {
                 console.error('Failed to fetch boundaries:', err);
             }
         })();
-    }, [mapData, boundaryLayer, showBoundaries, fetchWithAuth, boundaryCache]);
+    }, [mapData, boundaryLayer, showBoundaries, fetchWithAuth]);
 
     // Removed: Potential pins are now handled in the main cluster useEffect
 
