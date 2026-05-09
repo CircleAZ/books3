@@ -135,7 +135,7 @@ export default function GeographicBoundaries() {
             ? `${ENDPOINTS.GEO_REGIONS_CRUD}${editingRegion.id}/` 
             : ENDPOINTS.GEO_REGIONS_CRUD;
         
-        const method = editingRegion ? 'PUT' : 'POST';
+        const method = editingRegion ? 'PATCH' : 'POST';
 
         try {
             const response = await fetchWithAuth(url, {
@@ -369,6 +369,15 @@ export default function GeographicBoundaries() {
 function MapDrawControl({ onCreated, onEdited, onDeleted, color, initialGeoJSON }) {
     const map = useMap();
     const featureGroupRef = useRef(null);
+    
+    // Use refs to always have the latest callbacks, preventing stale closures
+    // in the Leaflet event handlers which persist across React re-renders.
+    const onCreatedRef = useRef(onCreated);
+    const onEditedRef = useRef(onEdited);
+    const onDeletedRef = useRef(onDeleted);
+    useEffect(() => { onCreatedRef.current = onCreated; }, [onCreated]);
+    useEffect(() => { onEditedRef.current = onEdited; }, [onEdited]);
+    useEffect(() => { onDeletedRef.current = onDeleted; }, [onDeleted]);
 
     useEffect(() => {
         if (!featureGroupRef.current) {
@@ -413,19 +422,22 @@ function MapDrawControl({ onCreated, onEdited, onDeleted, color, initialGeoJSON 
         
         map.addControl(drawControl);
 
-        const handleCreated = (e) => onCreated(e, featureGroupRef.current);
+        // Use stable handler functions that dereference the latest callback via ref
+        const handleCreated = (e) => onCreatedRef.current(e, featureGroupRef.current);
+        const handleEdited = (e) => onEditedRef.current(e);
+        const handleDeleted = (e) => onDeletedRef.current(e);
 
         map.on(L.Draw.Event.CREATED, handleCreated);
-        map.on(L.Draw.Event.EDITED, onEdited);
-        map.on(L.Draw.Event.DELETED, onDeleted);
+        map.on(L.Draw.Event.EDITED, handleEdited);
+        map.on(L.Draw.Event.DELETED, handleDeleted);
 
         return () => {
             map.removeControl(drawControl);
             map.off(L.Draw.Event.CREATED, handleCreated);
-            map.off(L.Draw.Event.EDITED, onEdited);
-            map.off(L.Draw.Event.DELETED, onDeleted);
+            map.off(L.Draw.Event.EDITED, handleEdited);
+            map.off(L.Draw.Event.DELETED, handleDeleted);
         };
-    }, [map, color]); // We only want color to re-trigger if shapeOptions need updating, but typically it's fine.
+    }, [map, color]);
 
     return null;
 }

@@ -65,7 +65,8 @@
     background-color: var(--color-surface);
     border-radius: 8px;
     border: 1px solid var(--color-border);
-    overflow: hidden;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
 }
 
 .boundaries-table {
