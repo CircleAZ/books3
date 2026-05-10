@@ -536,3 +536,28 @@ input::placeholder {
     -webkit-overflow-scrolling: touch;
     margin-bottom: var(--space-md);
 }
+
+/* ==========================================================================
+   GLOBAL FLEXBOX NORMALIZATION (FRONTERA OVERRIDE)
+   Prevents critical action rows and filters from bleeding off mobile viewports
+   ========================================================================== */
+.header-actions,
+.modal-actions,
+.form-actions,
+.filter-group,
+.search-row,
+.quick-filters,
+.filters-bar,
+.search-filter-row,
+.action-buttons,
+.inventory-actions,
+.returns-list-controls {
+    flex-wrap: wrap !important;
+}
+
+/* Ensure child elements inside wrapped containers don't shrink ungracefully or stretch unnaturally */
+.header-actions > *,
+.modal-actions > *,
+.form-actions > * {
+    flex-shrink: 0;
+}
