@@ -255,6 +255,24 @@ class CustomerViewSet(viewsets.ModelViewSet):
                     orders__order_status__in=valid_statuses
                 )
             ),
+            season_delivered_count=Count(
+                'orders',
+                filter=Q(
+                    orders__created_at__date__gte=season_start,
+                    orders__created_at__date__lte=season_end,
+                    orders__order_status__in=valid_statuses,
+                    orders__delivery_status='delivered'
+                )
+            ),
+            season_partial_count=Count(
+                'orders',
+                filter=Q(
+                    orders__created_at__date__gte=season_start,
+                    orders__created_at__date__lte=season_end,
+                    orders__order_status__in=valid_statuses,
+                    orders__delivery_status='partial'
+                )
+            ),
             prev_season_order_count=Count(
                 'orders',
                 filter=Q(
@@ -268,7 +286,7 @@ class CustomerViewSet(viewsets.ModelViewSet):
 
         # Build response
         customer_list = []
-        stats = {'total_mapped': 0, 'active': 0, 'followup': 0, 'lapsed': 0, 'prospect': 0}
+        stats = {'total_mapped': 0, 'active': 0, 'fully_delivered': 0, 'partially_delivered': 0, 'followup': 0, 'lapsed': 0, 'prospect': 0}
         villages = {}
 
         for c in customers:
@@ -287,10 +305,19 @@ class CustomerViewSet(viewsets.ModelViewSet):
             if filter_village and addr_region_name != filter_village.lower():
                 continue
 
-            # Marker status
+            # Marker status (delivery-aware split for season orders)
             if c.season_order_count > 0:
-                marker_status = 'active'
-                stats['active'] += 1
+                if c.season_delivered_count == c.season_order_count:
+                    marker_status = 'fully_delivered'
+                    stats['fully_delivered'] += 1
+                elif c.season_delivered_count == 0 and c.season_partial_count == 0:
+                    # All orders are pending — nothing shipped yet
+                    marker_status = 'active'
+                    stats['active'] += 1
+                else:
+                    # Mix of delivered/partial/pending
+                    marker_status = 'partially_delivered'
+                    stats['partially_delivered'] += 1
             elif c.prev_season_order_count > 0:
                 marker_status = 'followup'
                 stats['followup'] += 1
@@ -317,7 +344,7 @@ class CustomerViewSet(viewsets.ModelViewSet):
                         'total': 0, 'active': 0
                     }
                 villages[village_key]['total'] += 1
-                if marker_status == 'active':
+                if marker_status in ('active', 'fully_delivered', 'partially_delivered'):
                     villages[village_key]['active'] += 1
 
             # Location tags (already prefetched via address_prefetch)
@@ -381,7 +408,7 @@ class CustomerViewSet(viewsets.ModelViewSet):
 
         # Coverage stats for enhanced stats bar
         total_mapped = stats['total_mapped']
-        covered = stats['active']
+        covered = stats['active'] + stats['fully_delivered'] + stats['partially_delivered']
         coverage_pct = round((covered / total_mapped * 100)) if total_mapped > 0 else 0
 
         # ── Phase 3: Target villages ──

@@ -70,7 +70,7 @@ export function buildFilterQuery(filters) {
     const params = new URLSearchParams();
     if (filters.season) params.set('season', filters.season);
     if (filters.village) params.set('village', filters.village);
-    if (filters.status && filters.status.length > 0 && filters.status.length < 4) {
+    if (filters.status && filters.status.length > 0 && filters.status.length < 6) {
         params.set('status', filters.status.join(','));
     }
     if (filters.group) params.set('group', filters.group);

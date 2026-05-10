@@ -13,13 +13,16 @@ import './CustomerMap.css';
 
 // ── Marker config ──
 const MARKER_CONFIG = {
+    fully_delivered:    { bg: '#00f9be', border: '#00c99a', icon: '✓', label: 'Fully Delivered',    borderStyle: 'solid' },
+    partially_delivered:{ bg: '#d600f9', border: '#a800c4', icon: '½', label: 'Partially Delivered', borderStyle: 'solid' },
     active:   { bg: '#22c55e', border: '#16a34a', icon: '✓', label: 'Ordered this season', borderStyle: 'solid' },
     followup: { bg: '#eab308', border: '#ca8a04', icon: '⏳', label: 'Last season — needs visit', borderStyle: 'dashed' },
     lapsed:   { bg: '#ef4444', border: '#dc2626', icon: '✗', label: 'Lapsed (2+ seasons)', borderStyle: 'dotted' },
     prospect: { bg: '#3b82f6', border: '#2563eb', icon: '★', label: 'Never ordered', borderStyle: 'double' },
 };
 
-const ALL_STATUSES = ['active', 'followup', 'lapsed', 'prospect'];
+const ALL_STATUSES = ['fully_delivered', 'partially_delivered', 'active', 'followup', 'lapsed', 'prospect'];
+const COVERED_STATUSES = ['active', 'fully_delivered', 'partially_delivered'];
 
 function createMarkerIcon(status) {
     const config = MARKER_CONFIG[status] || MARKER_CONFIG.prospect;
@@ -154,12 +157,25 @@ export default function CustomerMap() {
     const [showPotentialPins, setShowPotentialPins] = useState(true);
     const [canManageCustomers, setCanManageCustomers] = useState(false);
 
-    // Filter state
+    // Filter state (with localStorage migration for new delivery statuses)
     const savedFilters = loadFilters();
+    // P0 Migration: If saved filters don't include new delivery statuses, inject them
+    const migrateStatusFilters = (saved) => {
+        if (!saved?.status) return [...ALL_STATUSES];
+        const hasNewStatuses = saved.status.includes('fully_delivered') && saved.status.includes('partially_delivered');
+        if (!hasNewStatuses) {
+            // Add missing new statuses to the user's existing selection
+            const migrated = [...saved.status];
+            if (!migrated.includes('fully_delivered')) migrated.unshift('fully_delivered');
+            if (!migrated.includes('partially_delivered')) migrated.splice(1, 0, 'partially_delivered');
+            return migrated;
+        }
+        return saved.status;
+    };
     const [filters, setFilters] = useState({
         season: savedFilters?.season || '',
         village: savedFilters?.village || '',
-        status: savedFilters?.status || [...ALL_STATUSES],
+        status: migrateStatusFilters(savedFilters),
         group: savedFilters?.group || '',
     });
     // Pending filters (edited but not yet applied)
@@ -319,13 +335,16 @@ export default function CustomerMap() {
                 const standardMarkers = markers.filter(m => m.options.isStandard);
                 const potentialMarkers = markers.filter(m => m.options.isPotential);
                 
+                const fullyDelivered = standardMarkers.filter(m => m.options.markerStatus === 'fully_delivered').length;
+                const partiallyDelivered = standardMarkers.filter(m => m.options.markerStatus === 'partially_delivered').length;
                 const active = standardMarkers.filter(m => m.options.markerStatus === 'active').length;
+                const covered = fullyDelivered + partiallyDelivered + active;
                 const totalStandard = standardMarkers.length;
                 const totalPotential = potentialMarkers.length;
                 
                 let pct = 0;
                 if (totalStandard > 0) {
-                    pct = Math.round((active / totalStandard) * 100);
+                    pct = Math.round((covered / totalStandard) * 100);
                 }
                 
                 let clusterColor = '#ef4444'; // red < 50%
@@ -338,11 +357,21 @@ export default function CustomerMap() {
                 }
                 
                 let htmlContent = '';
-                if (totalStandard > 0 && totalPotential > 0) {
-                    htmlContent = `<span class="cluster-count" style="line-height: 1; margin-bottom: 2px; font-size: 13px;">${active}/${totalStandard}</span>
-                                   <span style="font-size: 10.5px; opacity: 0.95; line-height: 1; font-weight: 700; color: #fff;">+${totalPotential}</span>`;
-                } else if (totalStandard > 0) {
-                    htmlContent = `<span class="cluster-count">${active}/${totalStandard}</span>`;
+                if (totalStandard > 0) {
+                    // Build delivery-split display
+                    let parts = [];
+                    if (fullyDelivered > 0) parts.push(`<span style="color:#00f9be;font-weight:700;">✓${fullyDelivered}</span>`);
+                    if (partiallyDelivered > 0) parts.push(`<span style="color:#d600f9;font-weight:700;">½${partiallyDelivered}</span>`);
+                    if (active > 0) parts.push(`<span style="color:#86efac;font-weight:700;">${active}</span>`);
+                    
+                    const deliverySplit = parts.length > 0 ? parts.join(' ') : '0';
+                    
+                    if (totalPotential > 0) {
+                        htmlContent = `<span class="cluster-count" style="line-height: 1; margin-bottom: 2px; font-size: 11px;">${deliverySplit}/${totalStandard}</span>
+                                       <span style="font-size: 10.5px; opacity: 0.95; line-height: 1; font-weight: 700; color: #fff;">+${totalPotential}</span>`;
+                    } else {
+                        htmlContent = `<span class="cluster-count" style="font-size: 11px;">${deliverySplit}/${totalStandard}</span>`;
+                    }
                 } else {
                     htmlContent = `<span class="cluster-count">+${totalPotential}</span>`;
                 }
@@ -867,6 +896,14 @@ export default function CustomerMap() {
                     <span className="stats-value stats-pct">{stats.coverage_pct || 0}%</span>
                 </span>
                 <span className="stats-divider">|</span>
+                <span className="stats-item stats-fully-delivered">
+                    <span className="stats-dot" style={{background: '#00f9be'}}></span>
+                    {stats.fully_delivered || 0}
+                </span>
+                <span className="stats-item stats-partially-delivered">
+                    <span className="stats-dot" style={{background: '#d600f9'}}></span>
+                    {stats.partially_delivered || 0}
+                </span>
                 <span className="stats-item stats-active">
                     <span className="stats-dot" style={{background: '#22c55e'}}></span>
                     {stats.active || 0}
@@ -893,7 +930,7 @@ export default function CustomerMap() {
                     title="Toggle filters"
                 >
                     <span className="filter-icon">⚙</span>
-                    {(filters.village || filters.group || filters.status.length < 4 || filters.season) && (
+                    {(filters.village || filters.group || filters.status.length < ALL_STATUSES.length || filters.season) && (
                         <span className="map-filter-badge"></span>
                     )}
                 </button>
@@ -1113,12 +1150,12 @@ export default function CustomerMap() {
                         <span className="empty-icon">🗺️</span>
                         <h3>No Customers Found</h3>
                         <p>
-                            {filters.village || filters.group || filters.status.length < 4
+                            {filters.village || filters.group || filters.status.length < ALL_STATUSES.length
                                 ? 'No customers match the current filters. Try adjusting your filters.'
                                 : 'Add GPS coordinates to customer addresses to see them here.'
                             }
                         </p>
-                        {(filters.village || filters.group || filters.status.length < 4) && (
+                        {(filters.village || filters.group || filters.status.length < ALL_STATUSES.length) && (
                             <button className="btn-reset-empty" onClick={handleResetFilters}>Reset Filters</button>
                         )}
                     </div>
