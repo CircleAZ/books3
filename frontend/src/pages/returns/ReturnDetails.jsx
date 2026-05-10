@@ -280,7 +280,11 @@ export default function ReturnDetails() {
                 returnId={returnData.id}
                 orderId={returnData.order}
                 orderDisplayId={returnData.order_display_id}
-                outstandingBalance={(Number(returnData.total_refund_amount) - Number(returnData.total_refunded)).toFixed(2)}
+                outstandingBalance={Math.min(
+                    Number(returnData.total_refund_amount) - Number(returnData.total_refunded) + Number(returnData.order_change_due || 0),
+                    Number(returnData.order_max_refundable || 0)
+                ).toFixed(2)}
+                maxRefundable={Number(returnData.order_max_refundable || 0).toFixed(2)}
                 onRefundComplete={fetchReturnDetails}
             />
         </div>

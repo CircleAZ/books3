@@ -7,7 +7,7 @@ import '../../../styles/components/page-layout.css';
 import '../../../styles/components/form-layout.css';
 import '../../../styles/components/modal-system.css';
 
-export default function RefundModal({ isOpen, onClose, returnId, orderId, orderDisplayId, outstandingBalance, onRefundComplete }) {
+export default function RefundModal({ isOpen, onClose, returnId, orderId, orderDisplayId, outstandingBalance, maxRefundable, onRefundComplete }) {
     const { fetchWithAuth } = useAuth();
     const { showToast } = useToast();
     const [loading, setLoading] = useState(false);
@@ -118,7 +118,10 @@ export default function RefundModal({ isOpen, onClose, returnId, orderId, orderD
         <div className="modal-overlay" style={overlayStyle}>
             <div className="modal-content" style={contentStyle}>
                 <h2>Record Refund for Order #{orderDisplayId}</h2>
-                <p className="page-subtitle mb-4">Remaining to Refund: ₹{outstandingBalance}</p>
+                <p className="page-subtitle mb-4">
+                    Recommended: ₹{outstandingBalance} 
+                    {maxRefundable !== undefined && <span style={{color: 'var(--color-danger)', marginLeft: '10px'}}>(Max Cap: ₹{maxRefundable})</span>}
+                </p>
 
                 <form onSubmit={handleSubmit} className="form-layout">
                     <div className="form-row">
@@ -131,7 +134,7 @@ export default function RefundModal({ isOpen, onClose, returnId, orderId, orderD
                                 className="form-input"
                                 value={formData.amount}
                                 onChange={e => setFormData({...formData, amount: e.target.value})}
-                                max={outstandingBalance}
+                                max={maxRefundable !== undefined ? Math.min(Number(outstandingBalance), Number(maxRefundable)) : outstandingBalance}
                             />
                         </div>
                         <div className="form-group">

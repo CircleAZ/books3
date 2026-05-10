@@ -318,12 +318,12 @@ export default function OrderList() {
                                             <td className="font-bold">{currency}{Number(order.total).toFixed(2)}</td>
                                             <td>
                                                 <span className={`status-pill ${getStatusClass(order.payment_status)}`}>
-                                                    {formatStatusLabel(order.payment_status)}
+                                                    {formatStatusLabel('payment_status', order.payment_status)}
                                                 </span>
                                             </td>
                                             <td>
                                                 <span className={`status-pill ${getStatusClass(order.derived_status || order.order_status)}`}>
-                                                    {formatStatusLabel(order.derived_status || order.order_status)}
+                                                    {formatStatusLabel('order_status', order.derived_status || order.order_status)}
                                                 </span>
                                             </td>
                                             <td className="text-center">{order.item_count ?? '-'}</td>

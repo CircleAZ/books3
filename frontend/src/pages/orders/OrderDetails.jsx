@@ -675,37 +675,37 @@ export default function OrderDetails() {
                 </div>
                 <StatusCard
                     label="Order Status"
-                    value={formatStatusLabel(order.order_status)}
+                    value={formatStatusLabel('order_status', order.order_status)}
                     className={getStatusClass(order.order_status)}
                     onUpdate={() => openStatusModal('order_status', order.order_status)}
                 />
                 <StatusCard
                     label="Payment Status"
-                    value={formatStatusLabel(order.payment_status)}
+                    value={formatStatusLabel('payment_status', order.payment_status)}
                     className={getStatusClass(order.payment_status)}
                 />
                 <StatusCard
                     label="Delivery Status"
-                    value={formatStatusLabel(order.delivery_status)}
+                    value={formatStatusLabel('delivery_status', order.delivery_status)}
                     className={getStatusClass(order.delivery_status)}
                 />
                 <StatusCard
                     label="Return"
-                    value={formatStatusLabel(order.return_status)}
+                    value={formatStatusLabel('return_status', order.return_status)}
                     className={getStatusClass(order.return_status)}
                     onUpdate={() => openStatusModal('return_status', order.return_status)}
                     hideIfNA={order.return_status === 'na'}
                 />
                 <StatusCard
                     label="Refund"
-                    value={formatStatusLabel(order.refund_status)}
+                    value={formatStatusLabel('refund_status', order.refund_status)}
                     className={getStatusClass(order.refund_status)}
                     onUpdate={() => openStatusModal('refund_status', order.refund_status)}
                     hideIfNA={order.refund_status === 'na'}
                 />
                 <StatusCard
                     label="Cancellation"
-                    value={formatStatusLabel(order.cancellation_status)}
+                    value={formatStatusLabel('cancellation_status', order.cancellation_status)}
                     className={getStatusClass(order.cancellation_status)}
                     onUpdate={() => openStatusModal('cancellation_status', order.cancellation_status)}
                     hideIfNA={order.cancellation_status === 'na'}
@@ -965,6 +965,18 @@ export default function OrderDetails() {
                             <span>Total</span>
                             <span>{currency}{Number(order.total).toFixed(2)}</span>
                         </div>
+                        {order.returned_value > 0 && (
+                            <>
+                                <div className="summary-row" style={{ color: 'var(--color-danger)' }}>
+                                    <span>Returned Items Value</span>
+                                    <span>-{currency}{Number(order.returned_value).toFixed(2)}</span>
+                                </div>
+                                <div className="summary-row total" style={{ borderTop: '1px solid var(--border-color)', paddingTop: '10px' }}>
+                                    <span>Effective Total</span>
+                                    <span>{currency}{Number(order.effective_total).toFixed(2)}</span>
+                                </div>
+                            </>
+                        )}
                         <div className="summary-divider"></div>
                         <div className="summary-row paid">
                             <span>Amount Paid</span>

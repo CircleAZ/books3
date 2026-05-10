@@ -124,6 +124,9 @@ class OrderDetailSerializer(serializers.ModelSerializer):
     amount_paid = serializers.DecimalField(max_digits=12, decimal_places=2, read_only=True)
     balance_due = serializers.DecimalField(max_digits=12, decimal_places=2, read_only=True)
     change_due = serializers.DecimalField(max_digits=12, decimal_places=2, read_only=True)
+    returned_value = serializers.DecimalField(max_digits=12, decimal_places=2, read_only=True)
+    effective_total = serializers.DecimalField(max_digits=12, decimal_places=2, read_only=True)
+    max_refundable = serializers.DecimalField(max_digits=12, decimal_places=2, read_only=True)
     derived_status = serializers.CharField(read_only=True)
     can_edit = serializers.BooleanField(read_only=True)
     can_cancel = serializers.BooleanField(read_only=True)
@@ -141,6 +144,7 @@ class OrderDetailSerializer(serializers.ModelSerializer):
             'derived_status', 'can_edit', 'can_cancel',
             'subtotal', 'discount_type', 'discount_value', 'discount_amount', 'total',
             'amount_paid', 'balance_due', 'change_due',
+            'returned_value', 'effective_total', 'max_refundable',
             'notes', 'items', 'payments', 'deliveries', 'status_history', 'order_notes',
             'receipt_uuid',
             'created_at', 'updated_at'
@@ -533,6 +537,9 @@ class ReturnDetailSerializer(serializers.ModelSerializer):
     """Full detail serializer for return with nested items and refunds."""
     order_display_id = serializers.IntegerField(source='order.display_id', read_only=True)
     order_total = serializers.DecimalField(source='order.total', max_digits=12, decimal_places=2, read_only=True)
+    order_max_refundable = serializers.DecimalField(source='order.max_refundable', max_digits=12, decimal_places=2, read_only=True)
+    order_change_due = serializers.DecimalField(source='order.change_due', max_digits=12, decimal_places=2, read_only=True)
+    order_net_paid = serializers.DecimalField(source='order.net_paid', max_digits=12, decimal_places=2, read_only=True)
     customer_name = serializers.SerializerMethodField()
     items = ReturnItemSerializer(many=True, read_only=True)
     refunds = serializers.SerializerMethodField()
@@ -543,7 +550,8 @@ class ReturnDetailSerializer(serializers.ModelSerializer):
     class Meta:
         model = Return
         fields = [
-            'id', 'display_id', 'order', 'order_display_id', 'order_total',
+            'id', 'display_id', 'order', 'order_display_id', 'order_total', 'order_max_refundable',
+            'order_change_due', 'order_net_paid',
             'customer_name', 'status', 'notes', 'items', 'refunds',
             'total_refund_amount', 'total_refunded',
             'created_at', 'updated_at', 'created_by_name'
@@ -683,13 +691,13 @@ class RefundSerializer(serializers.ModelSerializer):
         amount = data.get('amount', Decimal('0'))
         
         if order:
-            # Check total refunds don't exceed order total
+            # Check total refunds don't exceed order's max_refundable limit
             existing_refunds = sum(
                 r.amount for r in order.refunds.filter(status='completed')
             )
-            if existing_refunds + amount > order.total:
+            if existing_refunds + amount > order.max_refundable:
                 raise serializers.ValidationError({
-                    'amount': f'Total refunds ({existing_refunds + amount}) would exceed order total ({order.total}).'
+                    'amount': f'Total refunds ({existing_refunds + amount}) would exceed the maximum refundable limit ({order.max_refundable}).'
                 })
         
         return data
@@ -701,9 +709,9 @@ class RefundSerializer(serializers.ModelSerializer):
             order = Order.objects.select_for_update().get(pk=validated_data['order'].pk)
             amount = validated_data.get('amount', Decimal('0'))
             existing_refunds = sum(r.amount for r in order.refunds.filter(status='completed'))
-            if existing_refunds + amount > order.total:
+            if existing_refunds + amount > order.max_refundable:
                 raise serializers.ValidationError({
-                    'amount': f'Concurrent refund attempt blocked. Total refunds would exceed order total.'
+                    'amount': f'Concurrent refund attempt blocked. Total refunds would exceed the maximum refundable limit.'
                 })
             
             refund = super().create(validated_data)

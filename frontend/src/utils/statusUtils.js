@@ -57,41 +57,45 @@ export const getStatusClass = (status) => {
     return 'status-pending';
 };
 
-/**
- * Maps raw database status values to human-readable labels.
- */
-export const formatStatusLabel = (value) => {
+export const formatStatusLabel = (...args) => {
+    let field, value;
+    
+    // Backwards compatibility: if exactly 1 argument is passed, it's the value
+    if (args.length === 1) {
+        field = null;
+        value = args[0];
+    } else {
+        field = args[0];
+        value = args[1];
+    }
+
     if (!value) return '-';
 
+    // Lookup strictly from STATUS_OPTIONS if field is provided
+    if (field && STATUS_OPTIONS[field]) {
+        const option = STATUS_OPTIONS[field].find(opt => opt.value === value);
+        if (option) return option.label;
+    }
+
+    // Flat fallback map for legacy calls without field context
     const labelMap = {
-        // Common
         'na': 'N/A',
         'pending': 'Pending',
         'completed': 'Completed',
         'cancelled': 'Cancelled',
-
-        // Order
         'draft': 'Draft',
         'confirmed': 'Confirmed',
-
-        // Payment
-        'partial': 'Partial',
         'paid': 'Paid',
         'overpaid': 'Overpaid',
         'refunded': 'Refunded',
-
-        // Delivery
         'processing': 'Processing',
         'ready': 'Ready',
         'delivered': 'Delivered',
-        'partial': 'Partially Delivered',
-
-        // Return
         'received': 'Item Received',
-
-        // Refund
-        // (Shared with above)
     };
+
+    // 'partial' has multiple meanings. Default to 'Partial' if no field is given.
+    if (value === 'partial') return 'Partial';
 
     return labelMap[value] || value;
 };
