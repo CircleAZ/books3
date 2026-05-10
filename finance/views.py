@@ -1308,18 +1308,22 @@ class CashTransferViewSet(viewsets.ModelViewSet):
         
     @action(detail=True, methods=['post'], throttle_classes=[FinanceActionThrottle])
     def approve(self, request, pk=None):
-        transfer = self.get_object()
-        if transfer.status != 'pending':
-            return Response({'error': 'Transfer is not pending.'}, status=status.HTTP_400_BAD_REQUEST)
-        if transfer.initiated_by == request.user and not request.user.is_superuser:
-            return Response({'error': 'Cannot approve your own transfer. Requires peer manager review.'}, status=status.HTTP_403_FORBIDDEN)
-            
         from .services import LedgerService
         from django.db import transaction
         from django.core.exceptions import ValidationError
         
         try:
             with transaction.atomic():
+                # P0 Fix: Lock the transfer row to prevent double-approval race condition.
+                # Without this, two near-simultaneous clicks both read status='pending'
+                # before either commits, causing 2× withdrawal + 2× deposit.
+                transfer = CashTransfer.objects.select_for_update().get(pk=pk)
+                
+                if transfer.status != 'pending':
+                    return Response({'error': 'Transfer is not pending.'}, status=status.HTTP_400_BAD_REQUEST)
+                if transfer.initiated_by == request.user and not request.user.is_superuser:
+                    return Response({'error': 'Cannot approve your own transfer. Requires peer manager review.'}, status=status.HTTP_403_FORBIDDEN)
+                
                 transfer.status = 'approved'
                 transfer.approved_by = request.user
                 transfer.clean()

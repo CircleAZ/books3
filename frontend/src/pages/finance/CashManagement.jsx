@@ -35,6 +35,7 @@ export default function CashManagement() {
     
     const [isSubmittingTransfer, setIsSubmittingTransfer] = useState(false);
     const [isSubmittingWallet, setIsSubmittingWallet] = useState(false);
+    const [approvingId, setApprovingId] = useState(null);
 
     const fetchData = useCallback(async () => {
         setLoading(true);
@@ -180,6 +181,8 @@ export default function CashManagement() {
     };
 
     const handleApprove = async (id) => {
+        if (approvingId) return; // P0 Fix: Block double-click
+        setApprovingId(id);
         try {
             const response = await fetchWithAuth(`${ENDPOINTS.FINANCE_CASH_TRANSFERS}${id}/approve/`, {
                 method: 'POST'
@@ -193,6 +196,8 @@ export default function CashManagement() {
             }
         } catch (err) {
             console.error('Approval error:', err);
+        } finally {
+            setApprovingId(null);
         }
     };
 
@@ -279,10 +284,10 @@ export default function CashManagement() {
                                                     <button 
                                                         className="btn btn-success btn-sm"
                                                         onClick={() => handleApprove(t.id)}
-                                                        disabled={t.initiated_by === user?.id && !user?.is_superuser}
+                                                        disabled={(t.initiated_by === user?.id && !user?.is_superuser) || approvingId === t.id}
                                                         title={t.initiated_by === user?.id && !user?.is_superuser ? "Cannot approve your own transfer" : ""}
                                                     >
-                                                        Approve
+                                                        {approvingId === t.id ? 'Approving...' : 'Approve'}
                                                     </button>
                                                     <button 
                                                         className="btn btn-danger btn-sm"
