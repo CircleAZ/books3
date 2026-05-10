@@ -18,6 +18,7 @@
     align-items: center;
     gap: var(--page-gap);
     width: 100%;
+    flex-wrap: wrap;
 }
 
 .back-arrow {
@@ -29,6 +30,11 @@
 
 .header-actions {
     margin-left: auto;
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+    flex-wrap: wrap;
+    justify-content: flex-end;
 }
 
 /* Actions Overflow Menu */

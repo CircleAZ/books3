@@ -480,7 +480,7 @@ export default function OrderDetails() {
                     <span className={`status-pill ${getStatusClass(order.derived_status)}`}>
                         {order.derived_status}
                     </span>
-                    <div className="header-actions" style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                    <div className="header-actions">
                         {order.receipt_uuid && (
                             <button
                                 className="btn btn-primary"
@@ -499,6 +499,15 @@ export default function OrderDetails() {
                                 Share Receipt
                             </button>
                         )}
+                        {/* Record Delivery Button */}
+                        {order.order_status !== 'draft' && order.order_status !== 'cancelled' && order.delivery_status !== 'delivered' && (
+                            <GuardedAction permission="orders.edit_orders">
+                                <button className="btn btn-primary" onClick={openDeliveryModal}
+                                    style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                                    🚚 Record Delivery
+                                </button>
+                            </GuardedAction>
+                        )}
                         <div className="actions-menu-wrapper">
                             <button
                                 className="btn btn-ghost actions-menu-trigger"
@@ -507,15 +516,6 @@ export default function OrderDetails() {
                             >
                                 ⋮
                             </button>
-                            {/* Record Delivery Button */}
-                            {order.order_status !== 'draft' && order.order_status !== 'cancelled' && order.delivery_status !== 'delivered' && (
-                                <GuardedAction permission="orders.edit_orders">
-                                    <button className="btn btn-primary" onClick={openDeliveryModal}
-                                        style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                                        🚚 Record Delivery
-                                    </button>
-                                </GuardedAction>
-                            )}
                             {showShareMenu && (
                                 <>
                                     <div className="actions-menu-backdrop" onClick={() => setShowShareMenu(false)} />
