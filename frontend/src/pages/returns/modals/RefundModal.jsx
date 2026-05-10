@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '../../../context/AuthContext';
 import { ENDPOINTS } from '../../../config/api';
 import { useToast } from '../../../context/ToastContext';
+import { useCurrency } from '../../../context/CurrencyContext';
 
 import '../../../styles/components/page-layout.css';
 import '../../../styles/components/form-layout.css';
@@ -10,6 +11,7 @@ import '../../../styles/components/modal-system.css';
 export default function RefundModal({ isOpen, onClose, returnId, orderId, orderDisplayId, outstandingBalance, maxRefundable, onRefundComplete }) {
     const { fetchWithAuth } = useAuth();
     const { showToast } = useToast();
+    const { currency } = useCurrency();
     const [loading, setLoading] = useState(false);
     
     const [bankAccounts, setBankAccounts] = useState([]);
@@ -119,14 +121,29 @@ export default function RefundModal({ isOpen, onClose, returnId, orderId, orderD
             <div className="modal-content" style={contentStyle}>
                 <h2>Record Refund for Order #{orderDisplayId}</h2>
                 <p className="page-subtitle mb-4">
-                    Recommended: ₹{outstandingBalance} 
-                    {maxRefundable !== undefined && <span style={{color: 'var(--color-danger)', marginLeft: '10px'}}>(Max Cap: ₹{maxRefundable})</span>}
+                    Recommended: {currency}{outstandingBalance} 
+                    {maxRefundable !== undefined && <span style={{color: 'var(--color-danger)', marginLeft: '10px'}}>(Max Cap: {currency}{maxRefundable})</span>}
                 </p>
+                
+                {maxRefundable !== undefined && Number(maxRefundable) < Number(outstandingBalance) && (
+                    <div style={{
+                        padding: '0.75rem', 
+                        background: 'rgba(239, 68, 68, 0.1)', 
+                        color: 'var(--color-danger)', 
+                        borderRadius: '8px', 
+                        marginBottom: '1rem',
+                        fontSize: '0.85rem',
+                        lineHeight: '1.5'
+                    }}>
+                        <strong>Why is the cap lower than the return value?</strong><br/>
+                        The customer underpaid the original order. The maximum refund is mathematically limited to what they actually overpaid relative to the new effective total.
+                    </div>
+                )}
 
                 <form onSubmit={handleSubmit} className="form-layout">
                     <div className="form-row">
                         <div className="form-group">
-                            <label>Amount (₹) *</label>
+                            <label>Amount ({currency}) *</label>
                             <input 
                                 type="number" 
                                 step="0.01"

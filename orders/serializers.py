@@ -122,6 +122,8 @@ class OrderDetailSerializer(serializers.ModelSerializer):
     customer_name = serializers.SerializerMethodField()
     customer_phone = serializers.SerializerMethodField()
     amount_paid = serializers.DecimalField(max_digits=12, decimal_places=2, read_only=True)
+    net_paid = serializers.DecimalField(max_digits=12, decimal_places=2, read_only=True)
+    total_refunded = serializers.SerializerMethodField()
     balance_due = serializers.DecimalField(max_digits=12, decimal_places=2, read_only=True)
     change_due = serializers.DecimalField(max_digits=12, decimal_places=2, read_only=True)
     returned_value = serializers.DecimalField(max_digits=12, decimal_places=2, read_only=True)
@@ -143,7 +145,7 @@ class OrderDetailSerializer(serializers.ModelSerializer):
             'return_status', 'refund_status', 'cancellation_status',
             'derived_status', 'can_edit', 'can_cancel',
             'subtotal', 'discount_type', 'discount_value', 'discount_amount', 'total',
-            'amount_paid', 'balance_due', 'change_due',
+            'amount_paid', 'net_paid', 'total_refunded', 'balance_due', 'change_due',
             'returned_value', 'effective_total', 'max_refundable',
             'notes', 'items', 'payments', 'deliveries', 'status_history', 'order_notes',
             'receipt_uuid',
@@ -168,6 +170,9 @@ class OrderDetailSerializer(serializers.ModelSerializer):
     def get_receipt_uuid(self, obj):
         """Get the order's receipt_uuid."""
         return str(obj.receipt_uuid) if obj.receipt_uuid else None
+
+    def get_total_refunded(self, obj):
+        return sum(r.amount for r in obj.refunds.filter(status='completed'))
 
 
 class OrderItemCreateSerializer(serializers.Serializer):

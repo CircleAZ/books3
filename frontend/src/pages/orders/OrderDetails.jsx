@@ -833,7 +833,7 @@ export default function OrderDetails() {
                         <div className="card-header-with-action">
                             <h3>Payments</h3>
                             <div className="payment-summary">
-                                <span>Paid: {currency}{Number(order.amount_paid).toFixed(2)}</span>
+                                <span>Net Paid: {currency}{Number(order.net_paid || order.amount_paid).toFixed(2)}</span>
                                 <span className={order.balance_due > 0 ? 'text-danger' : 'text-success'}>
                                     Due: {currency}{Number(order.balance_due).toFixed(2)}
                                 </span>
@@ -979,8 +979,18 @@ export default function OrderDetails() {
                         )}
                         <div className="summary-divider"></div>
                         <div className="summary-row paid">
-                            <span>Amount Paid</span>
+                            <span>Total Inbound Payments</span>
                             <span>{currency}{Number(order.amount_paid).toFixed(2)}</span>
+                        </div>
+                        {order.total_refunded > 0 && (
+                            <div className="summary-row" style={{ color: 'var(--color-danger)' }}>
+                                <span>Refunds Issued</span>
+                                <span>-{currency}{Number(order.total_refunded).toFixed(2)}</span>
+                            </div>
+                        )}
+                        <div className="summary-row" style={{ fontWeight: 600 }}>
+                            <span>Net Paid</span>
+                            <span>{currency}{Number(order.net_paid || order.amount_paid).toFixed(2)}</span>
                         </div>
                         <div className="summary-row due">
                             <span>Balance Due</span>
