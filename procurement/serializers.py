@@ -10,16 +10,16 @@ class TransporterSerializer(serializers.ModelSerializer):
 
 class PurchaseOrderItemSerializer(serializers.ModelSerializer):
     product_name = serializers.CharField(source='product.name', read_only=True)
-    product_sku = serializers.CharField(source='product.sku', read_only=True)
+
 
     class Meta:
         model = PurchaseOrderItem
         fields = [
-            'id', 'purchase_order', 'product', 'product_name', 'product_sku',
+            'id', 'purchase_order', 'product', 'product_name',
             'vendor_pack_size', 'purchased_packs', 'ordered_quantity', 
-            'received_packs', 'received_quantity', 'unit_cost_price', 'line_total'
+            'received_packs', 'unit_cost_price', 'line_total'
         ]
-        read_only_fields = ['ordered_quantity', 'line_total', 'received_quantity']
+        read_only_fields = ['ordered_quantity', 'line_total']
 
 class PurchaseChargeSerializer(serializers.ModelSerializer):
     transporter_name = serializers.CharField(source='transporter.name', read_only=True)
