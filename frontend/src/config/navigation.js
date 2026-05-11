@@ -65,6 +65,18 @@ export const menuSections = [
         ],
     },
     {
+        id: 'procurement',
+        label: 'Procurement Engine',
+        title: 'Procurement',
+        path: '/procurement',
+        icon: 'truck',
+        permission: 'inventory.manage_stock',
+        children: [
+            { label: 'Purchase Orders', title: 'Purchase Orders', path: '/procurement', permission: 'inventory.manage_stock' },
+            { label: 'Create PO', title: 'Create PO', path: '/procurement/new', permission: 'inventory.manage_stock' },
+        ],
+    },
+    {
         id: 'customers',
         label: 'Customer Management',
         title: 'Customers',

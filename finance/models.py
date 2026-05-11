@@ -148,7 +148,7 @@ class Expense(SoftDeleteModel):
         return f"{self.date} - {self.payee_name} - {self.total_amount}"
     
     def save(self, *args, **kwargs):
-        if self.pk and self.notes == "AUTO-GENERATED IMMUTABLE EXPENSE":
+        if not self._state.adding and self.notes == "AUTO-GENERATED IMMUTABLE EXPENSE":
             # Allow internal status updates (like payments) but prevent core amount/payee tampering
             original = Expense.objects.get(pk=self.pk)
             if self.amount != original.amount or self.payee_id != original.payee_id:

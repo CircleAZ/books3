@@ -81,10 +81,8 @@ class ProcurementService:
             )
 
             # 5. Update PO Item state
-            total_base_units_received = new_packs * po_item.vendor_pack_size
             po_item.received_packs += new_packs
-            po_item.received_quantity += total_base_units_received
-            po_item.save(update_fields=['received_packs', 'received_quantity'])
+            po_item.save(update_fields=['received_packs'])
 
             if po_item.received_packs < po_item.purchased_packs:
                 all_fully_received = False

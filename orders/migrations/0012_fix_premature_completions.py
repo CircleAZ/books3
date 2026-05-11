@@ -27,9 +27,9 @@ def fix_premature_completions(apps, schema_editor):
     count = bad_orders.count()
     if count > 0:
         bad_orders.update(order_status='confirmed')
-        print(f"\n  ✅ Fixed {count} orders: 'completed' → 'confirmed' (delivery not done)")
+        print(f"\n  [OK] Fixed {count} orders: 'completed' -> 'confirmed' (delivery not done)")
     else:
-        print("\n  ✅ No incorrectly-completed orders found. All clean.")
+        print("\n  [OK] No incorrectly-completed orders found. All clean.")
 
 
 def noop(apps, schema_editor):
