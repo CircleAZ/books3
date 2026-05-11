@@ -1,36 +1,21 @@
-import api from './api';
+/**
+ * Procurement Service
+ * 
+ * Provides endpoint URLs and helper functions for procurement API calls.
+ * Components should use fetchWithAuth() from AuthContext with these endpoints.
+ */
+import { API_BASE } from '../config/api';
 
-export const getPurchaseOrders = async () => {
-    const response = await api.get('/procurement/purchase-orders/');
-    return response.data;
+export const PROCUREMENT_ENDPOINTS = {
+    PURCHASE_ORDERS: `${API_BASE}/procurement/purchase-orders/`,
+    CREATE_PO: `${API_BASE}/procurement/purchase-orders/create-po/`,
+    TRANSPORTERS: `${API_BASE}/procurement/transporters/`,
+    CHARGES: `${API_BASE}/procurement/purchase-charges/`,
+    PAYMENTS: `${API_BASE}/procurement/purchase-payments/`,
 };
 
-export const getPurchaseOrder = async (id) => {
-    const response = await api.get(`/procurement/purchase-orders/${id}/`);
-    return response.data;
-};
+export const getPurchaseOrderUrl = (id) =>
+    `${PROCUREMENT_ENDPOINTS.PURCHASE_ORDERS}${id}/`;
 
-export const createPurchaseOrder = async (data) => {
-    const response = await api.post('/procurement/purchase-orders/create-po/', data);
-    return response.data;
-};
-
-export const receivePurchaseOrder = async (id, items) => {
-    const response = await api.post(`/procurement/purchase-orders/${id}/receive/`, { items });
-    return response.data;
-};
-
-export const getTransporters = async () => {
-    const response = await api.get('/procurement/transporters/');
-    return response.data;
-};
-
-export const addCharge = async (data) => {
-    const response = await api.post('/procurement/purchase-charges/', data);
-    return response.data;
-};
-
-export const addPayment = async (data) => {
-    const response = await api.post('/procurement/purchase-payments/', data);
-    return response.data;
-};
+export const getReceiveUrl = (id) =>
+    `${PROCUREMENT_ENDPOINTS.PURCHASE_ORDERS}${id}/receive/`;

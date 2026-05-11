@@ -1,69 +1,37 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { createPurchaseOrder } from '../../services/procurementService';
-import PageHeader from '../../components/common/PageHeader';
-import Card from '../../components/common/Card';
 
 export default function CreatePO() {
     const navigate = useNavigate();
     const [loading, setLoading] = useState(false);
-    // Extremely basic form state just to prevent crash
-    const [formData, setFormData] = useState({
-        vendor_id: '',
-        expected_delivery_date: '',
-        notes: '',
-        items: []
-    });
-
-    const handleSubmit = async (e) => {
-        e.preventDefault();
-        setLoading(true);
-        try {
-            // Note: In a real implementation this needs a vendor select and product search.
-            const po = await createPurchaseOrder(formData);
-            navigate(`/procurement/${po.id}`);
-        } catch (error) {
-            console.error("Failed to create PO", error);
-        } finally {
-            setLoading(false);
-        }
-    };
 
     return (
         <div className="page-container">
-            <PageHeader 
-                title="Create Purchase Order" 
-                showBack={true}
-            />
+            <div className="page-header" style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1.5rem' }}>
+                <button
+                    className="btn btn-ghost"
+                    onClick={() => navigate(-1)}
+                    style={{ padding: '6px' }}
+                >
+                    ← Back
+                </button>
+                <h1 style={{ fontSize: '1.5rem', fontWeight: 700, margin: 0 }}>Create Purchase Order</h1>
+            </div>
 
             <div className="content-area">
-                <Card>
-                    <div className="card-header">
-                        <h3>PO Details</h3>
+                <div className="card" style={{ padding: '2rem' }}>
+                    <h3 style={{ margin: '0 0 0.5rem' }}>PO Details</h3>
+                    <p style={{ color: 'var(--color-text-secondary)', fontSize: '0.85rem', margin: '0 0 1.5rem' }}>
+                        This interface requires the Vendor Selection and Product Search components to be wired up. Phase 4 UI development is pending.
+                    </p>
+
+                    <div className="form-actions" style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end' }}>
+                        <button className="btn btn-secondary" onClick={() => navigate(-1)}>Cancel</button>
+                        <button className="btn btn-primary" disabled>
+                            Create PO (Coming Soon)
+                        </button>
                     </div>
-                    <div className="card-body">
-                        <p className="text-muted">This interface requires the Vendor Selection and Product Search components to be wired up. Phase 4 UI development is pending.</p>
-                        
-                        <form onSubmit={handleSubmit} className="standard-form mt-4">
-                            <div className="form-group">
-                                <label>Vendor ID (Temporary)</label>
-                                <input 
-                                    type="number" 
-                                    className="form-control"
-                                    value={formData.vendor_id}
-                                    onChange={(e) => setFormData({...formData, vendor_id: e.target.value})}
-                                    required
-                                />
-                            </div>
-                            <div className="form-actions">
-                                <button type="button" className="btn btn-secondary" onClick={() => navigate(-1)}>Cancel</button>
-                                <button type="submit" className="btn btn-primary" disabled={loading}>
-                                    {loading ? 'Creating...' : 'Create PO'}
-                                </button>
-                            </div>
-                        </form>
-                    </div>
-                </Card>
+                </div>
             </div>
         </div>
     );
