@@ -31,6 +31,10 @@ class StockService:
         """
         Perform atomic stock adjustment using optimistic locking.
         """
+        if reason == 'audit_correction' and adjustment_type == 'increase' and unit_cost is None:
+            from django.core.exceptions import ValidationError
+            raise ValidationError("Audit corrections that increase stock MUST specify a unit_cost to establish a baseline cost basis.")
+
         # Initial non-locked fetch to check for Pack translation
         initial_product = Product.objects.get(pk=product_id)
         is_translation = False
@@ -145,11 +149,17 @@ class StockService:
 
     @staticmethod
     @transaction.atomic
-    def set_stock(product_id, new_total, reason, notes, user=None):
+    def set_stock(product_id, new_total, reason, notes, user=None, unit_cost=None):
         """
         Set the exact stock level. 
         Calculates the difference atomically inside the lock.
         """
+        if reason == 'audit_correction' and unit_cost is None:
+            from django.core.exceptions import ValidationError
+            # Check if it's an increase later, but we can't without DB lock. 
+            # So we pass it to _do_adjust_stock or handle it manually.
+            pass
+            
         initial_product = Product.objects.get(pk=product_id)
         if initial_product.is_pack:
             raise ValueError("Cannot perform absolute 'set' operations on a Pack product. Adjust the Base product directly.")
@@ -161,6 +171,10 @@ class StockService:
         
         if change == 0:
             return current_qty
+
+        if reason == 'audit_correction' and change > 0 and unit_cost is None:
+            from django.core.exceptions import ValidationError
+            raise ValidationError("Audit corrections that increase stock MUST specify a unit_cost to establish a baseline cost basis.")
 
         product.stock_quantity = new_total
         product.save()

@@ -47,17 +47,26 @@ class StockAdjustment(UUIDPrimaryKeyModel):
         ('set', 'Set Total'),
     ]
 
+    REASON_CHOICES = [
+        ('damage', 'Damage / Spoilage'),
+        ('shrinkage', 'Theft / Shrinkage'),
+        ('audit_correction', 'Audit Correction'),
+        ('promotional', 'Promotional Giveaway'),
+        ('return_to_stock', 'Return to Stock'),
+        ('purchase', 'Purchase (Legacy)'), # Keeping for historical records
+    ]
+
     product = models.ForeignKey('Product', on_delete=models.CASCADE, related_name='adjustments')
     adjustment_type = models.CharField(max_length=10, choices=ADJUSTMENT_TYPES)
     quantity = models.PositiveIntegerField()
     unit_cost = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True, help_text="Cost per unit for this adjustment (used for AVCO)")
-    reason = models.CharField(max_length=255)
+    reason = models.CharField(max_length=50, choices=REASON_CHOICES)
     notes = models.TextField(blank=True)
     created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
-        return f"{self.get_adjustment_type_display()} {self.quantity} for {self.product.name}"
+        return f"{self.get_adjustment_type_display()} {self.quantity} for {self.product.name} ({self.get_reason_display()})"
 
     # save() method removed. Logic moved to StockService.
 
