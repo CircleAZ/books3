@@ -157,6 +157,29 @@ export default function CustomerMap() {
     const [showPotentialPins, setShowPotentialPins] = useState(true);
     const [canManageCustomers, setCanManageCustomers] = useState(false);
 
+    // Legend toggle: client-side visibility (no API refetch)
+    const [visibleLayers, setVisibleLayers] = useState({
+        fully_delivered: true,
+        partially_delivered: true,
+        active: true,
+        followup: true,
+        lapsed: true,
+        prospect: true,
+        target_village: true,
+    });
+
+    const toggleLayer = (key) => {
+        setVisibleLayers(prev => {
+            // Don't allow hiding ALL customer layers at once
+            const customerKeys = ALL_STATUSES;
+            if (customerKeys.includes(key)) {
+                const currentlyVisible = customerKeys.filter(k => prev[k]);
+                if (currentlyVisible.length <= 1 && prev[key]) return prev;
+            }
+            return { ...prev, [key]: !prev[key] };
+        });
+    };
+
     // Filter state (with localStorage migration for new delivery statuses)
     const savedFilters = loadFilters();
     // P0 Migration: If saved filters don't include new delivery statuses, inject them
@@ -388,9 +411,12 @@ export default function CustomerMap() {
 
         const bounds = [];
         
-        // --- 1. Standard Customers ---
+        // --- 1. Standard Customers (filtered by visibleLayers) ---
         if (mapData.customers && mapData.customers.length > 0) {
             mapData.customers.forEach(customer => {
+                // Skip if this status is toggled off in legend
+                if (!visibleLayers[customer.marker_status]) return;
+
                 const lat = parseFloat(customer.latitude);
                 const lng = parseFloat(customer.longitude);
                 if (isNaN(lat) || isNaN(lng)) return;
@@ -525,12 +551,21 @@ export default function CustomerMap() {
         if (bounds.length > 0) {
             map.fitBounds(bounds, { padding: [50, 50], maxZoom: 14 });
         }
-    }, [mapData, showPotentialPins, canManageCustomers, fetchWithAuth, filters, navigate]);
+    }, [mapData, showPotentialPins, canManageCustomers, fetchWithAuth, filters, navigate, visibleLayers]);
 
     // ── Render target village pins (separate layer, not clustered) ──
     useEffect(() => {
         const map = mapInstanceRef.current;
         if (!map || !mapData || !mapData.target_villages) return;
+
+        // Skip rendering if target villages are toggled off
+        if (!visibleLayers.target_village) {
+            if (targetLayerRef.current) {
+                map.removeLayer(targetLayerRef.current);
+                targetLayerRef.current = null;
+            }
+            return;
+        }
 
         // Remove previous target layer
         if (targetLayerRef.current) {
@@ -609,7 +644,7 @@ export default function CustomerMap() {
 
         targetLayer.addTo(map);
         targetLayerRef.current = targetLayer;
-    }, [mapData, canManageTargets, fetchWithAuth, filters]);
+    }, [mapData, canManageTargets, fetchWithAuth, filters, visibleLayers.target_village]);
 
     // ── Phase 4: Render boundary polygons ──
     useEffect(() => {
@@ -1081,30 +1116,41 @@ export default function CustomerMap() {
                 {locationError ? <AlertTriangle size={20} color="#ef4444" /> : <Crosshair size={20} color={userLocation ? "#2196F3" : "#666"} />}
             </button>
 
-            {/* ── Legend ── */}
+            {/* ── Legend (toggleable filters) ── */}
             <div className="map-legend">
                 <div className="legend-title">Legend</div>
                 {Object.entries(MARKER_CONFIG).map(([key, cfg]) => (
-                    <div key={key} className="legend-item">
+                    <div
+                        key={key}
+                        className={`legend-item legend-toggle ${visibleLayers[key] ? '' : 'legend-off'}`}
+                        onClick={() => toggleLayer(key)}
+                        role="button"
+                        tabIndex={0}
+                        aria-pressed={visibleLayers[key]}
+                    >
                         <span className="legend-dot" style={{background: cfg.bg, borderStyle: cfg.borderStyle}}>{cfg.icon}</span>
                         <span className="legend-label">{cfg.label}</span>
                     </div>
                 ))}
-                <div className="legend-item">
+                <div
+                    className={`legend-item legend-toggle ${visibleLayers.target_village ? '' : 'legend-off'}`}
+                    onClick={() => toggleLayer('target_village')}
+                    role="button"
+                    tabIndex={0}
+                    aria-pressed={visibleLayers.target_village}
+                >
                     <span className="legend-dot" style={{background: '#f97316', borderStyle: 'dashed'}}>📌</span>
                     <span className="legend-label">Target Village</span>
                 </div>
-                <div className="legend-item">
-                    <label style={{display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer'}}>
-                        <input
-                            type="checkbox"
-                            checked={showPotentialPins}
-                            onChange={(e) => setShowPotentialPins(e.target.checked)}
-                            style={{width: '12px', height: '12px', accentColor: '#FF00D9', margin: 0}}
-                        />
-                        <span className="legend-dot" style={{background: '#FF00D9', border: '2px solid #F9F6C4'}}>🧑</span>
-                        <span className="legend-label">Potential</span>
-                    </label>
+                <div
+                    className={`legend-item legend-toggle ${showPotentialPins ? '' : 'legend-off'}`}
+                    onClick={() => setShowPotentialPins(prev => !prev)}
+                    role="button"
+                    tabIndex={0}
+                    aria-pressed={showPotentialPins}
+                >
+                    <span className="legend-dot" style={{background: '#FF00D9', border: '2px solid #F9F6C4'}}>🧑</span>
+                    <span className="legend-label">Potential</span>
                 </div>
 
                 {/* Phase 4: Boundary Layer Toggle */}
