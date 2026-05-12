@@ -1,76 +1,125 @@
 import os
-import sys
-import csv
 import django
-from datetime import datetime
-from zoneinfo import ZoneInfo
+import sys
+from datetime import datetime, timedelta
 
-# Add project root to python path
-project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-sys.path.insert(0, project_root)
-
+# Setup Django
+sys.path.append(os.path.dirname(os.path.abspath(__file__)) + "/..")
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'azbooks.settings')
-django.setup()
+try:
+    django.setup()
+except Exception as e:
+    print(f"Failed to setup django: {e}")
+    sys.exit(1)
 
-from orders.models import OrderItem, DeliveryItem
+from orders.models import Order, OrderItem, DeliveryItem
+from customers.models import Address
 from inventory.models import Product
+from django.db.models import Sum, F
+from django.utils import timezone
+import pandas as pd
 
-def run_extraction():
-    items_owed = OrderItem.objects.filter(
-        order__customer__addresses__region__name__iexact='Machhiwad',
-        order__delivery_status__in=['pending', 'partial']
-    )
-    
-    product_owed_map = {}
-    for item in items_owed:
-        rem = item.remaining_quantity
-        if rem > 0:
-            if item.product_id not in product_owed_map:
-                product_owed_map[item.product_id] = {
+# We need to find "Machhiwad" orders.
+# Let's search Address models where region name contains Machhiwad, or address_line contains it.
+addresses = Address.objects.filter(
+    region__name__icontains='Machhiwad'
+) | Address.objects.filter(
+    address_line__icontains='Machhiwad'
+) | Address.objects.filter(
+    faliya__icontains='Machhiwad'
+) | Address.objects.filter(
+    landmark__icontains='Machhiwad'
+)
+
+customer_ids = addresses.values_list('customer_id', flat=True).distinct()
+print(f"Found {len(customer_ids)} customers in Machhiwad.")
+
+# 1. Retrieve all orders from Machhiwad with delivery status pending or partially delivered
+# and retrieve products that are not delivered.
+pending_orders = Order.objects.filter(
+    customer_id__in=customer_ids,
+    delivery_status__in=['pending', 'partially_delivered'],
+    order_status__in=['draft', 'confirmed', 'completed'] # Make sure they are active
+)
+
+print(f"\n--- 1. Undelivered Products for Machhiwad ---")
+print(f"Found {pending_orders.count()} pending/partially_delivered orders.")
+
+undelivered_products = {}
+for order in pending_orders:
+    for item in order.items.all():
+        remaining = item.quantity - item.delivered_quantity
+        if remaining > 0:
+            pid = item.product.id
+            if pid not in undelivered_products:
+                undelivered_products[pid] = {
                     'name': item.product.name,
-                    'owed': 0,
-                    'recently_delivered': 0,
-                    'physical_stock': item.product.physical_stock,
-                    'available_stock': item.product.stock_quantity,
+                    'qty': 0
                 }
-            product_owed_map[item.product_id]['owed'] += rem
-            
-    tz = ZoneInfo('Asia/Kolkata')
-    dt_start = datetime(2026, 5, 10, 0, 0, 0, tzinfo=tz)
-    
-    recent_deliveries = DeliveryItem.objects.filter(
-        delivery__order__customer__addresses__region__name__iexact='Machhiwad',
-        delivery__created_at__gte=dt_start
-    )
-    
-    for d_item in recent_deliveries:
-        prod = d_item.order_item.product
-        if prod.id not in product_owed_map:
-            product_owed_map[prod.id] = {
-                'name': prod.name,
-                'owed': 0,
-                'recently_delivered': 0,
-                'physical_stock': prod.physical_stock,
-                'available_stock': prod.stock_quantity,
-            }
-        product_owed_map[prod.id]['recently_delivered'] += d_item.quantity
+            undelivered_products[pid]['qty'] += remaining
 
-    output_path = r'Z:\books2\Plan\Delivery_transport\Machhiwad_Extraction.csv'
-    os.makedirs(os.path.dirname(output_path), exist_ok=True)
-    
-    with open(output_path, 'w', newline='', encoding='utf-8') as f:
-        writer = csv.writer(f)
-        writer.writerow(['Product', 'Owed Quantity', 'Recently Delivered (Since 10/05)', 'Physical Stock', 'Available Stock'])
-        for pid, info in product_owed_map.items():
-            writer.writerow([
-                info['name'],
-                info['owed'],
-                info['recently_delivered'],
-                info['physical_stock'],
-                info['available_stock']
-            ])
-            
-    print(f"CSV Extraction complete. File saved to: {output_path}")
+# Convert to DataFrame for easy display/merging
+df_undelivered = pd.DataFrame([
+    {'Product': data['name'], 'Required Qty': data['qty']}
+    for pid, data in undelivered_products.items()
+])
 
-if __name__ == '__main__':
-    run_extraction()
+# 2. Products from Machhiwad delivered in the last 2 days (from 10/05/2026).
+# Let's check DeliveryItem for these orders.
+target_date = datetime(2026, 5, 10)
+# Make timezone aware if needed, but for simplicity we can just filter by created_at or delivered_at
+target_date_tz = timezone.make_aware(target_date, timezone.get_current_timezone())
+
+delivered_items = DeliveryItem.objects.filter(
+    order_item__order__customer_id__in=customer_ids,
+    delivery__created_at__gte=target_date_tz
+)
+
+print(f"\n--- 2. Products Delivered in Machhiwad since {target_date.strftime('%Y-%m-%d')} ---")
+delivered_products = {}
+for item in delivered_items:
+    pid = item.order_item.product.id
+    if pid not in delivered_products:
+        delivered_products[pid] = {
+            'name': item.order_item.product.name,
+            'qty': 0
+        }
+    delivered_products[pid]['qty'] += item.quantity
+
+df_delivered = pd.DataFrame([
+    {'Product': data['name'], 'Delivered Qty': data['qty']}
+    for pid, data in delivered_products.items()
+])
+
+# 3. Read the Excel file "Machhiwad Sheet" and compare
+excel_path = r"z:\books2\Plan\Delivery_transport\Village_Transport_Manifest_Combined.xlsx"
+
+try:
+    df_excel = pd.read_excel(excel_path, sheet_name='Machhiwad')
+    
+    # Merge all 3 datasets on "Product" name (assuming name matches roughly)
+    if 'Product Name' in df_excel.columns:
+        product_col = 'Product Name'
+    elif 'Product' in df_excel.columns:
+        product_col = 'Product'
+    else:
+        product_col = df_excel.columns[0]
+        
+    df_excel.rename(columns={product_col: 'Product'}, inplace=True)
+    
+    # Merge
+    merged = pd.merge(df_undelivered, df_delivered, on='Product', how='outer').fillna(0)
+    merged = pd.merge(merged, df_excel, on='Product', how='outer').fillna(0)
+    
+    # Save the result
+    out_path = os.path.join(os.path.dirname(excel_path), 'Machhiwad_Extraction_Result.xlsx')
+    with pd.ExcelWriter(out_path) as writer:
+        df_undelivered.to_excel(writer, sheet_name='Pending', index=False)
+        df_delivered.to_excel(writer, sheet_name='Delivered Last 2 Days', index=False)
+        merged.to_excel(writer, sheet_name='Comparison', index=False)
+    
+    print(f"Success! Data saved to {out_path}")
+    
+except Exception as e:
+    print(f"Error processing: {e}")
+

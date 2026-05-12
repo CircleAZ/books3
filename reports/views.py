@@ -756,45 +756,86 @@ class FinanceReportViewSet(ReportBaseViewSet):
     @action(detail=False, methods=['get'])
     def pnl(self, request):
         """
-        Profit and Loss Statement.
-        Revenue: Total Sales + Other Income
-        COGS: Sum of (OrderItem.cost_price * quantity)
-        Expenses: Operational Expenses + Salaries + Loan Interest
+        Profit and Loss Statement (Phase 6.1 Rewrite).
+        
+        Revenue: Net Sales (Gross - Returns) + Other Income
+        COGS: Net COGS (Gross COGS - Returned items' cost)
+        Expenses: Operational Expenses (EXCLUDING Procurement) + Salaries + Loan Interest
+        
+        The Procurement category is excluded because inventory purchases are
+        asset exchanges (Cash → Stock), not expenses. They only become expenses
+        when sold (via COGS). Including them would double-count procurement spend.
         """
         result = self._validate_dates(request)
         if isinstance(result, Response):
             return result
         start_date, end_date = result
         
-        # 1. Revenue
-        sales_revenue = Order.objects.filter(
+        # 1. Revenue — Net of Returns
+        from orders.models import Return as OrderReturn
+        
+        gross_sales = Order.objects.filter(
             created_at__date__range=[start_date, end_date],
             order_status__in=VALID_SALE_STATUSES
         ).aggregate(total=Sum('total'))['total'] or Decimal('0.00')
+        
+        # Calculate total returned value in the period
+        completed_returns = OrderReturn.objects.filter(
+            status='completed',
+            updated_at__date__range=[start_date, end_date],
+            order__order_status__in=VALID_SALE_STATUSES
+        )
+        returned_value = Decimal('0.00')
+        for ret in completed_returns:
+            returned_value += ret.total_refund_amount
+        
+        net_sales = gross_sales - returned_value
         
         from finance.models import OtherIncome
         other_income = OtherIncome.objects.filter(
             date__range=[start_date, end_date]
         ).aggregate(total=Sum('amount'))['total'] or Decimal('0.00')
         
-        total_revenue = sales_revenue + other_income
+        total_revenue = net_sales + other_income
         
-        # 2. Cost of Goods Sold (COGS)
-        cogs = OrderItem.objects.filter(
+        # 2. Cost of Goods Sold (COGS) — Net of Returns
+        gross_cogs = OrderItem.objects.filter(
             order__created_at__date__range=[start_date, end_date],
             order__order_status__in=VALID_SALE_STATUSES
         ).aggregate(
             total_cost=Sum(F('cost_price') * F('quantity'), output_field=DecimalField())
         )['total_cost'] or Decimal('0.00')
         
-        gross_profit = total_revenue - cogs
+        # Subtract cost of returned items
+        from orders.models import ReturnItem
+        returned_cogs = Decimal('0.00')
+        returned_items = ReturnItem.objects.filter(
+            return_request__status='completed',
+            return_request__updated_at__date__range=[start_date, end_date],
+            return_request__order__order_status__in=VALID_SALE_STATUSES
+        ).select_related('order_item')
+        for ri in returned_items:
+            if ri.order_item.cost_price:
+                returned_cogs += ri.order_item.cost_price * ri.quantity
         
-        # 3. Expenses
+        net_cogs = gross_cogs - returned_cogs
+        
+        gross_profit = total_revenue - net_cogs
+        
+        # 3. Expenses — EXCLUDING Procurement (asset exchange, not expense)
         from finance.models import Expense, SalaryPayment, LoanRepayment
         
-        # Operational Expenses
+        # Operational Expenses (exclude Procurement category to prevent double-dip)
         op_expenses = Expense.objects.filter(
             date__range=[start_date, end_date]
+        ).exclude(
+            category__name='Procurement'
+        ).aggregate(total=Sum('total_amount'))['total'] or Decimal('0.00')
+        
+        # Procurement expenses shown separately for transparency
+        procurement_expenses = Expense.objects.filter(
+            date__range=[start_date, end_date],
+            category__name='Procurement'
         ).aggregate(total=Sum('total_amount'))['total'] or Decimal('0.00')
         
         # Salaries (Base + Bonuses = Cost to Company)
@@ -817,16 +858,23 @@ class FinanceReportViewSet(ReportBaseViewSet):
             'start_date': start_date,
             'end_date': end_date,
             'revenue': {
-                'sales': sales_revenue,
+                'gross_sales': gross_sales,
+                'returns': returned_value,
+                'net_sales': net_sales,
                 'other_income': other_income,
                 'total': total_revenue
             },
-            'cogs': cogs,
+            'cogs': {
+                'gross': gross_cogs,
+                'returns': returned_cogs,
+                'net': net_cogs,
+            },
             'gross_profit': gross_profit,
             'expenses': {
                 'operational': op_expenses,
                 'salaries': salaries,
                 'loan_interest': loan_interest,
+                'procurement_excluded': procurement_expenses,
                 'total': total_expenses
             },
             'net_profit': net_profit

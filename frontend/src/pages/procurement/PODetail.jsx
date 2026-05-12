@@ -139,7 +139,7 @@ export default function PODetail() {
     const payStatusColor = (s) => ({ pending: '#f59e0b', partial: '#3b82f6', paid: '#10b981' }[s] || '#6b7280');
     const isTerminal = po && (po.status === 'received' || po.status === 'cancelled');
     const canReceive = po && !isTerminal;
-    const canAddCharge = po && !isTerminal;
+    const canAddCharge = po && po.status !== 'cancelled';
     const canPay = po && parseFloat(po.amount_paid) < parseFloat(po.total_amount);
     const canCancel = po && (po.status === 'draft' || po.status === 'ordered');
     const balanceDue = po ? (parseFloat(po.total_amount) - parseFloat(po.amount_paid)) : 0;
@@ -207,7 +207,8 @@ export default function PODetail() {
                     <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: 600 }}>Charges</h3>
                     {canAddCharge && <button className="btn btn-ghost btn-sm" onClick={() => setShowCharge(true)}>+ Add</button>}
                 </div>
-                {isTerminal && <p style={{ fontSize: '0.8rem', color: 'var(--color-text-secondary)', margin: '0 0 8px' }}>Charges locked after receiving/cancellation.</p>}
+                {po.status === 'received' && <p style={{ fontSize: '0.8rem', color: '#f59e0b', margin: '0 0 8px', background: '#f59e0b11', padding: '6px 10px', borderRadius: '6px' }}>⚡ Retroactive mode: charges added here will trigger a WAC correction on the product cost.</p>}
+                {po.status === 'cancelled' && <p style={{ fontSize: '0.8rem', color: 'var(--color-text-secondary)', margin: '0 0 8px' }}>Charges locked after cancellation.</p>}
                 {po.charges?.length === 0 ? <p style={{ color: 'var(--color-text-secondary)', fontSize: '0.85rem' }}>No charges added.</p> : (
                     po.charges.map(c => (
                         <div key={c.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', borderBottom: '1px solid var(--color-border)', fontSize: '0.85rem' }}>

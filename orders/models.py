@@ -877,6 +877,10 @@ class ReturnItem(UUIDPrimaryKeyModel):
         
         from inventory.services import StockService
         
+        # Phase 6.1 Fix: Pass the original sale cost_price to prevent
+        # ghost asset inflation when WAC has been retroactively corrected.
+        # Without this, returned items would blend at the CURRENT cost_price,
+        # materializing fake inventory value from thin air.
         StockService.adjust_stock(
             product_id=self.order_item.product.id,
             adjustment_type='increase',
@@ -884,6 +888,7 @@ class ReturnItem(UUIDPrimaryKeyModel):
             reason='return',
             notes=f"Return #{self.return_request.display_id} - {self.reason.name if self.reason else 'No reason'}",
             user=user,
+            unit_cost=self.order_item.cost_price,
             target_ledger='both'
         )
         

@@ -639,3 +639,147 @@ class ConcurrencyTestCase(TransactionTestCase):
         self.assertAlmostEqual(
             float(self.product.cost_price), 45.7143, places=2,
         )
+
+
+# ═══════════════════════════════════════════════════════════════
+#  Section 7 — Phase 6.1 Retroactive WAC Correction
+# ═══════════════════════════════════════════════════════════════
+
+class RetroactiveWACTestCase(TestCase):
+    """Validates the Retroactive WAC Correction engine (Phase 6.1)."""
+
+    def setUp(self):
+        self.user = User.objects.create(username="retro_user", is_active=True)
+        self.category = Category.objects.create(name="Retro Office")
+        self.vendor = Vendor.objects.create(name="Retro Vendor")
+
+        self.pencil = Product.objects.create(
+            name="Pencil (Retro Test)", category=self.category,
+            cost_price=Decimal("0.00"), selling_price=Decimal("2.00"),
+            stock_quantity=0, physical_stock=0,
+        )
+
+    def _create_and_receive_po(self, qty, unit_cost, charges=Decimal('0.00')):
+        """Helper: create PO, optionally add pre-receive charges, then receive fully."""
+        po = PurchaseOrder.objects.create(vendor=self.vendor, created_by=self.user)
+        item = PurchaseOrderItem.objects.create(
+            purchase_order=po, product=self.pencil,
+            vendor_pack_size=1, purchased_packs=qty,
+            unit_cost_price=unit_cost,
+        )
+        po.subtotal = item.line_total
+        po.total_amount = item.line_total
+        po.save(update_fields=['subtotal', 'total_amount'])
+
+        if charges > 0:
+            PurchaseCharge.objects.create(
+                purchase_order=po, charge_type='transport',
+                amount=charges,
+            )
+            po.total_charges = charges
+            po.total_amount = po.subtotal + charges
+            po.save(update_fields=['total_charges', 'total_amount'])
+
+        ProcurementService.receive_order(
+            po.id, [{"item_id": item.id, "received_packs": qty}], self.user,
+        )
+        po.refresh_from_db()
+        return po
+
+    # ── RETRO-01: Basic retroactive WAC inflation ─────────────
+    def test_retro_01_basic_wac_inflation(self):
+        """
+        Buy 100 pencils at ₹1.00. Receive. cost_price = 1.00.
+        Add ₹500 transport retroactively.
+        Expected: inflation = 500/100 = 5.00/unit, new cost = 6.00.
+        """
+        po = self._create_and_receive_po(100, Decimal("1.00"))
+        self.pencil.refresh_from_db()
+        self.assertEqual(self.pencil.cost_price, Decimal("1.0000"))
+
+        # Retroactive charge
+        ProcurementService.apply_retroactive_charge(po.id, Decimal("500.00"), self.user)
+
+        self.pencil.refresh_from_db()
+        self.assertAlmostEqual(float(self.pencil.cost_price), 6.00, places=2)
+
+    # ── RETRO-02: Orphaned margin write-off for sold items ────
+    def test_retro_02_orphaned_margin_writeoff(self):
+        """
+        Buy 100 pencils at ₹50. Receive. Sell 60.
+        Stock should be 40. Add ₹500 late transport.
+        
+        inflation/unit = 500/100 = 5.00
+        Orphaned = 60 sold × ₹5.00 = ₹300.00 → Expense created.
+        WAC correction = +₹5.00 → new cost = 55.00.
+        """
+        po = self._create_and_receive_po(100, Decimal("50.00"))
+
+        # Simulate selling 60 units
+        self.pencil.refresh_from_db()
+        self.pencil.stock_quantity = 40
+        self.pencil.physical_stock = 40
+        self.pencil.save(update_fields=['stock_quantity', 'physical_stock'])
+
+        ProcurementService.apply_retroactive_charge(po.id, Decimal("500.00"), self.user)
+
+        self.pencil.refresh_from_db()
+        self.assertAlmostEqual(float(self.pencil.cost_price), 55.00, places=2)
+
+        # Verify the orphaned margin expense was logged
+        from finance.models import Expense, ExpenseCategory
+        writeoff_cat = ExpenseCategory.objects.filter(name="Late Transport Write-Off").first()
+        self.assertIsNotNone(writeoff_cat)
+
+        writeoff = Expense.objects.filter(category=writeoff_cat).first()
+        self.assertIsNotNone(writeoff)
+        self.assertAlmostEqual(float(writeoff.total_amount), 300.00, places=2)
+
+    # ── RETRO-03: No orphaned margin when all stock remains ───
+    def test_retro_03_no_orphan_when_stock_full(self):
+        """All units still in stock → no write-off expense."""
+        po = self._create_and_receive_po(50, Decimal("10.00"))
+
+        ProcurementService.apply_retroactive_charge(po.id, Decimal("100.00"), self.user)
+
+        from finance.models import Expense
+        writeoff_count = Expense.objects.filter(
+            description__contains="late charge write-off"
+        ).count()
+        self.assertEqual(writeoff_count, 0)
+
+        self.pencil.refresh_from_db()
+        # 100/50 = 2.00 inflation, new cost = 12.00
+        self.assertAlmostEqual(float(self.pencil.cost_price), 12.00, places=2)
+
+    # ── RETRO-04: Audit trail created ─────────────────────────
+    def test_retro_04_audit_trail_exists(self):
+        """StockAdjustment + StockHistory created with retroactive_charge reason."""
+        po = self._create_and_receive_po(20, Decimal("5.00"))
+
+        ProcurementService.apply_retroactive_charge(po.id, Decimal("40.00"), self.user)
+
+        adj = StockAdjustment.objects.filter(
+            product=self.pencil, reason='retroactive_charge'
+        ).first()
+        self.assertIsNotNone(adj)
+        self.assertEqual(adj.quantity, 0)  # Zero-quantity adjustment for cost change
+
+        from inventory.models import StockHistory
+        hist = StockHistory.objects.filter(
+            product=self.pencil, reason='retroactive_charge'
+        ).first()
+        self.assertIsNotNone(hist)
+        self.assertEqual(hist.quantity_change, 0)
+
+    # ── RETRO-05: Decimal precision guard ─────────────────────
+    def test_retro_05_decimal_precision(self):
+        """₹10 charge / 3 units = 3.3333... → must round to 4 decimal places."""
+        po = self._create_and_receive_po(3, Decimal("10.00"))
+
+        ProcurementService.apply_retroactive_charge(po.id, Decimal("10.00"), self.user)
+
+        self.pencil.refresh_from_db()
+        # 10/3 = 3.3333 → new cost = 10 + 3.3333 = 13.3333
+        self.assertAlmostEqual(float(self.pencil.cost_price), 13.3333, places=3)
+

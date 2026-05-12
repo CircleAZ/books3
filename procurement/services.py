@@ -190,3 +190,133 @@ class ProcurementService:
         po.save(update_fields=['amount_paid', 'payment_status'])
         
         return payment
+
+    @staticmethod
+    @transaction.atomic
+    def apply_retroactive_charge(po_id, charge_amount, user):
+        """
+        Phase 6.1: Retroactive WAC Correction.
+        
+        When a late charge (transport/packing) is added to an already-received PO,
+        this method:
+        1. Prorates the charge across received line items (by value proportion).
+        2. For each item, calculates the per-base-unit inflation.
+        3. Locks the Product row and adds the inflation to cost_price.
+        4. Detects units already sold since receiving. For those units, the
+           transport cost can no longer be absorbed into future COGS.
+           It logs an "Orphaned Margin Write-Off" expense for that exact amount.
+        5. Logs StockAdjustment + StockHistory with quantity=0 for audit trail.
+        """
+        from inventory.models import Product, StockAdjustment, StockHistory
+        from decimal import ROUND_HALF_UP
+        
+        po = PurchaseOrder.objects.get(id=po_id)
+        items = list(po.items.filter(received_packs__gt=0))
+        
+        if not items:
+            return  # Nothing received, nothing to correct
+        
+        total_po_value = sum(item.line_total for item in items)
+        if total_po_value <= 0:
+            return
+        
+        orphaned_total = Decimal('0.00')
+        
+        for item in items:
+            # 1. Calculate this item's share of the charge
+            proportion = item.line_total / total_po_value
+            item_charge_share = (charge_amount * proportion).quantize(
+                Decimal('0.01'), rounding=ROUND_HALF_UP
+            )
+            
+            # 2. Calculate per-base-unit inflation (Dijkstra's dimensional guard)
+            base_units_received = item.received_packs * item.vendor_pack_size
+            if base_units_received <= 0:
+                continue
+            
+            inflation_per_unit = (item_charge_share / Decimal(str(base_units_received))).quantize(
+                Decimal('0.0001'), rounding=ROUND_HALF_UP
+            )
+            
+            if inflation_per_unit <= 0:
+                continue
+            
+            # 3. Lock the product row (Linus's concurrency guard)
+            # Handle pack translation: if the PO item is a pack product,
+            # we need to inflate the BASE product's cost_price
+            if item.product.is_pack and item.product.base_product_id:
+                product = Product.objects.select_for_update().get(pk=item.product.base_product_id)
+            else:
+                product = Product.objects.select_for_update().get(pk=item.product_id)
+            
+            old_cost = product.cost_price
+            
+            # 4. Detect orphaned margin (units already sold)
+            # The current stock tells us how many of the received units are still here.
+            # If we received 100 and stock is 60, then 40 were sold (or adjusted out).
+            units_still_in_stock = max(0, product.stock_quantity)
+            units_sold_or_gone = max(0, base_units_received - units_still_in_stock)
+            
+            # Cap: if stock is higher than received (due to other purchases),
+            # ALL received units are still conceptually in stock
+            if units_still_in_stock >= base_units_received:
+                units_sold_or_gone = 0
+            
+            # Orphaned margin = transport cost for sold units that will never hit COGS
+            orphaned_amount = (inflation_per_unit * Decimal(str(units_sold_or_gone))).quantize(
+                Decimal('0.01'), rounding=ROUND_HALF_UP
+            )
+            orphaned_total += orphaned_amount
+            
+            # 5. Apply WAC inflation
+            product.cost_price = old_cost + inflation_per_unit
+            product.save(update_fields=['cost_price'])
+            product.sync_pack_stock()
+            
+            # 6. Audit trail (Murphy's law: zero-quantity adjustment for cost change)
+            StockAdjustment.objects.create(
+                product=product,
+                adjustment_type='increase',
+                quantity=0,
+                unit_cost=inflation_per_unit,
+                reason='retroactive_charge',
+                notes=f"PO #{po.display_id} late charge: +₹{inflation_per_unit}/unit "
+                      f"(₹{item_charge_share} across {base_units_received} units). "
+                      f"Old cost: ₹{old_cost}, New cost: ₹{product.cost_price}",
+                created_by=user
+            )
+            StockHistory.objects.create(
+                product=product,
+                quantity_change=0,
+                quantity_after=product.stock_quantity,
+                cost_at_time=product.cost_price,
+                reason='retroactive_charge',
+                notes=f"Retroactive WAC correction: PO #{po.display_id} late charge "
+                      f"+₹{inflation_per_unit}/unit",
+                created_by=user
+            )
+        
+        # 7. Log orphaned margin as a direct expense (the Lost Margin Sweeper)
+        if orphaned_total > 0:
+            category, _ = ExpenseCategory.objects.get_or_create(
+                name="Late Transport Write-Off",
+                defaults={
+                    "description": "COGS correction for transport charges on already-sold inventory",
+                    "icon": "warning"
+                }
+            )
+            Expense.objects.create(
+                date=timezone.now().date(),
+                category=category,
+                payee_type=Expense.PayeeType.VENDOR,
+                payee_name=po.vendor.name if po.vendor else "Unknown Vendor",
+                payee_id=po.vendor_id,
+                description=f"PO #{po.display_id} late charge write-off: "
+                            f"₹{orphaned_total} for {units_sold_or_gone} already-sold units",
+                amount=orphaned_total,
+                tax_amount=Decimal('0.00'),
+                total_amount=orphaned_total,
+                created_by=user,
+                notes="AUTO-GENERATED: Orphaned margin from retroactive WAC correction"
+            )
+

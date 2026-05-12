@@ -54,6 +54,7 @@ class StockAdjustment(UUIDPrimaryKeyModel):
         ('promotional', 'Promotional Giveaway'),
         ('return_to_stock', 'Return to Stock'),
         ('purchase', 'Purchase (Legacy)'), # Keeping for historical records
+        ('retroactive_charge', 'Retroactive Charge (WAC Correction)'),
     ]
 
     product = models.ForeignKey('Product', on_delete=models.CASCADE, related_name='adjustments')
@@ -174,6 +175,7 @@ class StockHistory(UUIDPrimaryKeyModel):
         ('sale', 'Sale'),
         ('adjustment', 'Adjustment'),
         ('return', 'Return'),
+        ('retroactive_charge', 'Retroactive Charge (WAC Correction)'),
     ]
 
     product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name='stock_history')
