@@ -2,6 +2,7 @@ from rest_framework import viewsets, status, permissions
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from django.db import transaction
+from django.core.exceptions import ValidationError
 from decimal import Decimal
 
 from .models import Transporter, PurchaseOrder, PurchaseOrderItem, PurchaseCharge, PurchasePayment
@@ -28,6 +29,43 @@ class PurchaseOrderViewSet(viewsets.ModelViewSet):
         if self.action in ['receive_items']:
             return POReceiveSerializer
         return PurchaseOrderDetailSerializer
+
+    # ── C3 FIX: Block invalid status transitions via direct PATCH/PUT ──
+    VALID_STATUS_TRANSITIONS = {
+        PurchaseOrder.Status.DRAFT: [PurchaseOrder.Status.ORDERED, PurchaseOrder.Status.CANCELLED],
+        PurchaseOrder.Status.ORDERED: [PurchaseOrder.Status.PARTIAL, PurchaseOrder.Status.RECEIVED, PurchaseOrder.Status.CANCELLED],
+        PurchaseOrder.Status.PARTIAL: [PurchaseOrder.Status.RECEIVED, PurchaseOrder.Status.CANCELLED],
+        PurchaseOrder.Status.RECEIVED: [],  # Terminal state — no transitions allowed
+        PurchaseOrder.Status.CANCELLED: [],  # Terminal state
+    }
+
+    def update(self, request, *args, **kwargs):
+        instance = self.get_object()
+        new_status = request.data.get('status')
+        
+        if new_status and new_status != instance.status:
+            allowed = self.VALID_STATUS_TRANSITIONS.get(instance.status, [])
+            if new_status not in allowed:
+                return Response(
+                    {'detail': f'Cannot transition from "{instance.get_status_display()}" to "{new_status}". Allowed: {[s for s in allowed]}'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+        
+        return super().update(request, *args, **kwargs)
+
+    def partial_update(self, request, *args, **kwargs):
+        instance = self.get_object()
+        new_status = request.data.get('status')
+        
+        if new_status and new_status != instance.status:
+            allowed = self.VALID_STATUS_TRANSITIONS.get(instance.status, [])
+            if new_status not in allowed:
+                return Response(
+                    {'detail': f'Cannot transition from "{instance.get_status_display()}" to "{new_status}". Allowed: {[s for s in allowed]}'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+        
+        return super().partial_update(request, *args, **kwargs)
 
     @action(detail=False, methods=['post'], url_path='create-po')
     @transaction.atomic
@@ -56,7 +94,7 @@ class PurchaseOrderViewSet(viewsets.ModelViewSet):
             subtotal += item.line_total
             
         po.subtotal = subtotal
-        po.total_amount = subtotal # Charges added later
+        po.total_amount = subtotal  # Charges added later
         po.save(update_fields=['subtotal', 'total_amount'])
         
         return Response(PurchaseOrderDetailSerializer(po).data, status=status.HTTP_201_CREATED)
@@ -70,7 +108,7 @@ class PurchaseOrderViewSet(viewsets.ModelViewSet):
         try:
             po = ProcurementService.receive_order(po.id, serializer.validated_data['items'], request.user)
             return Response(PurchaseOrderDetailSerializer(po).data)
-        except Exception as e:
+        except (ValidationError, Exception) as e:
             return Response({'detail': str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
 class PurchaseChargeViewSet(viewsets.ModelViewSet):
@@ -81,12 +119,18 @@ class PurchaseChargeViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
         charge = serializer.save()
         po = charge.purchase_order
+        
+        # Block charge entry after receiving (charge timing lockout)
+        if po.status in [PurchaseOrder.Status.RECEIVED, PurchaseOrder.Status.CANCELLED]:
+            charge.delete()
+            raise ValidationError("Cannot add charges to a received or cancelled PO.")
+        
         po.total_charges += charge.amount
         po.total_amount = po.subtotal + po.total_charges
         po.save(update_fields=['total_charges', 'total_amount'])
 
 class PurchasePaymentViewSet(viewsets.ModelViewSet):
-    queryset = PurchasePayment.objects.select_related('paid_by_employee', 'finance_expense').all()
+    queryset = PurchasePayment.objects.select_related('paid_by_employee', 'finance_expense', 'source_wallet', 'source_bank').all()
     serializer_class = PurchasePaymentSerializer
     permission_classes = [permissions.IsAuthenticated]
 

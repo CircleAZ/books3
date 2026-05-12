@@ -1,8 +1,8 @@
 /**
  * Procurement Service
  * 
- * Provides endpoint URLs and helper functions for procurement API calls.
- * Components should use fetchWithAuth() from AuthContext with these endpoints.
+ * Provides endpoint URLs for procurement API calls.
+ * Components use fetchWithAuth() from AuthContext with these endpoints.
  */
 import { API_BASE } from '../config/api';
 

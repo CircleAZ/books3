@@ -5,6 +5,7 @@ from .models import PurchaseOrder, PurchaseOrderItem, PurchaseCharge, PurchasePa
 from inventory.services import StockService
 from inventory.models import Product
 from finance.models import Expense, ExpenseCategory
+from finance.services import LedgerService
 from django.utils import timezone
 
 class ProcurementService:
@@ -47,6 +48,15 @@ class ProcurementService:
                 if po_item.received_packs < po_item.purchased_packs:
                     all_fully_received = False
                 continue
+            
+            # ── C4 FIX: Over-receive validation ──
+            remaining_packs = po_item.purchased_packs - po_item.received_packs
+            if new_packs > remaining_packs:
+                raise ValidationError(
+                    f"Cannot receive {new_packs} packs for {po_item.product.name}. "
+                    f"Only {remaining_packs} packs remaining (ordered: {po_item.purchased_packs}, "
+                    f"already received: {po_item.received_packs})."
+                )
                 
             any_received_now = True
             
@@ -97,8 +107,8 @@ class ProcurementService:
     @transaction.atomic
     def process_payment(payment_id, user):
         """
-        Process a PurchasePayment. If it's an employee expense, auto-generate the finance.Expense.
-        If Cash/Bank, hit the LedgerService.
+        Process a PurchasePayment. Creates finance.Expense for ALL payment types
+        and routes Cash/Bank through LedgerService for ledger balance tracking.
         """
         payment = PurchasePayment.objects.select_for_update().get(id=payment_id)
         
@@ -108,46 +118,68 @@ class ProcurementService:
             
         po = payment.purchase_order
         
+        # ── A1 FIX: Create Expense record for ALL payment types ──
+        # Get or create Procurement Expense Category
+        category, _ = ExpenseCategory.objects.get_or_create(
+            name="Procurement",
+            defaults={"description": "Purchase Order payments for inventory procurement", "icon": "inventory"}
+        )
+        
+        # Build description
+        desc = f"PO #{po.display_id} Payment"
+        if payment.purchase_charge:
+            desc += f" ({payment.purchase_charge.get_charge_type_display()} Charge)"
+        
+        # Determine payee based on payment method
         if payment.payment_method == PurchasePayment.PaymentMethod.EMPLOYEE_EXPENSE:
             if not payment.paid_by_employee:
                 raise ValidationError("Employee Expense payment method requires an employee to be selected.")
-            
-            # Get or create Procurement Expense Category
-            category, _ = ExpenseCategory.objects.get_or_create(
-                name="Procurement Reimbursement",
-                defaults={"description": "Auto-generated for employee out-of-pocket PO payments", "icon": "inventory"}
-            )
-            
-            desc = f"Reimbursement for PO #{po.display_id}"
-            if payment.purchase_charge:
-                desc += f" ({payment.purchase_charge.get_charge_type_display()} Charge)"
-            
-            # Create the Employee Expense
-            expense = Expense.objects.create(
-                date=timezone.now().date(),
-                category=category,
-                payee_type=Expense.PayeeType.EMPLOYEE,
-                payee_name=f"{payment.paid_by_employee.first_name} {payment.paid_by_employee.last_name}".strip() or payment.paid_by_employee.username,
-                payee_id=payment.paid_by_employee.id,
-                description=desc,
-                amount=payment.amount,
-                tax_amount=Decimal('0.00'),
-                total_amount=payment.amount,
-                created_by=user,
-                notes="AUTO-GENERATED IMMUTABLE EXPENSE"
-            )
-            
-            payment.finance_expense = expense
-            payment.save(update_fields=['finance_expense'])
-            
-        elif payment.payment_method in [PurchasePayment.PaymentMethod.CASH, PurchasePayment.PaymentMethod.BANK]:
-            # Integrate with Finance LedgerService
-            from finance.services import LedgerService
-            
-            # Depending on how LedgerService handles general outbound payments
-            # For now, we will mark as paid. If LedgerService requires it, we create a withdrawal.
-            # Assuming LedgerService.process_withdrawal exists.
-            pass
+            payee_type = Expense.PayeeType.EMPLOYEE
+            payee_name = f"{payment.paid_by_employee.first_name} {payment.paid_by_employee.last_name}".strip() or payment.paid_by_employee.username
+            payee_id = payment.paid_by_employee.id
+            desc = f"Reimbursement for {desc}"
+        else:
+            payee_type = Expense.PayeeType.VENDOR
+            payee_name = po.vendor.name if po.vendor else "Unknown Vendor"
+            payee_id = po.vendor_id
+        
+        # Create the Expense record (common to ALL payment types)
+        expense = Expense.objects.create(
+            date=timezone.now().date(),
+            category=category,
+            payee_type=payee_type,
+            payee_name=payee_name,
+            payee_id=payee_id,
+            description=desc,
+            amount=payment.amount,
+            tax_amount=Decimal('0.00'),
+            total_amount=payment.amount,
+            created_by=user,
+            notes="AUTO-GENERATED IMMUTABLE EXPENSE"
+        )
+        
+        payment.finance_expense = expense
+        payment.save(update_fields=['finance_expense'])
+        
+        # ── Route Cash/Bank through LedgerService for balance tracking ──
+        if payment.payment_method == PurchasePayment.PaymentMethod.CASH:
+            if payment.source_wallet_id:
+                LedgerService.process_withdrawal(
+                    amount=payment.amount,
+                    source_wallet=payment.source_wallet,
+                    reference=f"PO-{po.display_id}",
+                    description=desc,
+                    user=user
+                )
+        elif payment.payment_method == PurchasePayment.PaymentMethod.BANK:
+            if payment.source_bank_id:
+                LedgerService.process_withdrawal(
+                    amount=payment.amount,
+                    source_bank=payment.source_bank,
+                    reference=f"PO-{po.display_id}",
+                    description=desc,
+                    user=user
+                )
             
         # Update PO payment totals
         po.amount_paid += payment.amount

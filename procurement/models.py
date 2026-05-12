@@ -100,6 +100,10 @@ class PurchasePayment(UUIDPrimaryKeyModel):
     paid_by_employee = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, null=True, blank=True, related_name='procurement_payments')
     finance_expense = models.ForeignKey('finance.Expense', on_delete=models.SET_NULL, null=True, blank=True, related_name='procurement_payments')
     
+    # Payment source routing (Phase 5)
+    source_wallet = models.ForeignKey('finance.CashWallet', on_delete=models.SET_NULL, null=True, blank=True, help_text="Cash wallet for Cash payments")
+    source_bank = models.ForeignKey('finance.BankAccount', on_delete=models.SET_NULL, null=True, blank=True, help_text="Bank account for Bank payments")
+    
     payment_date = models.DateField(auto_now_add=True)
     reference_id = models.CharField(max_length=100, blank=True)
 

@@ -62,6 +62,7 @@ const FinanceIndex = lazy(() => import('./pages/finance/FinanceIndex'));
 // Procurement
 const ProcurementList = lazy(() => import('./pages/procurement/ProcurementList'));
 const CreatePO = lazy(() => import('./pages/procurement/CreatePO'));
+const PODetail = lazy(() => import('./pages/procurement/PODetail'));
 const ExpenseList = lazy(() => import('./pages/finance/ExpenseList'));
 const AddExpense = lazy(() => import('./pages/finance/AddExpense'));
 const ExpenseDetails = lazy(() => import('./pages/finance/ExpenseDetails'));
@@ -301,6 +302,11 @@ function AppRoutes() {
       <Route path="/procurement/new" element={
         <PermissionRoute permission="inventory.manage_stock">
           <LazyPage><CreatePO /></LazyPage>
+        </PermissionRoute>
+      } />
+      <Route path="/procurement/:id" element={
+        <PermissionRoute permission="inventory.manage_stock">
+          <LazyPage><PODetail /></LazyPage>
         </PermissionRoute>
       } />
 
