@@ -194,7 +194,7 @@ export default function TransferModal({ isOpen, onClose, outletId, onTransferCom
                                                 type="number" 
                                                 className="form-input" 
                                                 min="1" 
-                                                max={item.stock}
+                                                max={item.stock + 30}
                                                 value={item.quantity}
                                                 onChange={(e) => handleUpdateQuantity(item.productId, e.target.value)}
                                             />
