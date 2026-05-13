@@ -38,36 +38,39 @@ print(f"Found {len(customer_ids)} customers in Machhiwad.")
 # and retrieve products that are not delivered.
 pending_orders = Order.objects.filter(
     customer_id__in=customer_ids,
-    delivery_status__in=['pending', 'partially_delivered'],
-    order_status__in=['draft', 'confirmed', 'completed'] # Make sure they are active
-)
+    delivery_status__in=['pending', 'partial']
+).exclude(order_status='cancelled')
 
 print(f"\n--- 1. Undelivered Products for Machhiwad ---")
-print(f"Found {pending_orders.count()} pending/partially_delivered orders.")
+print(f"Found {pending_orders.count()} pending/partial orders.")
 
 undelivered_products = {}
 for order in pending_orders:
     for item in order.items.all():
-        remaining = item.quantity - item.delivered_quantity
+        remaining = item.remaining_quantity
         if remaining > 0:
             pid = item.product.id
             if pid not in undelivered_products:
                 undelivered_products[pid] = {
                     'name': item.product.name,
-                    'qty': 0
+                    'qty': 0,
+                    'physical_stock': item.product.physical_stock,
+                    'available_stock': item.product.stock_quantity
                 }
             undelivered_products[pid]['qty'] += remaining
 
-# Convert to DataFrame for easy display/merging
-df_undelivered = pd.DataFrame([
-    {'Product': data['name'], 'Required Qty': data['qty']}
+df_owed = pd.DataFrame([
+    {
+        'Product': data['name'], 
+        'Owed Quantity': data['qty'],
+        'Physical Stock': data['physical_stock'],
+        'Available Stock': data['available_stock']
+    }
     for pid, data in undelivered_products.items()
 ])
 
 # 2. Products from Machhiwad delivered in the last 2 days (from 10/05/2026).
-# Let's check DeliveryItem for these orders.
 target_date = datetime(2026, 5, 10)
-# Make timezone aware if needed, but for simplicity we can just filter by created_at or delivered_at
 target_date_tz = timezone.make_aware(target_date, timezone.get_current_timezone())
 
 delivered_items = DeliveryItem.objects.filter(
@@ -82,43 +85,55 @@ for item in delivered_items:
     if pid not in delivered_products:
         delivered_products[pid] = {
             'name': item.order_item.product.name,
-            'qty': 0
+            'qty': 0,
+            'physical_stock': item.order_item.product.physical_stock,
+            'available_stock': item.order_item.product.stock_quantity
         }
     delivered_products[pid]['qty'] += item.quantity
 
 df_delivered = pd.DataFrame([
-    {'Product': data['name'], 'Delivered Qty': data['qty']}
+    {
+        'Product': data['name'], 
+        'Recently Delivered': data['qty'],
+        'Physical Stock': data['physical_stock'],
+        'Available Stock': data['available_stock']
+    }
     for pid, data in delivered_products.items()
 ])
 
-# 3. Read the Excel file "Machhiwad Sheet" and compare
-excel_path = r"z:\books2\Plan\Delivery_transport\Village_Transport_Manifest_Combined.xlsx"
-
+# 3. Merge and save
 try:
-    df_excel = pd.read_excel(excel_path, sheet_name='Machhiwad')
-    
-    # Merge all 3 datasets on "Product" name (assuming name matches roughly)
-    if 'Product Name' in df_excel.columns:
-        product_col = 'Product Name'
-    elif 'Product' in df_excel.columns:
-        product_col = 'Product'
+    if df_owed.empty and df_delivered.empty:
+        print("No data found to save.")
     else:
-        product_col = df_excel.columns[0]
+        if df_owed.empty:
+            merged = df_delivered
+        elif df_delivered.empty:
+            merged = df_owed
+        else:
+            # Full outer join on Product, Physical Stock, Available Stock
+            merged = pd.merge(
+                df_owed, 
+                df_delivered, 
+                on=['Product', 'Physical Stock', 'Available Stock'], 
+                how='outer'
+            ).fillna(0)
+            
+        # Reorder columns to match SQL output
+        for col in ['Owed Quantity', 'Recently Delivered']:
+            if col not in merged.columns:
+                merged[col] = 0
+                
+        merged = merged[['Product', 'Owed Quantity', 'Recently Delivered', 'Physical Stock', 'Available Stock']]
         
-    df_excel.rename(columns={product_col: 'Product'}, inplace=True)
-    
-    # Merge
-    merged = pd.merge(df_undelivered, df_delivered, on='Product', how='outer').fillna(0)
-    merged = pd.merge(merged, df_excel, on='Product', how='outer').fillna(0)
-    
-    # Save the result
-    out_path = os.path.join(os.path.dirname(excel_path), 'Machhiwad_Extraction_Result.xlsx')
-    with pd.ExcelWriter(out_path) as writer:
-        df_undelivered.to_excel(writer, sheet_name='Pending', index=False)
-        df_delivered.to_excel(writer, sheet_name='Delivered Last 2 Days', index=False)
-        merged.to_excel(writer, sheet_name='Comparison', index=False)
-    
-    print(f"Success! Data saved to {out_path}")
+        # Save the result
+        excel_path = r"z:\books2\Plan\Delivery_transport\Machhiwad_Extraction_Result_12May.xlsx"
+        os.makedirs(os.path.dirname(excel_path), exist_ok=True)
+        
+        with pd.ExcelWriter(excel_path) as writer:
+            merged.to_excel(writer, sheet_name='Machhiwad', index=False)
+        
+        print(f"Success! Data saved to {excel_path}")
     
 except Exception as e:
     print(f"Error processing: {e}")
