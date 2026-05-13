@@ -37,6 +37,7 @@ export default function TransferModal({ isOpen, onClose, outletId, onTransferCom
                     name: item.product_details?.name || 'Unknown Product',
                     display_id: item.product_details?.display_id || '',
                     stock: item.product_details?.stock_quantity || 0,
+                    physical_stock: item.product_details?.physical_stock || 0,
                     quantity: item.quantity
                 })));
             } else {
@@ -74,6 +75,7 @@ export default function TransferModal({ isOpen, onClose, outletId, onTransferCom
                 name: product.name,
                 display_id: product.display_id,
                 stock: product.stock_quantity || 0,
+                physical_stock: product.physical_stock || 0,
                 quantity: 1 
             }]);
         }
@@ -194,7 +196,7 @@ export default function TransferModal({ isOpen, onClose, outletId, onTransferCom
                                                 type="number" 
                                                 className="form-input" 
                                                 min="1" 
-                                                max={item.stock + 30}
+                                                max={item.physical_stock + 30}
                                                 value={item.quantity}
                                                 onChange={(e) => handleUpdateQuantity(item.productId, e.target.value)}
                                             />
