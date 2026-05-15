@@ -7,7 +7,7 @@ import { getPurchaseOrderUrl, getReceiveUrl, PROCUREMENT_ENDPOINTS } from '../..
 
 export default function PODetail() {
     const { id } = useParams();
-    const { fetchWithAuth, user } = useAuth();
+    const { fetchWithAuth, rbac } = useAuth();
     const { showToast } = useToast();
     const navigate = useNavigate();
 
@@ -302,7 +302,7 @@ export default function PODetail() {
                             </div>
                         ))}
                         
-                        {user?.is_superuser && (
+                        {rbac?.is_superuser && (
                             <div style={{ marginTop: '1rem', padding: '1rem', background: '#ef444411', border: '1px solid #ef444444', borderRadius: '8px' }}>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
                                     <input type="checkbox" id="masterInvBypass" 
@@ -383,7 +383,7 @@ export default function PODetail() {
                         )}
                         <input type="number" min="0.01" step="0.01" placeholder="Amount (₹)" value={payAmount} onChange={e => setPayAmount(e.target.value)} className="form-control" style={{ width: '100%', marginBottom: '10px' }} />
                         
-                        {user?.is_superuser && (
+                        {rbac?.is_superuser && (
                             <div style={{ marginTop: '0.5rem', marginBottom: '1rem', padding: '1rem', background: '#ef444411', border: '1px solid #ef444444', borderRadius: '8px' }}>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
                                     <input type="checkbox" id="masterFinBypass" 
