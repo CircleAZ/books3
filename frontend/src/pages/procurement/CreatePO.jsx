@@ -89,14 +89,21 @@ export default function CreatePO() {
             showToast(`${product.name} is already in the list`, 'warning');
             return;
         }
+        // Backend expects unit_cost_price as cost per BASE UNIT.
+        // For pack products, inventory cost_price is the pack price,
+        // so we divide by pack_size to get the per-unit cost.
+        const packSize = product.pack_size || 1;
+        const rawCost = parseFloat(product.cost_price) || 0;
+        const perUnitCost = product.is_pack ? (rawCost / packSize).toFixed(4) : rawCost.toFixed(4);
+
         setLineItems(prev => [...prev, {
             product_id: product.id,
             product_name: product.name,
             is_pack: product.is_pack,
-            pack_size: product.pack_size || 1,
-            vendor_pack_size: product.pack_size || 1,
+            pack_size: packSize,
+            vendor_pack_size: packSize,
             purchased_packs: 1,
-            unit_cost_price: product.cost_price || '0.0000',
+            unit_cost_price: perUnitCost,
         }]);
         setProductSearch('');
         setProductResults([]);
