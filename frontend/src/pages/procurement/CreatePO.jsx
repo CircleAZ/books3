@@ -355,7 +355,7 @@ export default function CreatePO() {
                                                     value={item.vendor_pack_size}
                                                     onChange={e => updateLineItem(idx, 'vendor_pack_size', e.target.value)}
                                                     className="form-control"
-                                                    style={{ minWidth: '60px', width: `calc(${String(item.vendor_pack_size).length}ch + 30px)`, textAlign: 'center', margin: '0 auto' }}
+                                                    style={{ width: '80px', textAlign: 'center', margin: '0 auto' }}
                                                 />
                                             </td>
                                             <td style={{ padding: '8px 6px', textAlign: 'center' }}>
@@ -365,7 +365,7 @@ export default function CreatePO() {
                                                     value={item.purchased_packs}
                                                     onChange={e => updateLineItem(idx, 'purchased_packs', e.target.value)}
                                                     className="form-control"
-                                                    style={{ minWidth: '60px', width: `calc(${String(item.purchased_packs).length}ch + 30px)`, textAlign: 'center', margin: '0 auto' }}
+                                                    style={{ width: '80px', textAlign: 'center', margin: '0 auto' }}
                                                 />
                                             </td>
                                             <td style={{ padding: '8px 6px', textAlign: 'center', color: 'var(--color-text-secondary)' }}>
@@ -379,7 +379,7 @@ export default function CreatePO() {
                                                     value={item.unit_cost_price}
                                                     onChange={e => updateLineItem(idx, 'unit_cost_price', e.target.value)}
                                                     className="form-control"
-                                                    style={{ minWidth: '80px', width: `calc(${String(item.unit_cost_price).length}ch + 30px)`, textAlign: 'right', marginLeft: 'auto' }}
+                                                    style={{ width: '120px', textAlign: 'right', marginLeft: 'auto' }}
                                                 />
                                             </td>
                                             <td style={{ padding: '8px 6px', textAlign: 'right', fontWeight: 600 }}>
