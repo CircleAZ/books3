@@ -70,11 +70,18 @@ class POItemCreateSerializer(serializers.Serializer):
     purchased_packs = serializers.IntegerField(min_value=1)
     unit_cost_price = serializers.DecimalField(max_digits=10, decimal_places=4)
 
+class POChargeCreateSerializer(serializers.Serializer):
+    charge_type = serializers.ChoiceField(choices=PurchaseCharge.ChargeType.choices)
+    transporter_id = serializers.UUIDField(required=False, allow_null=True)
+    amount = serializers.DecimalField(max_digits=10, decimal_places=2, min_value=Decimal('0.01'))
+    description = serializers.CharField(required=False, allow_blank=True, default='')
+
 class POCreateSerializer(serializers.Serializer):
     vendor_id = serializers.UUIDField()
     expected_delivery_date = serializers.DateField(required=False, allow_null=True)
     notes = serializers.CharField(required=False, allow_blank=True, default='')
     items = POItemCreateSerializer(many=True)
+    charges = POChargeCreateSerializer(many=True, required=False, default=list)
     
     def validate_items(self, value):
         if not value:

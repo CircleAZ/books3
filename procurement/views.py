@@ -97,9 +97,21 @@ class PurchaseOrderViewSet(viewsets.ModelViewSet):
             )
             subtotal += item.line_total
             
+        total_charges = Decimal('0.00')
+        for charge_data in data.get('charges', []):
+            charge = PurchaseCharge.objects.create(
+                purchase_order=po,
+                charge_type=charge_data['charge_type'],
+                transporter_id=charge_data.get('transporter_id'),
+                amount=charge_data['amount'],
+                description=charge_data.get('description', '')
+            )
+            total_charges += charge.amount
+            
         po.subtotal = subtotal
-        po.total_amount = subtotal  # Charges added later
-        po.save(update_fields=['subtotal', 'total_amount'])
+        po.total_charges = total_charges
+        po.total_amount = subtotal + total_charges
+        po.save(update_fields=['subtotal', 'total_charges', 'total_amount'])
         
         return Response(PurchaseOrderDetailSerializer(po).data, status=status.HTTP_201_CREATED)
 

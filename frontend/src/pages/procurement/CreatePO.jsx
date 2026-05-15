@@ -17,6 +17,9 @@ export default function CreatePO() {
     // Line items
     const [lineItems, setLineItems] = useState([]);
 
+    // Additional Charges
+    const [charges, setCharges] = useState([]);
+
     // Product search
     const [productSearch, setProductSearch] = useState('');
     const [productResults, setProductResults] = useState([]);
@@ -110,9 +113,23 @@ export default function CreatePO() {
         setLineItems(prev => prev.filter((_, i) => i !== index));
     };
 
+    const addCharge = () => {
+        setCharges(prev => [...prev, { charge_type: 'packing', amount: '0.00', description: '' }]);
+    };
+
+    const updateCharge = (index, field, value) => {
+        setCharges(prev => prev.map((c, i) => i === index ? { ...c, [field]: value } : c));
+    };
+
+    const removeCharge = (index) => {
+        setCharges(prev => prev.filter((_, i) => i !== index));
+    };
+
     const getOrderedQty = (item) => (parseInt(item.purchased_packs) || 0) * (parseInt(item.vendor_pack_size) || 0);
     const getLineTotal = (item) => getOrderedQty(item) * (parseFloat(item.unit_cost_price) || 0);
     const subtotal = lineItems.reduce((sum, item) => sum + getLineTotal(item), 0);
+    const totalCharges = charges.reduce((sum, c) => sum + (parseFloat(c.amount) || 0), 0);
+    const grandTotal = subtotal + totalCharges;
 
     const handleSubmit = async () => {
         if (isSubmittingRef.current) return;
@@ -150,6 +167,11 @@ export default function CreatePO() {
                     vendor_pack_size: parseInt(li.vendor_pack_size),
                     purchased_packs: parseInt(li.purchased_packs),
                     unit_cost_price: li.unit_cost_price.toString(),
+                })),
+                charges: charges.filter(c => parseFloat(c.amount) > 0).map(c => ({
+                    charge_type: c.charge_type,
+                    amount: c.amount.toString(),
+                    description: c.description
                 }))
             };
 
@@ -388,6 +410,80 @@ export default function CreatePO() {
                         </div>
                     </>
                 )}
+            </div>
+
+            {/* Additional Charges */}
+            <div className="card" style={{ padding: '1.25rem', marginBottom: '1rem' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                    <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: 600 }}>Additional Charges</h3>
+                    <button onClick={addCharge} className="btn btn-ghost btn-sm">+ Add Charge</button>
+                </div>
+                
+                {charges.length === 0 ? (
+                    <div style={{ textAlign: 'center', padding: '1rem', color: 'var(--color-text-secondary)', fontSize: '0.85rem' }}>
+                        No additional charges
+                    </div>
+                ) : (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                        {charges.map((charge, idx) => (
+                            <div key={idx} style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
+                                <select 
+                                    className="form-control" 
+                                    value={charge.charge_type} 
+                                    onChange={e => updateCharge(idx, 'charge_type', e.target.value)}
+                                    style={{ width: '150px' }}
+                                >
+                                    <option value="packing">Packing</option>
+                                    <option value="transport">Transport</option>
+                                    <option value="handling">Handling</option>
+                                    <option value="other">Other</option>
+                                </select>
+                                <input 
+                                    type="text" 
+                                    className="form-control" 
+                                    placeholder="Description (optional)" 
+                                    value={charge.description}
+                                    onChange={e => updateCharge(idx, 'description', e.target.value)}
+                                    style={{ flex: 1 }}
+                                />
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                    <span style={{ fontWeight: 500 }}>₹</span>
+                                    <input 
+                                        type="number" 
+                                        min="0" 
+                                        step="0.01" 
+                                        className="form-control" 
+                                        value={charge.amount}
+                                        onChange={e => updateCharge(idx, 'amount', e.target.value)}
+                                        style={{ width: '100px', textAlign: 'right' }}
+                                    />
+                                </div>
+                                <button
+                                    onClick={() => removeCharge(idx)}
+                                    className="btn btn-ghost btn-sm"
+                                    style={{ color: '#ef4444', padding: '2px 6px' }}
+                                    title="Remove Charge"
+                                >✕</button>
+                            </div>
+                        ))}
+                    </div>
+                )}
+                <div style={{ display: 'flex', justifyContent: 'flex-end', paddingTop: '1rem', borderTop: '2px solid var(--color-border)', marginTop: '1rem' }}>
+                    <div style={{ textAlign: 'right', minWidth: '200px' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.25rem', fontSize: '0.85rem', color: 'var(--color-text-secondary)' }}>
+                            <span>Subtotal:</span>
+                            <span>₹{subtotal.toFixed(2)}</span>
+                        </div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem', fontSize: '0.85rem', color: 'var(--color-text-secondary)' }}>
+                            <span>Total Charges:</span>
+                            <span>₹{totalCharges.toFixed(2)}</span>
+                        </div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1px solid var(--color-border)', paddingTop: '0.5rem' }}>
+                            <span style={{ fontWeight: 600 }}>Grand Total:</span>
+                            <span style={{ fontSize: '1.2rem', fontWeight: 700, color: 'var(--color-primary)' }}>₹{grandTotal.toFixed(2)}</span>
+                        </div>
+                    </div>
+                </div>
             </div>
 
             {/* Actions */}
