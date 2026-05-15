@@ -298,16 +298,17 @@ class PurchasePaymentViewSet(viewsets.ModelViewSet):
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
+        
+        bypass_exp = serializer.validated_data.pop('bypass_finance_expense', False)
+        bypass_ledg = serializer.validated_data.pop('bypass_finance_ledger', False)
+        
+        if (bypass_exp or bypass_ledg) and not request.user.is_superuser:
+            from rest_framework.exceptions import PermissionDenied
+            raise PermissionDenied("Historical bypasses are restricted to administrators.")
+            
         payment = serializer.save()
         
         try:
-            bypass_exp = serializer.validated_data.pop('bypass_finance_expense', False)
-            bypass_ledg = serializer.validated_data.pop('bypass_finance_ledger', False)
-            
-            if (bypass_exp or bypass_ledg) and not request.user.is_superuser:
-                from rest_framework.exceptions import PermissionDenied
-                raise PermissionDenied("Historical bypasses are restricted to administrators.")
-                
             ProcurementService.process_payment(
                 payment.id, 
                 request.user,
