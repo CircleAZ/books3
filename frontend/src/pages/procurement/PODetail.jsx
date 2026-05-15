@@ -7,7 +7,7 @@ import { getPurchaseOrderUrl, getReceiveUrl, PROCUREMENT_ENDPOINTS } from '../..
 
 export default function PODetail() {
     const { id } = useParams();
-    const { fetchWithAuth } = useAuth();
+    const { fetchWithAuth, user } = useAuth();
     const { showToast } = useToast();
     const navigate = useNavigate();
 
@@ -33,6 +33,22 @@ export default function PODetail() {
     const [banks, setBanks] = useState([]);
     const [selectedWallet, setSelectedWallet] = useState('');
     const [selectedBank, setSelectedBank] = useState('');
+
+    // Bypasses
+    const [bypassInventoryVolume, setBypassInventoryVolume] = useState(false);
+    const [bypassInventoryWac, setBypassInventoryWac] = useState(false);
+    const [showAdvancedReceiveBypass, setShowAdvancedReceiveBypass] = useState(false);
+    
+    const [bypassFinanceExpense, setBypassFinanceExpense] = useState(false);
+    const [bypassFinanceLedger, setBypassFinanceLedger] = useState(false);
+    const [showAdvancedPaymentBypass, setShowAdvancedPaymentBypass] = useState(false);
+
+    useEffect(() => {
+        // Enforce math: bypassing volume MUST bypass WAC
+        if (bypassInventoryVolume) {
+            setBypassInventoryWac(true);
+        }
+    }, [bypassInventoryVolume]);
 
     const fetchPO = useCallback(async () => {
         try {
@@ -88,7 +104,9 @@ export default function PODetail() {
                 items: receiveItems.filter(i => i.received_packs > 0).map(i => ({
                     item_id: i.item_id,
                     received_packs: parseInt(i.received_packs),
-                }))
+                })),
+                bypass_inventory_volume: bypassInventoryVolume,
+                bypass_inventory_wac: bypassInventoryWac
             };
             const res = await fetchWithAuth(getReceiveUrl(id), { method: 'POST', body: JSON.stringify(payload) });
             if (res.ok) {
@@ -101,6 +119,13 @@ export default function PODetail() {
             }
         } catch (e) { showToast('Receive failed', 'error'); }
         finally { setIsReceiving(false); }
+    };
+    
+    const closeReceiveModal = () => {
+        setShowReceive(false);
+        setBypassInventoryVolume(false);
+        setBypassInventoryWac(false);
+        setShowAdvancedReceiveBypass(false);
     };
 
     const handleAddCharge = async () => {
@@ -115,7 +140,13 @@ export default function PODetail() {
     };
 
     const handleRecordPayment = async () => {
-        const payload = { purchase_order: id, amount: payAmount, payment_method: payMethod };
+        const payload = { 
+            purchase_order: id, 
+            amount: payAmount, 
+            payment_method: payMethod,
+            bypass_finance_expense: bypassFinanceExpense,
+            bypass_finance_ledger: bypassFinanceLedger
+        };
         if (payMethod === 'cash' && selectedWallet) payload.source_wallet = selectedWallet;
         if (payMethod === 'bank' && selectedBank) payload.source_bank = selectedBank;
 
@@ -124,6 +155,13 @@ export default function PODetail() {
             if (res.ok) { showToast('Payment recorded', 'success'); setShowPayment(false); setPayAmount(''); fetchPO(); }
             else { const e = await res.json(); showToast('Error: ' + (e.detail || JSON.stringify(e)), 'error'); }
         } catch (e) { showToast('Failed to record payment', 'error'); }
+    };
+
+    const closePaymentModal = () => {
+        setShowPayment(false);
+        setBypassFinanceExpense(false);
+        setBypassFinanceLedger(false);
+        setShowAdvancedPaymentBypass(false);
     };
 
     const handleCancel = async () => {
@@ -162,6 +200,7 @@ export default function PODetail() {
                     <p style={{ margin: '4px 0 0', color: 'var(--color-text-secondary)', fontSize: '0.85rem' }}>Vendor: {po.vendor_name}</p>
                 </div>
                 <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                    {po.is_historical_bypass && <span style={badgeStyle('#ef4444')} title="This PO bypassed standard inventory or financial logic">HISTORICAL BYPASS</span>}
                     <span style={badgeStyle(statusColor(po.status))}>{po.status?.replace(/_/g, ' ')}</span>
                     <span style={badgeStyle(payStatusColor(po.payment_status))}>{po.payment_status}</span>
                 </div>
@@ -244,7 +283,7 @@ export default function PODetail() {
 
             {/* Receive Modal */}
             {showReceive && (
-                <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }} onClick={() => setShowReceive(false)}>
+                <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }} onClick={closeReceiveModal}>
                     <div style={{ background: 'var(--color-bg-primary)', borderRadius: '12px', padding: '1.5rem', maxWidth: '500px', width: '100%', maxHeight: '80vh', overflowY: 'auto' }} onClick={e => e.stopPropagation()}>
                         <h3 style={{ margin: '0 0 1rem' }}>Receive Items</h3>
                         {receiveItems.map((ri, idx) => (
@@ -262,8 +301,41 @@ export default function PODetail() {
                                 </div>
                             </div>
                         ))}
+                        
+                        {user?.is_superuser && (
+                            <div style={{ marginTop: '1rem', padding: '1rem', background: '#ef444411', border: '1px solid #ef444444', borderRadius: '8px' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+                                    <input type="checkbox" id="masterInvBypass" 
+                                        checked={bypassInventoryVolume && bypassInventoryWac} 
+                                        onChange={e => {
+                                            setBypassInventoryVolume(e.target.checked);
+                                            setBypassInventoryWac(e.target.checked);
+                                        }} 
+                                    />
+                                    <label htmlFor="masterInvBypass" style={{ color: '#ef4444', fontWeight: 600, fontSize: '0.9rem' }}>Master Inventory Bypass (Historical Migration)</label>
+                                </div>
+                                <button className="btn btn-ghost btn-sm" style={{ padding: '0', fontSize: '0.8rem', color: 'var(--color-text-secondary)' }} onClick={() => setShowAdvancedReceiveBypass(!showAdvancedReceiveBypass)}>
+                                    {showAdvancedReceiveBypass ? 'Hide Advanced' : 'Show Advanced Granular Controls'}
+                                </button>
+                                {showAdvancedReceiveBypass && (
+                                    <div style={{ marginTop: '8px', paddingLeft: '24px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                            <input type="checkbox" id="bypassVol" checked={bypassInventoryVolume} onChange={e => setBypassInventoryVolume(e.target.checked)} />
+                                            <label htmlFor="bypassVol" style={{ fontSize: '0.85rem' }}>Bypass Volume Injection</label>
+                                        </div>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                            <input type="checkbox" id="bypassWac" checked={bypassInventoryWac} disabled={bypassInventoryVolume} onChange={e => setBypassInventoryWac(e.target.checked)} />
+                                            <label htmlFor="bypassWac" style={{ fontSize: '0.85rem', color: bypassInventoryVolume ? 'var(--color-text-secondary)' : 'inherit' }}>
+                                                Bypass WAC Recalculation {bypassInventoryVolume && '(Required when Volume bypassed)'}
+                                            </label>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        )}
+
                         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '1rem' }}>
-                            <button className="btn btn-ghost" onClick={() => setShowReceive(false)}>Cancel</button>
+                            <button className="btn btn-ghost" onClick={closeReceiveModal}>Cancel</button>
                             <button className="btn btn-primary" onClick={handleReceive} disabled={isReceiving}>{isReceiving ? 'Processing...' : 'Confirm Receive'}</button>
                         </div>
                     </div>
@@ -290,7 +362,7 @@ export default function PODetail() {
 
             {/* Record Payment Modal */}
             {showPayment && (
-                <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }} onClick={() => setShowPayment(false)}>
+                <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }} onClick={closePaymentModal}>
                     <div style={{ background: 'var(--color-bg-primary)', borderRadius: '12px', padding: '1.5rem', maxWidth: '400px', width: '100%' }} onClick={e => e.stopPropagation()}>
                         <h3 style={{ margin: '0 0 1rem' }}>Record Payment</h3>
                         <p style={{ fontSize: '0.85rem', color: 'var(--color-text-secondary)', marginBottom: '12px' }}>Balance due: ₹{balanceDue.toFixed(2)}</p>
@@ -310,8 +382,39 @@ export default function PODetail() {
                             </select>
                         )}
                         <input type="number" min="0.01" step="0.01" placeholder="Amount (₹)" value={payAmount} onChange={e => setPayAmount(e.target.value)} className="form-control" style={{ width: '100%', marginBottom: '10px' }} />
+                        
+                        {user?.is_superuser && (
+                            <div style={{ marginTop: '0.5rem', marginBottom: '1rem', padding: '1rem', background: '#ef444411', border: '1px solid #ef444444', borderRadius: '8px' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+                                    <input type="checkbox" id="masterFinBypass" 
+                                        checked={bypassFinanceExpense && bypassFinanceLedger} 
+                                        onChange={e => {
+                                            setBypassFinanceExpense(e.target.checked);
+                                            setBypassFinanceLedger(e.target.checked);
+                                        }} 
+                                    />
+                                    <label htmlFor="masterFinBypass" style={{ color: '#ef4444', fontWeight: 600, fontSize: '0.9rem' }}>Master Finance Bypass (Historical Migration)</label>
+                                </div>
+                                <button className="btn btn-ghost btn-sm" style={{ padding: '0', fontSize: '0.8rem', color: 'var(--color-text-secondary)' }} onClick={() => setShowAdvancedPaymentBypass(!showAdvancedPaymentBypass)}>
+                                    {showAdvancedPaymentBypass ? 'Hide Advanced' : 'Show Advanced Granular Controls'}
+                                </button>
+                                {showAdvancedPaymentBypass && (
+                                    <div style={{ marginTop: '8px', paddingLeft: '24px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                            <input type="checkbox" id="bypassExp" checked={bypassFinanceExpense} onChange={e => setBypassFinanceExpense(e.target.checked)} />
+                                            <label htmlFor="bypassExp" style={{ fontSize: '0.85rem' }}>Bypass Expense Ledger Generation</label>
+                                        </div>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                            <input type="checkbox" id="bypassLedg" checked={bypassFinanceLedger} onChange={e => setBypassFinanceLedger(e.target.checked)} />
+                                            <label htmlFor="bypassLedg" style={{ fontSize: '0.85rem' }}>Bypass Cash/Bank Withdrawal</label>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        )}
+
                         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
-                            <button className="btn btn-ghost" onClick={() => setShowPayment(false)}>Cancel</button>
+                            <button className="btn btn-ghost" onClick={closePaymentModal}>Cancel</button>
                             <button className="btn btn-primary" onClick={handleRecordPayment} disabled={!payAmount}>Record Payment</button>
                         </div>
                     </div>

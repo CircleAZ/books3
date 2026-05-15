@@ -33,15 +33,19 @@ class PurchasePaymentSerializer(serializers.ModelSerializer):
     source_wallet_name = serializers.CharField(source='source_wallet.name', read_only=True, default='')
     source_bank_name = serializers.CharField(source='source_bank.name', read_only=True, default='')
 
+    bypass_finance_expense = serializers.BooleanField(write_only=True, required=False, default=False)
+    bypass_finance_ledger = serializers.BooleanField(write_only=True, required=False, default=False)
+
     class Meta:
         model = PurchasePayment
         fields = [
             'id', 'purchase_order', 'purchase_charge', 'amount', 'payment_method', 
             'paid_by_employee', 'paid_by_employee_name', 'finance_expense', 
             'source_wallet', 'source_wallet_name', 'source_bank', 'source_bank_name',
-            'payment_date', 'reference_id'
+            'payment_date', 'reference_id', 'is_historical_bypass',
+            'bypass_finance_expense', 'bypass_finance_ledger'
         ]
-        read_only_fields = ['finance_expense', 'payment_date']
+        read_only_fields = ['finance_expense', 'payment_date', 'is_historical_bypass']
 
 class PurchaseOrderListSerializer(serializers.ModelSerializer):
     vendor_name = serializers.CharField(source='vendor.name', read_only=True)
@@ -52,7 +56,7 @@ class PurchaseOrderListSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'display_id', 'vendor', 'vendor_name', 'status', 'payment_status', 
             'order_date', 'expected_delivery_date', 'subtotal', 'total_charges', 
-            'total_amount', 'amount_paid', 'created_by_name'
+            'total_amount', 'amount_paid', 'created_by_name', 'is_historical_bypass'
         ]
 
 class PurchaseOrderDetailSerializer(PurchaseOrderListSerializer):
@@ -95,3 +99,5 @@ class POReceiveItemSerializer(serializers.Serializer):
 
 class POReceiveSerializer(serializers.Serializer):
     items = POReceiveItemSerializer(many=True)
+    bypass_inventory_volume = serializers.BooleanField(required=False, default=False)
+    bypass_inventory_wac = serializers.BooleanField(required=False, default=False)

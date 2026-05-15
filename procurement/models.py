@@ -40,6 +40,7 @@ class PurchaseOrder(DisplayIDMixin, SoftDeleteModel):
 
     notes = models.TextField(blank=True)
     created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True)
+    is_historical_bypass = models.BooleanField(default=False, help_text="Tainted flag indicating this PO bypassed standard inventory/financial logic.")
 
     def __str__(self):
         return f"PO #{self.display_id} - {self.vendor.name}"
@@ -106,6 +107,7 @@ class PurchasePayment(UUIDPrimaryKeyModel):
     
     payment_date = models.DateField(auto_now_add=True)
     reference_id = models.CharField(max_length=100, blank=True)
+    is_historical_bypass = models.BooleanField(default=False, help_text="Tainted flag indicating this Payment bypassed standard financial logic.")
 
     def __str__(self):
         return f"{self.amount} via {self.get_payment_method_display()} for PO #{self.purchase_order.display_id}"

@@ -11,7 +11,7 @@ from django.utils import timezone
 class ProcurementService:
     @staticmethod
     @transaction.atomic
-    def receive_order(po_id, items_received_data, user):
+    def receive_order(po_id, items_received_data, user, bypass_inventory_volume=False, bypass_inventory_wac=False):
         """
         Receives items for a PO and performs the WAC calculation safely.
         items_received_data: list of dicts [{'item_id': UUID, 'received_packs': int}]
@@ -79,16 +79,17 @@ class ProcurementService:
             pack_landed_cost = landed_unit_cost * po_item.vendor_pack_size
 
             # 4. Atomic Stock Injection
-            StockService.adjust_stock(
-                product_id=po_item.product_id,
-                adjustment_type='increase',
-                quantity=new_packs,
-                reason='purchase',
-                notes=f"PO #{po.display_id} Received",
-                user=user,
-                unit_cost=pack_landed_cost,
-                target_ledger='both'
-            )
+            if not bypass_inventory_volume:
+                StockService.adjust_stock(
+                    product_id=po_item.product_id,
+                    adjustment_type='increase',
+                    quantity=new_packs,
+                    reason='purchase',
+                    notes=f"PO #{po.display_id} Received" + (" [WAC Bypassed]" if bypass_inventory_wac else ""),
+                    user=user,
+                    unit_cost=pack_landed_cost if not bypass_inventory_wac else None,
+                    target_ledger='both'
+                )
 
             # 5. Update PO Item state
             po_item.received_packs += new_packs
@@ -97,15 +98,18 @@ class ProcurementService:
             if po_item.received_packs < po_item.purchased_packs:
                 all_fully_received = False
 
+        if bypass_inventory_volume or bypass_inventory_wac:
+            po.is_historical_bypass = True
+
         if any_received_now:
             po.status = PurchaseOrder.Status.RECEIVED if all_fully_received else PurchaseOrder.Status.PARTIAL
-            po.save(update_fields=['status'])
+            po.save(update_fields=['status', 'is_historical_bypass'])
             
         return po
 
     @staticmethod
     @transaction.atomic
-    def process_payment(payment_id, user):
+    def process_payment(payment_id, user, bypass_finance_expense=False, bypass_finance_ledger=False):
         """
         Process a PurchasePayment. Creates finance.Expense for ALL payment types
         and routes Cash/Bank through LedgerService for ledger balance tracking.
@@ -117,6 +121,10 @@ class ProcurementService:
             raise ValidationError("This payment has already been routed to the finance ledger.")
             
         po = payment.purchase_order
+        
+        if bypass_finance_expense or bypass_finance_ledger:
+            payment.is_historical_bypass = True
+            payment.save(update_fields=['is_historical_bypass'])
         
         # ── A1 FIX: Create Expense record for ALL payment types ──
         # Get or create Procurement Expense Category
@@ -144,42 +152,44 @@ class ProcurementService:
             payee_id = po.vendor_id
         
         # Create the Expense record (common to ALL payment types)
-        expense = Expense.objects.create(
-            date=timezone.now().date(),
-            category=category,
-            payee_type=payee_type,
-            payee_name=payee_name,
-            payee_id=payee_id,
-            description=desc,
-            amount=payment.amount,
-            tax_amount=Decimal('0.00'),
-            total_amount=payment.amount,
-            created_by=user,
-            notes="AUTO-GENERATED IMMUTABLE EXPENSE"
-        )
-        
-        payment.finance_expense = expense
-        payment.save(update_fields=['finance_expense'])
+        if not bypass_finance_expense:
+            expense = Expense.objects.create(
+                date=timezone.now().date(),
+                category=category,
+                payee_type=payee_type,
+                payee_name=payee_name,
+                payee_id=payee_id,
+                description=desc,
+                amount=payment.amount,
+                tax_amount=Decimal('0.00'),
+                total_amount=payment.amount,
+                created_by=user,
+                notes="AUTO-GENERATED IMMUTABLE EXPENSE"
+            )
+            
+            payment.finance_expense = expense
+            payment.save(update_fields=['finance_expense'])
         
         # ── Route Cash/Bank through LedgerService for balance tracking ──
-        if payment.payment_method == PurchasePayment.PaymentMethod.CASH:
-            if payment.source_wallet_id:
-                LedgerService.process_withdrawal(
-                    amount=payment.amount,
-                    source_wallet=payment.source_wallet,
-                    reference=f"PO-{po.display_id}",
-                    description=desc,
-                    user=user
-                )
-        elif payment.payment_method == PurchasePayment.PaymentMethod.BANK:
-            if payment.source_bank_id:
-                LedgerService.process_withdrawal(
-                    amount=payment.amount,
-                    source_bank=payment.source_bank,
-                    reference=f"PO-{po.display_id}",
-                    description=desc,
-                    user=user
-                )
+        if not bypass_finance_ledger:
+            if payment.payment_method == PurchasePayment.PaymentMethod.CASH:
+                if payment.source_wallet_id:
+                    LedgerService.process_withdrawal(
+                        amount=payment.amount,
+                        source_wallet=payment.source_wallet,
+                        reference=f"PO-{po.display_id}",
+                        description=desc,
+                        user=user
+                    )
+            elif payment.payment_method == PurchasePayment.PaymentMethod.BANK:
+                if payment.source_bank_id:
+                    LedgerService.process_withdrawal(
+                        amount=payment.amount,
+                        source_bank=payment.source_bank,
+                        reference=f"PO-{po.display_id}",
+                        description=desc,
+                        user=user
+                    )
             
         # Update PO payment totals
         po.amount_paid += payment.amount

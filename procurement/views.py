@@ -122,7 +122,20 @@ class PurchaseOrderViewSet(viewsets.ModelViewSet):
         serializer.is_valid(raise_exception=True)
         
         try:
-            po = ProcurementService.receive_order(po.id, serializer.validated_data['items'], request.user)
+            bypass_vol = serializer.validated_data.get('bypass_inventory_volume', False)
+            bypass_wac = serializer.validated_data.get('bypass_inventory_wac', False)
+            
+            if (bypass_vol or bypass_wac) and not request.user.is_superuser:
+                from rest_framework.exceptions import PermissionDenied
+                raise PermissionDenied("Historical bypasses are restricted to administrators.")
+                
+            po = ProcurementService.receive_order(
+                po.id, 
+                serializer.validated_data['items'], 
+                request.user,
+                bypass_inventory_volume=bypass_vol,
+                bypass_inventory_wac=bypass_wac
+            )
             return Response(PurchaseOrderDetailSerializer(po).data)
         except (ValidationError, Exception) as e:
             return Response({'detail': str(e)}, status=status.HTTP_400_BAD_REQUEST)
@@ -288,7 +301,19 @@ class PurchasePaymentViewSet(viewsets.ModelViewSet):
         payment = serializer.save()
         
         try:
-            ProcurementService.process_payment(payment.id, request.user)
+            bypass_exp = serializer.validated_data.pop('bypass_finance_expense', False)
+            bypass_ledg = serializer.validated_data.pop('bypass_finance_ledger', False)
+            
+            if (bypass_exp or bypass_ledg) and not request.user.is_superuser:
+                from rest_framework.exceptions import PermissionDenied
+                raise PermissionDenied("Historical bypasses are restricted to administrators.")
+                
+            ProcurementService.process_payment(
+                payment.id, 
+                request.user,
+                bypass_finance_expense=bypass_exp,
+                bypass_finance_ledger=bypass_ledg
+            )
         except Exception as e:
             # If service fails (e.g. ValidationError), delete the payment to avoid orphan state
             payment.delete()

@@ -327,11 +327,11 @@ export default function CreatePO() {
                                 <thead>
                                     <tr style={{ borderBottom: '1px solid var(--color-border)' }}>
                                         <th style={{ textAlign: 'left', padding: '8px 6px', color: 'var(--color-text-secondary)', fontWeight: 500 }}>Product</th>
-                                        <th style={{ textAlign: 'center', padding: '8px 6px', color: 'var(--color-text-secondary)', fontWeight: 500, width: '90px' }}>Pack Size</th>
-                                        <th style={{ textAlign: 'center', padding: '8px 6px', color: 'var(--color-text-secondary)', fontWeight: 500, width: '80px' }}>Packs</th>
-                                        <th style={{ textAlign: 'center', padding: '8px 6px', color: 'var(--color-text-secondary)', fontWeight: 500, width: '80px' }}>Units</th>
-                                        <th style={{ textAlign: 'right', padding: '8px 6px', color: 'var(--color-text-secondary)', fontWeight: 500, width: '110px' }}>Unit Cost (₹)</th>
-                                        <th style={{ textAlign: 'right', padding: '8px 6px', color: 'var(--color-text-secondary)', fontWeight: 500, width: '100px' }}>Total (₹)</th>
+                                        <th style={{ textAlign: 'center', padding: '8px 6px', color: 'var(--color-text-secondary)', fontWeight: 500 }}>Pack Size</th>
+                                        <th style={{ textAlign: 'center', padding: '8px 6px', color: 'var(--color-text-secondary)', fontWeight: 500 }}>Packs</th>
+                                        <th style={{ textAlign: 'center', padding: '8px 6px', color: 'var(--color-text-secondary)', fontWeight: 500 }}>Units</th>
+                                        <th style={{ textAlign: 'right', padding: '8px 6px', color: 'var(--color-text-secondary)', fontWeight: 500 }}>Unit Cost (₹)</th>
+                                        <th style={{ textAlign: 'right', padding: '8px 6px', color: 'var(--color-text-secondary)', fontWeight: 500 }}>Total (₹)</th>
                                         <th style={{ width: '40px' }}></th>
                                     </tr>
                                 </thead>
@@ -355,7 +355,7 @@ export default function CreatePO() {
                                                     value={item.vendor_pack_size}
                                                     onChange={e => updateLineItem(idx, 'vendor_pack_size', e.target.value)}
                                                     className="form-control"
-                                                    style={{ width: '70px', textAlign: 'center', margin: '0 auto' }}
+                                                    style={{ minWidth: '60px', width: `calc(${String(item.vendor_pack_size).length}ch + 30px)`, textAlign: 'center', margin: '0 auto' }}
                                                 />
                                             </td>
                                             <td style={{ padding: '8px 6px', textAlign: 'center' }}>
@@ -365,7 +365,7 @@ export default function CreatePO() {
                                                     value={item.purchased_packs}
                                                     onChange={e => updateLineItem(idx, 'purchased_packs', e.target.value)}
                                                     className="form-control"
-                                                    style={{ width: '65px', textAlign: 'center', margin: '0 auto' }}
+                                                    style={{ minWidth: '60px', width: `calc(${String(item.purchased_packs).length}ch + 30px)`, textAlign: 'center', margin: '0 auto' }}
                                                 />
                                             </td>
                                             <td style={{ padding: '8px 6px', textAlign: 'center', color: 'var(--color-text-secondary)' }}>
@@ -379,7 +379,7 @@ export default function CreatePO() {
                                                     value={item.unit_cost_price}
                                                     onChange={e => updateLineItem(idx, 'unit_cost_price', e.target.value)}
                                                     className="form-control"
-                                                    style={{ width: '100px', textAlign: 'right', marginLeft: 'auto' }}
+                                                    style={{ minWidth: '80px', width: `calc(${String(item.unit_cost_price).length}ch + 30px)`, textAlign: 'right', marginLeft: 'auto' }}
                                                 />
                                             </td>
                                             <td style={{ padding: '8px 6px', textAlign: 'right', fontWeight: 600 }}>
