@@ -179,9 +179,9 @@ class OrderItemCreateSerializer(serializers.Serializer):
     """For creating order items in nested create."""
     product = serializers.UUIDField()
     quantity = serializers.IntegerField(min_value=1)
-    unit_price = serializers.DecimalField(max_digits=10, decimal_places=2)
+    unit_price = serializers.DecimalField(max_digits=10, decimal_places=2, min_value=0)
     discount_type = serializers.ChoiceField(choices=['', 'percent', 'fixed'], required=False, allow_blank=True)
-    discount_value = serializers.DecimalField(max_digits=10, decimal_places=2, required=False, default=0)
+    discount_value = serializers.DecimalField(max_digits=10, decimal_places=2, required=False, default=0, min_value=0)
 
 
 class PaymentCreateSerializer(serializers.Serializer):
@@ -189,7 +189,7 @@ class PaymentCreateSerializer(serializers.Serializer):
     method = serializers.CharField(max_length=100, required=False, allow_blank=True, allow_null=True)
     destination_bank = serializers.UUIDField(required=False, allow_null=True)
     destination_wallet = serializers.UUIDField(required=False, allow_null=True)
-    amount = serializers.DecimalField(max_digits=10, decimal_places=2)
+    amount = serializers.DecimalField(max_digits=10, decimal_places=2, min_value=0)
     upi_reference = serializers.CharField(max_length=255, required=False, allow_blank=True, default='')
 
 
@@ -197,6 +197,7 @@ class OrderCreateSerializer(serializers.ModelSerializer):
     """Serializer for creating/updating orders with nested items and payments."""
     items = OrderItemCreateSerializer(many=True, write_only=True)
     payments = PaymentCreateSerializer(many=True, required=False, write_only=True)
+    discount_value = serializers.DecimalField(max_digits=10, decimal_places=2, required=False, default=0, min_value=0)
     
     class Meta:
         model = Order
@@ -256,16 +257,37 @@ class OrderCreateSerializer(serializers.ModelSerializer):
         validated_data['total'] = total
         
         total_paid = sum(Decimal(str(p['amount'])) for p in payments_data)
-        if total_paid > total:
+        
+        # --- ATOMIC POS SPLIT (Murphy's Checkpoint in Backend) ---
+        excess = total_paid - total
+        legacy_debt_payment = Decimal('0')
+        customer = validated_data.get('customer')
+        
+        if excess > Decimal('0') and customer and hasattr(customer, 'legacy_debt'):
+            from customers.models import LegacyDebt
+            # Lock the row for update
+            debt = LegacyDebt.objects.select_for_update().get(id=customer.legacy_debt.id)
+            remaining_debt = debt.principal_amount - debt.recovered_amount
+            
+            if remaining_debt > Decimal('0'):
+                legacy_debt_payment = min(excess, remaining_debt)
+                # Ensure enough fresh cash exists to cover the debt split
+                fresh_cash_amount = sum(Decimal(str(p['amount'])) for p in payments_data if p.get('method', '') != 'Customer Wallet')
+                if legacy_debt_payment > fresh_cash_amount:
+                    raise serializers.ValidationError({"payments": "Legacy debt cannot be paid using existing store credit. Fresh cash required."})
+        
+        order_total_paid = total_paid - legacy_debt_payment
+        
+        if order_total_paid > total:
             validated_data['payment_status'] = 'overpaid'
-        elif total_paid == total and total > 0:
+        elif order_total_paid == total and total > 0:
             validated_data['payment_status'] = 'paid'
-        elif total_paid > 0:
+        elif order_total_paid > 0:
             validated_data['payment_status'] = 'partial'
         else:
             validated_data['payment_status'] = 'pending'
             
-        if total_paid > 0 and validated_data.get('order_status', 'draft') == 'draft':
+        if order_total_paid > 0 and validated_data.get('order_status', 'draft') == 'draft':
             validated_data['order_status'] = 'confirmed'
         
         # Now create the order with all derived fields fully populated
@@ -325,38 +347,70 @@ class OrderCreateSerializer(serializers.ModelSerializer):
         deferred_deposits = []
         payments_to_create = []
         
+        remaining_debt_to_siphon = legacy_debt_payment
+        
         for payment_data in payments_data:
             method = payment_data.get('method', '')
-            amount = payment_data['amount']
+            original_amount = Decimal(str(payment_data['amount']))
             
-            payments_to_create.append(Payment(
-                order=order,
-                amount=amount,
-                method=method,
-                destination_bank_id=payment_data.get('destination_bank'),
-                destination_wallet_id=payment_data.get('destination_wallet'),
-                upi_reference=payment_data.get('upi_reference', ''),
-                created_by=validated_data.get('created_by')
-            ))
+            siphon_from_this_payment = Decimal('0')
+            if remaining_debt_to_siphon > Decimal('0') and method != 'Customer Wallet':
+                siphon_from_this_payment = min(remaining_debt_to_siphon, original_amount)
+                remaining_debt_to_siphon -= siphon_from_this_payment
+                
+            order_payment_amount = original_amount - siphon_from_this_payment
+            
+            if order_payment_amount > Decimal('0'):
+                payments_to_create.append(Payment(
+                    order=order,
+                    amount=order_payment_amount,
+                    method=method,
+                    destination_bank_id=payment_data.get('destination_bank'),
+                    destination_wallet_id=payment_data.get('destination_wallet'),
+                    upi_reference=payment_data.get('upi_reference', ''),
+                    created_by=validated_data.get('created_by')
+                ))
             
             if method == 'Customer Wallet':
                 # SYNC: must be atomic with order creation
-                if getattr(order.customer, 'wallet', None):
+                if getattr(order.customer, 'wallet', None) and original_amount > Decimal('0'):
                     order.customer.wallet.debit(
-                        amount, 
+                        original_amount, 
                         f"Payment for Order #{order.display_id}", 
                         user=validated_data.get('created_by')
                     )
             else:
                 # DEFERRED: cash/bank deposit runs after commit
-                deferred_deposits.append({
-                    'amount': amount,
-                    'destination_bank_id': payment_data.get('destination_bank'),
-                    'destination_wallet_id': payment_data.get('destination_wallet'),
-                    'reference': f"order_{order.display_id}",
-                    'description': f"Initial Payment for Order #{order.display_id}",
-                    'user_id': validated_data.get('created_by').id if validated_data.get('created_by') else None,
-                })
+                if original_amount > Decimal('0'):
+                    deferred_deposits.append({
+                        'amount': original_amount, # Full cash is deposited to ledger
+                        'destination_bank_id': payment_data.get('destination_bank'),
+                        'destination_wallet_id': payment_data.get('destination_wallet'),
+                        'reference': f"order_{order.display_id}",
+                        'description': f"Payment for Order #{order.display_id}" + (" & Legacy Debt" if legacy_debt_payment > 0 else ""),
+                        'user_id': validated_data.get('created_by').id if validated_data.get('created_by') else None,
+                    })
+
+        if legacy_debt_payment > Decimal('0'):
+            # Debt was already locked at the top of the function
+            debt.recovered_amount += legacy_debt_payment
+            debt.save()
+            
+            from customers.models import Wallet
+            from finance.models import WalletTransaction
+            from django.db.models import F
+            
+            wallet, _ = Wallet.objects.get_or_create(customer=customer)
+            Wallet.objects.filter(id=wallet.id).update(balance=F('balance') + legacy_debt_payment)
+            wallet.refresh_from_db()
+            
+            WalletTransaction.objects.create(
+                wallet=wallet,
+                amount=legacy_debt_payment,
+                transaction_type='credit',
+                reason=f'Legacy Debt Auto-Payment via Order #{order.display_id}',
+                created_by=validated_data.get('created_by')
+            )
         
         if payments_to_create:
             Payment.objects.bulk_create(payments_to_create)

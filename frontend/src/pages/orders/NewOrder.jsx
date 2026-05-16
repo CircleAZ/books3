@@ -645,8 +645,6 @@ export default function NewOrder() {
                 }))
             };
 
-
-
             // Idempotency key is pre-computed from cart contents (see useEffect above).
             // If somehow null (edge case: cart changed mid-submit), generate a fallback.
             if (!idempotencyKeyRef.current) {
@@ -661,7 +659,15 @@ export default function NewOrder() {
             });
 
             if (response.ok) {
-                showToast(`Order ${status === 'draft' ? 'held' : 'confirmed'} successfully!`, 'success');
+                const totalPaid = payments.reduce((sum, p) => sum + p.amount, 0);
+                if (totalPaid > grandTotal && selectedCustomer?.has_legacy_debt && parseFloat(selectedCustomer.legacy_debt_remaining) > 0) {
+                    const excess = totalPaid - grandTotal;
+                    const legacyDebtAmount = Math.min(excess, parseFloat(selectedCustomer.legacy_debt_remaining));
+                    showToast(`Order successful! ₹${legacyDebtAmount.toFixed(2)} automatically allocated to Legacy Debt via ledger.`, 'success');
+                } else {
+                    showToast(`Order ${status === 'draft' ? 'held' : 'confirmed'} successfully!`, 'success');
+                }
+
                 // Reset state
                 setCartItems([]);
                 setSelectedCustomer(null);
@@ -727,6 +733,7 @@ export default function NewOrder() {
                     </div>
 
                     {selectedCustomer ? (
+                        <>
                         <div className="selected-customer-card">
                             <div>
                                 <strong>
@@ -737,6 +744,13 @@ export default function NewOrder() {
                             </div>
                             <button className="btn btn-ghost btn-sm" onClick={() => setSelectedCustomer(null)}>Change</button>
                         </div>
+                        {selectedCustomer.has_legacy_debt && parseFloat(selectedCustomer.legacy_debt_remaining) > 0 && (
+                            <div style={{ background: 'var(--danger-color, #dc3545)', color: 'white', padding: '0.5rem', borderRadius: '4px', marginTop: '0.5rem', fontWeight: 'bold', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                <span>⚠️ LEGACY DEBT ALERT</span>
+                                <span>{currency}{parseFloat(selectedCustomer.legacy_debt_remaining).toFixed(2)}</span>
+                            </div>
+                        )}
+                        </>
                     ) : (
                         <>
                             <div className="customer-search-wrapper">

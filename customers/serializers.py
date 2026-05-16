@@ -5,7 +5,7 @@ import re
 from rest_framework import serializers
 from django.db import models
 from django.utils.html import strip_tags
-from .models import Customer, Student, Address, CustomerLink, Wallet, WalletTransaction, PotentialCustomer, GeographicRegion
+from .models import Customer, Student, Address, CustomerLink, Wallet, WalletTransaction, PotentialCustomer, GeographicRegion, LegacyDebt
 from settings_app.models import (
     School, Class, Division, Subdivision, CustomerGroup, LinkType, LocationTag,
     ClassTemplate, DivisionTemplate, SubdivisionTemplate
@@ -266,14 +266,30 @@ class CustomerListSerializer(serializers.ModelSerializer):
     primary_address = serializers.SerializerMethodField()
     wallet_balance = serializers.DecimalField(max_digits=10, decimal_places=2, read_only=True)
     students = StudentSerializer(many=True, read_only=True)
+    has_legacy_debt = serializers.SerializerMethodField()
+    legacy_debt_remaining = serializers.SerializerMethodField()
+    legacy_debt_id = serializers.SerializerMethodField()
     
     class Meta:
         model = Customer
         fields = [
             'id', 'display_id', 'full_name', 'first_name', 'last_name',
             'phone', 'email', 'group_name', 'primary_address', 'wallet_balance', 
-            'created_at', 'students'
+            'created_at', 'students', 'has_legacy_debt', 'legacy_debt_remaining', 'legacy_debt_id'
         ]
+    
+    def get_has_legacy_debt(self, obj):
+        return hasattr(obj, 'legacy_debt')
+
+    def get_legacy_debt_remaining(self, obj):
+        if hasattr(obj, 'legacy_debt'):
+            return obj.legacy_debt.principal_amount - obj.legacy_debt.recovered_amount
+        return 0
+
+    def get_legacy_debt_id(self, obj):
+        if hasattr(obj, 'legacy_debt'):
+            return str(obj.legacy_debt.id)
+        return None
     
     def get_primary_address(self, obj):
         addresses = getattr(obj, '_prefetched_objects_cache', {}).get('addresses', None)
@@ -295,6 +311,9 @@ class CustomerDetailSerializer(serializers.ModelSerializer):
     students = StudentSerializer(many=True, read_only=True)
     links = serializers.SerializerMethodField()
     wallet_balance = serializers.DecimalField(max_digits=10, decimal_places=2, read_only=True)
+    has_legacy_debt = serializers.SerializerMethodField()
+    legacy_debt_remaining = serializers.SerializerMethodField()
+    legacy_debt_id = serializers.SerializerMethodField()
     
     # Related object details
     customer_group = CustomerGroupSerializer(read_only=True)
@@ -305,8 +324,21 @@ class CustomerDetailSerializer(serializers.ModelSerializer):
             'id', 'display_id', 'full_name', 'first_name', 'middle_name', 'last_name',
             'phone', 'email', 'students',
             'customer_group', 'notes', 'addresses', 'links', 
-            'wallet_balance', 'created_at', 'updated_at'
+            'wallet_balance', 'has_legacy_debt', 'legacy_debt_remaining', 'legacy_debt_id', 'created_at', 'updated_at'
         ]
+    
+    def get_has_legacy_debt(self, obj):
+        return hasattr(obj, 'legacy_debt')
+
+    def get_legacy_debt_remaining(self, obj):
+        if hasattr(obj, 'legacy_debt'):
+            return obj.legacy_debt.principal_amount - obj.legacy_debt.recovered_amount
+        return 0
+
+    def get_legacy_debt_id(self, obj):
+        if hasattr(obj, 'legacy_debt'):
+            return str(obj.legacy_debt.id)
+        return None
     
     def get_links(self, obj):
         links_data = CustomerLink.get_links_for_customer(obj)
@@ -771,3 +803,22 @@ class GeographicRegionSerializer(serializers.ModelSerializer):
         else:
             rep['boundary'] = None
         return rep
+
+
+class LegacyDebtSerializer(serializers.ModelSerializer):
+    """
+    Serializer for Legacy Debt.
+    Used for reading current status and bulk creation.
+    """
+    customer_name = serializers.CharField(source='customer.full_name', read_only=True)
+
+    class Meta:
+        model = LegacyDebt
+        fields = ['id', 'customer', 'customer_name', 'principal_amount', 'recovered_amount']
+        read_only_fields = ['id', 'recovered_amount']
+
+    def validate_principal_amount(self, value):
+        if value <= 0:
+            raise serializers.ValidationError("Principal amount must be greater than zero.")
+        return value
+

@@ -89,6 +89,8 @@ const CreateTrip = lazy(() => import('./pages/finance/CreateTrip'));
 const TripDetails = lazy(() => import('./pages/finance/TripDetails'));
 const CashManagement = lazy(() => import('./pages/finance/CashManagement'));
 const OpeningBalance = lazy(() => import('./pages/finance/OpeningBalance'));
+const LegacyDebtEntry = lazy(() => import('./pages/finance/LegacyDebtEntry'));
+const LegacyDebtDashboard = lazy(() => import('./pages/finance/LegacyDebtDashboard'));
 
 // Reports
 const ReportsIndex = lazy(() => import('./pages/reports/ReportsIndex'));
@@ -358,6 +360,16 @@ function AppRoutes() {
       <Route path="/finance/opening-balance" element={
         <PermissionRoute permission="finance.manage_banking">
           <LazyPage><OpeningBalance /></LazyPage>
+        </PermissionRoute>
+      } />
+      <Route path="/finance/legacy-debt" element={
+        <PermissionRoute permission="finance.manage_banking">
+          <LazyPage><LegacyDebtEntry /></LazyPage>
+        </PermissionRoute>
+      } />
+      <Route path="/finance/legacy-debt-dashboard" element={
+        <PermissionRoute permission="finance.view_reports">
+          <LazyPage><LegacyDebtDashboard /></LazyPage>
         </PermissionRoute>
       } />
 

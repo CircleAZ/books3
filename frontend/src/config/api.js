@@ -122,6 +122,11 @@ export const ENDPOINTS = {
     MESSAGING_TEMPLATES: `${API_BASE}/messaging/templates/`,
     MESSAGING_QUEUE: `${API_BASE}/messaging/queue/`,
 
+    // Customers
+    CUSTOMERS: `${API_BASE}/customers/customers/`,
+    LEGACY_DEBT: `${API_BASE}/customers/legacy-debt/`,
+    LEGACY_DEBT_BULK: `${API_BASE}/customers/legacy-debt/bulk_create_debts/`,
+
     // Token
     TOKEN_REFRESH: `${API_BASE}/token/refresh/`,
 };

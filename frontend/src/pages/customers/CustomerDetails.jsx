@@ -22,6 +22,20 @@ const CustomerDetails = () => {
     const [lightboxPhoto, setLightboxPhoto] = useState(null);
 
     // Link Management State
+const CustomerDetails = () => {
+    const { id } = useParams();
+    const navigate = useNavigate();
+    const { fetchWithAuth } = useAuth();
+    const { currency } = useCurrency();
+
+    const [customer, setCustomer] = useState(null);
+    const [wallet, setWallet] = useState(null);
+    const [orders, setOrders] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState(null);
+    const [lightboxPhoto, setLightboxPhoto] = useState(null);
+
+    // Link Management State
     const [isLinkModalOpen, setIsLinkModalOpen] = useState(false);
     const [linkTypes, setLinkTypes] = useState([]);
     const [linkFormData, setLinkFormData] = useState({ target_customer: '', link_type: '' });
@@ -34,6 +48,13 @@ const CustomerDetails = () => {
     const [withdrawForm, setWithdrawForm] = useState({ amount: '', destination_wallet: '' });
     const [withdrawError, setWithdrawError] = useState('');
     const [isWithdrawing, setIsWithdrawing] = useState(false);
+
+    // Legacy Debt Settlement State
+    const [showLegacyDebtModal, setShowLegacyDebtModal] = useState(false);
+    const [bankAccounts, setBankAccounts] = useState([]);
+    const [legacyDebtForm, setLegacyDebtForm] = useState({ amount: '', destination_wallet: '', destination_bank: '' });
+    const [legacyDebtError, setLegacyDebtError] = useState('');
+    const [isSettlingDebt, setIsSettlingDebt] = useState(false);
 
     const fetchData = React.useCallback(async () => {
         setLoading(true);
@@ -186,6 +207,71 @@ const CustomerDetails = () => {
             setWithdrawError("Network error occurred.");
         } finally {
             setIsWithdrawing(false);
+        }
+    };
+
+    const handleOpenLegacyDebt = async () => {
+        setShowLegacyDebtModal(true);
+        setLegacyDebtError('');
+        setLegacyDebtForm({ amount: '', destination_wallet: '', destination_bank: '' });
+        try {
+            const [walletsRes, banksRes] = await Promise.all([
+                fetchWithAuth(ENDPOINTS.FINANCE_CASH_WALLETS),
+                fetchWithAuth(ENDPOINTS.FINANCE_BANK_ACCOUNTS)
+            ]);
+            
+            if (walletsRes.ok) {
+                const data = await walletsRes.json();
+                const active = data.filter(w => w.is_active);
+                setCashWallets(active);
+                if (active.length > 0) {
+                    setLegacyDebtForm(prev => ({ ...prev, destination_wallet: active[0].id }));
+                }
+            }
+            if (banksRes.ok) {
+                const data = await banksRes.json();
+                const active = data.filter(b => b.is_active);
+                setBankAccounts(active);
+            }
+        } catch (e) { console.error("Error fetching financial accounts", e); }
+    };
+
+    const handleSettleLegacyDebt = async (e) => {
+        e.preventDefault();
+        
+        if (!legacyDebtForm.destination_wallet && !legacyDebtForm.destination_bank) {
+            setLegacyDebtError('Please select a destination account for the funds.');
+            return;
+        }
+
+        setIsSettlingDebt(true);
+        setLegacyDebtError('');
+        
+        const payload = {
+            amount: legacyDebtForm.amount,
+            is_fresh_cash: true,
+            destination_wallet_id: legacyDebtForm.destination_wallet || null,
+            destination_bank_id: legacyDebtForm.destination_bank || null
+        };
+
+        try {
+            const res = await fetchWithAuth(`${ENDPOINTS.LEGACY_DEBT}${customer.legacy_debt_id}/allocate_payment/`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            if (res.ok) {
+                setShowLegacyDebtModal(false);
+                fetchData();
+                alert("Legacy debt settled and funds deposited to ledger.");
+            } else {
+                const err = await res.json();
+                setLegacyDebtError(err.detail || 'Settlement failed');
+            }
+        } catch (error) {
+            setLegacyDebtError("Network error occurred.");
+        } finally {
+            setIsSettlingDebt(false);
         }
     };
 
@@ -481,11 +567,18 @@ const CustomerDetails = () => {
                 <div className="customer-section" style={{ gridColumn: '1 / -1' }}>
                     <div className="customer-section-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                         <h3>Wallet</h3>
-                        {wallet?.balance > 0 && (
-                            <button className="btn btn-sm btn-outline text-danger" onClick={handleOpenWithdraw} style={{ borderColor: 'var(--color-danger)' }}>
-                                Withdraw Funds
-                            </button>
-                        )}
+                        <div>
+                            {wallet?.balance > 0 && (
+                                <button className="btn btn-sm btn-outline text-danger" onClick={handleOpenWithdraw} style={{ borderColor: 'var(--color-danger)' }}>
+                                    Withdraw Funds
+                                </button>
+                            )}
+                            {customer?.has_legacy_debt && parseFloat(customer.legacy_debt_remaining) > 0 && (
+                                <button className="btn btn-sm btn-outline text-success" onClick={handleOpenLegacyDebt} style={{ borderColor: 'var(--color-success)', marginLeft: '1rem' }}>
+                                    Settle Legacy Debt
+                                </button>
+                            )}
+                        </div>
                     </div>
                     <div className="customer-section-content">
                         <div className="wallet-balance">
@@ -685,6 +778,73 @@ const CustomerDetails = () => {
                                 <button type="button" className="btn btn-ghost" onClick={() => setShowWithdrawModal(false)}>Cancel</button>
                                 <button type="submit" className="btn btn-danger" disabled={isWithdrawing || !withdrawForm.amount || !withdrawForm.destination_wallet}>
                                     {isWithdrawing ? 'Processing...' : 'Confirm Withdrawal'}
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
+
+            {/* Legacy Debt Settle Modal */}
+            {showLegacyDebtModal && (
+                <div className="modal-overlay" onClick={() => setShowLegacyDebtModal(false)}>
+                    <div className="modal-content animate-slide-in-up" onClick={e => e.stopPropagation()}>
+                        <h2>Settle Legacy Debt</h2>
+                        <p className="text-muted" style={{ marginBottom: '1rem' }}>
+                            Remaining Debt: <strong>{currency}{customer?.legacy_debt_remaining}</strong>
+                        </p>
+                        {legacyDebtError && <div className="payment-error text-danger" style={{ marginBottom: '1rem' }}>{legacyDebtError}</div>}
+                        <form onSubmit={handleSettleLegacyDebt}>
+                            <div className="form-group">
+                                <label>Amount Received ({currency})</label>
+                                <input
+                                    type="number"
+                                    step="0.01"
+                                    min="0.01"
+                                    max={customer?.legacy_debt_remaining}
+                                    value={legacyDebtForm.amount}
+                                    onChange={e => setLegacyDebtForm({ ...legacyDebtForm, amount: e.target.value })}
+                                    className="form-control"
+                                    required
+                                    autoFocus
+                                />
+                            </div>
+                            
+                            <div className="form-row">
+                                <div className="form-group col-6">
+                                    <label>Deposit to Cash Wallet</label>
+                                    <select
+                                        className="form-control"
+                                        value={legacyDebtForm.destination_wallet}
+                                        onChange={e => setLegacyDebtForm({ ...legacyDebtForm, destination_wallet: e.target.value, destination_bank: '' })}
+                                        disabled={!!legacyDebtForm.destination_bank}
+                                    >
+                                        <option value="">-- None --</option>
+                                        {cashWallets.map(w => (
+                                            <option key={w.id} value={w.id}>{w.name}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                                <div className="form-group col-6">
+                                    <label>Or Bank Account</label>
+                                    <select
+                                        className="form-control"
+                                        value={legacyDebtForm.destination_bank}
+                                        onChange={e => setLegacyDebtForm({ ...legacyDebtForm, destination_bank: e.target.value, destination_wallet: '' })}
+                                        disabled={!!legacyDebtForm.destination_wallet}
+                                    >
+                                        <option value="">-- None --</option>
+                                        {bankAccounts.map(b => (
+                                            <option key={b.id} value={b.id}>{b.bank_name} - {b.account_number.slice(-4)}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                            </div>
+                            
+                            <div className="modal-actions" style={{ marginTop: '1.5rem' }}>
+                                <button type="button" className="btn btn-ghost" onClick={() => setShowLegacyDebtModal(false)}>Cancel</button>
+                                <button type="submit" className="btn btn-success" disabled={isSettlingDebt || !legacyDebtForm.amount || (!legacyDebtForm.destination_wallet && !legacyDebtForm.destination_bank)}>
+                                    {isSettlingDebt ? 'Processing...' : 'Settle Debt'}
                                 </button>
                             </div>
                         </form>

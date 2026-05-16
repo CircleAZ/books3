@@ -122,6 +122,8 @@ export const menuSections = [
             { label: 'New Trip', title: 'New Trip', path: '/finance/trips/new', permission: 'finance.manage_trips' },
             { label: 'Cash Management', title: 'Cash Management', path: '/finance/cash-management', permission: 'finance.manage_banking' },
             { label: 'Opening Balance', title: 'Opening Balance', path: '/finance/opening-balance', permission: 'finance.manage_banking' },
+            { label: 'Legacy Debt Entry', title: 'Legacy Debt Entry', path: '/finance/legacy-debt', permission: 'finance.manage_banking' },
+            { label: 'Legacy Debt Dashboard', title: 'Legacy Debt Dashboard', path: '/finance/legacy-debt-dashboard', permission: 'finance.view_reports' },
         ],
     },
     {

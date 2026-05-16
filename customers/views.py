@@ -11,14 +11,14 @@ from django.db import transaction
 from orders.constants import VALID_SALE_STATUSES
 
 from core.permissions import HasRequiredPermission
-from .models import Customer, Address, CustomerLink, Wallet, WalletTransaction, TargetVillage, PotentialCustomer, GeographicRegion
+from .models import Customer, Address, CustomerLink, Wallet, WalletTransaction, TargetVillage, PotentialCustomer, GeographicRegion, LegacyDebt
 from .serializers import (
     CustomerListSerializer, CustomerDetailSerializer, CustomerCreateUpdateSerializer,
     AddressSerializer, CustomerLinkSerializer, WalletSerializer, WalletTransactionSerializer,
     SchoolSerializer, ClassSerializer, DivisionSerializer, SubdivisionSerializer,
     CustomerGroupSerializer, LinkTypeSerializer, LocationTagSerializer,
     ClassTemplateSerializer, DivisionTemplateSerializer, SubdivisionTemplateSerializer,
-    PotentialCustomerSerializer, GeographicRegionSerializer
+    PotentialCustomerSerializer, GeographicRegionSerializer, LegacyDebtSerializer
 )
 from settings_app.models import (
     School, Class, Division, Subdivision, CustomerGroup, LinkType, LocationTag,
@@ -116,11 +116,11 @@ class CustomerViewSet(viewsets.ModelViewSet):
         # ── Lean path: list view — no address prefetch ──
         if self.action == 'list':
             return Customer.objects.select_related(
-                'customer_group', 'wallet'
+                'customer_group', 'wallet', 'legacy_debt'
             ).prefetch_related('students')
         # ── Fat path: retrieve/update — full address data ──
         return Customer.objects.select_related(
-            'customer_group', 'wallet'
+            'customer_group', 'wallet', 'legacy_debt'
         ).prefetch_related('addresses', 'addresses__location_tags', 'students', 'students__school', 'students__class_obj', 'students__division', 'students__subdivision')
 
     def get_serializer_class(self):
@@ -1818,4 +1818,175 @@ class PotentialCustomerViewSet(viewsets.ModelViewSet):
         ])
 
         return Response({'detail': 'Pin restored successfully.'})
+
+
+class LegacyDebtViewSet(viewsets.ModelViewSet):
+    """
+    ViewSet for tracking and settling Legacy Debt (from old notebooks).
+    """
+    queryset = LegacyDebt.objects.all().select_related('customer')
+    serializer_class = LegacyDebtSerializer
+    permission_classes = [IsAuthenticated, HasRequiredPermission]
+
+    @action(detail=False, methods=['post'])
+    @transaction.atomic
+    def bulk_create_debts(self, request):
+        """
+        Rapid Entry: Accepts an array of {customer: id, principal_amount: X}.
+        Creates LegacyDebt and debits the customer's wallet.
+        """
+        data = request.data
+        if not isinstance(data, list):
+            return Response({"detail": "Expected a list of objects."}, status=400)
+
+        results = []
+        for item in data:
+            customer_id = item.get('customer')
+            principal = item.get('principal_amount')
+            
+            try:
+                customer = Customer.objects.get(id=customer_id)
+                # Ensure no existing debt
+                if hasattr(customer, 'legacy_debt'):
+                    results.append({"customer": customer_id, "status": "failed", "reason": "Already has legacy debt"})
+                    continue
+                
+                # Check constraints logically
+                if float(principal) <= 0:
+                    results.append({"customer": customer_id, "status": "failed", "reason": "Amount must be positive"})
+                    continue
+                    
+                debt = LegacyDebt.objects.create(
+                    customer=customer,
+                    principal_amount=principal
+                )
+                
+                # Debit wallet
+                wallet, _ = Wallet.objects.get_or_create(customer=customer)
+                wallet.balance -= debt.principal_amount
+                wallet.save()
+                
+                # Create locked transaction
+                WalletTransaction.objects.create(
+                    wallet=wallet,
+                    amount=debt.principal_amount,
+                    transaction_type='debit',
+                    reason='Legacy Debt',
+                    created_by=request.user
+                )
+                results.append({"customer": customer_id, "status": "success", "id": debt.id})
+                
+            except Exception as e:
+                results.append({"customer": customer_id, "status": "failed", "reason": str(e)})
+
+        return Response({"results": results})
+
+    @action(detail=True, methods=['post'])
+    @transaction.atomic
+    def allocate_payment(self, request, pk=None):
+        """
+        Record a payment against legacy debt.
+        Uses select_for_update to prevent double-tap race conditions.
+        """
+        amount = request.data.get('amount')
+        is_fresh_cash = request.data.get('is_fresh_cash', False)
+        destination_wallet_id = request.data.get('destination_wallet_id')
+        destination_bank_id = request.data.get('destination_bank_id')
+
+        if not amount or float(amount) <= 0:
+            return Response({"detail": "Amount must be positive."}, status=400)
+            
+        if not is_fresh_cash:
+            # Prevent hijacking of store credits
+            return Response({"detail": "Legacy debt must be paid with fresh cash/bank transfers, not existing store credit."}, status=400)
+
+        # Enforce destination selection for standalone API calls to prevent Ledger Bypass
+        # (Note: When called via Order split, LedgerService handles it there, but here we require it)
+        if not destination_wallet_id and not destination_bank_id:
+            # If the request specifically bypassed destination (e.g., from order split),
+            # the serializer should be bypassing this endpoint entirely.
+            # But just in case:
+            if not request.data.get('bypass_ledger_deposit'):
+                return Response({"detail": "A destination Cash Wallet or Bank Account is required."}, status=400)
+
+        amount = float(amount)
+
+        # Lock the rows for update to prevent race conditions
+        try:
+            debt = LegacyDebt.objects.select_for_update().get(pk=pk)
+        except LegacyDebt.DoesNotExist:
+            return Response({"detail": "Not found."}, status=404)
+
+        remaining = float(debt.principal_amount) - float(debt.recovered_amount)
+        if amount > remaining:
+            return Response({"detail": f"Cannot overpay legacy debt. Maximum allowed is {remaining}."}, status=400)
+
+        # Update Debt
+        debt.recovered_amount += amount
+        debt.save()
+
+        # Update Wallet (Credit it back atomically)
+        wallet, _ = Wallet.objects.get_or_create(customer=debt.customer)
+        from django.db.models import F
+        Wallet.objects.filter(id=wallet.id).update(balance=F('balance') + amount)
+        wallet.refresh_from_db()
+
+        WalletTransaction.objects.create(
+            wallet=wallet,
+            amount=amount,
+            transaction_type='credit',
+            reason='Legacy Debt Payment',
+            created_by=request.user
+        )
+
+        # Process Ledger Deposit
+        if not request.data.get('bypass_ledger_deposit') and (destination_bank_id or destination_wallet_id):
+            from finance.services import LedgerService
+            from finance.models import BankAccount, CashWallet
+            try:
+                dest_bank = BankAccount.objects.get(id=destination_bank_id) if destination_bank_id else None
+                dest_wallet = CashWallet.objects.get(id=destination_wallet_id) if destination_wallet_id else None
+                
+                LedgerService.process_deposit(
+                    amount=amount,
+                    destination_bank=dest_bank,
+                    destination_wallet=dest_wallet,
+                    reference=f"legacy_debt_{debt.id}",
+                    description=f"Legacy Debt Settlement for {debt.customer.full_name}",
+                    user=request.user
+                )
+            except Exception as e:
+                return Response({"detail": f"Ledger deposit failed: {str(e)}"}, status=400)
+
+        return Response({
+            "detail": "Payment allocated successfully.",
+            "recovered_amount": debt.recovered_amount,
+            "wallet_balance": wallet.balance
+        })
+
+    @action(detail=False, methods=['get'])
+    def summary(self, request):
+        """
+        Dashboard Summary: Returns aggregate metrics for Legacy Debt.
+        """
+        from django.db.models import Sum
+        
+        aggregates = LegacyDebt.objects.aggregate(
+            total_principal=Sum('principal_amount'),
+            total_recovered=Sum('recovered_amount')
+        )
+        
+        total_principal = aggregates['total_principal'] or 0
+        total_recovered = aggregates['total_recovered'] or 0
+        total_remaining = total_principal - total_recovered
+        
+        collection_rate = (total_recovered / total_principal * 100) if total_principal > 0 else 0
+        
+        return Response({
+            "total_imported": total_principal,
+            "total_recovered": total_recovered,
+            "total_remaining": total_remaining,
+            "collection_rate_pct": round(collection_rate, 2)
+        })
+
 

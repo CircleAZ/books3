@@ -6,7 +6,7 @@ from .views import (
     CustomerGroupViewSet, LinkTypeViewSet, LocationTagViewSet,
     ClassTemplateViewSet, DivisionTemplateViewSet, SubdivisionTemplateViewSet,
     InlineSchoolCreateView, GeoBoundaryView, GeoRegionListView,
-    PotentialCustomerViewSet, GeographicRegionViewSet
+    PotentialCustomerViewSet, GeographicRegionViewSet, LegacyDebtViewSet
 )
 
 router = DefaultRouter()
@@ -18,6 +18,7 @@ router.register(r'links', CustomerLinkViewSet)
 router.register(r'wallets', WalletViewSet)
 router.register(r'potential-customers', PotentialCustomerViewSet)
 router.register(r'georegions', GeographicRegionViewSet)
+router.register(r'legacy-debt', LegacyDebtViewSet)
 
 # Settings resources (for cascading dropdowns)
 router.register(r'schools', SchoolViewSet)

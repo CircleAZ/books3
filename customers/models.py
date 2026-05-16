@@ -324,6 +324,12 @@ class WalletTransaction(UUIDPrimaryKeyModel):
     def __str__(self):
         return f"{self.transaction_type}: ₹{self.amount} - {self.reason}"
 
+    def delete(self, *args, **kwargs):
+        from django.db.models import ProtectedError
+        if self.reason == 'Legacy Debt':
+            raise ProtectedError("Cannot manually delete Legacy Debt transactions.", [self])
+        return super().delete(*args, **kwargs)
+
 
 class TargetVillage(UUIDPrimaryKeyModel):
     """Manager-placed pin marking a village targeted for expansion."""
@@ -397,4 +403,38 @@ class PotentialCustomer(UUIDPrimaryKeyModel):
         status = "dissolved" if self.is_dissolved else "active"
         note_preview = (self.notes[:30] + '…') if len(self.notes) > 30 else self.notes
         return f"PotentialCustomer [{status}] {note_preview or 'no note'}"
+
+
+class LegacyDebt(UUIDPrimaryKeyModel):
+    """
+    Isolated tracking for previous year's pending payments.
+    Ensures accounting integrity by completely separating old debt collection metrics
+    from current wallet flows, while still syncing to the unified Wallet balance.
+    """
+    customer = models.OneToOneField(
+        Customer, on_delete=models.CASCADE, related_name='legacy_debt'
+    )
+    principal_amount = models.DecimalField(max_digits=12, decimal_places=2)
+    recovered_amount = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+
+    class Meta:
+        constraints = [
+            models.CheckConstraint(
+                condition=models.Q(principal_amount__gt=0),
+                name='check_principal_positive'
+            ),
+            models.CheckConstraint(
+                condition=models.Q(recovered_amount__gte=0) & models.Q(recovered_amount__lte=models.F('principal_amount')),
+                name='check_recovered_bounds'
+            )
+        ]
+
+    def delete(self, *args, **kwargs):
+        from django.db.models import ProtectedError
+        # To maintain strict accounting, legacy debt rows shouldn't be casually deleted.
+        # If absolutely needed, a manual bypass or specific admin action should be required.
+        raise ProtectedError("Cannot manually delete LegacyDebt records.", [self])
+
+    def __str__(self):
+        return f"Legacy Debt - {self.customer}: ₹{self.recovered_amount} / ₹{self.principal_amount}"
 
