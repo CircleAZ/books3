@@ -12,7 +12,7 @@ from .views import (
     IncomeCategoryViewSet, RecurringExpenseViewSet, CategoryBudgetViewSet,
     FinanceAuditLogViewSet, FinancialDashboardView,
     ExpenseTripViewSet, CashWalletViewSet, CashTransferViewSet,
-    AllTransactionsViewSet
+    AllTransactionsViewSet, OpeningBalanceViewSet
 )
 
 router = DefaultRouter()
@@ -39,6 +39,8 @@ router.register(r'expense-trips', ExpenseTripViewSet)
 router.register(r'cash-wallets', CashWalletViewSet)
 router.register(r'cash-transfers', CashTransferViewSet)
 router.register(r'all-transactions', AllTransactionsViewSet, basename='all-transactions')
+# Opening Balance
+router.register(r'opening-balances', OpeningBalanceViewSet)
 
 urlpatterns = [
     path('', include(router.urls)),

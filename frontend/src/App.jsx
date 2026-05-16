@@ -88,6 +88,7 @@ const TripList = lazy(() => import('./pages/finance/TripList'));
 const CreateTrip = lazy(() => import('./pages/finance/CreateTrip'));
 const TripDetails = lazy(() => import('./pages/finance/TripDetails'));
 const CashManagement = lazy(() => import('./pages/finance/CashManagement'));
+const OpeningBalance = lazy(() => import('./pages/finance/OpeningBalance'));
 
 // Reports
 const ReportsIndex = lazy(() => import('./pages/reports/ReportsIndex'));
@@ -352,6 +353,11 @@ function AppRoutes() {
       <Route path="/finance/cash-management" element={
         <PermissionRoute permission="finance.manage_banking">
           <LazyPage><CashManagement /></LazyPage>
+        </PermissionRoute>
+      } />
+      <Route path="/finance/opening-balance" element={
+        <PermissionRoute permission="finance.manage_banking">
+          <LazyPage><OpeningBalance /></LazyPage>
         </PermissionRoute>
       } />
 

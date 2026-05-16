@@ -1592,3 +1592,223 @@ class AllTransactionsViewSet(viewsets.ViewSet):
             enriched_results.append(item_dict)
             
         return paginator.get_paginated_response(enriched_results)
+
+
+# ======== Opening Balance ViewSet ========
+
+from .models import OpeningBalance
+from .serializers import (
+    OpeningBalanceSerializer, OpeningBalanceCreateSerializer,
+    OpeningBalanceStockUpdateSerializer
+)
+
+
+class OpeningBalanceViewSet(viewsets.GenericViewSet,
+                            viewsets.mixins.ListModelMixin,
+                            viewsets.mixins.RetrieveModelMixin):
+    """
+    Admin-only ViewSet for one-time opening balance records.
+    Records pre-system stock counts and cash capital.
+    """
+    queryset = OpeningBalance.objects.select_related('wallet', 'created_by')
+    serializer_class = OpeningBalanceSerializer
+    permission_classes = [IsAdminUser]
+
+    def get_serializer_class(self):
+        if self.action == 'create':
+            return OpeningBalanceCreateSerializer
+        if self.action == 'update_stock':
+            return OpeningBalanceStockUpdateSerializer
+        return OpeningBalanceSerializer
+
+    def create(self, request):
+        """
+        Create an opening balance record.
+        Enriches stock_items with product names/costs, computes totals,
+        and deposits opening cash into the selected wallet (backdated).
+        """
+        serializer = OpeningBalanceCreateSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        data = serializer.validated_data
+
+        from inventory.models import Product
+        from django.db import transaction as db_transaction
+
+        # Enrich stock items
+        stock_items = data.get('stock_items', [])
+        enriched_items = []
+        stock_valuation_total = Decimal('0.00')
+
+        if stock_items:
+            product_ids = [item['product_id'] for item in stock_items]
+            products = {
+                str(p.id): p
+                for p in Product.objects.select_related('category').filter(id__in=product_ids)
+            }
+
+            for item in stock_items:
+                pid = str(item['product_id'])
+                qty = int(item['quantity'])
+                if qty == 0:
+                    continue  # Skip zero-quantity entries
+                product = products.get(pid)
+                if not product:
+                    return Response(
+                        {'error': f'Product {pid} not found.'},
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
+                cost = product.cost_price
+                total_value = Decimal(str(qty)) * cost
+                enriched_items.append({
+                    'product_id': pid,
+                    'product_name': product.name,
+                    'category_name': product.category.name if product.category else 'Uncategorized',
+                    'quantity': qty,
+                    'cost_price': str(cost),
+                    'total_value': str(total_value),
+                })
+                stock_valuation_total += total_value
+
+        wallet_id = data.get('wallet_id')
+        opening_cash = data.get('opening_cash', Decimal('0.00'))
+        effective_date = data['effective_date']
+
+        try:
+            with db_transaction.atomic():
+                # Create the opening balance record
+                ob = OpeningBalance.objects.create(
+                    label=data['label'],
+                    effective_date=effective_date,
+                    opening_cash=opening_cash,
+                    stock_data=enriched_items,
+                    stock_valuation_total=stock_valuation_total,
+                    notes=data.get('notes', ''),
+                    created_by=request.user,
+                )
+
+                # Process cash deposit if wallet specified and amount > 0
+                if wallet_id and opening_cash > 0:
+                    from .models import CashWallet, CashWalletTransaction
+                    wallet = CashWallet.objects.select_for_update().get(id=wallet_id)
+                    wallet.balance += opening_cash
+                    wallet.save(update_fields=['balance'])
+                    CashWalletTransaction.objects.create(
+                        wallet=wallet,
+                        transaction_type='deposit',
+                        amount=opening_cash,
+                        reference_id=f'opening_capital_{ob.id}',
+                        description=f'Opening capital: {data["label"]}',
+                        balance_after=wallet.balance,
+                        date=effective_date,
+                        created_by=request.user,
+                    )
+                    ob.wallet = wallet
+                    ob.cash_recorded = True
+                    ob.save(update_fields=['wallet', 'cash_recorded'])
+
+                _audit_log('create', 'OpeningBalance', ob.id, request.user, {
+                    'label': ob.label,
+                    'opening_cash': str(ob.opening_cash),
+                    'stock_items_count': len(enriched_items),
+                    'stock_valuation': str(stock_valuation_total),
+                })
+
+            return Response(
+                OpeningBalanceSerializer(ob).data,
+                status=status.HTTP_201_CREATED
+            )
+        except CashWallet.DoesNotExist:
+            return Response(
+                {'error': 'Selected wallet not found.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        except Exception as e:
+            logger.exception('Error creating opening balance')
+            return Response(
+                {'error': str(e)},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+    @action(detail=True, methods=['put'], url_path='stock')
+    def update_stock(self, request, pk=None):
+        """
+        Update stock quantities on an existing opening balance.
+        Re-enriches product data and recomputes totals.
+        Cash data is immutable after recording.
+        """
+        ob = self.get_object()
+
+        serializer = OpeningBalanceStockUpdateSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        from inventory.models import Product
+
+        stock_items = serializer.validated_data['stock_items']
+        enriched_items = []
+        stock_valuation_total = Decimal('0.00')
+
+        product_ids = [item['product_id'] for item in stock_items]
+        products = {
+            str(p.id): p
+            for p in Product.objects.select_related('category').filter(id__in=product_ids)
+        }
+
+        for item in stock_items:
+            pid = str(item['product_id'])
+            qty = int(item['quantity'])
+            if qty == 0:
+                continue
+            product = products.get(pid)
+            if not product:
+                return Response(
+                    {'error': f'Product {pid} not found.'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            cost = product.cost_price
+            total_value = Decimal(str(qty)) * cost
+            enriched_items.append({
+                'product_id': pid,
+                'product_name': product.name,
+                'category_name': product.category.name if product.category else 'Uncategorized',
+                'quantity': qty,
+                'cost_price': str(cost),
+                'total_value': str(total_value),
+            })
+            stock_valuation_total += total_value
+
+        ob.stock_data = enriched_items
+        ob.stock_valuation_total = stock_valuation_total
+        ob.save(update_fields=['stock_data', 'stock_valuation_total', 'updated_at'])
+
+        _audit_log('update_stock', 'OpeningBalance', ob.id, request.user, {
+            'stock_items_count': len(enriched_items),
+            'stock_valuation': str(stock_valuation_total),
+        })
+
+        return Response(OpeningBalanceSerializer(ob).data)
+
+    @action(detail=False, methods=['get'], url_path='products-template')
+    def products_template(self, request):
+        """
+        Returns all active non-pack products grouped by category
+        for the bulk stock entry form.
+        """
+        from inventory.models import Product
+        products = (
+            Product.objects
+            .filter(is_deleted=False, is_pack=False)
+            .select_related('category')
+            .order_by('category__name', 'name')
+        )
+
+        result = []
+        for p in products:
+            result.append({
+                'id': str(p.id),
+                'name': p.name,
+                'category_name': p.category.name if p.category else 'Uncategorized',
+                'cost_price': str(p.cost_price),
+            })
+
+        return Response(result)
+

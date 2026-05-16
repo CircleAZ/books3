@@ -12,7 +12,7 @@ from .models import (
     BankAccount, BankTransaction, EmployeeExpense, EmployeeSalary,
     SalaryPayment, Lender, Loan, LoanRepayment,
     IncomeCategory, RecurringExpense, CategoryBudget, FinanceAuditLog,
-    ExpenseTrip, ExpenseTripItem
+    ExpenseTrip, ExpenseTripItem, OpeningBalance
 )
 
 
@@ -631,4 +631,89 @@ class CashTransferSerializer(serializers.ModelSerializer):
             'created_at', 'updated_at'
         ]
         read_only_fields = ['id', 'status', 'initiated_by', 'approved_by', 'created_at', 'updated_at']
+
+
+# ======== Opening Balance Serializers ========
+
+class OpeningBalanceSerializer(serializers.ModelSerializer):
+    """Read serializer for saved opening balance records."""
+    wallet_name = serializers.CharField(source='wallet.name', read_only=True, default=None)
+    created_by_name = serializers.CharField(source='created_by.username', read_only=True, default=None)
+
+    class Meta:
+        model = OpeningBalance
+        fields = [
+            'id', 'label', 'effective_date', 'opening_cash',
+            'stock_data', 'stock_valuation_total',
+            'wallet', 'wallet_name', 'cash_recorded',
+            'notes', 'created_by', 'created_by_name',
+            'created_at', 'updated_at'
+        ]
+        read_only_fields = fields
+
+
+class OpeningBalanceCreateSerializer(serializers.Serializer):
+    """
+    Create serializer for opening balance.
+    Accepts raw stock_items[] with product_id + quantity,
+    enriches them with product name/category/cost from the database.
+    """
+    label = serializers.CharField(max_length=50)
+    effective_date = serializers.DateField()
+    opening_cash = serializers.DecimalField(max_digits=14, decimal_places=2, default=Decimal('0.00'))
+    wallet_id = serializers.UUIDField(required=False, allow_null=True)
+    notes = serializers.CharField(required=False, allow_blank=True, default='')
+    stock_items = serializers.ListField(
+        child=serializers.DictField(), required=False, default=list
+    )
+
+    def validate_label(self, value):
+        value = strip_tags(value).strip()
+        if OpeningBalance.objects.filter(label=value).exists():
+            raise serializers.ValidationError('An opening balance with this label already exists.')
+        return value
+
+    def validate_stock_items(self, value):
+        """Validate each item has product_id and quantity."""
+        from inventory.models import Product
+        for i, item in enumerate(value):
+            if 'product_id' not in item:
+                raise serializers.ValidationError(f'Item {i}: missing product_id')
+            if 'quantity' not in item:
+                raise serializers.ValidationError(f'Item {i}: missing quantity')
+            try:
+                qty = int(item['quantity'])
+                if qty < 0:
+                    raise serializers.ValidationError(f'Item {i}: quantity cannot be negative')
+            except (ValueError, TypeError):
+                raise serializers.ValidationError(f'Item {i}: quantity must be an integer')
+        return value
+
+    def validate_wallet_id(self, value):
+        if value:
+            from .models import CashWallet
+            if not CashWallet.objects.filter(id=value, is_active=True).exists():
+                raise serializers.ValidationError('Wallet not found or inactive.')
+        return value
+
+
+class OpeningBalanceStockUpdateSerializer(serializers.Serializer):
+    """Update serializer for editing stock quantities after initial save."""
+    stock_items = serializers.ListField(
+        child=serializers.DictField(), required=True
+    )
+
+    def validate_stock_items(self, value):
+        for i, item in enumerate(value):
+            if 'product_id' not in item:
+                raise serializers.ValidationError(f'Item {i}: missing product_id')
+            if 'quantity' not in item:
+                raise serializers.ValidationError(f'Item {i}: missing quantity')
+            try:
+                qty = int(item['quantity'])
+                if qty < 0:
+                    raise serializers.ValidationError(f'Item {i}: quantity cannot be negative')
+            except (ValueError, TypeError):
+                raise serializers.ValidationError(f'Item {i}: quantity must be an integer')
+        return value
 

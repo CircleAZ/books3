@@ -1072,3 +1072,54 @@ class FinanceAuditLog(models.Model):
     
     def __str__(self):
         return f"{self.action} - {self.model_name} - {self.timestamp}"
+
+
+# ======== Opening Balance (One-Time Pre-System Asset Entry) ========
+
+class OpeningBalance(TimestampedModel):
+    """
+    One-time record of pre-system stock and cash.
+    Used to stamp the business's starting assets when AZBooks was first deployed.
+    Stock data is stored as a denormalized JSON snapshot so it survives product deletions.
+    """
+    label = models.CharField(
+        max_length=50, unique=True,
+        help_text='e.g. "Pre-System (Nov 2024)"'
+    )
+    effective_date = models.DateField(
+        help_text='Historical date when the system went live'
+    )
+    opening_cash = models.DecimalField(
+        max_digits=14, decimal_places=2, default=Decimal('0.00'),
+        help_text='Cash in hand at system launch'
+    )
+    stock_data = models.JSONField(
+        default=list,
+        help_text='Array of {product_id, product_name, category_name, quantity, cost_price, total_value}'
+    )
+    stock_valuation_total = models.DecimalField(
+        max_digits=14, decimal_places=2, default=Decimal('0.00'),
+        help_text='Auto-computed sum of all stock items total_value'
+    )
+    wallet = models.ForeignKey(
+        CashWallet, on_delete=models.SET_NULL,
+        null=True, blank=True,
+        related_name='opening_balances',
+        help_text='Wallet where opening cash was deposited'
+    )
+    cash_recorded = models.BooleanField(
+        default=False,
+        help_text='Whether the wallet deposit transaction has been created'
+    )
+    notes = models.TextField(blank=True)
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL, null=True,
+        related_name='opening_balances_created'
+    )
+
+    class Meta:
+        ordering = ['-effective_date']
+
+    def __str__(self):
+        return f"Opening Balance: {self.label}"
