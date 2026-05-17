@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useCurrency } from '../../context/CurrencyContext';
+import { useToast } from '../../context/ToastContext';
 import { ENDPOINTS } from '../../config/api';
 import './AddExpense.css';
 
@@ -9,6 +10,7 @@ export default function AddExpense() {
     const { fetchWithAuth } = useAuth();
     const { currency } = useCurrency();
     const navigate = useNavigate();
+    const { showToast } = useToast();
     const [loading, setLoading] = useState(false);
 
     // Dropdown data
@@ -103,7 +105,7 @@ export default function AddExpense() {
             }
         } catch (error) {
             console.error('Error creating expense:', error);
-            alert('An error occurred while saving the expense.');
+            showToast('An error occurred while saving the expense.', 'error');
         } finally {
             setLoading(false);
         }

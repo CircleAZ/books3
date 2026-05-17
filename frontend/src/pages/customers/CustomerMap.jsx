@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { ENDPOINTS } from '../../config/api';
+import { useToast } from '../../context/ToastContext';
 import { Crosshair, AlertTriangle } from 'lucide-react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -121,6 +122,7 @@ function createPopupContent(customer, navigate) {
 export default function CustomerMap() {
     const { fetchWithAuth, user, rbac } = useAuth();
     const navigate = useNavigate();
+    const { showToast } = useToast();
     const mapRef = useRef(null);
     const mapInstanceRef = useRef(null);
     const clusterGroupRef = useRef(null);
@@ -777,7 +779,7 @@ export default function CustomerMap() {
             } else {
                 const err = await res.json().catch(() => ({}));
                 const msg = err.location || err.detail || 'Failed to save pin.';
-                alert(Array.isArray(msg) ? msg[0] : msg);
+                showToast(Array.isArray(msg) ? msg[0] : msg, 'error');
             }
         } catch (err) {
             console.error('Save potential pin failed:', err);
@@ -795,11 +797,11 @@ export default function CustomerMap() {
             });
             if (res.ok) {
                 const data = await res.json();
-                alert(data.detail || 'Purge complete.');
+                showToast(data.detail || 'Purge complete.', 'success');
                 fetchMapData(filters);
             } else {
                 const err = await res.json().catch(() => ({}));
-                alert(err.detail || 'Purge failed.');
+                showToast(err.detail || 'Purge failed.', 'error');
             }
         } catch (err) {
             console.error('Bulk purge failed:', err);

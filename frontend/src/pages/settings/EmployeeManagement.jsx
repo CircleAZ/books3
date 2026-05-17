@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
+import { useToast } from '../../context/ToastContext';
 import { ENDPOINTS } from '../../config/api';
 import './EmployeeManagement.css'; // Assume existing styles or create new
 
 const EmployeeManagement = () => {
     const { fetchWithAuth } = useAuth();
+    const { showToast } = useToast();
     const [users, setUsers] = useState([]);
     const [availableRoles, setAvailableRoles] = useState([]);
     const [loading, setLoading] = useState(false);
@@ -109,7 +111,7 @@ const EmployeeManagement = () => {
                 fetchUsers();
                 handleModalClose();
             } else {
-                alert('Failed to save user');
+                showToast('Failed to save user', 'error');
             }
         } catch (error) {
             console.error('Error saving user:', error);

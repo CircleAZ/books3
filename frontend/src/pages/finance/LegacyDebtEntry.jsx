@@ -2,11 +2,13 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useCurrency } from '../../context/CurrencyContext';
 import { ENDPOINTS } from '../../config/api';
+import { useToast } from '../../context/ToastContext';
 import './LegacyDebtEntry.css';
 
 export default function LegacyDebtEntry() {
     const { fetchWithAuth } = useAuth();
     const { currency } = useCurrency();
+    const { showToast } = useToast();
 
     // Search state
     const [searchQuery, setSearchQuery] = useState('');
@@ -110,14 +112,14 @@ export default function LegacyDebtEntry() {
 
     const submitEntry = async () => {
         if (!selectedCustomer) {
-            alert('Please select a valid customer first.');
+            showToast('Please select a valid customer first.', 'warning');
             if (searchInputRef.current) searchInputRef.current.focus();
             return;
         }
 
         const numericAmount = parseFloat(amount);
         if (isNaN(numericAmount) || numericAmount <= 0) {
-            alert('Please enter a valid positive amount.');
+            showToast('Please enter a valid positive amount.', 'warning');
             if (amountInputRef.current) amountInputRef.current.focus();
             return;
         }

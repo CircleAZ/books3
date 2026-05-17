@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
+import { useToast } from '../../context/ToastContext';
 import { ENDPOINTS } from '../../config/api';
 import { FileSpreadsheet } from 'lucide-react';
 import './ProfitLossReport.css'; // Reusing similar styles for now
 
 const TaxReport = () => {
     const { fetchWithAuth } = useAuth();
+    const { showToast } = useToast();
     const [period, setPeriod] = useState('month');
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
@@ -80,7 +82,7 @@ const TaxReport = () => {
             }
         } catch (error) {
             console.error('Export failed:', error);
-            alert('Failed to export Tax Report');
+            showToast('Failed to export Tax Report', 'error');
         }
     };
 

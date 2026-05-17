@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useCurrency } from '../../context/CurrencyContext';
+import { useToast } from '../../context/ToastContext';
 import { ENDPOINTS } from '../../config/api';
 import MapComponent from '../../components/MapComponent';
 import './CustomerDetails.css';
@@ -13,6 +14,7 @@ const CustomerDetails = () => {
     const navigate = useNavigate();
     const { fetchWithAuth } = useAuth();
     const { currency } = useCurrency();
+    const { showToast } = useToast();
 
     const [customer, setCustomer] = useState(null);
     const [wallet, setWallet] = useState(null);
@@ -140,9 +142,9 @@ const CustomerDetails = () => {
             } else {
                 const errData = await res.json().catch(() => null);
                 const msg = errData?.non_field_errors?.[0] || errData?.detail || JSON.stringify(errData) || 'Failed to create link';
-                alert(msg);
+                showToast(msg, 'error');
             }
-        } catch (e) { alert("Error creating link"); }
+        } catch (e) { showToast("Error creating link", 'error'); }
     };
 
     const handleDeleteLink = async (linkId, e) => {
@@ -151,7 +153,7 @@ const CustomerDetails = () => {
         try {
             await fetchWithAuth(`${ENDPOINTS.CUSTOMERS_LINKS}${linkId}/`, { method: 'DELETE' });
             fetchData(); // Refresh data
-        } catch (e) { alert("Error removing link"); }
+        } catch (e) { showToast("Error removing link", 'error'); }
     };
 
     const handleOpenWithdraw = async () => {
@@ -184,7 +186,7 @@ const CustomerDetails = () => {
             if (res.ok) {
                 setShowWithdrawModal(false);
                 fetchData();
-                alert("Withdrawal successful.");
+                showToast("Withdrawal successful.", 'success');
             } else {
                 const err = await res.json();
                 setWithdrawError(err.error || 'Withdrawal failed');
@@ -249,7 +251,7 @@ const CustomerDetails = () => {
             if (res.ok) {
                 setShowLegacyDebtModal(false);
                 fetchData();
-                alert("Legacy debt settled and funds deposited to ledger.");
+                showToast("Legacy debt settled and funds deposited to ledger.", 'success');
             } else {
                 const err = await res.json();
                 setLegacyDebtError(err.detail || 'Settlement failed');
@@ -539,7 +541,7 @@ const CustomerDetails = () => {
                                 </table>
                                 {orders.length > 10 && (
                                     <p style={{ textAlign: 'center', marginTop: '0.75rem', color: 'var(--color-text-muted)', fontSize: '0.85rem' }}>
-                                        Showing 10 of {orders.length} orders. <a href="#" onClick={(e) => { e.preventDefault(); navigate(`/orders?customer=${id}`); }} style={{ color: 'var(--color-primary)' }}>View all →</a>
+                                        Showing 10 of {orders.length} orders. <Link to={`/orders?customer=${id}`} style={{ color: 'var(--color-primary)' }}>View all →</Link>
                                     </p>
                                 )}
                             </div>

@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { ENDPOINTS } from '../../config/api';
+import { useToast } from '../../context/ToastContext';
 import './ExpenseCategories.css';
 
 const ICONS = ['📁', '💸', '💼', '🏢', '🚚', '🛠️', '📱', '🏥', '🎓', '⚖️', '🛒', '⛽', '💡', '🌐', '🍕', '🎉', '🎁', '🧹', '🔌', '📦'];
@@ -8,6 +9,7 @@ const ICONS = ['📁', '💸', '💼', '🏢', '🚚', '🛠️', '📱', '🏥'
 export default function ExpenseCategories() {
     const { fetchWithAuth } = useAuth();
     const [categories, setCategories] = useState([]);
+    const { showToast } = useToast();
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     
@@ -98,7 +100,7 @@ export default function ExpenseCategories() {
             setFormData(prev => ({ ...prev, icon: '' }));
         } catch (err) {
             console.error("Failed to load icon from library", err);
-            alert("Could not load the custom icon from the library.");
+            showToast("Could not load the custom icon from the library.", 'error');
         } finally {
             setUploadingLibraryIcon(false);
         }
@@ -150,11 +152,11 @@ export default function ExpenseCategories() {
                 console.log('Category saved successfully');
             } else {
                 const data = await response.json();
-                alert(data.detail || JSON.stringify(data) || 'Failed to save category');
+                showToast(data.detail || JSON.stringify(data) || 'Failed to save category', 'error');
             }
         } catch (err) {
             console.error('Error saving category:', err);
-            alert('An error occurred while saving the category');
+            showToast('An error occurred while saving the category', 'error');
         }
     };
 
@@ -175,11 +177,11 @@ export default function ExpenseCategories() {
                 setCurrentCategory(null);
             } else {
                 const data = await response.json();
-                alert(data.detail || 'Failed to delete category. It might be in use.');
+                showToast(data.detail || 'Failed to delete category. It might be in use.', 'error');
             }
         } catch (err) {
             console.error('Error deleting category:', err);
-            alert('An error occurred while deleting the category');
+            showToast('An error occurred while deleting the category', 'error');
         }
     };
 

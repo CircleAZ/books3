@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useCurrency } from '../../context/CurrencyContext';
+import { useToast } from '../../context/ToastContext';
 import { ENDPOINTS } from '../../config/api';
 import './ExpenseDetails.css';
 
@@ -10,6 +11,7 @@ export default function ExpenseDetails() {
     const navigate = useNavigate();
     const { fetchWithAuth } = useAuth();
     const { currency } = useCurrency();
+    const { showToast } = useToast();
 
     const [expense, setExpense] = useState(null);
     const [loading, setLoading] = useState(true);
@@ -96,7 +98,7 @@ export default function ExpenseDetails() {
     const handlePaymentSubmit = async (e) => {
         e.preventDefault();
         if (!paymentForm.amount || parseFloat(paymentForm.amount) <= 0) {
-            alert('Please enter a valid payment amount');
+            showToast('Please enter a valid payment amount', 'error');
             return;
         }
 
@@ -127,14 +129,14 @@ export default function ExpenseDetails() {
                     reference: '',
                     notes: ''
                 }));
-                alert('Payment added successfully!');
+                showToast('Payment added successfully!', 'success');
             } else {
                 const errorData = await response.json();
-                alert(`Failed to add payment: ${errorData.detail || 'Unknown error'}`);
+                showToast(`Failed to add payment: ${errorData.detail || 'Unknown error'}`, 'error');
             }
         } catch (err) {
             console.error('Error submitting payment:', err);
-            alert('An error occurred while processing the payment');
+            showToast('An error occurred while processing the payment', 'error');
         } finally {
             setSubmitting(false);
         }
@@ -151,7 +153,7 @@ export default function ExpenseDetails() {
                 await fetchExpenseDetails();
             } else {
                 const err = await response.json();
-                alert(`Failed to approve: ${err.error || 'Unknown error'}`);
+                showToast(`Failed to approve: ${err.error || 'Unknown error'}`, 'error');
             }
         } catch (err) {
             console.error('Error approving:', err);
@@ -173,7 +175,7 @@ export default function ExpenseDetails() {
                 await fetchExpenseDetails();
             } else {
                 const err = await response.json();
-                alert(`Failed to reject: ${err.error || 'Unknown error'}`);
+                showToast(`Failed to reject: ${err.error || 'Unknown error'}`, 'error');
             }
         } catch (err) {
             console.error('Error rejecting:', err);

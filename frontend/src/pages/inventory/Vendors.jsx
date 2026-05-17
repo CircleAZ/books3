@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../../context/AuthContext';
+import { useToast } from '../../context/ToastContext';
 import { ENDPOINTS } from '../../config/api';
 import VendorModal from '../../components/inventory/VendorModal';
 import './ProductList.css';
@@ -7,6 +8,7 @@ import './ProductList.css';
 import '../../styles/components/modal-system.css';
 export default function Vendors() {
     const { fetchWithAuth } = useAuth();
+    const { showToast } = useToast();
     const [vendors, setVendors] = useState([]);
     const [loading, setLoading] = useState(true);
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -62,10 +64,10 @@ export default function Vendors() {
                 setIsDeleteModalOpen(false);
                 setCurrentVendor(null);
             } else {
-                alert('Failed to delete vendor');
+                showToast('Failed to delete vendor', 'error');
             }
         } catch (err) {
-            alert('Error deleting vendor');
+            showToast('Error deleting vendor', 'error');
         }
     };
 

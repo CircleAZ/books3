@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import './SystemInfo.css';
+import { useToast } from '../../context/ToastContext';
 
 const SystemInfo = () => {
+    const { showToast } = useToast();
     const [systemData, setSystemData] = useState({
         appName: 'AZ Books',
         version: '1.0.0-beta',
@@ -15,7 +17,7 @@ const SystemInfo = () => {
     });
 
     const checkUpdates = () => {
-        alert("You are running the latest version (Hell Mode Edition).");
+        showToast("You are running the latest version (Hell Mode Edition).", "info");
     };
 
     return (

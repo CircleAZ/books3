@@ -1,9 +1,11 @@
 import React, { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
+import { useToast } from '../../context/ToastContext';
 import './DataManagement.css';
 
 const DataManagement = () => {
     const { user } = useAuth(); // Assuming check for admin
+    const { showToast } = useToast();
     const [maintenanceMode, setMaintenanceMode] = useState(false);
     const [backupStatus, setBackupStatus] = useState(null);
 
@@ -16,10 +18,10 @@ const DataManagement = () => {
 
     const handleRestore = () => {
         if (!maintenanceMode) {
-            alert("Maintenance Mode must be enabled to restore data.");
+            showToast("Maintenance Mode must be enabled to restore data.", "error");
             return;
         }
-        alert("Restore functionality is currently disabled for safety.");
+        showToast("Restore functionality is currently disabled for safety.", "error");
     };
 
     return (
@@ -74,7 +76,7 @@ const DataManagement = () => {
                 <h2>Factory Reset</h2>
                 <div className="action-card danger-zone-full">
                     <h3>Dangerous Actions</h3>
-                    <button className="btn btn-outline-danger" onClick={() => alert("Are you sure? This cannot be undone.")}>
+                    <button className="btn btn-outline-danger" onClick={() => showToast("Are you sure? This cannot be undone.", "error")}>
                         Reset All Data
                     </button>
                 </div>

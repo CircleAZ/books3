@@ -1,10 +1,12 @@
 import { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
+import { useToast } from '../../context/ToastContext';
 import { ENDPOINTS } from '../../config/api';
 import './DataExport.css';
 
 export default function DataExport() {
     const { fetchWithAuth } = useAuth();
+    const { showToast } = useToast();
     const [exporting, setExporting] = useState(false);
     const [progress, setProgress] = useState(0);
     const [format, setFormat] = useState('csv');
@@ -57,7 +59,7 @@ export default function DataExport() {
             }
         } catch (error) {
             console.error('Export error:', error);
-            alert('Failed to export data. Please try again.');
+            showToast('Failed to export data. Please try again.', 'error');
             setExporting(false);
         }
     };

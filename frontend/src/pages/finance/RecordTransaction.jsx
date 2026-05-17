@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useCurrency } from '../../context/CurrencyContext';
+import { useToast } from '../../context/ToastContext';
 import { ENDPOINTS } from '../../config/api';
 import './RecordTransaction.css';
 
@@ -9,6 +10,7 @@ export default function RecordTransaction() {
     const { fetchWithAuth } = useAuth();
     const { currency } = useCurrency();
     const navigate = useNavigate();
+    const { showToast } = useToast();
 
     const [accounts, setAccounts] = useState([]);
     const [loading, setLoading] = useState(false);
@@ -71,7 +73,7 @@ export default function RecordTransaction() {
                 navigate('/finance/banking/transactions');
             } else {
                 const errorData = await response.json();
-                alert(`Error: ${JSON.stringify(errorData)}`);
+                showToast(`Error: ${JSON.stringify(errorData)}`, 'error');
             }
         } catch (error) {
             console.error('Error recording transaction:', error);

@@ -1,12 +1,14 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
+import { useToast } from '../../context/ToastContext';
 import { ENDPOINTS } from '../../config/api';
 import { loadFilters } from './mapUtils';
 import './SeasonReport.css';
 
 export default function SeasonReport() {
     const { fetchWithAuth } = useAuth();
+    const { showToast } = useToast();
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [data, setData] = useState(null);
@@ -59,7 +61,7 @@ export default function SeasonReport() {
             URL.revokeObjectURL(a.href);
         } catch (err) {
             console.error('PDF download error:', err);
-            alert('Failed to download PDF.');
+            showToast('Failed to download PDF.', 'error');
         } finally {
             setPdfLoading(false);
         }

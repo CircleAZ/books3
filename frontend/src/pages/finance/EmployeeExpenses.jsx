@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useCurrency } from '../../context/CurrencyContext';
+import { useToast } from '../../context/ToastContext';
 import { ENDPOINTS } from '../../config/api';
 import { secureStorage } from '../../utils/secureStorage';
 import './EmployeeExpenses.css';
@@ -12,6 +13,7 @@ export default function EmployeeExpenses() {
     const { fetchWithAuth } = useAuth();
     const { currency } = useCurrency();
     const navigate = useNavigate();
+    const { showToast } = useToast();
     const [expenses, setExpenses] = useState([]);
     const [loading, setLoading] = useState(true);
     const [filterStatus, setFilterStatus] = useState('');
@@ -122,7 +124,7 @@ export default function EmployeeExpenses() {
             if (response.ok) {
                 fetchExpenses();
             } else {
-                alert(`Failed to ${action} expense`);
+                showToast(`Failed to ${action} expense`, 'error');
             }
         } catch (error) {
             console.error(`Error during ${action}:`, error);
@@ -147,10 +149,10 @@ export default function EmployeeExpenses() {
             if (response.ok) {
                 setShowReimburseModal(false);
                 fetchExpenses();
-                alert('Expense Reimbursed successfully!');
+                showToast('Expense Reimbursed successfully!', 'success');
             } else {
                 const err = await response.json();
-                alert(`Failed to reimburse: ${JSON.stringify(err)}`);
+                showToast(`Failed to reimburse: ${JSON.stringify(err)}`, 'error');
             }
         } catch (err) {
             console.error(err);
@@ -179,7 +181,7 @@ export default function EmployeeExpenses() {
     const handleSubmitExpense = async (e) => {
         e.preventDefault();
         if (!formData.category || !formData.amount) {
-            alert('Please fill in all required fields');
+            showToast('Please fill in all required fields', 'warning');
             return;
         }
         setSubmitting(true);
@@ -197,14 +199,14 @@ export default function EmployeeExpenses() {
             if (response.ok) {
                 setShowSubmitModal(false);
                 fetchExpenses();
-                alert('Expense claim submitted successfully!');
+                showToast('Expense claim submitted successfully!', 'success');
             } else {
                 const err = await response.json();
-                alert(`Failed to submit: ${JSON.stringify(err)}`);
+                showToast(`Failed to submit: ${JSON.stringify(err)}`, 'error');
             }
         } catch (error) {
             console.error('Error submitting expense:', error);
-            alert('An error occurred while submitting');
+            showToast('An error occurred while submitting', 'error');
         } finally {
             setSubmitting(false);
         }

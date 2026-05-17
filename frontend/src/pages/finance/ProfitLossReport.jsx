@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
+import { useToast } from '../../context/ToastContext';
 import { ENDPOINTS } from '../../config/api';
 import { FileText, FileSpreadsheet } from 'lucide-react';
 import './ProfitLossReport.css';
 
 const ProfitLossReport = () => {
     const { fetchWithAuth } = useAuth();
+    const { showToast } = useToast();
     const [period, setPeriod] = useState('month');
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
@@ -44,7 +46,7 @@ const ProfitLossReport = () => {
 
     const handleExport = (type) => {
         // Mock export functionality
-        alert(`Exporting as ${type.toUpperCase()}...`);
+        showToast(`Exporting as ${type.toUpperCase()}...`, 'success');
     };
 
     if (loading && !reportData) {

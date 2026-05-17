@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useToast } from '../context/ToastContext';
 import { createPortal } from 'react-dom';
 import './MapComponent.css';
 import { MapContainer, TileLayer, Marker, Circle, useMap, useMapEvents, LayersControl } from 'react-leaflet';
@@ -141,6 +142,7 @@ const MapContent = ({ center, isFullscreen, position, onLocationSelect, readonly
 
 const MapComponent = ({ position, onLocationSelect, height = '300px', readonly = false }) => {
     const [isFullscreen, setIsFullscreen] = useState(false);
+    const { showToast } = useToast();
     
     // Live Location State
     const [userLocation, setUserLocation] = useState(null);
@@ -187,13 +189,13 @@ const MapComponent = ({ position, onLocationSelect, height = '300px', readonly =
 
     const handleLocateMe = () => {
         if (locationError) {
-            alert(`GPS Error: ${locationError}\nPlease ensure location permissions are granted.`);
+            showToast(`GPS Error: ${locationError}\nPlease ensure location permissions are granted.`, 'error');
             return;
         }
         if (userLocation) {
             setCenterTrigger(prev => prev + 1);
         } else {
-            alert("Waiting for GPS signal...");
+            showToast("Waiting for GPS signal...", 'info');
         }
     };
 

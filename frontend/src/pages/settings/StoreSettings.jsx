@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useCurrency } from '../../context/CurrencyContext';
 import { useStoreSettings } from '../../context/StoreContext';
+import { useToast } from '../../context/ToastContext';
 import { ENDPOINTS } from '../../config/api';
 import '../settings/SettingsIndex.css';
 import './StoreSettings.css'; // Assume similar styles to other forms
@@ -11,6 +12,7 @@ const StoreSettings = () => {
     const { fetchWithAuth } = useAuth();
     const { setCurrency } = useCurrency();
     const { fetchStoreSettings } = useStoreSettings();
+    const { showToast } = useToast();
     const [loading, setLoading] = useState(true);
     const [logoFile, setLogoFile] = useState(null);
     const [formData, setFormData] = useState({
@@ -71,9 +73,9 @@ const StoreSettings = () => {
             if (response.ok) {
                 setCurrency(formData.currency_symbol);
                 fetchStoreSettings();
-                alert('Store settings updated successfully');
+                showToast('Store settings updated successfully', 'success');
             } else {
-                alert('Failed to update settings');
+                showToast('Failed to update settings', 'error');
             }
         } catch (error) {
             console.error('Error updating settings:', error);

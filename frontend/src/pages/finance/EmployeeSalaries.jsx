@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useCurrency } from '../../context/CurrencyContext';
 import { ENDPOINTS } from '../../config/api';
+import { useToast } from '../../context/ToastContext';
 import './EmployeeSalaries.css';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
 
@@ -10,6 +11,7 @@ export default function EmployeeSalaries() {
     const { fetchWithAuth } = useAuth();
     const { currency } = useCurrency();
     const navigate = useNavigate();
+    const { showToast } = useToast();
     const [salaries, setSalaries] = useState([]);
     const [loading, setLoading] = useState(true);
     const [showPayModal, setShowPayModal] = useState(false);
@@ -89,9 +91,9 @@ export default function EmployeeSalaries() {
             if (response.ok) {
                 setShowPayModal(false);
                 fetchSalaries();
-                alert('Salary payment processed successfully');
+                showToast('Salary payment processed successfully', 'success');
             } else {
-                alert('Failed to process salary payment');
+                showToast('Failed to process salary payment', 'error');
             }
         } catch (error) {
             console.error('Error paying salary:', error);
@@ -112,7 +114,7 @@ export default function EmployeeSalaries() {
                 fetchSalaries();
             } else {
                 const err = await response.json();
-                alert(`Error: ${JSON.stringify(err)}`);
+                showToast(`Error: ${JSON.stringify(err)}`, 'error');
             }
         } catch (error) {
             console.error('Error updating salary:', error);

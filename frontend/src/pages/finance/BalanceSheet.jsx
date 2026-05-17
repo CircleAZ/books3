@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
+import { useToast } from '../../context/ToastContext';
 import { ENDPOINTS } from '../../config/api';
 import { FileSpreadsheet } from 'lucide-react';
 import './ProfitLossReport.css'; // Reusing similar styles for now
 
 const BalanceSheet = () => {
     const { fetchWithAuth } = useAuth();
+    const { showToast } = useToast();
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [reportData, setReportData] = useState(null);
@@ -58,7 +60,7 @@ const BalanceSheet = () => {
             }
         } catch (error) {
             console.error('Export failed:', error);
-            alert('Failed to export Balance Sheet');
+            showToast('Failed to export Balance Sheet', 'error');
         }
     };
 

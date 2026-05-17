@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useCurrency } from '../../context/CurrencyContext';
+import { useToast } from '../../context/ToastContext';
 import { ENDPOINTS } from '../../config/api';
 import './LenderDetails.css';
 
@@ -12,6 +13,7 @@ export default function LenderDetails() {
     const { fetchWithAuth } = useAuth();
     const { currency } = useCurrency();
     const navigate = useNavigate();
+    const { showToast } = useToast();
 
     const [lender, setLender] = useState(null);
     const [loading, setLoading] = useState(true);
@@ -82,7 +84,7 @@ export default function LenderDetails() {
                 fetchLenderDetails();
             } else {
                 const errorData = await response.json();
-                alert(`Error: ${JSON.stringify(errorData)}`);
+                showToast(`Error: ${JSON.stringify(errorData)}`, 'error');
             }
         } catch (error) {
             console.error('Error adding loan:', error);
@@ -117,7 +119,7 @@ export default function LenderDetails() {
                 fetchLenderDetails();
             } else {
                 const errorData = await response.json();
-                alert(`Error: ${JSON.stringify(errorData)}`);
+                showToast(`Error: ${JSON.stringify(errorData)}`, 'error');
             }
         } catch (error) {
             console.error('Error updating lender:', error);

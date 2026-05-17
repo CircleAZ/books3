@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useCurrency } from '../../context/CurrencyContext';
+import { useToast } from '../../context/ToastContext';
 import { ENDPOINTS } from '../../config/api';
 import RefundModal from './modals/RefundModal';
 import './ReturnDetails.css';
@@ -11,6 +12,7 @@ export default function ReturnDetails() {
     const navigate = useNavigate();
     const { fetchWithAuth } = useAuth();
     const { currency } = useCurrency();
+    const { showToast } = useToast();
 
     const [returnData, setReturnData] = useState(null);
     const [loading, setLoading] = useState(true);
@@ -62,7 +64,7 @@ export default function ReturnDetails() {
                 fetchReturnDetails();
             } else {
                 const data = await response.json();
-                alert(data.error || `Failed to ${action.replace('_', ' ')}`);
+                showToast(data.error || `Failed to ${action.replace('_', ' ')}`, 'error');
             }
         } catch (err) {
             console.error(`Error during ${action}:`, err);

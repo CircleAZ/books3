@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 
 import { useAuth } from '../../context/AuthContext';
 import { useCurrency } from '../../context/CurrencyContext';
+import { useToast } from '../../context/ToastContext';
 import { ENDPOINTS } from '../../config/api';
 import './ReceiptSettings.css';
 import '../settings/SettingsIndex.css';
@@ -9,6 +10,7 @@ import '../settings/SettingsIndex.css';
 const ReceiptSettings = () => {
     const { fetchWithAuth } = useAuth();
     const { currency } = useCurrency();
+    const { showToast } = useToast();
 
     const [config, setConfig] = useState({
         header_text: '',
@@ -61,9 +63,9 @@ const ReceiptSettings = () => {
                 body: JSON.stringify(config)
             });
             if (response.ok) {
-                alert('Receipt settings saved successfully!');
+                showToast('Receipt settings saved successfully!', 'success');
             } else {
-                alert('Failed to save settings.');
+                showToast('Failed to save settings.', 'error');
             }
         } catch (error) {
             console.error('Error saving settings:', error);

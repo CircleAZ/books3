@@ -399,11 +399,11 @@ export default function OrderDetails() {
                 fetchOrderDetails(); 
             } else {
                 const err = await response.json();
-                alert(`Error: ${err.error || 'Failed to sweep change to wallet'}`);
+                showToast(`Error: ${err.error || 'Failed to sweep change to wallet'}`, 'error');
             }
         } catch (error) {
             console.error("Error sweeping change to wallet:", error);
-            alert("Failed to sweep change to wallet");
+            showToast("Failed to sweep change to wallet", 'error');
         }
     };
 

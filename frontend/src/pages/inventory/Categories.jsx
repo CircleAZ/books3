@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../../context/AuthContext';
+import { useToast } from '../../context/ToastContext';
 import { ENDPOINTS } from '../../config/api';
 import CategoryModal from '../../components/inventory/CategoryModal';
 import GuardedAction from '../../components/GuardedAction';
@@ -9,6 +10,7 @@ import '../../styles/components/form-layout.css';
 import '../../styles/components/modal-system.css';
 export default function Categories() {
     const { fetchWithAuth } = useAuth();
+    const { showToast } = useToast();
     const [categories, setCategories] = useState([]);
     const [loading, setLoading] = useState(true);
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -69,10 +71,10 @@ export default function Categories() {
                 setReassignCategory('');
             } else {
                 const data = await response.json();
-                alert(data.detail || 'Failed to delete category');
+                showToast(data.detail || 'Failed to delete category', 'error');
             }
         } catch (err) {
-            alert('Error deleting category');
+            showToast('Error deleting category', 'error');
         }
     };
 

@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useCurrency } from '../../context/CurrencyContext';
 import { ENDPOINTS } from '../../config/api';
+import { useToast } from '../../context/ToastContext';
 import './CashManagement.css';
 
 import '../../styles/components/form-layout.css';
@@ -9,6 +10,7 @@ import '../../styles/components/modal-system.css';
 export default function CashManagement() {
     const { fetchWithAuth, user } = useAuth();
     const { currency } = useCurrency();
+    const { showToast } = useToast();
 
     const [wallets, setWallets] = useState([]);
     const [transfers, setTransfers] = useState([]);
@@ -119,10 +121,10 @@ export default function CashManagement() {
                     reference_id: ''
                 });
                 fetchData();
-                alert('Transfer initiated. It is pending peer approval.');
+                showToast('Transfer initiated. It is pending peer approval.', 'success');
             } else {
                 const err = await response.json();
-                alert('Transfer failed: ' + JSON.stringify(err));
+                showToast('Transfer failed: ' + JSON.stringify(err), 'error');
             }
         } catch (err) {
             console.error('Transfer error:', err);
@@ -189,10 +191,10 @@ export default function CashManagement() {
             });
             if (response.ok) {
                 fetchData();
-                alert('Transfer Approved!');
+                showToast('Transfer Approved!', 'success');
             } else {
                 const err = await response.json();
-                alert(err.error || 'Failed to approve');
+                showToast(err.error || 'Failed to approve', 'error');
             }
         } catch (err) {
             console.error('Approval error:', err);
@@ -211,7 +213,7 @@ export default function CashManagement() {
                 fetchData();
             } else {
                 const err = await response.json();
-                alert(err.error || 'Failed to reject');
+                showToast(err.error || 'Failed to reject', 'error');
             }
         } catch (err) {
             console.error('Reject error:', err);

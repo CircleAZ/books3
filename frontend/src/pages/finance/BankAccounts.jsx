@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useCurrency } from '../../context/CurrencyContext';
+import { useToast } from '../../context/ToastContext';
 import { ENDPOINTS } from '../../config/api';
 import './BankAccounts.css';
 
@@ -9,6 +10,7 @@ export default function BankAccounts() {
     const { fetchWithAuth } = useAuth();
     const { currency } = useCurrency();
     const navigate = useNavigate();
+    const { showToast } = useToast();
     const [accounts, setAccounts] = useState([]);
     const [loading, setLoading] = useState(true);
     const [showModal, setShowModal] = useState(false);
@@ -67,7 +69,7 @@ export default function BankAccounts() {
                 closeModal();
             } else {
                 const errorData = await response.json();
-                alert(`Error: ${JSON.stringify(errorData)}`);
+                showToast(`Error: ${JSON.stringify(errorData)}`, 'error');
             }
         } catch (error) {
             console.error('Error saving account:', error);

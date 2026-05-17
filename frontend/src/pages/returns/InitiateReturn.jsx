@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useCurrency } from '../../context/CurrencyContext';
+import { useToast } from '../../context/ToastContext';
 import { ENDPOINTS } from '../../config/api';
 import Pagination from '../../components/common/Pagination';
 import './InitiateReturn.css';
@@ -9,6 +10,7 @@ import './InitiateReturn.css';
 export default function InitiateReturn() {
     const { fetchWithAuth } = useAuth();
     const { currency } = useCurrency();
+    const { showToast } = useToast();
     const navigate = useNavigate();
 
     // Search State
@@ -111,7 +113,7 @@ export default function InitiateReturn() {
             }
         } catch (error) {
             console.error('Error fetching order details:', error);
-            alert('Failed to load order details');
+            showToast('Failed to load order details', 'error');
         } finally {
             setIsLoadingOrder(false);
         }
@@ -154,7 +156,7 @@ export default function InitiateReturn() {
     const handleSubmit = async () => {
         const itemsToReturn = Object.values(selectedItems);
         if (itemsToReturn.length === 0) {
-            alert('Please select at least one item to return');
+            showToast('Please select at least one item to return', 'error');
             return;
         }
 
@@ -162,11 +164,11 @@ export default function InitiateReturn() {
         for (const item of itemsToReturn) {
             const originalItem = selectedOrder.items.find(i => i.id === item.order_item);
             if (item.quantity <= 0 || item.quantity > originalItem.quantity) {
-                alert(`Invalid quantity for ${originalItem.product_name}`);
+                showToast(`Invalid quantity for ${originalItem.product_name}`, 'error');
                 return;
             }
             if (!item.reason) {
-                alert(`Please select a reason for ${originalItem.product_name}`);
+                showToast(`Please select a reason for ${originalItem.product_name}`, 'error');
                 return;
             }
         }
@@ -186,15 +188,15 @@ export default function InitiateReturn() {
 
             if (response.ok) {
                 const data = await response.json();
-                alert('Return initiated successfully');
+                showToast('Return initiated successfully', 'success');
                 navigate(`/returns/${data.id}`);
             } else {
                 const err = await response.json();
-                alert('Error creating return: ' + JSON.stringify(err));
+                showToast('Error creating return: ' + JSON.stringify(err), 'error');
             }
         } catch (error) {
             console.error('Error submitting return:', error);
-            alert('Failed to submit return');
+            showToast('Failed to submit return', 'error');
         } finally {
             setIsSubmitting(false);
         }
