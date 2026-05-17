@@ -24,6 +24,7 @@ export default function CreatePO() {
     const [productSearch, setProductSearch] = useState('');
     const [productResults, setProductResults] = useState([]);
     const [isSearching, setIsSearching] = useState(false);
+    const [searchAllProducts, setSearchAllProducts] = useState(false);
     const productAbortRef = useRef(null);
 
     // Form fields
@@ -64,7 +65,10 @@ export default function CreatePO() {
             setIsSearching(true);
 
             try {
-                const url = `${ENDPOINTS.INVENTORY_PRODUCTS}?search=${encodeURIComponent(productSearch)}&page_size=20`;
+                let url = `${ENDPOINTS.INVENTORY_PRODUCTS}?search=${encodeURIComponent(productSearch)}&page_size=20`;
+                if (!searchAllProducts && selectedVendorId) {
+                    url += `&vendor=${selectedVendorId}`;
+                }
                 const res = await fetchWithAuth(url, { signal: controller.signal });
                 if (res.ok) {
                     const data = await res.json();
@@ -81,7 +85,7 @@ export default function CreatePO() {
             clearTimeout(timer);
             if (productAbortRef.current) productAbortRef.current.abort();
         };
-    }, [productSearch, fetchWithAuth]);
+    }, [productSearch, searchAllProducts, selectedVendorId, fetchWithAuth]);
 
     const addLineItem = (product) => {
         // Prevent duplicates
@@ -271,16 +275,29 @@ export default function CreatePO() {
 
                 {/* Search */}
                 <div style={{ position: 'relative', marginBottom: '1rem' }}>
-                    <input
-                        type="text"
-                        className="form-control"
-                        placeholder="Search products to add..."
-                        value={productSearch}
-                        onChange={e => setProductSearch(e.target.value)}
-                        style={{ width: '100%' }}
-                    />
+                    <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
+                        <input
+                            type="text"
+                            className="form-control"
+                            placeholder="Search products to add..."
+                            value={productSearch}
+                            onChange={e => setProductSearch(e.target.value)}
+                            style={{ flex: 1 }}
+                            disabled={!selectedVendorId && !searchAllProducts}
+                            title={(!selectedVendorId && !searchAllProducts) ? "Select a vendor first or check 'Search All Products'" : ""}
+                        />
+                        <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem', cursor: 'pointer', whiteSpace: 'nowrap', color: 'var(--color-text-secondary)', userSelect: 'none' }}>
+                            <input
+                                type="checkbox"
+                                checked={searchAllProducts}
+                                onChange={(e) => setSearchAllProducts(e.target.checked)}
+                                style={{ width: '16px', height: '16px', cursor: 'pointer' }}
+                            />
+                            Search All Products
+                        </label>
+                    </div>
                     {isSearching && (
-                        <div style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', fontSize: '0.8rem', color: 'var(--color-text-secondary)' }}>
+                        <div style={{ position: 'absolute', right: '160px', top: '50%', transform: 'translateY(-50%)', fontSize: '0.8rem', color: 'var(--color-text-secondary)' }}>
                             Searching...
                         </div>
                     )}

@@ -65,6 +65,18 @@ class StockService:
              ).prefetch_related('delivery_items')
              
              owed_quantity = sum(item.remaining_quantity for item in active_items)
+             
+             # Also calculate pack variants' owed quantity if this is a base product
+             if not product.is_pack:
+                 for pack in product.pack_variants.all():
+                     pack_active_items = OrderItem.objects.filter(
+                         product_id=pack.id,
+                         order__order_status__in=VALID_SALE_STATUSES,
+                         order__cancellation_status__in=['na', 'pending']
+                     )
+                     if pack.pack_size and pack.pack_size > 0:
+                         pack_owed = sum(item.remaining_quantity for item in pack_active_items)
+                         owed_quantity += (pack_owed * pack.pack_size)
 
              # 2. Synchronize Ledgers
              if target_ledger in ('both', 'physical'):
@@ -109,12 +121,15 @@ class StockService:
         if target_ledger in ('available', 'both'):
             product.stock_quantity = new_quantity
             product.cost_price = new_cost_price
+            
         if target_ledger in ('physical', 'both'):
             if adjustment_type == 'set':
-                 # If setting stock to an absolute number, physical stock becomes the absolute number + owed items
-                 # Wait, 'set' is usually for physical audits. If they count 10 on the shelf, physical=10, 
-                 # available = physical - owed. But for now, let's keep set identical if 'both'.
+                 # If setting physical stock explicitly, the derived new_quantity MUST overwrite stock_quantity
+                 # to maintain the Mathematical Guarantee (Available = Physical - Owed).
                  product.physical_stock = new_physical
+                 product.stock_quantity = new_quantity
+                 # Re-calculate change for history if it wasn't captured
+                 change = new_quantity - product.stock_quantity 
             else:
                  product.physical_stock = new_physical
                  
