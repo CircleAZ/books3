@@ -62,9 +62,12 @@ export default function CreatePO() {
         fetchFilters();
     }, [fetchWithAuth]);
 
-    // Debounced product search (same pattern as NewOrder.jsx)
+    // Debounced product search — triggers on search text OR filter change
     useEffect(() => {
-        if (!productSearch || productSearch.length < 2) {
+        const hasFilter = filterVendorId || filterCategoryId;
+        const hasSearch = productSearch && productSearch.length >= 2;
+
+        if (!hasFilter && !hasSearch) {
             setProductResults([]);
             return;
         }
@@ -76,7 +79,10 @@ export default function CreatePO() {
             setIsSearching(true);
 
             try {
-                let url = `${ENDPOINTS.INVENTORY_PRODUCTS}?search=${encodeURIComponent(productSearch)}&page_size=20`;
+                let url = `${ENDPOINTS.INVENTORY_PRODUCTS}?page_size=50`;
+                if (productSearch) {
+                    url += `&search=${encodeURIComponent(productSearch)}`;
+                }
                 if (filterVendorId) {
                     url += `&vendor=${filterVendorId}`;
                 }
@@ -93,7 +99,7 @@ export default function CreatePO() {
             } finally {
                 setIsSearching(false);
             }
-        }, 400);
+        }, hasSearch ? 400 : 0); // no debounce for pure filter changes
 
         return () => {
             clearTimeout(timer);
@@ -288,7 +294,7 @@ export default function CreatePO() {
                 </div>
 
                 {/* Search */}
-                <div style={{ position: 'relative', marginBottom: '1rem' }}>
+                <div style={{ marginBottom: '1rem' }}>
                     <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', flexWrap: 'wrap' }}>
                         <input
                             type="text"
@@ -301,7 +307,7 @@ export default function CreatePO() {
                         <select
                             className="form-control"
                             value={filterCategoryId}
-                            onChange={e => { setFilterCategoryId(e.target.value); setProductSearch(''); setProductResults([]); }}
+                            onChange={e => { setFilterCategoryId(e.target.value); setProductSearch(''); }}
                             style={{ width: 'auto', minWidth: '140px' }}
                         >
                             <option value="">All Categories</option>
@@ -312,7 +318,7 @@ export default function CreatePO() {
                         <select
                             className="form-control"
                             value={filterVendorId}
-                            onChange={e => { setFilterVendorId(e.target.value); setProductSearch(''); setProductResults([]); }}
+                            onChange={e => { setFilterVendorId(e.target.value); setProductSearch(''); }}
                             style={{ width: 'auto', minWidth: '140px' }}
                         >
                             <option value="">All Vendors</option>
@@ -321,48 +327,65 @@ export default function CreatePO() {
                             ))}
                         </select>
                     </div>
-                    {isSearching && (
-                        <div style={{ position: 'absolute', right: '160px', top: '50%', transform: 'translateY(-50%)', fontSize: '0.8rem', color: 'var(--color-text-secondary)' }}>
-                            Searching...
-                        </div>
-                    )}
-                    {productResults.length > 0 && (
-                        <div style={{
-                            position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 50,
-                            background: 'var(--color-bg-primary)', border: '1px solid var(--color-border)',
-                            borderRadius: '8px', maxHeight: '200px', overflowY: 'auto',
-                            boxShadow: '0 4px 12px rgba(0,0,0,0.3)'
-                        }}>
-                            {productResults.map(p => (
-                                <div
-                                    key={p.id}
-                                    onClick={() => addLineItem(p)}
-                                    style={{
-                                        padding: '10px 14px', cursor: 'pointer',
-                                        borderBottom: '1px solid var(--color-border)',
-                                        display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                                    }}
-                                    onMouseOver={e => e.currentTarget.style.background = 'var(--color-bg-secondary)'}
-                                    onMouseOut={e => e.currentTarget.style.background = 'transparent'}
-                                >
-                                    <div>
-                                        <strong>{p.name}</strong>
-                                        {p.is_pack && (
-                                            <span style={{
-                                                marginLeft: '8px', fontSize: '0.7rem', fontWeight: 600,
-                                                padding: '1px 6px', borderRadius: '4px',
-                                                background: '#3b82f622', color: '#3b82f6'
-                                            }}>PACK ({p.pack_size})</span>
-                                        )}
-                                    </div>
-                                    <span style={{ fontSize: '0.8rem', color: 'var(--color-text-secondary)' }}>
-                                        Stock: {p.stock_quantity} | ₹{parseFloat(p.cost_price).toFixed(2)}
-                                    </span>
-                                </div>
-                            ))}
-                        </div>
-                    )}
                 </div>
+
+                {/* Filtered Product List */}
+                {isSearching && (
+                    <div style={{ textAlign: 'center', padding: '1rem', color: 'var(--color-text-secondary)', fontSize: '0.85rem' }}>
+                        Loading products...
+                    </div>
+                )}
+                {!isSearching && productResults.length > 0 && (
+                    <div style={{
+                        maxHeight: '300px', overflowY: 'auto', marginBottom: '1rem',
+                        border: '1px solid var(--color-border)', borderRadius: '8px',
+                        background: 'var(--color-bg-secondary)',
+                    }}>
+                        <div style={{ padding: '6px 14px', fontSize: '0.75rem', color: 'var(--color-text-secondary)', borderBottom: '1px solid var(--color-border)', fontWeight: 500 }}>
+                            {productResults.length} product{productResults.length !== 1 ? 's' : ''} found — click to add
+                        </div>
+                        {productResults.map(p => (
+                            <div
+                                key={p.id}
+                                onClick={() => addLineItem(p)}
+                                style={{
+                                    padding: '10px 14px', cursor: 'pointer',
+                                    borderBottom: '1px solid var(--color-border)',
+                                    display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                                    opacity: lineItems.find(li => li.product_id === p.id) ? 0.4 : 1,
+                                }}
+                                onMouseOver={e => e.currentTarget.style.background = 'var(--color-bg-hover, rgba(255,255,255,0.05))'}
+                                onMouseOut={e => e.currentTarget.style.background = 'transparent'}
+                            >
+                                <div>
+                                    <strong>{p.name}</strong>
+                                    {p.is_pack && (
+                                        <span style={{
+                                            marginLeft: '8px', fontSize: '0.7rem', fontWeight: 600,
+                                            padding: '1px 6px', borderRadius: '4px',
+                                            background: '#3b82f622', color: '#3b82f6'
+                                        }}>PACK ({p.pack_size})</span>
+                                    )}
+                                    {lineItems.find(li => li.product_id === p.id) && (
+                                        <span style={{
+                                            marginLeft: '8px', fontSize: '0.65rem', fontWeight: 600,
+                                            padding: '1px 6px', borderRadius: '4px',
+                                            background: '#22c55e22', color: '#22c55e'
+                                        }}>ADDED</span>
+                                    )}
+                                </div>
+                                <span style={{ fontSize: '0.8rem', color: 'var(--color-text-secondary)' }}>
+                                    Stock: {p.stock_quantity} | ₹{parseFloat(p.cost_price).toFixed(2)}
+                                </span>
+                            </div>
+                        ))}
+                    </div>
+                )}
+                {!isSearching && productResults.length === 0 && (filterVendorId || filterCategoryId) && (
+                    <div style={{ textAlign: 'center', padding: '1rem', color: 'var(--color-text-secondary)', fontSize: '0.85rem', marginBottom: '1rem' }}>
+                        No products match the selected filters.
+                    </div>
+                )}
 
                 {/* Line Items Table */}
                 {lineItems.length === 0 ? (
