@@ -68,6 +68,7 @@ const AddExpense = lazy(() => import('./pages/finance/AddExpense'));
 const ExpenseDetails = lazy(() => import('./pages/finance/ExpenseDetails'));
 const ExpenseCategories = lazy(() => import('./pages/finance/ExpenseCategories'));
 const EmployeeExpenses = lazy(() => import('./pages/finance/EmployeeExpenses'));
+const EmployeeExpenseDetail = lazy(() => import('./pages/finance/EmployeeExpenseDetail'));
 const EmployeeSalaries = lazy(() => import('./pages/finance/EmployeeSalaries'));
 const BankAccounts = lazy(() => import('./pages/finance/BankAccounts'));
 const BankTransactions = lazy(() => import('./pages/finance/BankTransactions'));
@@ -345,6 +346,11 @@ function AppRoutes() {
       <Route path="/finance/employee-expenses" element={
         <PermissionRoute>
           <LazyPage><EmployeeExpenses /></LazyPage>
+        </PermissionRoute>
+      } />
+      <Route path="/finance/employee-expenses/:id" element={
+        <PermissionRoute>
+          <LazyPage><EmployeeExpenseDetail /></LazyPage>
         </PermissionRoute>
       } />
       <Route path="/finance/salaries" element={

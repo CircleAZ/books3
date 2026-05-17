@@ -324,10 +324,7 @@ export default function EmployeeExpenses() {
                                                 <button 
                                                     className="btn-icon" 
                                                     title="View Details"
-                                                    onClick={() => {
-                                                        const detail = `Date: ${new Date(expense.date).toLocaleDateString()}\nEmployee: ${expense.employee_name}\nCategory: ${expense.category_name}\nAmount: ${currency}${Number(expense.amount).toLocaleString()}\nStatus: ${expense.status}\nDescription: ${expense.description || 'N/A'}${expense.reviewed_by_name ? `\nReviewed by: ${expense.reviewed_by_name}` : ''}${expense.rejection_reason ? `\nRejection Reason: ${expense.rejection_reason}` : ''}`;
-                                                        alert(detail);
-                                                    }}
+                                                    onClick={() => navigate(`/finance/employee-expenses/${expense.id}`)}
                                                 >👁️</button>
                                             </div>
                                         </td>
