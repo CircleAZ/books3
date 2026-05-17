@@ -4,7 +4,7 @@ from decimal import Decimal
 from .models import PurchaseOrder, PurchaseOrderItem, PurchaseCharge, PurchasePayment
 from inventory.services import StockService
 from inventory.models import Product
-from finance.models import Expense, ExpenseCategory
+from finance.models import Expense, ExpenseCategory, EmployeeExpense
 from finance.services import LedgerService
 from django.utils import timezone
 
@@ -169,6 +169,17 @@ class ProcurementService:
             
             payment.finance_expense = expense
             payment.save(update_fields=['finance_expense'])
+            
+            # Create EmployeeExpense record so it feeds into the reimbursement pipeline
+            if payment.payment_method == PurchasePayment.PaymentMethod.EMPLOYEE_EXPENSE:
+                EmployeeExpense.objects.create(
+                    employee=payment.paid_by_employee,
+                    date=timezone.now().date(),
+                    category=category,
+                    description=desc,
+                    amount=payment.amount,
+                    status=EmployeeExpense.Status.PENDING,
+                )
         
         # ── Route Cash/Bank through LedgerService for balance tracking ──
         if not bypass_finance_ledger:

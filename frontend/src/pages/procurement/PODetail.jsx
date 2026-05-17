@@ -31,8 +31,10 @@ export default function PODetail() {
     const [payAmount, setPayAmount] = useState('');
     const [wallets, setWallets] = useState([]);
     const [banks, setBanks] = useState([]);
+    const [employees, setEmployees] = useState([]);
     const [selectedWallet, setSelectedWallet] = useState('');
     const [selectedBank, setSelectedBank] = useState('');
+    const [selectedEmployee, setSelectedEmployee] = useState('');
 
     // Bypasses
     const [bypassInventoryVolume, setBypassInventoryVolume] = useState(false);
@@ -63,15 +65,17 @@ export default function PODetail() {
 
     useEffect(() => { fetchPO(); }, [fetchPO]);
 
-    // Fetch wallets + banks for payment form
+    // Fetch wallets + banks + employees for payment form
     useEffect(() => {
         if (!showPayment) return;
         Promise.allSettled([
             fetchWithAuth(ENDPOINTS.FINANCE_CASH_WALLETS + '?active_only=true'),
             fetchWithAuth(ENDPOINTS.FINANCE_BANK_ACCOUNTS + '?active_only=true'),
-        ]).then(([wRes, bRes]) => {
+            fetchWithAuth(ENDPOINTS.SETTINGS_USERS),
+        ]).then(([wRes, bRes, eRes]) => {
             if (wRes.status === 'fulfilled' && wRes.value.ok) wRes.value.json().then(d => { setWallets(d.results || d); });
             if (bRes.status === 'fulfilled' && bRes.value.ok) bRes.value.json().then(d => { setBanks(d.results || d); });
+            if (eRes.status === 'fulfilled' && eRes.value.ok) eRes.value.json().then(d => { setEmployees((d.results || d).filter(u => u.is_active)); });
         });
     }, [showPayment, fetchWithAuth]);
 
@@ -149,6 +153,7 @@ export default function PODetail() {
         };
         if (payMethod === 'cash' && selectedWallet) payload.source_wallet = selectedWallet;
         if (payMethod === 'bank' && selectedBank) payload.source_bank = selectedBank;
+        if (payMethod === 'employee_expense' && selectedEmployee) payload.paid_by_employee = selectedEmployee;
 
         try {
             const res = await fetchWithAuth(PROCUREMENT_ENDPOINTS.PAYMENTS, { method: 'POST', body: JSON.stringify(payload) });
@@ -267,7 +272,7 @@ export default function PODetail() {
                 {po.payments?.length === 0 ? <p style={{ color: 'var(--color-text-secondary)', fontSize: '0.85rem' }}>No payments recorded.</p> : (
                     po.payments.map(p => (
                         <div key={p.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', borderBottom: '1px solid var(--color-border)', fontSize: '0.85rem' }}>
-                            <span>{p.payment_method} {p.source_wallet_name || p.source_bank_name || ''}</span>
+                            <span>{p.payment_method}{p.source_wallet_name ? ` — ${p.source_wallet_name}` : ''}{p.source_bank_name ? ` — ${p.source_bank_name}` : ''}{p.paid_by_employee_name ? ` — ${p.paid_by_employee_name}` : ''}</span>
                             <span style={{ fontWeight: 600 }}>₹{parseFloat(p.amount).toFixed(2)}</span>
                         </div>
                     ))
@@ -381,6 +386,12 @@ export default function PODetail() {
                                 {banks.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
                             </select>
                         )}
+                        {payMethod === 'employee_expense' && (
+                            <select className="form-control" value={selectedEmployee} onChange={e => setSelectedEmployee(e.target.value)} style={{ width: '100%', marginBottom: '10px' }}>
+                                <option value="">Select employee who paid...</option>
+                                {employees.map(e => <option key={e.id} value={e.id}>{e.first_name && e.last_name ? `${e.first_name} ${e.last_name}` : e.username}</option>)}
+                            </select>
+                        )}
                         <input type="number" min="0.01" step="0.01" placeholder="Amount (₹)" value={payAmount} onChange={e => setPayAmount(e.target.value)} className="form-control" style={{ width: '100%', marginBottom: '10px' }} />
                         
                         {rbac?.is_superuser && (
@@ -415,7 +426,7 @@ export default function PODetail() {
 
                         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
                             <button className="btn btn-ghost" onClick={closePaymentModal}>Cancel</button>
-                            <button className="btn btn-primary" onClick={handleRecordPayment} disabled={!payAmount}>Record Payment</button>
+                            <button className="btn btn-primary" onClick={handleRecordPayment} disabled={!payAmount || (payMethod === 'employee_expense' && !selectedEmployee)}>Record Payment</button>
                         </div>
                     </div>
                 </div>
