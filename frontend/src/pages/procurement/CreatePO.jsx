@@ -129,8 +129,7 @@ export default function CreatePO() {
             purchased_packs: 1,
             unit_cost_price: perUnitCost,
         }]);
-        setProductSearch('');
-        setProductResults([]);
+        // Don't clear results — keep the filtered list visible for adding more products
     };
 
     const updateLineItem = (index, field, value) => {
