@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { fetchWithAuth } from '../../utils/api';
-import ENDPOINTS from '../../config/api';
+import { useAuth } from '../../context/AuthContext';
+import { ENDPOINTS } from '../../config/api';
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts';
 import { Wallet, TrendingUp, AlertCircle, RefreshCw } from 'lucide-react';
 import './LegacyDebtDashboard.css';
 
 export default function LegacyDebtDashboard() {
+    const { fetchWithAuth } = useAuth();
     const [summary, setSummary] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
