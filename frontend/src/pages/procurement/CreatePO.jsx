@@ -24,8 +24,12 @@ export default function CreatePO() {
     const [productSearch, setProductSearch] = useState('');
     const [productResults, setProductResults] = useState([]);
     const [isSearching, setIsSearching] = useState(false);
-    const [searchAllProducts, setSearchAllProducts] = useState(false);
     const productAbortRef = useRef(null);
+
+    // Search filters
+    const [categories, setCategories] = useState([]);
+    const [filterCategoryId, setFilterCategoryId] = useState('');
+    const [filterVendorId, setFilterVendorId] = useState('');
 
     // Form fields
     const [expectedDate, setExpectedDate] = useState('');
@@ -35,20 +39,27 @@ export default function CreatePO() {
     const isSubmittingRef = useRef(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
 
-    // Fetch vendors on mount
+    // Fetch vendors and categories on mount
     useEffect(() => {
-        const fetchVendors = async () => {
+        const fetchFilters = async () => {
             try {
-                const res = await fetchWithAuth(ENDPOINTS.INVENTORY_VENDORS);
-                if (res.ok) {
-                    const data = await res.json();
+                const [vendRes, catRes] = await Promise.all([
+                    fetchWithAuth(ENDPOINTS.INVENTORY_VENDORS),
+                    fetchWithAuth(ENDPOINTS.INVENTORY_CATEGORIES)
+                ]);
+                if (vendRes.ok) {
+                    const data = await vendRes.json();
                     setVendors(data.results || data);
                 }
+                if (catRes.ok) {
+                    const data = await catRes.json();
+                    setCategories(data.results || data);
+                }
             } catch (e) {
-                console.error('Failed to load vendors', e);
+                console.error('Failed to load filters', e);
             }
         };
-        fetchVendors();
+        fetchFilters();
     }, [fetchWithAuth]);
 
     // Debounced product search (same pattern as NewOrder.jsx)
@@ -66,8 +77,11 @@ export default function CreatePO() {
 
             try {
                 let url = `${ENDPOINTS.INVENTORY_PRODUCTS}?search=${encodeURIComponent(productSearch)}&page_size=20`;
-                if (!searchAllProducts && selectedVendorId) {
-                    url += `&vendor=${selectedVendorId}`;
+                if (filterVendorId) {
+                    url += `&vendor=${filterVendorId}`;
+                }
+                if (filterCategoryId) {
+                    url += `&category=${filterCategoryId}`;
                 }
                 const res = await fetchWithAuth(url, { signal: controller.signal });
                 if (res.ok) {
@@ -85,7 +99,7 @@ export default function CreatePO() {
             clearTimeout(timer);
             if (productAbortRef.current) productAbortRef.current.abort();
         };
-    }, [productSearch, searchAllProducts, selectedVendorId, fetchWithAuth]);
+    }, [productSearch, filterVendorId, filterCategoryId, fetchWithAuth]);
 
     const addLineItem = (product) => {
         // Prevent duplicates
@@ -275,26 +289,37 @@ export default function CreatePO() {
 
                 {/* Search */}
                 <div style={{ position: 'relative', marginBottom: '1rem' }}>
-                    <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
+                    <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', flexWrap: 'wrap' }}>
                         <input
                             type="text"
                             className="form-control"
                             placeholder="Search products to add..."
                             value={productSearch}
                             onChange={e => setProductSearch(e.target.value)}
-                            style={{ flex: 1 }}
-                            disabled={!selectedVendorId && !searchAllProducts}
-                            title={(!selectedVendorId && !searchAllProducts) ? "Select a vendor first or check 'Search All Products'" : ""}
+                            style={{ flex: 1, minWidth: '200px' }}
                         />
-                        <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem', cursor: 'pointer', whiteSpace: 'nowrap', color: 'var(--color-text-secondary)', userSelect: 'none' }}>
-                            <input
-                                type="checkbox"
-                                checked={searchAllProducts}
-                                onChange={(e) => setSearchAllProducts(e.target.checked)}
-                                style={{ width: '16px', height: '16px', cursor: 'pointer' }}
-                            />
-                            Search All Products
-                        </label>
+                        <select
+                            className="form-control"
+                            value={filterCategoryId}
+                            onChange={e => { setFilterCategoryId(e.target.value); setProductSearch(''); setProductResults([]); }}
+                            style={{ width: 'auto', minWidth: '140px' }}
+                        >
+                            <option value="">All Categories</option>
+                            {categories.map(cat => (
+                                <option key={cat.id} value={cat.id}>{cat.name}</option>
+                            ))}
+                        </select>
+                        <select
+                            className="form-control"
+                            value={filterVendorId}
+                            onChange={e => { setFilterVendorId(e.target.value); setProductSearch(''); setProductResults([]); }}
+                            style={{ width: 'auto', minWidth: '140px' }}
+                        >
+                            <option value="">All Vendors</option>
+                            {vendors.map(v => (
+                                <option key={v.id} value={v.id}>{v.name}</option>
+                            ))}
+                        </select>
                     </div>
                     {isSearching && (
                         <div style={{ position: 'absolute', right: '160px', top: '50%', transform: 'translateY(-50%)', fontSize: '0.8rem', color: 'var(--color-text-secondary)' }}>
