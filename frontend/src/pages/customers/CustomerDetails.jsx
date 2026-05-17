@@ -22,20 +22,6 @@ const CustomerDetails = () => {
     const [lightboxPhoto, setLightboxPhoto] = useState(null);
 
     // Link Management State
-const CustomerDetails = () => {
-    const { id } = useParams();
-    const navigate = useNavigate();
-    const { fetchWithAuth } = useAuth();
-    const { currency } = useCurrency();
-
-    const [customer, setCustomer] = useState(null);
-    const [wallet, setWallet] = useState(null);
-    const [orders, setOrders] = useState([]);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState(null);
-    const [lightboxPhoto, setLightboxPhoto] = useState(null);
-
-    // Link Management State
     const [isLinkModalOpen, setIsLinkModalOpen] = useState(false);
     const [linkTypes, setLinkTypes] = useState([]);
     const [linkFormData, setLinkFormData] = useState({ target_customer: '', link_type: '' });
