@@ -2,14 +2,15 @@ import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useCurrency } from '../../context/CurrencyContext';
+import { useToast } from '../../context/ToastContext';
 import { ENDPOINTS } from '../../config/api';
 import { Plus, Search } from 'lucide-react';
-import { toast } from 'react-hot-toast';
 import '../../styles/components/data-table.css';
 
 export default function OtherIncomeList() {
     const { fetchWithAuth } = useAuth();
     const { currency } = useCurrency();
+    const { showToast } = useToast();
     const navigate = useNavigate();
     const [incomeRecords, setIncomeRecords] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -27,7 +28,7 @@ export default function OtherIncomeList() {
                 setTotalPages(Math.ceil((data.count || 0) / (data.page_size || 30)));
             }
         } catch (error) {
-            toast.error("Failed to fetch other income records");
+            showToast("Failed to fetch other income records", 'error');
         } finally {
             setLoading(false);
         }

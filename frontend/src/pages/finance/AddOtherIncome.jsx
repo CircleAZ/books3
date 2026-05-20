@@ -1,12 +1,13 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
+import { useToast } from '../../context/ToastContext';
 import { ENDPOINTS } from '../../config/api';
 import { ArrowLeft, Save } from 'lucide-react';
-import { toast } from 'react-hot-toast';
 
 export default function AddOtherIncome() {
     const { fetchWithAuth } = useAuth();
+    const { showToast } = useToast();
     const navigate = useNavigate();
     const [loading, setLoading] = useState(false);
     
@@ -47,7 +48,7 @@ export default function AddOtherIncome() {
                     setCategories(data.results || data);
                 }
             } catch (error) {
-                toast.error("Failed to load form dependencies");
+                showToast("Failed to load form dependencies", 'error');
             }
         };
         fetchDependencies();
@@ -58,11 +59,11 @@ export default function AddOtherIncome() {
         
         // Ledger Guardrails: Ensure a destination is actually selected
         if (formData.destination_type === 'wallet' && !formData.destination_wallet) {
-            toast.error("You must select a destination cash wallet to record this income.");
+            showToast("You must select a destination cash wallet to record this income.", 'error');
             return;
         }
         if (formData.destination_type === 'bank' && !formData.destination_bank) {
-            toast.error("You must select a destination bank account to record this income.");
+            showToast("You must select a destination bank account to record this income.", 'error');
             return;
         }
 
@@ -84,14 +85,14 @@ export default function AddOtherIncome() {
             });
 
             if (res.ok) {
-                toast.success("Income recorded successfully and deposited into ledger.");
+                showToast("Income recorded successfully and deposited into ledger.", 'success');
                 navigate('/finance/other-income');
             } else {
                 const err = await res.json();
-                toast.error(err.detail || 'Failed to record income');
+                showToast(err.detail || 'Failed to record income', 'error');
             }
         } catch (error) {
-            toast.error("Network error. Please try again.");
+            showToast("Network error. Please try again.", 'error');
         } finally {
             setLoading(false);
         }

@@ -1,13 +1,14 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../../context/AuthContext';
+import { useToast } from '../../context/ToastContext';
 import { ENDPOINTS } from '../../config/api';
 import { Plus, Edit2, Search, X } from 'lucide-react';
-import { toast } from 'react-hot-toast';
 import '../../styles/components/modal-system.css';
 import '../../styles/components/data-table.css';
 
 export default function Transporters() {
     const { fetchWithAuth } = useAuth();
+    const { showToast } = useToast();
     const [transporters, setTransporters] = useState([]);
     const [loading, setLoading] = useState(true);
     const [search, setSearch] = useState('');
@@ -32,7 +33,7 @@ export default function Transporters() {
                 setTransporters(data.results || data);
             }
         } catch (error) {
-            toast.error("Failed to fetch transporters");
+            showToast("Failed to fetch transporters", 'error');
         } finally {
             setLoading(false);
         }
@@ -82,15 +83,15 @@ export default function Transporters() {
             });
 
             if (res.ok) {
-                toast.success(`Transporter ${editingId ? 'updated' : 'added'} successfully!`);
+                showToast(`Transporter ${editingId ? 'updated' : 'added'} successfully!`, 'success');
                 setIsModalOpen(false);
                 fetchTransporters();
             } else {
                 const err = await res.json();
-                toast.error(err.detail || 'Failed to save transporter');
+                showToast(err.detail || 'Failed to save transporter', 'error');
             }
         } catch (error) {
-            toast.error('Network error. Please try again.');
+            showToast('Network error. Please try again.', 'error');
         }
     };
 
