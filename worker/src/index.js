@@ -135,7 +135,14 @@ async function probeAllBackends() {
       
       const res = await fetch(`${backend}/api/health/`, {
         method: 'GET',
-        headers: { 'User-Agent': 'AZBooks-VersionProbe' },
+        headers: {
+          // Browser-like headers to bypass Render's Cloudflare bot protection.
+          // Cron context has no client request to inherit headers from,
+          // so bare-bones headers get flagged as automated traffic (403).
+          'User-Agent': 'Mozilla/5.0 (compatible; AZBooks-VersionProbe/1.0)',
+          'Accept': 'application/json, text/plain, */*',
+          'Accept-Language': 'en-US,en;q=0.9',
+        },
         signal: controller.signal,
       });
       clearTimeout(timeout);
@@ -349,8 +356,10 @@ async function routeWithFailover(request, url, ctx) {
       const response = await fetch(backendRequest);
       clearTimeout(timeout);
 
-      // If backend returned 502/503/504, try next
-      if (response.status >= 502 && response.status <= 504) {
+      // If backend returned an infrastructure-level error, try next.
+      // 403 = Render/Cloudflare bot protection block (not a Django 403)
+      // 502-504 = backend down, deploying, or overloaded
+      if (response.status === 403 || (response.status >= 502 && response.status <= 504)) {
         lastError = new Error(`Backend ${backend.index} returned ${response.status}`);
         continue;
       }
