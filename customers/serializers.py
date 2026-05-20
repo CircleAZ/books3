@@ -368,6 +368,22 @@ class CustomerCreateUpdateSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ['id', 'display_id']
     
+    # FK fields on the Customer model that accept null
+    _NULLABLE_FK_FIELDS = {'customer_group'}
+    # FK fields on nested Student objects that accept null
+    _STUDENT_FK_FIELDS = {'school', 'class_obj', 'division', 'subdivision'}
+
+    def _coerce_empty_to_none(self, data, fields):
+        """Convert empty strings to None for nullable FK/numeric fields.
+
+        Prevents DRF from attempting Model.objects.get(pk='') which causes
+        instant 400 Bad Request errors. This is the backend's safety net —
+        the frontend SHOULD send null, but if it sends '' we handle it.
+        """
+        for field in fields:
+            if field in data and data[field] in ('', None):
+                data[field] = None
+
     def to_internal_value(self, data):
         """Parse 'addresses' from JSON string if sent via multipart/form-data.
 
@@ -398,7 +414,18 @@ class CustomerCreateUpdateSerializer(serializers.ModelSerializer):
                     plain_data['students'] = json.loads(plain_data['students'])
                 except json.JSONDecodeError:
                     pass
-            return super().to_internal_value(plain_data)
+            data = plain_data
+
+        # Coerce empty FK strings → None on the top-level customer payload
+        if isinstance(data, dict):
+            self._coerce_empty_to_none(data, self._NULLABLE_FK_FIELDS)
+            # Coerce inside nested students array
+            students = data.get('students')
+            if isinstance(students, list):
+                for student in students:
+                    if isinstance(student, dict):
+                        self._coerce_empty_to_none(student, self._STUDENT_FK_FIELDS)
+
         return super().to_internal_value(data)
     
     def _sanitize_text(self, value):
@@ -519,15 +546,39 @@ class CustomerCreateUpdateSerializer(serializers.ModelSerializer):
         
         # Safe students upsert
         if students_data is not None:
-            existing_std_ids = set(instance.students.values_list('id', flat=True))
+            existing_stds = {std.id: std for std in instance.students.all()}
+            existing_std_ids = set(existing_stds.keys())
             incoming_std_ids = set()
             for std_data in students_data:
                 std_id = std_data.pop('id', None)
                 if std_id and std_id in existing_std_ids:
-                    Student.objects.filter(pk=std_id).update(**std_data)
+                    student_instance = existing_stds[std_id]
+                    # Update fields on instance
+                    for attr, val in std_data.items():
+                        setattr(student_instance, attr, val)
+                    
+                    # Validate mutual exclusion between school and class_name
+                    school = getattr(student_instance, 'school', None)
+                    class_name = getattr(student_instance, 'class_name', None)
+                    if school and class_name:
+                        raise serializers.ValidationError(
+                            f"Student '{student_instance.name}' cannot have both a foreign key school and an independent class_name."
+                        )
+                    
+                    student_instance.save()
                     incoming_std_ids.add(std_id)
                 else:
-                    new_student = Student.objects.create(customer=instance, **std_data)
+                    new_student = Student(customer=instance, **std_data)
+                    
+                    # Validate mutual exclusion
+                    school = getattr(new_student, 'school', None)
+                    class_name = getattr(new_student, 'class_name', None)
+                    if school and class_name:
+                        raise serializers.ValidationError(
+                            f"Student '{new_student.name}' cannot have both a foreign key school and an independent class_name."
+                        )
+                        
+                    new_student.save()
                     incoming_std_ids.add(new_student.pk)
             
             removed_stds = existing_std_ids - incoming_std_ids

@@ -4,6 +4,7 @@ import { useAuth } from '../../context/AuthContext';
 import { ENDPOINTS } from '../../config/api';
 import MapComponent from '../../components/MapComponent';
 import { compressImage } from '../../utils/imageCompression';
+import { sanitizeFKFields, sanitizeStudentFKs } from '../../utils/payloadSanitizer';
 import './AddCustomer.css';
 import StudentEducationBlock from '../../components/StudentEducationBlock';
 
@@ -735,6 +736,10 @@ export default function AddCustomer({ onSuccess, onCancel, isEmbedded = false })
             addresses: []
         };
 
+        // Layer 1 sanitization: ensure FK fields are null, not empty strings
+        sanitizeFKFields(payload, ['customer_group', 'email']);
+        payload.students.forEach(s => sanitizeStudentFKs(s));
+
         // Add address if relevant fields are present, OR if a home photo was captured
         if (formData.village || formData.address_line || formData.pincode || formData.latitude !== null || formData.location_tags.length > 0 || homePhoto) {
             const addrPayload = {
@@ -760,9 +765,18 @@ export default function AddCustomer({ onSuccess, onCancel, isEmbedded = false })
 
             if (homePhoto) {
                 requestBody = new FormData();
+                // FK fields that must be explicitly sent even when null (as '')
+                // so the backend can coerce '' → None and actually clear them.
+                // Without this, null values are silently stripped from FormData
+                // and the backend never receives the "clear" instruction on PUT.
+                const NULLABLE_FK_KEYS = new Set(['customer_group', 'email']);
+
                 Object.keys(payload).forEach(key => {
                     if (key === 'addresses' || key === 'location_tags' || key === 'students') {
                         requestBody.append(key, JSON.stringify(payload[key]));
+                    } else if (NULLABLE_FK_KEYS.has(key)) {
+                        // Always include FK fields — send '' if null so backend coercion picks it up
+                        requestBody.append(key, payload[key] ?? '');
                     } else if (payload[key] !== null && payload[key] !== undefined && payload[key] !== '') {
                         requestBody.append(key, payload[key]);
                     }

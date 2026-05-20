@@ -4,6 +4,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useCurrency } from '../../context/CurrencyContext';
 import { useToast } from '../../context/ToastContext';
 import { ENDPOINTS } from '../../config/api';
+import { sanitizeFKFields, sanitizeNumericFields, sanitizeDecimalFields } from '../../utils/payloadSanitizer';
 import MapComponent from '../../components/MapComponent';
 import './CustomerDetails.css';
 
@@ -181,7 +182,12 @@ const CustomerDetails = () => {
             const res = await fetchWithAuth(`${ENDPOINTS.CUSTOMERS}${id}/withdraw_wallet/`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(withdrawForm)
+                body: JSON.stringify(
+                    sanitizeDecimalFields(
+                        sanitizeFKFields({ ...withdrawForm }, ['destination_wallet']),
+                        ['amount']
+                    )
+                )
             });
             if (res.ok) {
                 setShowWithdrawModal(false);
@@ -235,12 +241,15 @@ const CustomerDetails = () => {
         setIsSettlingDebt(true);
         setLegacyDebtError('');
         
-        const payload = {
-            amount: legacyDebtForm.amount,
-            is_fresh_cash: true,
-            destination_wallet_id: legacyDebtForm.destination_wallet || null,
-            destination_bank_id: legacyDebtForm.destination_bank || null
-        };
+        const payload = sanitizeDecimalFields(
+            sanitizeFKFields({
+                amount: legacyDebtForm.amount,
+                is_fresh_cash: true,
+                destination_wallet_id: legacyDebtForm.destination_wallet || null,
+                destination_bank_id: legacyDebtForm.destination_bank || null
+            }, ['destination_wallet_id', 'destination_bank_id']),
+            ['amount']
+        );
 
         try {
             const res = await fetchWithAuth(`${ENDPOINTS.LEGACY_DEBT}${customer.legacy_debt_id}/allocate_payment/`, {

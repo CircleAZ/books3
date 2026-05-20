@@ -12,6 +12,7 @@ from django.db.models import Sum, Q, F, DecimalField, Subquery, OuterRef, Prefet
 from django.db.models.functions import Coalesce
 from django.http import HttpResponse, StreamingHttpResponse
 from django.core.cache import cache
+from django.db import transaction
 from django.utils import timezone
 from rest_framework import viewsets, status, serializers
 from rest_framework.decorators import action
@@ -314,7 +315,28 @@ class OtherIncomeViewSet(viewsets.ModelViewSet):
         return qs
     
     def perform_create(self, serializer):
-        serializer.save(created_by=self.request.user)
+        from finance.services import LedgerService
+        from finance.models import BankAccount, CashWallet
+        from django.db import transaction
+        
+        with transaction.atomic():
+            instance = serializer.save(received_by=self.request.user)
+            
+            dest_bank_id = self.request.data.get('destination_bank')
+            dest_wallet_id = self.request.data.get('destination_wallet')
+            
+            dest_bank = BankAccount.objects.filter(id=dest_bank_id).first() if dest_bank_id else None
+            dest_wallet = CashWallet.objects.filter(id=dest_wallet_id).first() if dest_wallet_id else None
+            
+            if dest_bank or dest_wallet:
+                LedgerService.process_deposit(
+                    amount=instance.amount,
+                    destination_bank=dest_bank,
+                    destination_wallet=dest_wallet,
+                    reference=f'other_income_{instance.id}',
+                    description=f"Other Income: {instance.source}",
+                    user=self.request.user
+                )
 
 
 # ======== Banking ViewSets ========
@@ -1370,7 +1392,7 @@ class AllTransactionsViewSet(viewsets.ViewSet):
     required_permission = 'finance.manage_banking'
 
     def list(self, request):
-        from finance.models import BankTransaction, CashWalletTransaction, Expense, Loan, SalaryPayment
+        from finance.models import BankTransaction, CashWalletTransaction, Expense, Loan, SalaryPayment, EmployeeExpense, OtherIncome
         from orders.models import Order
         from django.db.models import Q, Value, CharField, F
         from rest_framework.exceptions import ValidationError
@@ -1471,6 +1493,8 @@ class AllTransactionsViewSet(viewsets.ViewSet):
         expense_ids = set()
         salary_ids = set()
         loan_ids = set()
+        employee_expense_ids = set()
+        other_income_ids = set()
         
         for item in page:
             ref = item.get('ref', '') or ''
@@ -1490,6 +1514,10 @@ class AllTransactionsViewSet(viewsets.ViewSet):
                 exp_id = ref.replace('expense_', '')
                 if exp_id.isdigit():
                     expense_ids.add(exp_id)
+            elif ref.startswith('employee_expense_') and can_view_expenses:
+                ee_id = ref.replace('employee_expense_', '')
+                if ee_id.isdigit():
+                    employee_expense_ids.add(ee_id)
             elif ref.startswith('salary_') and can_view_salaries:
                 sal_id = ref.replace('salary_', '')
                 if sal_id.isdigit():
@@ -1498,6 +1526,10 @@ class AllTransactionsViewSet(viewsets.ViewSet):
                 ln_id = ref.replace('loan_', '')
                 if ln_id.isdigit():
                     loan_ids.add(ln_id)
+            elif ref.startswith('other_income_'):
+                oi_id = ref.replace('other_income_', '')
+                if oi_id.isdigit():
+                    other_income_ids.add(oi_id)
                     
         orders_map = {}
         if order_display_ids:
@@ -1514,6 +1546,16 @@ class AllTransactionsViewSet(viewsets.ViewSet):
         if expense_ids:
             expenses = Expense.objects.filter(id__in=expense_ids).select_related('category')
             expenses_map = {str(exp.id): exp for exp in expenses}
+            
+        employee_expenses_map = {}
+        if employee_expense_ids:
+            ee_qs = EmployeeExpense.objects.filter(id__in=employee_expense_ids).select_related('employee', 'category')
+            employee_expenses_map = {str(ee.id): ee for ee in ee_qs}
+            
+        other_incomes_map = {}
+        if other_income_ids:
+            oi_qs = OtherIncome.objects.filter(id__in=other_income_ids).select_related('category')
+            other_incomes_map = {str(oi.id): oi for oi in oi_qs}
             
         salaries_map = {}
         if salary_ids:
@@ -1567,6 +1609,16 @@ class AllTransactionsViewSet(viewsets.ViewSet):
                             'payee': exp.payee_name,
                             'category': exp.category.name if exp.category else 'Uncategorized'
                         }
+                elif ref.startswith('employee_expense_') and can_view_expenses:
+                    ee_id = ref.replace('employee_expense_', '')
+                    ee = employee_expenses_map.get(ee_id)
+                    if ee:
+                        linked_data = {
+                            'type': 'employee_expense',
+                            'id': str(ee.id),
+                            'payee': ee.employee.get_full_name() if ee.employee else 'Unknown',
+                            'category': ee.category.name if ee.category else 'Uncategorized'
+                        }
                 elif ref.startswith('salary_') and can_view_salaries:
                     sal_id = ref.replace('salary_', '')
                     sal = salaries_map.get(sal_id)
@@ -1584,6 +1636,16 @@ class AllTransactionsViewSet(viewsets.ViewSet):
                             'type': 'loan',
                             'id': str(ln.id),
                             'lender': ln.lender.name
+                        }
+                elif ref.startswith('other_income_'):
+                    oi_id = ref.replace('other_income_', '')
+                    oi = other_incomes_map.get(oi_id)
+                    if oi:
+                        linked_data = {
+                            'type': 'other_income',
+                            'id': str(oi.id),
+                            'source': oi.source,
+                            'category': oi.category.name if oi.category else 'Uncategorized'
                         }
             except Exception as e:
                 logger.error(f"Failed to resolve linked data for ref {ref}: {e}")

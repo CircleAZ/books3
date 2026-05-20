@@ -88,6 +88,11 @@ export const ENDPOINTS = {
     FINANCE_CASH_TRANSFERS: `${API_BASE}/finance/cash-transfers/`,
     FINANCE_ALL_TRANSACTIONS: `${API_BASE}/finance/all-transactions/`,
     FINANCE_OPENING_BALANCES: `${API_BASE}/finance/opening-balances/`,
+    FINANCE_OTHER_INCOME: `${API_BASE}/finance/other-income/`,
+
+    // Procurement
+    PROCUREMENT_TRANSPORTERS: `${API_BASE}/procurement/transporters/`,
+
 
     // Reports
     REPORTS_SALES: `${API_BASE}/reports/sales/`,

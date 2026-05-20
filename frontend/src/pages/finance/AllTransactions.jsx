@@ -96,6 +96,12 @@ export default function AllTransactions() {
             case 'expense':
                 navigate(`/finance/expenses/${entity.id}`);
                 break;
+            case 'employee_expense':
+                navigate(`/finance/employee-expenses/${entity.id}`);
+                break;
+            case 'other_income':
+                navigate(`/finance/other-income/`);
+                break;
             case 'loan':
                 navigate(`/finance/loans/${entity.id}`);
                 break;

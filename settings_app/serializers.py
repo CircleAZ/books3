@@ -89,6 +89,12 @@ class PaymentMethodSerializer(serializers.ModelSerializer):
         model = PaymentMethod
         fields = '__all__'
 
+    def to_internal_value(self, data):
+        """Coerce empty string to None for nullable FK fields."""
+        if isinstance(data, dict) and data.get('linked_bank_account') in ('', None):
+            data = {**data, 'linked_bank_account': None}
+        return super().to_internal_value(data)
+
 class ReceiptSettingsSerializer(serializers.ModelSerializer):
     class Meta:
         model = ReceiptSettings
@@ -106,6 +112,12 @@ class UPIAccountSerializer(serializers.ModelSerializer):
     class Meta:
         model = UPIAccount
         fields = '__all__'
+
+    def to_internal_value(self, data):
+        """Coerce empty string to None for nullable FK fields."""
+        if isinstance(data, dict) and data.get('linked_bank_account') in ('', None):
+            data = {**data, 'linked_bank_account': None}
+        return super().to_internal_value(data)
 
 
 class IntegrationSettingsSerializer(serializers.ModelSerializer):

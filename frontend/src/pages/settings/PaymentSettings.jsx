@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 
 import { useAuth } from '../../context/AuthContext';
 import { ENDPOINTS } from '../../config/api';
+import { sanitizeFKFields } from '../../utils/payloadSanitizer';
 import './FinancialSettings.css';
 import '../settings/SettingsIndex.css';
 
@@ -72,10 +73,9 @@ const PaymentSettings = () => {
         try {
             const response = await fetchWithAuth(ENDPOINTS.SETTINGS_PAYMENT_METHODS, {
                 method: 'POST',
-                body: JSON.stringify({
-                    ...newMethod,
-                    linked_bank_account: newMethod.linked_bank_account || null
-                })
+                body: JSON.stringify(
+                    sanitizeFKFields({ ...newMethod }, ['linked_bank_account'])
+                )
             });
             if (response.ok) {
                 fetchMethods();
@@ -138,7 +138,9 @@ const PaymentSettings = () => {
 
             const response = await fetchWithAuth(ENDPOINTS.SETTINGS_UPI_ACCOUNTS, {
                 method: 'POST',
-                body: JSON.stringify(newUpi)
+                body: JSON.stringify(
+                    sanitizeFKFields({ ...newUpi }, ['linked_bank_account'])
+                )
             });
             if (response.ok) {
                 fetchUpiAccounts();

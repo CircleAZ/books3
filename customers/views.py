@@ -1893,6 +1893,9 @@ class LegacyDebtViewSet(viewsets.ModelViewSet):
         destination_wallet_id = request.data.get('destination_wallet_id')
         destination_bank_id = request.data.get('destination_bank_id')
 
+        if destination_wallet_id and destination_bank_id:
+            return Response({"detail": "Cannot allocate to both a Cash Wallet and a Bank Account simultaneously."}, status=400)
+
         if not amount or float(amount) <= 0:
             return Response({"detail": "Amount must be positive."}, status=400)
             

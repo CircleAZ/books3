@@ -63,6 +63,7 @@ const FinanceIndex = lazy(() => import('./pages/finance/FinanceIndex'));
 const ProcurementList = lazy(() => import('./pages/procurement/ProcurementList'));
 const CreatePO = lazy(() => import('./pages/procurement/CreatePO'));
 const PODetail = lazy(() => import('./pages/procurement/PODetail'));
+const Transporters = lazy(() => import('./pages/procurement/Transporters'));
 const ExpenseList = lazy(() => import('./pages/finance/ExpenseList'));
 const AddExpense = lazy(() => import('./pages/finance/AddExpense'));
 const ExpenseDetails = lazy(() => import('./pages/finance/ExpenseDetails'));
@@ -82,6 +83,8 @@ const ExpenseReport = lazy(() => import('./pages/finance/ExpenseReport'));
 const RecurringExpenses = lazy(() => import('./pages/finance/RecurringExpenses'));
 const CategoryBudgets = lazy(() => import('./pages/finance/CategoryBudgets'));
 const IncomeCategories = lazy(() => import('./pages/finance/IncomeCategories'));
+const OtherIncomeList = lazy(() => import('./pages/finance/OtherIncomeList'));
+const AddOtherIncome = lazy(() => import('./pages/finance/AddOtherIncome'));
 const LenderList = lazy(() => import('./pages/finance/LenderList'));
 const LenderDetails = lazy(() => import('./pages/finance/LenderDetails'));
 const LoanDetails = lazy(() => import('./pages/finance/LoanDetails'));
@@ -313,6 +316,11 @@ function AppRoutes() {
           <LazyPage><PODetail /></LazyPage>
         </PermissionRoute>
       } />
+      <Route path="/procurement/transporters" element={
+        <PermissionRoute permission="inventory.manage_stock">
+          <LazyPage><Transporters /></LazyPage>
+        </PermissionRoute>
+      } />
 
       {/* Finance Routes */}
       <Route path="/finance" element={
@@ -437,6 +445,16 @@ function AppRoutes() {
       <Route path="/finance/income-categories" element={
         <PermissionRoute permission="finance.manage_income">
           <LazyPage><IncomeCategories /></LazyPage>
+        </PermissionRoute>
+      } />
+      <Route path="/finance/other-income" element={
+        <PermissionRoute permission="finance.manage_income">
+          <LazyPage><OtherIncomeList /></LazyPage>
+        </PermissionRoute>
+      } />
+      <Route path="/finance/other-income/add" element={
+        <PermissionRoute permission="finance.manage_income">
+          <LazyPage><AddOtherIncome /></LazyPage>
         </PermissionRoute>
       } />
       <Route path="/finance/lenders" element={
