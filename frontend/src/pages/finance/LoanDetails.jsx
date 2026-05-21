@@ -25,9 +25,16 @@ export default function LoanDetails() {
         principal_portion: '',
         interest_portion: '',
         method: '',
+        source_bank: '',
+        source_wallet: '',
         reference: '',
         notes: ''
     });
+
+    const isCashMethod = (method) => {
+        if (!method) return false;
+        return method.toLowerCase().includes('cash');
+    };
     const [disburseFormData, setDisburseFormData] = useState({
         date: new Date().toISOString().split('T')[0],
         amount: '',
@@ -99,10 +106,18 @@ export default function LoanDetails() {
         e.preventDefault();
         setSubmitting(true);
         try {
+            const payload = { ...repayFormData };
+            if (isCashMethod(repayFormData.method)) {
+                payload.source_wallet = repayFormData.source_wallet || null;
+                payload.source_bank = null;
+            } else {
+                payload.source_bank = repayFormData.source_bank || null;
+                payload.source_wallet = null;
+            }
             const response = await fetchWithAuth(`${ENDPOINTS.FINANCE_LOANS}${id}/repay/`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(repayFormData)
+                body: JSON.stringify(payload)
             });
 
             if (response.ok) {
@@ -114,6 +129,8 @@ export default function LoanDetails() {
                     principal_portion: '',
                     interest_portion: '',
                     method: '',
+                    source_bank: '',
+                    source_wallet: '',
                     reference: '',
                     notes: ''
                 });
@@ -369,6 +386,27 @@ export default function LoanDetails() {
                                         )}
                                     </select>
                                 </div>
+                                {repayFormData.method && (
+                                    <div className="form-group">
+                                        <label>Source Ledger</label>
+                                        <select
+                                            name={isCashMethod(repayFormData.method) ? 'source_wallet' : 'source_bank'}
+                                            value={isCashMethod(repayFormData.method) ? repayFormData.source_wallet : repayFormData.source_bank}
+                                            onChange={handleInputChange}
+                                        >
+                                            <option value="">-- Select Source --</option>
+                                            {isCashMethod(repayFormData.method) ? (
+                                                cashWallets.map(w => (
+                                                    <option key={w.id} value={w.id}>{w.name} ({currency}{parseFloat(w.balance || 0).toLocaleString()})</option>
+                                                ))
+                                            ) : (
+                                                bankAccounts.map(b => (
+                                                    <option key={b.id} value={b.id}>{b.account_name || b.bank_name} — {b.account_number}</option>
+                                                ))
+                                            )}
+                                        </select>
+                                    </div>
+                                )}
                                 <div className="form-group">
                                     <label>Reference #</label>
                                     <input type="text" name="reference" value={repayFormData.reference} onChange={handleInputChange} placeholder="TXN ID, Cheque #" />

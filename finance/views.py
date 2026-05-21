@@ -501,8 +501,8 @@ class EmployeeExpenseViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_403_FORBIDDEN
             )
         expense.status = 'approved'
-        expense.approved_by = request.user
-        expense.approved_at = timezone.now()
+        expense.reviewed_by = request.user
+        expense.reviewed_at = timezone.now()
         expense.save()
         _audit_log('approve', 'EmployeeExpense', expense.id, request.user,
                    {'employee': expense.employee.username, 'amount': str(expense.amount)})
@@ -518,8 +518,8 @@ class EmployeeExpenseViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_403_FORBIDDEN
             )
         expense.status = 'rejected'
-        expense.approved_by = request.user
-        expense.approved_at = timezone.now()
+        expense.reviewed_by = request.user
+        expense.reviewed_at = timezone.now()
         expense.rejection_reason = request.data.get('reason', '')
         expense.save()
         _audit_log('reject', 'EmployeeExpense', expense.id, request.user,
@@ -528,18 +528,48 @@ class EmployeeExpenseViewSet(viewsets.ModelViewSet):
     
     @action(detail=True, methods=['post'], throttle_classes=[FinanceActionThrottle])
     def reimburse(self, request, pk=None):
-        """Mark expense as reimbursed."""
+        """Mark expense as reimbursed with ledger withdrawal."""
+        from .services import LedgerService
+        from .models import BankAccount, CashWallet
+        from django.db import transaction as db_transaction
+        from django.core.exceptions import ValidationError
+
         expense = self.get_object()
         if expense.status != 'approved':
             return Response({'error': 'Must be approved first'}, status=status.HTTP_400_BAD_REQUEST)
-        
-        expense.status = 'reimbursed'
-        expense.reimbursed_at = timezone.now()
-        expense.reimbursement_method = request.data.get('method', 'bank')
-        expense.save()
-        _audit_log('reimburse', 'EmployeeExpense', expense.id, request.user,
-                   {'method': expense.reimbursement_method, 'amount': str(expense.amount)})
-        return Response(EmployeeExpenseSerializer(expense).data)
+
+        source_bank_id = request.data.get('source_bank')
+        source_wallet_id = request.data.get('source_wallet')
+
+        try:
+            source_bank = BankAccount.objects.get(pk=source_bank_id) if source_bank_id else None
+            source_wallet = CashWallet.objects.get(pk=source_wallet_id) if source_wallet_id else None
+        except (BankAccount.DoesNotExist, CashWallet.DoesNotExist):
+            return Response({'error': 'Invalid source bank or wallet.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            with db_transaction.atomic():
+                expense.status = 'reimbursed'
+                expense.reimbursed_at = timezone.now()
+                expense.reimbursement_method = request.data.get('method', 'bank')
+                expense.source_bank = source_bank
+                expense.source_wallet = source_wallet
+                expense.save()
+
+                LedgerService.process_withdrawal(
+                    amount=expense.amount,
+                    source_bank=source_bank,
+                    source_wallet=source_wallet,
+                    reference=f"emp_expense_{expense.id}",
+                    description=f"Employee Expense Reimbursement to {expense.employee.username}",
+                    user=request.user
+                )
+            _audit_log('reimburse', 'EmployeeExpense', expense.id, request.user,
+                       {'method': expense.reimbursement_method, 'amount': str(expense.amount),
+                        'source_bank': str(source_bank_id or ''), 'source_wallet': str(source_wallet_id or '')})
+            return Response(EmployeeExpenseSerializer(expense).data)
+        except ValidationError as e:
+            return Response({'error': str(e.message)}, status=status.HTTP_400_BAD_REQUEST)
 
 
 class EmployeeSalaryViewSet(viewsets.ModelViewSet):
@@ -557,13 +587,15 @@ class EmployeeSalaryViewSet(viewsets.ModelViewSet):
         
         payment_data = {
             'salary': salary.id,
-            'period_start': request.data.get('period_start'),
-            'period_end': request.data.get('period_end'),
+            'period_start': request.data.get('period_start') or request.data.get('startDate'),
+            'period_end': request.data.get('period_end') or request.data.get('endDate'),
             'payment_date': request.data.get('payment_date', date.today()),
             'base_amount': salary.base_amount,
             'deductions': request.data.get('deductions', 0),
             'bonuses': request.data.get('bonuses', 0),
             'payment_method': request.data.get('payment_method', 'bank'),
+            'source_bank': request.data.get('source_bank'),
+            'source_wallet': request.data.get('source_wallet'),
             'reference': request.data.get('reference', ''),
             'notes': request.data.get('notes', ''),
         }
@@ -586,10 +618,25 @@ class EmployeeSalaryViewSet(viewsets.ModelViewSet):
         
         serializer = SalaryPaymentSerializer(data=payment_data)
         if serializer.is_valid():
-            payment = serializer.save(paid_by=request.user)
-            _audit_log('salary_payment', 'SalaryPayment', payment.id, request.user,
-                       {'employee': salary.employee.username, 'amount': str(payment.net_amount)})
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
+            from .services import LedgerService
+            from django.db import transaction as db_transaction
+            from django.core.exceptions import ValidationError
+            try:
+                with db_transaction.atomic():
+                    payment = serializer.save(paid_by=request.user)
+                    LedgerService.process_withdrawal(
+                        amount=payment.net_amount,
+                        source_bank=payment.source_bank,
+                        source_wallet=payment.source_wallet,
+                        reference=payment.reference or f"salary_{payment.id}",
+                        description=f"Salary Payment to {salary.employee.username}",
+                        user=request.user
+                    )
+                _audit_log('salary_payment', 'SalaryPayment', payment.id, request.user,
+                           {'employee': salary.employee.username, 'amount': str(payment.net_amount)})
+                return Response(serializer.data, status=status.HTTP_201_CREATED)
+            except ValidationError as e:
+                return Response({'error': str(e.message)}, status=status.HTTP_400_BAD_REQUEST)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
@@ -679,18 +726,35 @@ class LoanViewSet(viewsets.ModelViewSet):
             'amount': request.data.get('amount'),
             'principal_portion': request.data.get('principal_portion', 0),
             'interest_portion': request.data.get('interest_portion', 0),
-            'payment_method': request.data.get('payment_method', 'bank'),
+            'payment_method': request.data.get('payment_method') or request.data.get('method', 'bank'),
+            'source_bank': request.data.get('source_bank'),
+            'source_wallet': request.data.get('source_wallet'),
             'reference': request.data.get('reference', ''),
             'notes': request.data.get('notes', ''),
         }
         
         serializer = LoanRepaymentSerializer(data=repayment_data)
         if serializer.is_valid():
-            repayment = serializer.save(recorded_by=request.user)
-            _audit_log('loan_repayment', 'LoanRepayment', repayment.id, request.user,
-                       {'loan': str(loan.id), 'amount': str(repayment.amount)})
-            loan.refresh_from_db()
-            return Response(LoanSerializer(loan).data)
+            from .services import LedgerService
+            from django.db import transaction as db_transaction
+            from django.core.exceptions import ValidationError
+            try:
+                with db_transaction.atomic():
+                    repayment = serializer.save(recorded_by=request.user)
+                    LedgerService.process_withdrawal(
+                        amount=repayment.amount,
+                        source_bank=repayment.source_bank,
+                        source_wallet=repayment.source_wallet,
+                        reference=repayment.reference or f"loan_{loan.id}",
+                        description=f"Loan Repayment to {loan.lender.name}",
+                        user=request.user
+                    )
+                _audit_log('loan_repayment', 'LoanRepayment', repayment.id, request.user,
+                           {'loan': str(loan.id), 'amount': str(repayment.amount)})
+                loan.refresh_from_db()
+                return Response(LoanSerializer(loan).data)
+            except ValidationError as e:
+                return Response({'error': str(e.message)}, status=status.HTTP_400_BAD_REQUEST)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
     @action(detail=True, methods=['post'], throttle_classes=[FinanceActionThrottle])

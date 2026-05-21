@@ -279,7 +279,7 @@ class SalaryPaymentSerializer(serializers.ModelSerializer):
         model = SalaryPayment
         fields = ['id', 'salary', 'employee_name', 'period_start', 'period_end',
                   'payment_date', 'base_amount', 'deductions', 'bonuses', 
-                  'net_amount', 'payment_method', 'reference', 'notes',
+                  'net_amount', 'source_bank', 'source_wallet', 'payment_method', 'reference', 'notes',
                   'paid_by', 'paid_by_name', 'created_at']
         read_only_fields = ['id', 'net_amount', 'paid_by', 'created_at']
 
@@ -314,7 +314,7 @@ class LoanRepaymentSerializer(serializers.ModelSerializer):
     class Meta:
         model = LoanRepayment
         fields = ['id', 'loan', 'date', 'amount', 'principal_portion',
-                  'interest_portion', 'payment_method', 'reference', 'notes',
+                  'interest_portion', 'source_bank', 'source_wallet', 'payment_method', 'reference', 'notes',
                   'recorded_by', 'recorded_by_name', 'created_at']
         read_only_fields = ['id', 'recorded_by', 'created_at']
 

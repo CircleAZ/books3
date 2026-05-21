@@ -565,6 +565,18 @@ class EmployeeExpense(SoftDeleteModel):
     reimbursed_at = models.DateTimeField(null=True, blank=True)
     reimbursement_method = models.CharField(max_length=50, blank=True)
     
+    # Ledger source tracking (Phase 1 Migration)
+    source_bank = models.ForeignKey(
+        'BankAccount', on_delete=models.PROTECT,
+        null=True, blank=True,
+        related_name='employee_expense_reimbursements'
+    )
+    source_wallet = models.ForeignKey(
+        'CashWallet', on_delete=models.PROTECT,
+        null=True, blank=True,
+        related_name='employee_expense_reimbursements'
+    )
+    
     class Meta:
         ordering = ['-date', '-created_at']
     

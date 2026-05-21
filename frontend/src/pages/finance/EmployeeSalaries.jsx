@@ -23,8 +23,13 @@ export default function EmployeeSalaries() {
         endDate: '',
         deductions: 0,
         bonuses: 0,
+        payment_method: 'bank',
+        source_bank: '',
+        source_wallet: '',
         notes: ''
     });
+    const [banks, setBanks] = useState([]);
+    const [wallets, setWallets] = useState([]);
     const [editData, setEditData] = useState({
         base_amount: '',
         frequency: 'monthly',
@@ -64,9 +69,21 @@ export default function EmployeeSalaries() {
         const now = new Date();
         const start = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
         const end = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().split('T')[0];
-        setPayData({ startDate: start, endDate: end, deductions: 0, bonuses: 0, notes: '' });
+        setPayData({ startDate: start, endDate: end, deductions: 0, bonuses: 0, payment_method: 'bank', source_bank: '', source_wallet: '', notes: '' });
         setShowPayModal(true);
     };
+
+    // Fetch banks & wallets when pay modal opens
+    useEffect(() => {
+        if (!showPayModal) return;
+        Promise.allSettled([
+            fetchWithAuth(ENDPOINTS.FINANCE_BANK_ACCOUNTS + '?active_only=true'),
+            fetchWithAuth(ENDPOINTS.FINANCE_CASH_WALLETS + '?active_only=true'),
+        ]).then(([bRes, wRes]) => {
+            if (bRes.status === 'fulfilled' && bRes.value.ok) bRes.value.json().then(d => setBanks(d.results || d));
+            if (wRes.status === 'fulfilled' && wRes.value.ok) wRes.value.json().then(d => setWallets(d.results || d));
+        });
+    }, [showPayModal, fetchWithAuth]);
 
     const openEditModal = (salary, e) => {
         if (e) e.stopPropagation();
@@ -86,7 +103,11 @@ export default function EmployeeSalaries() {
             const response = await fetchWithAuth(`${ENDPOINTS.FINANCE_SALARIES}${selectedSalary.id}/pay/`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payData)
+                body: JSON.stringify({
+                    ...payData,
+                    source_bank: payData.payment_method === 'bank' ? (payData.source_bank || null) : null,
+                    source_wallet: payData.payment_method === 'cash' ? (payData.source_wallet || null) : null,
+                })
             });
             if (response.ok) {
                 setShowPayModal(false);
@@ -366,6 +387,40 @@ export default function EmployeeSalaries() {
                                     />
                                 </div>
                             </div>
+                            <div className="form-group full-width">
+                                <label>Payment Method</label>
+                                <select
+                                    value={payData.payment_method}
+                                    onChange={e => setPayData({ ...payData, payment_method: e.target.value, source_bank: '', source_wallet: '' })}
+                                >
+                                    <option value="bank">Bank Transfer</option>
+                                    <option value="cash">Cash</option>
+                                </select>
+                            </div>
+                            {payData.payment_method === 'bank' && banks.length > 0 && (
+                                <div className="form-group full-width">
+                                    <label>Source Bank Account</label>
+                                    <select
+                                        value={payData.source_bank}
+                                        onChange={e => setPayData({ ...payData, source_bank: e.target.value })}
+                                    >
+                                        <option value="">Select bank...</option>
+                                        {banks.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
+                                    </select>
+                                </div>
+                            )}
+                            {payData.payment_method === 'cash' && wallets.length > 0 && (
+                                <div className="form-group full-width">
+                                    <label>Source Cash Wallet</label>
+                                    <select
+                                        value={payData.source_wallet}
+                                        onChange={e => setPayData({ ...payData, source_wallet: e.target.value })}
+                                    >
+                                        <option value="">Select wallet...</option>
+                                        {wallets.map(w => <option key={w.id} value={w.id}>{w.name} ({currency}{parseFloat(w.balance).toLocaleString()})</option>)}
+                                    </select>
+                                </div>
+                            )}
                             <div className="form-group full-width">
                                 <label>Notes</label>
                                 <textarea
