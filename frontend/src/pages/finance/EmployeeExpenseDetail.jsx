@@ -115,16 +115,41 @@ export default function EmployeeExpenseDetail() {
         }
     };
 
+    const handleMethodChange = (method) => {
+        const isCash = isCashMethod(method);
+        setReimburseForm({
+            method,
+            source_bank: !isCash && (banks || []).length > 0 ? String(banks[0].id) : '',
+            source_wallet: isCash && (wallets || []).length > 0 ? String(wallets[0].id) : '',
+        });
+    };
+
     const handleReimburse = async (e) => {
         e.preventDefault();
+        if (!reimburseForm.method) {
+            showToast('Please select a payment method', 'error');
+            return;
+        }
+        const isCash = isCashMethod(reimburseForm.method);
+        const source_bank = isCash ? null : reimburseForm.source_bank;
+        const source_wallet = isCash ? reimburseForm.source_wallet : null;
+
+        if (!isCash && !source_bank) {
+            showToast('Please select a source bank account', 'error');
+            return;
+        }
+        if (isCash && !source_wallet) {
+            showToast('Please select a source cash wallet', 'error');
+            return;
+        }
+
         setProcessing(true);
         try {
-            const payload = {};
-            if (isCashMethod(reimburseForm.method)) {
-                payload.source_wallet = reimburseForm.source_wallet || (wallets.length > 0 ? wallets[0].id : null);
-            } else {
-                payload.source_bank = reimburseForm.source_bank || (banks.length > 0 ? banks[0].id : null);
-            }
+            const payload = {
+                method: reimburseForm.method,
+                source_bank: source_bank ? Number(source_bank) : null,
+                source_wallet: source_wallet ? Number(source_wallet) : null
+            };
             const res = await fetchWithAuth(`${ENDPOINTS.FINANCE_EMPLOYEE_EXPENSES}${id}/reimburse/`, {
                 method: 'POST',
                 body: JSON.stringify(payload)
@@ -144,8 +169,8 @@ export default function EmployeeExpenseDetail() {
         }
     };
 
-    const openReimburseModal = () => {
-        fetchLedgers();
+    const openReimburseModal = async () => {
+        await fetchLedgers();
         setReimburseForm({ method: '', source_bank: '', source_wallet: '' });
         setShowReimburseModal(true);
     };
@@ -403,9 +428,9 @@ export default function EmployeeExpenseDetail() {
                             <div className="form-group">
                                 <label>Payment Method</label>
                                 <select className="form-control" value={reimburseForm.method}
-                                    onChange={e => setReimburseForm({ ...reimburseForm, method: e.target.value })}>
+                                    onChange={e => handleMethodChange(e.target.value)}>
                                     <option value="">-- Select Method --</option>
-                                    {paymentMethods.length > 0 ? (
+                                    {(paymentMethods || []).length > 0 ? (
                                         paymentMethods.map(m => <option key={m.id} value={m.type}>{m.type}</option>)
                                     ) : (
                                         <>
@@ -415,21 +440,24 @@ export default function EmployeeExpenseDetail() {
                                     )}
                                 </select>
                             </div>
-                            <div className="form-group">
-                                <label>Source Ledger</label>
-                                <select className="form-control"
-                                    value={isCashMethod(reimburseForm.method) ? reimburseForm.source_wallet : reimburseForm.source_bank}
-                                    onChange={e => setReimburseForm({
-                                        ...reimburseForm,
-                                        [isCashMethod(reimburseForm.method) ? 'source_wallet' : 'source_bank']: e.target.value
-                                    })}>
-                                    {isCashMethod(reimburseForm.method) ? (
-                                        wallets.map(w => <option key={w.id} value={w.id}>{w.name}</option>)
-                                    ) : (
-                                        banks.map(b => <option key={b.id} value={b.id}>{b.name}</option>)
-                                    )}
-                                </select>
-                            </div>
+                            {reimburseForm.method && (
+                                <div className="form-group">
+                                    <label>Source Ledger</label>
+                                    <select className="form-control"
+                                        value={isCashMethod(reimburseForm.method) ? reimburseForm.source_wallet : reimburseForm.source_bank}
+                                        onChange={e => setReimburseForm({
+                                            ...reimburseForm,
+                                            [isCashMethod(reimburseForm.method) ? 'source_wallet' : 'source_bank']: e.target.value
+                                        })}>
+                                        <option value="">-- Select Source Ledger --</option>
+                                        {isCashMethod(reimburseForm.method) ? (
+                                            (wallets || []).map(w => <option key={w.id} value={w.id}>{w.name}</option>)
+                                        ) : (
+                                            (banks || []).map(b => <option key={b.id} value={b.id}>{b.name}</option>)
+                                        )}
+                                    </select>
+                                </div>
+                            )}
                             <div className="modal-actions">
                                 <button type="button" className="btn btn-ghost" onClick={() => setShowReimburseModal(false)}>Cancel</button>
                                 <button type="submit" className="btn btn-success" disabled={processing}>

@@ -95,22 +95,46 @@ export default function ExpenseDetails() {
         setPaymentForm(prev => ({ ...prev, [name]: value }));
     };
 
+    const handleMethodChange = (e) => {
+        const method = e.target.value;
+        const isCash = isCashMethod(method);
+        setPaymentForm(prev => ({
+            ...prev,
+            method,
+            source_bank: !isCash && (availableBankAccounts || []).length > 0 ? String(availableBankAccounts[0].id) : '',
+            source_wallet: isCash && (availableCashWallets || []).length > 0 ? String(availableCashWallets[0].id) : '',
+        }));
+    };
+
     const handlePaymentSubmit = async (e) => {
         e.preventDefault();
         if (!paymentForm.amount || parseFloat(paymentForm.amount) <= 0) {
             showToast('Please enter a valid payment amount', 'error');
             return;
         }
-
-        // Determine source ledger
-        const payload = { ...paymentForm };
-        if (isCashMethod(paymentForm.method)) {
-            payload.source_wallet = paymentForm.source_wallet || (availableCashWallets.length > 0 ? availableCashWallets[0].id : null);
-            payload.source_bank = null;
-        } else {
-            payload.source_bank = paymentForm.source_bank || (availableBankAccounts.length > 0 ? availableBankAccounts[0].id : null);
-            payload.source_wallet = null;
+        if (!paymentForm.method) {
+            showToast('Please select a payment method', 'error');
+            return;
         }
+
+        const isCash = isCashMethod(paymentForm.method);
+        const source_bank = isCash ? null : paymentForm.source_bank;
+        const source_wallet = isCash ? paymentForm.source_wallet : null;
+
+        if (!isCash && !source_bank) {
+            showToast('Please select a bank account ledger', 'error');
+            return;
+        }
+        if (isCash && !source_wallet) {
+            showToast('Please select a cash wallet ledger', 'error');
+            return;
+        }
+
+        const payload = {
+            ...paymentForm,
+            source_bank: source_bank ? Number(source_bank) : null,
+            source_wallet: source_wallet ? Number(source_wallet) : null
+        };
 
         setSubmitting(true);
         try {
@@ -455,11 +479,11 @@ export default function ExpenseDetails() {
                                         <select
                                             name="method"
                                             value={paymentForm.method}
-                                            onChange={handleInputChange}
+                                            onChange={handleMethodChange}
                                             required
                                         >
                                             <option value="">-- Select Method --</option>
-                                            {availablePaymentMethods.length > 0 ? (
+                                            {(availablePaymentMethods || []).length > 0 ? (
                                                 availablePaymentMethods.map(method => (
                                                     <option key={method.id} value={method.type}>{method.type}</option>
                                                 ))
@@ -474,24 +498,28 @@ export default function ExpenseDetails() {
                                             )}
                                         </select>
                                     </div>
-                                    <div className="form-group">
-                                        <label>Select Ledger</label>
-                                        <select
-                                            name={isCashMethod(paymentForm.method) ? "source_wallet" : "source_bank"}
-                                            value={isCashMethod(paymentForm.method) ? paymentForm.source_wallet : paymentForm.source_bank}
-                                            onChange={handleInputChange}
-                                        >
-                                            {isCashMethod(paymentForm.method) ? (
-                                                availableCashWallets.map(w => (
-                                                    <option key={w.id} value={w.id}>{w.name}</option>
-                                                ))
-                                            ) : (
-                                                availableBankAccounts.map(b => (
-                                                    <option key={b.id} value={b.id}>{b.name}</option>
-                                                ))
-                                            )}
-                                        </select>
-                                    </div>
+                                    {paymentForm.method && (
+                                        <div className="form-group">
+                                            <label>Select Ledger</label>
+                                            <select
+                                                name={isCashMethod(paymentForm.method) ? "source_wallet" : "source_bank"}
+                                                value={isCashMethod(paymentForm.method) ? paymentForm.source_wallet : paymentForm.source_bank}
+                                                onChange={handleInputChange}
+                                                required
+                                            >
+                                                <option value="">-- Select Source Ledger --</option>
+                                                {isCashMethod(paymentForm.method) ? (
+                                                    (availableCashWallets || []).map(w => (
+                                                        <option key={w.id} value={w.id}>{w.name}</option>
+                                                    ))
+                                                ) : (
+                                                    (availableBankAccounts || []).map(b => (
+                                                        <option key={b.id} value={b.id}>{b.name}</option>
+                                                    ))
+                                                )}
+                                            </select>
+                                        </div>
+                                    )}
                                     <div className="form-group">
                                         <label>Reference #</label>
                                         <input

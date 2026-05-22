@@ -343,9 +343,16 @@ input:checked + .slider:before {
     gap: 12px;
 }
 
+.create-trip-5col {
+    display: grid;
+    grid-template-columns: 2fr 1fr 1fr 1.2fr 1.5fr;
+    gap: 12px;
+}
+
 @media (max-width: 768px) {
     .create-trip-2col,
-    .create-trip-4col {
+    .create-trip-4col,
+    .create-trip-5col {
         grid-template-columns: 1fr; /* Stack vertically on small screens */
     }
     .search-filter-row {

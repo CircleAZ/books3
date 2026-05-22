@@ -1057,6 +1057,18 @@ class ExpenseTripItem(SoftDeleteModel):
         blank=True,
         related_name='trip_item'
     )
+    
+    # Ledger source tracking
+    source_bank = models.ForeignKey(
+        'BankAccount', on_delete=models.PROTECT,
+        null=True, blank=True,
+        related_name='trip_items'
+    )
+    source_wallet = models.ForeignKey(
+        'CashWallet', on_delete=models.PROTECT,
+        null=True, blank=True,
+        related_name='trip_items'
+    )
 
     class Meta:
         ordering = ['created_at']

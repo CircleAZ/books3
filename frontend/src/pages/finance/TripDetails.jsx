@@ -8,6 +8,7 @@ import { formatINR } from '../../utils/financeUtils';
 import './ExpenseCategories.css';
 
 import '../../styles/components/page-layout.css';
+import '../../styles/components/modal-system.css';
 const STATUS_BADGES = {
     unsettled: { label: 'Unsettled', bg: '#ef444422', color: '#ef4444' },
     partial: { label: 'Partial', bg: '#f59e0b22', color: '#f59e0b' },
@@ -34,6 +35,13 @@ export default function TripDetails() {
     const [loading, setLoading] = useState(true);
     const [reimbursing, setReimbursing] = useState(null);
 
+    const [showReimburseModal, setShowReimburseModal] = useState(false);
+    const [reimburseTarget, setReimburseTarget] = useState(null); // 'all' or employeeId
+    const [reimburseForm, setReimburseForm] = useState({ method: '', source_bank: '', source_wallet: '' });
+    const [banks, setBanks] = useState([]);
+    const [wallets, setWallets] = useState([]);
+    const [paymentMethods, setPaymentMethods] = useState([]);
+
     const fetchTrip = useCallback(async () => {
         setLoading(true);
         try {
@@ -51,41 +59,111 @@ export default function TripDetails() {
 
     useEffect(() => { fetchTrip(); }, [fetchTrip]);
 
-    const handleReimburseEmployee = async (employeeId) => {
-        setReimbursing(employeeId);
-        try {
-            const res = await fetchWithAuth(
-                `${ENDPOINTS.FINANCE_EXPENSE_TRIPS}${id}/reimburse-employee/`,
-                { method: 'POST', body: JSON.stringify({ employee_id: employeeId, method: 'cash' }) }
-            );
-            if (res.ok) {
-                const data = await res.json();
-                setTrip(data);
-                showToast('Employee reimbursed!', 'success');
-            } else {
-                const err = await res.json();
-                showToast(err.error || 'Reimbursement failed', 'error');
-            }
-        } catch (err) { showToast('Error: ' + err.message, 'error'); }
-        finally { setReimbursing(null); }
+    const isCashMethod = (method) => {
+        if (!method) return false;
+        return method.toLowerCase().includes('cash');
     };
 
-    const handleReimburseAll = async () => {
-        setReimbursing('all');
+    const fetchLedgers = useCallback(async () => {
         try {
-            const res = await fetchWithAuth(
-                `${ENDPOINTS.FINANCE_EXPENSE_TRIPS}${id}/reimburse-all/`,
-                { method: 'POST', body: JSON.stringify({ method: 'cash' }) }
-            );
-            if (res.ok) {
-                const data = await res.json();
-                setTrip(data.trip);
-                showToast(data.message, 'success');
-            } else {
-                showToast('Reimbursement failed', 'error');
+            const [bRes, wRes, mRes] = await Promise.allSettled([
+                fetchWithAuth(ENDPOINTS.FINANCE_BANK_ACCOUNTS + '?active_only=true'),
+                fetchWithAuth(ENDPOINTS.FINANCE_CASH_WALLETS + '?active_only=true'),
+                fetchWithAuth(ENDPOINTS.SETTINGS_PAYMENT_METHODS),
+            ]);
+            if (bRes.status === 'fulfilled' && bRes.value.ok) {
+                const d = await bRes.value.json();
+                setBanks(d.results || d || []);
             }
-        } catch (err) { showToast('Error: ' + err.message, 'error'); }
-        finally { setReimbursing(null); }
+            if (wRes.status === 'fulfilled' && wRes.value.ok) {
+                const d = await wRes.value.json();
+                setWallets(d.results || d || []);
+            }
+            if (mRes.status === 'fulfilled' && mRes.value.ok) {
+                const d = await mRes.value.json();
+                setPaymentMethods((d.results || d || []).filter(m => m.is_enabled));
+            }
+        } catch (_) {}
+    }, [fetchWithAuth]);
+
+    const handleMethodChange = (method) => {
+        const isCash = isCashMethod(method);
+        setReimburseForm({
+            method,
+            source_bank: !isCash && (banks || []).length > 0 ? String(banks[0].id) : '',
+            source_wallet: isCash && (wallets || []).length > 0 ? String(wallets[0].id) : '',
+        });
+    };
+
+    const openReimburseModal = async (target) => {
+        setReimburseTarget(target);
+        await fetchLedgers();
+        setReimburseForm({ method: '', source_bank: '', source_wallet: '' });
+        setShowReimburseModal(true);
+    };
+
+    const handleReimburseSubmit = async (e) => {
+        e.preventDefault();
+        if (!reimburseForm.method) {
+            showToast('Please select a payment method', 'error');
+            return;
+        }
+        const isCash = isCashMethod(reimburseForm.method);
+        const source_bank = isCash ? null : reimburseForm.source_bank;
+        const source_wallet = isCash ? reimburseForm.source_wallet : null;
+
+        if (!isCash && !source_bank) {
+            showToast('Please select a bank account ledger', 'error');
+            return;
+        }
+        if (isCash && !source_wallet) {
+            showToast('Please select a cash wallet ledger', 'error');
+            return;
+        }
+
+        const payload = {
+            method: reimburseForm.method,
+            source_bank: source_bank ? Number(source_bank) : null,
+            source_wallet: source_wallet ? Number(source_wallet) : null
+        };
+
+        setReimbursing(reimburseTarget);
+        try {
+            if (reimburseTarget === 'all') {
+                const res = await fetchWithAuth(
+                    `${ENDPOINTS.FINANCE_EXPENSE_TRIPS}${id}/reimburse-all/`,
+                    { method: 'POST', body: JSON.stringify(payload) }
+                );
+                if (res.ok) {
+                    const data = await res.json();
+                    setTrip(data.trip);
+                    showToast(data.message, 'success');
+                    setShowReimburseModal(false);
+                } else {
+                    const err = await res.json();
+                    showToast(err.error || 'Reimbursement failed', 'error');
+                }
+            } else {
+                payload.employee_id = reimburseTarget;
+                const res = await fetchWithAuth(
+                    `${ENDPOINTS.FINANCE_EXPENSE_TRIPS}${id}/reimburse-employee/`,
+                    { method: 'POST', body: JSON.stringify(payload) }
+                );
+                if (res.ok) {
+                    const data = await res.json();
+                    setTrip(data);
+                    showToast('Employee reimbursed!', 'success');
+                    setShowReimburseModal(false);
+                } else {
+                    const err = await res.json();
+                    showToast(err.error || 'Reimbursement failed', 'error');
+                }
+            }
+        } catch (err) {
+            showToast('Error: ' + err.message, 'error');
+        } finally {
+            setReimbursing(null);
+        }
     };
 
     const handleDelete = async () => {
@@ -204,8 +282,8 @@ export default function TripDetails() {
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
                         <h3 style={{ margin: 0, color: '#818cf8' }}>Reimbursement Summary</h3>
                         {trip.settlement_status !== 'settled' && (
-                            <button className="btn btn-primary" onClick={handleReimburseAll}
-                                disabled={reimbursing === 'all'} style={{ fontSize: 13 }}>
+                            <button className="btn btn-primary" onClick={() => openReimburseModal('all')}
+                                disabled={reimbursing !== null} style={{ fontSize: 13 }}>
                                 {reimbursing === 'all' ? 'Processing...' : '💸 Reimburse All'}
                             </button>
                         )}
@@ -234,8 +312,8 @@ export default function TripDetails() {
                                     <td style={{ padding: '12px 10px', textAlign: 'center' }}>
                                         {parseFloat(emp.remaining) > 0 ? (
                                             <button className="btn btn-primary"
-                                                onClick={() => handleReimburseEmployee(emp.employee_id)}
-                                                disabled={reimbursing === emp.employee_id}
+                                                onClick={() => openReimburseModal(emp.employee_id)}
+                                                disabled={reimbursing !== null}
                                                 style={{ fontSize: 12, padding: '6px 14px' }}>
                                                 {reimbursing === emp.employee_id ? '...' : 'Reimburse'}
                                             </button>
@@ -254,6 +332,62 @@ export default function TripDetails() {
                 <div className="glass-card" style={{ padding: 24, marginTop: 20 }}>
                     <h3 style={{ margin: '0 0 8px', color: '#818cf8' }}>Notes</h3>
                     <p style={{ color: '#94a3b8', margin: 0 }}>{trip.notes}</p>
+                </div>
+            )}
+
+            {/* Reimburse Modal */}
+            {showReimburseModal && (
+                <div className="modal-overlay" onClick={() => setShowReimburseModal(false)}>
+                    <div className="modal-content glass-card fade-in" onClick={e => e.stopPropagation()}>
+                        <div className="modal-header">
+                            <h2>Process Reimbursement</h2>
+                            <button className="close-btn" onClick={() => setShowReimburseModal(false)}>&times;</button>
+                        </div>
+                        <p style={{ color: '#94a3b8', marginBottom: 16, fontSize: '0.9rem' }}>
+                            Choose payment method and source ledger for reimbursement.
+                        </p>
+                        <form onSubmit={handleReimburseSubmit}>
+                            <div className="form-group">
+                                <label>Payment Method</label>
+                                <select className="form-control" value={reimburseForm.method}
+                                    onChange={e => handleMethodChange(e.target.value)}>
+                                    <option value="">-- Select Method --</option>
+                                    {(paymentMethods || []).length > 0 ? (
+                                        paymentMethods.map(m => <option key={m.id} value={m.type}>{m.type}</option>)
+                                    ) : (
+                                        <>
+                                            <option value="Cash">Cash</option>
+                                            <option value="Bank Transfer">Bank Transfer</option>
+                                        </>
+                                    )}
+                                </select>
+                            </div>
+                            {reimburseForm.method && (
+                                <div className="form-group">
+                                    <label>Source Ledger</label>
+                                    <select className="form-control"
+                                        value={isCashMethod(reimburseForm.method) ? reimburseForm.source_wallet : reimburseForm.source_bank}
+                                        onChange={e => setReimburseForm({
+                                            ...reimburseForm,
+                                            [isCashMethod(reimburseForm.method) ? 'source_wallet' : 'source_bank']: e.target.value
+                                        })}>
+                                        <option value="">-- Select Source Ledger --</option>
+                                        {isCashMethod(reimburseForm.method) ? (
+                                            (wallets || []).map(w => <option key={w.id} value={w.id}>{w.name}</option>)
+                                        ) : (
+                                            (banks || []).map(b => <option key={b.id} value={b.id}>{b.name}</option>)
+                                        )}
+                                    </select>
+                                </div>
+                            )}
+                            <div className="modal-actions">
+                                <button type="button" className="btn btn-ghost" onClick={() => setShowReimburseModal(false)}>Cancel</button>
+                                <button type="submit" className="btn btn-success" disabled={reimbursing !== null}>
+                                    {reimbursing !== null ? 'Processing...' : '💸 Reimburse'}
+                                </button>
+                            </div>
+                        </form>
+                    </div>
                 </div>
             )}
         </div>

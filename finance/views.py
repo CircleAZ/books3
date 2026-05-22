@@ -171,9 +171,29 @@ class ExpenseViewSet(viewsets.ModelViewSet):
         })
         
         if serializer.is_valid():
-            payment = serializer.save(payer=request.user)
+            from django.db import transaction as db_transaction
+            from .services import LedgerService
+            
+            try:
+                with db_transaction.atomic():
+                    payment = serializer.save(payer=request.user)
+                    
+                    description = f"Payment for Expense: {expense.description or expense.id}"
+                    LedgerService.process_withdrawal(
+                        amount=payment.amount,
+                        source_bank=payment.source_bank,
+                        source_wallet=payment.source_wallet,
+                        reference=payment.reference or "",
+                        description=description,
+                        user=request.user,
+                        date=payment.payment_date
+                    )
+            except Exception as e:
+                logger.exception("add_payment failed for expense %s: %s", expense.id, e)
+                return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+                
             _audit_log('add_payment', 'Expense', expense.id, request.user,
-                       {'payment_amount': str(payment.amount), 'method': payment.method})
+                       {'payment_amount': str(payment.amount), 'method': payment.payment_method})
             expense.refresh_from_db()
             return Response(ExpenseSerializer(expense).data)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
@@ -540,6 +560,17 @@ class EmployeeExpenseViewSet(viewsets.ModelViewSet):
 
         source_bank_id = request.data.get('source_bank')
         source_wallet_id = request.data.get('source_wallet')
+
+        if not source_bank_id and not source_wallet_id:
+            return Response(
+                {'error': 'A reimbursement source (source_bank or source_wallet) is required.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        if source_bank_id and source_wallet_id:
+            return Response(
+                {'error': 'Select either a Bank Account or a Cash Wallet, not both.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
 
         try:
             source_bank = BankAccount.objects.get(pk=source_bank_id) if source_bank_id else None
@@ -1045,6 +1076,37 @@ class ExpenseTripViewSet(viewsets.ModelViewSet):
                 {'error': 'employee_id is required.'},
                 status=status.HTTP_400_BAD_REQUEST
             )
+        
+        source_bank_id = request.data.get('source_bank')
+        source_wallet_id = request.data.get('source_wallet')
+        if not source_bank_id and not source_wallet_id:
+            return Response(
+                {'error': 'A reimbursement source (source_bank or source_wallet) is required.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        if source_bank_id and source_wallet_id:
+            return Response(
+                {'error': 'Select either a Bank Account or a Cash Wallet, not both.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+            
+        from django.db import transaction as db_transaction
+        from .models import BankAccount, CashWallet
+        from .services import LedgerService
+        
+        bank = None
+        wallet = None
+        if source_bank_id:
+            try:
+                bank = BankAccount.objects.get(id=source_bank_id)
+            except BankAccount.DoesNotExist:
+                return Response({'error': 'Invalid source_bank ID.'}, status=status.HTTP_400_BAD_REQUEST)
+        if source_wallet_id:
+            try:
+                wallet = CashWallet.objects.get(id=source_wallet_id)
+            except CashWallet.DoesNotExist:
+                return Response({'error': 'Invalid source_wallet ID.'}, status=status.HTTP_400_BAD_REQUEST)
+
         emp_items = trip.items.filter(
             paid_by_type='employee',
             paid_by_employee_id=employee_id,
@@ -1055,49 +1117,133 @@ class ExpenseTripViewSet(viewsets.ModelViewSet):
                 {'error': 'No items found for this employee.'},
                 status=status.HTTP_404_NOT_FOUND
             )
+            
         now = timezone.now()
         method = request.data.get('method', 'cash')
-        count = 0
-        for item in emp_items:
-            if item.employee_expense and item.employee_expense.status != 'reimbursed':
-                item.employee_expense.status = 'reimbursed'
-                item.employee_expense.reimbursed_at = now
-                item.employee_expense.reimbursement_method = f"{method} (Trip: {trip.name})"
-                item.employee_expense.save()
-                count += 1
-        trip.recalculate_settlement()
+        reimburse_items = []
+        
+        try:
+            with db_transaction.atomic():
+                total_amount = Decimal('0.00')
+                for item in emp_items:
+                    if item.employee_expense and item.employee_expense.status != 'reimbursed':
+                        reimburse_items.append(item)
+                        total_amount += item.amount
+                        
+                if total_amount > 0:
+                    description = f"Reimbursement for Employee {employee_id} - Trip: {trip.name}"
+                    LedgerService.process_withdrawal(
+                        amount=total_amount,
+                        source_bank=bank,
+                        source_wallet=wallet,
+                        reference=f"Reimb: {trip.name}",
+                        description=description,
+                        user=request.user,
+                        date=now.date()
+                    )
+                    
+                    for item in reimburse_items:
+                        item.employee_expense.status = 'reimbursed'
+                        item.employee_expense.reimbursed_at = now
+                        item.employee_expense.reimbursement_method = f"{method} (Trip: {trip.name})"
+                        item.employee_expense.source_bank = bank
+                        item.employee_expense.source_wallet = wallet
+                        item.employee_expense.save()
+                        
+                trip.recalculate_settlement()
+        except Exception as e:
+            logger.exception("Trip reimburse_employee failed for trip %s, employee %s: %s", pk, employee_id, e)
+            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+            
         self._log('trip_reimbursed', trip, {
             'employee_id': str(employee_id),
-            'items_reimbursed': count,
+            'items_reimbursed': len(reimburse_items),
             'method': method,
         })
         return Response(ExpenseTripSerializer(trip).data)
-
+ 
     @action(detail=True, methods=['post'], url_path='reimburse-all')
     def reimburse_all(self, request, pk=None):
         """Reimburse all employee items in this trip."""
         trip = self.get_object()
+        
+        source_bank_id = request.data.get('source_bank')
+        source_wallet_id = request.data.get('source_wallet')
+        if not source_bank_id and not source_wallet_id:
+            return Response(
+                {'error': 'A reimbursement source (source_bank or source_wallet) is required.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        if source_bank_id and source_wallet_id:
+            return Response(
+                {'error': 'Select either a Bank Account or a Cash Wallet, not both.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+            
+        from django.db import transaction as db_transaction
+        from .models import BankAccount, CashWallet
+        from .services import LedgerService
+        
+        bank = None
+        wallet = None
+        if source_bank_id:
+            try:
+                bank = BankAccount.objects.get(id=source_bank_id)
+            except BankAccount.DoesNotExist:
+                return Response({'error': 'Invalid source_bank ID.'}, status=status.HTTP_400_BAD_REQUEST)
+        if source_wallet_id:
+            try:
+                wallet = CashWallet.objects.get(id=source_wallet_id)
+            except CashWallet.DoesNotExist:
+                return Response({'error': 'Invalid source_wallet ID.'}, status=status.HTTP_400_BAD_REQUEST)
+
         emp_items = trip.items.filter(
             paid_by_type='employee',
             is_deleted=False
         )
         now = timezone.now()
         method = request.data.get('method', 'cash')
-        count = 0
-        for item in emp_items:
-            if item.employee_expense and item.employee_expense.status != 'reimbursed':
-                item.employee_expense.status = 'reimbursed'
-                item.employee_expense.reimbursed_at = now
-                item.employee_expense.reimbursement_method = f"{method} (Trip: {trip.name})"
-                item.employee_expense.save()
-                count += 1
-        trip.recalculate_settlement()
+        reimburse_items = []
+        
+        try:
+            with db_transaction.atomic():
+                total_amount = Decimal('0.00')
+                for item in emp_items:
+                    if item.employee_expense and item.employee_expense.status != 'reimbursed':
+                        reimburse_items.append(item)
+                        total_amount += item.amount
+                        
+                if total_amount > 0:
+                    description = f"Reimbursement for All Employees - Trip: {trip.name}"
+                    LedgerService.process_withdrawal(
+                        amount=total_amount,
+                        source_bank=bank,
+                        source_wallet=wallet,
+                        reference=f"Reimb: {trip.name}",
+                        description=description,
+                        user=request.user,
+                        date=now.date()
+                    )
+                    
+                    for item in reimburse_items:
+                        item.employee_expense.status = 'reimbursed'
+                        item.employee_expense.reimbursed_at = now
+                        item.employee_expense.reimbursement_method = f"{method} (Trip: {trip.name})"
+                        item.employee_expense.source_bank = bank
+                        item.employee_expense.source_wallet = wallet
+                        item.employee_expense.save()
+                        
+                trip.recalculate_settlement()
+        except Exception as e:
+            logger.exception("Trip reimburse_all failed for trip %s: %s", pk, e)
+            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+            
         self._log('trip_reimbursed_all', trip, {
-            'items_reimbursed': count,
+            'items_reimbursed': len(reimburse_items),
             'method': method,
         })
         return Response({
-            'message': f'{count} items reimbursed.',
+            'message': f'{len(reimburse_items)} items reimbursed.',
             'trip': ExpenseTripSerializer(trip).data
         })
 

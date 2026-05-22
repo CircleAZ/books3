@@ -17,6 +17,8 @@ export default function CreateTrip() {
 
     const [categories, setCategories] = useState([]);
     const [employees, setEmployees] = useState([]);
+    const [banks, setBanks] = useState([]);
+    const [wallets, setWallets] = useState([]);
     const [saving, setSaving] = useState(false);
 
     const [tripName, setTripName] = useState('');
@@ -24,7 +26,7 @@ export default function CreateTrip() {
     const [purpose, setPurpose] = useState('');
     const [notes, setNotes] = useState('');
 
-    const emptyItem = { description: '', category: '', amount: '', paid_by_type: 'company', paid_by_employee: '' };
+    const emptyItem = { description: '', category: '', amount: '', paid_by_type: 'company', paid_by_employee: '', source_bank: '', source_wallet: '' };
     const [items, setItems] = useState([{ ...emptyItem }]);
 
     const fetchCategories = useCallback(async () => {
@@ -48,7 +50,32 @@ export default function CreateTrip() {
         } catch (_) { }
     }, [fetchWithAuth]);
 
-    useEffect(() => { fetchCategories(); fetchEmployees(); }, [fetchCategories, fetchEmployees]);
+    const fetchBanks = useCallback(async () => {
+        try {
+            const res = await fetchWithAuth(ENDPOINTS.FINANCE_BANK_ACCOUNTS + '?active_only=true');
+            if (res.ok) {
+                const data = await res.json();
+                setBanks(data.results || data || []);
+            }
+        } catch (_) {}
+    }, [fetchWithAuth]);
+
+    const fetchWallets = useCallback(async () => {
+        try {
+            const res = await fetchWithAuth(ENDPOINTS.FINANCE_CASH_WALLETS + '?active_only=true');
+            if (res.ok) {
+                const data = await res.json();
+                setWallets(data.results || data || []);
+            }
+        } catch (_) {}
+    }, [fetchWithAuth]);
+
+    useEffect(() => {
+        fetchCategories();
+        fetchEmployees();
+        fetchBanks();
+        fetchWallets();
+    }, [fetchCategories, fetchEmployees, fetchBanks, fetchWallets]);
 
     const updateItem = (idx, field, value) => {
         setItems(prev => prev.map((item, i) =>
@@ -100,6 +127,10 @@ export default function CreateTrip() {
                 showToast(`Line item ${i + 1} — select which employee paid.`, 'error');
                 return;
             }
+            if (item.paid_by_type === 'company' && !item.source_bank && !item.source_wallet) {
+                showToast(`Line item ${i + 1} — select a ledger source (bank or cash wallet).`, 'error');
+                return;
+            }
         }
 
         setSaving(true);
@@ -115,6 +146,8 @@ export default function CreateTrip() {
                     amount: parseFloat(item.amount),
                     paid_by_type: item.paid_by_type,
                     paid_by_employee: item.paid_by_type === 'employee' ? item.paid_by_employee : null,
+                    source_bank: item.paid_by_type === 'company' && item.source_bank ? Number(item.source_bank) : null,
+                    source_wallet: item.paid_by_type === 'company' && item.source_wallet ? Number(item.source_wallet) : null,
                 })),
             };
             const res = await fetchWithAuth(ENDPOINTS.FINANCE_EXPENSE_TRIPS, {
@@ -200,7 +233,7 @@ export default function CreateTrip() {
                                     </button>
                                 )}
                             </div>
-                            <div className="create-trip-4col">
+                            <div className={item.paid_by_type === 'company' ? "create-trip-5col" : "create-trip-4col"}>
                                 <div className="form-group" style={{ margin: 0 }}>
                                     <label style={{ fontSize: 12 }}>Description *</label>
                                     <input type="text" placeholder="e.g. Parking, Ticket"
@@ -232,7 +265,7 @@ export default function CreateTrip() {
                                             } else {
                                                 const empId = val.replace('emp_', '');
                                                 setItems(prev => prev.map((it, i) =>
-                                                    i === idx ? { ...it, paid_by_type: 'employee', paid_by_employee: empId } : it
+                                                    i === idx ? { ...it, paid_by_type: 'employee', paid_by_employee: empId, source_bank: '', source_wallet: '' } : it
                                                 ));
                                             }
                                         }}
@@ -243,6 +276,40 @@ export default function CreateTrip() {
                                         ))}
                                     </select>
                                 </div>
+                                {item.paid_by_type === 'company' && (
+                                    <div className="form-group" style={{ margin: 0 }}>
+                                        <label style={{ fontSize: 12 }}>Ledger Source *</label>
+                                        <select
+                                            value={item.source_bank ? `bank_${item.source_bank}` : item.source_wallet ? `wallet_${item.source_wallet}` : ''}
+                                            onChange={e => {
+                                                const val = e.target.value;
+                                                if (val.startsWith('bank_')) {
+                                                    updateItem(idx, 'source_bank', val.replace('bank_', ''));
+                                                    updateItem(idx, 'source_wallet', '');
+                                                } else if (val.startsWith('wallet_')) {
+                                                    updateItem(idx, 'source_wallet', val.replace('wallet_', ''));
+                                                    updateItem(idx, 'source_bank', '');
+                                                } else {
+                                                    updateItem(idx, 'source_bank', '');
+                                                    updateItem(idx, 'source_wallet', '');
+                                                }
+                                            }}
+                                            style={inputStyle}
+                                        >
+                                            <option value="">-- Select --</option>
+                                            <optgroup label="Bank Accounts">
+                                                {(banks || []).map(b => (
+                                                    <option key={b.id} value={`bank_${b.id}`}>{b.name}</option>
+                                                ))}
+                                            </optgroup>
+                                            <optgroup label="Cash Wallets">
+                                                {(wallets || []).map(w => (
+                                                    <option key={w.id} value={`wallet_${w.id}`}>{w.name}</option>
+                                                ))}
+                                            </optgroup>
+                                        </select>
+                                    </div>
+                                )}
                             </div>
                         </div>
                     ))}

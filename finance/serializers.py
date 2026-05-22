@@ -1,6 +1,7 @@
 """
 Serializers for Finance App.
 """
+import logging
 
 from decimal import Decimal
 from rest_framework import serializers
@@ -15,6 +16,8 @@ from .models import (
     ExpenseTrip, ExpenseTripItem, OpeningBalance
 )
 
+
+logger = logging.getLogger(__name__)
 
 # ======== Sanitization helper ========
 
@@ -68,11 +71,13 @@ class ExpenseCategorySerializer(serializers.ModelSerializer):
 
 class ExpensePaymentSerializer(serializers.ModelSerializer):
     payer_name = serializers.CharField(source='payer.username', read_only=True)
+    date = serializers.DateField(source='payment_date')
+    method = serializers.CharField(source='payment_method')
     
     class Meta:
         model = ExpensePayment
         fields = ['id', 'expense', 'date', 'amount', 'method', 'reference', 
-                  'payer', 'payer_name', 'receipt', 'notes', 'created_at']
+                  'payer', 'payer_name', 'receipt', 'notes', 'created_at', 'source_bank', 'source_wallet']
         read_only_fields = ['id', 'created_at']
 
     def validate_reference(self, value):
@@ -92,6 +97,19 @@ class ExpensePaymentSerializer(serializers.ModelSerializer):
                 raise serializers.ValidationError(
                     {'amount': 'Payment would exceed expense total amount.'}
                 )
+        
+        # Enforce exactly one source bank or source wallet
+        source_bank = data.get('source_bank')
+        source_wallet = data.get('source_wallet')
+        if not source_bank and not source_wallet:
+            raise serializers.ValidationError(
+                "A payment source (source_bank or source_wallet) is required."
+            )
+        if source_bank and source_wallet:
+            raise serializers.ValidationError(
+                "Select either a Bank Account or a Cash Wallet, not both."
+            )
+            
         return data
 
 
@@ -445,7 +463,7 @@ class ExpenseTripItemSerializer(serializers.ModelSerializer):
             'id', 'description', 'category', 'category_name', 'amount',
             'paid_by_type', 'paid_by_employee', 'paid_by_employee_name',
             'receipt', 'expense', 'employee_expense',
-            'reimbursement_status', 'created_at'
+            'reimbursement_status', 'created_at', 'source_bank', 'source_wallet'
         ]
         read_only_fields = ['id', 'expense', 'employee_expense', 'created_at']
 
@@ -457,6 +475,27 @@ class ExpenseTripItemSerializer(serializers.ModelSerializer):
 
     def validate_description(self, value):
         return _sanitize(value)
+
+    def validate(self, data):
+        paid_by_type = data.get('paid_by_type', 'company')
+        source_bank = data.get('source_bank')
+        source_wallet = data.get('source_wallet')
+        
+        if paid_by_type == 'company':
+            if not source_bank and not source_wallet:
+                raise serializers.ValidationError(
+                    "A payment source (source_bank or source_wallet) is required for company-paid items."
+                )
+            if source_bank and source_wallet:
+                raise serializers.ValidationError(
+                    "Select either a Bank Account or a Cash Wallet, not both."
+                )
+        else:
+            if source_bank or source_wallet:
+                raise serializers.ValidationError(
+                    "Employee-paid items cannot specify a company payment source."
+                )
+        return data
 
 
 class ExpenseTripSerializer(serializers.ModelSerializer):
@@ -536,47 +575,87 @@ class ExpenseTripSerializer(serializers.ModelSerializer):
         user = self.context['request'].user
         validated_data['created_by'] = user
 
-        trip = ExpenseTrip.objects.create(**validated_data)
+        from django.db import transaction as db_transaction
+        from .services import LedgerService
 
-        for item_data in items_data:
-            paid_by_type = item_data.get('paid_by_type', 'company')
-            trip_item = ExpenseTripItem.objects.create(trip=trip, **item_data)
+        try:
+            with db_transaction.atomic():
+                trip = ExpenseTrip.objects.create(**validated_data)
 
-            if paid_by_type == 'company':
-                # Create a company Expense record — marked as paid (company already spent)
-                expense = Expense.objects.create(
-                    date=trip.date,
-                    category=item_data['category'],
-                    payee_type='other',
-                    payee_name=f"Trip: {trip.name}",
-                    description=item_data['description'],
-                    amount=item_data['amount'],
-                    tax_amount=Decimal('0.00'),
-                    total_amount=item_data['amount'],
-                    paid_amount=item_data['amount'],  # Auto-paid: company already spent
-                    created_by=user
-                )
-                trip_item.expense = expense
-                trip_item.save(update_fields=['expense'])
-            else:
-                # Create an EmployeeExpense claim (auto-approved by admin)
-                employee = item_data.get('paid_by_employee')
-                if employee:
-                    emp_expense = EmployeeExpense.objects.create(
-                        employee=employee,
-                        date=trip.date,
-                        category=item_data['category'],
-                        description=f"Trip: {trip.name} — {item_data['description']}",
-                        amount=item_data['amount'],
-                        status='approved',
-                        reviewed_by=user,
-                        reviewed_at=timezone.now()
-                    )
-                    trip_item.employee_expense = emp_expense
-                    trip_item.save(update_fields=['employee_expense'])
+                for item_data in items_data:
+                    paid_by_type = item_data.get('paid_by_type', 'company')
+                    trip_item = ExpenseTripItem.objects.create(trip=trip, **item_data)
 
-        trip.recalculate_settlement()
-        return trip
+                    if paid_by_type == 'company':
+                        # Create a company Expense record
+                        expense = Expense.objects.create(
+                            date=trip.date,
+                            category=item_data['category'],
+                            payee_type='other',
+                            payee_name=f"Trip: {trip.name}",
+                            description=item_data['description'],
+                            amount=item_data['amount'],
+                            tax_amount=Decimal('0.00'),
+                            total_amount=item_data['amount'],
+                            paid_amount=Decimal('0.00'),
+                            approval_status=Expense.ApprovalStatus.APPROVED,
+                            approved_by=user,
+                            approved_at=timezone.now(),
+                            created_by=user
+                        )
+                        
+                        # Create ExpensePayment
+                        method = 'bank' if item_data.get('source_bank') else 'cash'
+                        ExpensePayment.objects.create(
+                            expense=expense,
+                            payment_date=trip.date,
+                            amount=item_data['amount'],
+                            payment_method=method,
+                            source_bank=item_data.get('source_bank'),
+                            source_wallet=item_data.get('source_wallet'),
+                            reference=f"Trip: {trip.name}",
+                            notes=f"Auto-created payment for trip item: {item_data['description']}",
+                            payer=user
+                        )
+                        
+                        # Withdraw from ledger using trip.date
+                        description = f"Trip Expense: {trip.name} - {item_data['description']}"
+                        LedgerService.process_withdrawal(
+                            amount=item_data['amount'],
+                            source_bank=item_data.get('source_bank'),
+                            source_wallet=item_data.get('source_wallet'),
+                            reference=f"Trip: {trip.name}",
+                            description=description,
+                            user=user,
+                            date=trip.date
+                        )
+                        
+                        trip_item.expense = expense
+                        trip_item.save(update_fields=['expense'])
+                    else:
+                        # Create an EmployeeExpense claim (auto-approved by admin)
+                        employee = item_data.get('paid_by_employee')
+                        if employee:
+                            emp_expense = EmployeeExpense.objects.create(
+                                employee=employee,
+                                date=trip.date,
+                                category=item_data['category'],
+                                description=f"Trip: {trip.name} — {item_data['description']}",
+                                amount=item_data['amount'],
+                                status='approved',
+                                reviewed_by=user,
+                                reviewed_at=timezone.now()
+                            )
+                            trip_item.employee_expense = emp_expense
+                            trip_item.save(update_fields=['employee_expense'])
+
+                trip.recalculate_settlement()
+                return trip
+        except serializers.ValidationError:
+            raise
+        except Exception as e:
+            logger.exception("ExpenseTrip creation failed: %s", e)
+            raise serializers.ValidationError({"detail": str(e)})
 
     def update(self, instance, validated_data):
         items_data = validated_data.pop('items', None)

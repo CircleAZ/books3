@@ -9,17 +9,18 @@ logger = logging.getLogger(__name__)
 
 class LedgerService:
     @staticmethod
-    def process_deposit(amount, destination_bank=None, destination_wallet=None, reference="", description="", user=None):
+    def process_deposit(amount, destination_bank=None, destination_wallet=None, reference="", description="", user=None, date=None):
         if not destination_bank and not destination_wallet:
             return  # Legacy or null routing
             
+        tx_date = date or timezone.now().date()
         with transaction.atomic():
             if destination_bank:
                 # Lock row to prevent race conditions during transaction creation
                 bank = BankAccount.objects.select_for_update().get(id=destination_bank.id)
                 BankTransaction.objects.create(
                     account=bank,
-                    date=timezone.now().date(),
+                    date=tx_date,
                     transaction_type='deposit',
                     amount=amount,
                     reference=reference,
@@ -37,14 +38,16 @@ class LedgerService:
                     reference_id=reference,
                     description=description,
                     balance_after=wallet.balance,
+                    date=tx_date,
                     created_by=user
                 )
 
     @staticmethod
-    def process_withdrawal(amount, source_bank=None, source_wallet=None, reference="", description="", user=None):
+    def process_withdrawal(amount, source_bank=None, source_wallet=None, reference="", description="", user=None, date=None):
         if not source_bank and not source_wallet:
             return
             
+        tx_date = date or timezone.now().date()
         with transaction.atomic():
             if source_bank:
                 bank = BankAccount.objects.select_for_update().get(id=source_bank.id)
@@ -53,7 +56,7 @@ class LedgerService:
                 
                 return BankTransaction.objects.create(
                     account=bank,
-                    date=timezone.now().date(),
+                    date=tx_date,
                     transaction_type='withdrawal',
                     amount=amount,
                     reference=reference,
@@ -73,6 +76,7 @@ class LedgerService:
                     reference_id=reference,
                     description=description,
                     balance_after=wallet.balance,
+                    date=tx_date,
                     created_by=user
                 )
             return None
