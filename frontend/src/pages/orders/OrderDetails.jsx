@@ -407,6 +407,36 @@ export default function OrderDetails() {
         }
     };
 
+    const handleResyncPrice = async (item) => {
+        if (!window.confirm(`Are you sure you want to resync the price for ${item.product_name}?\n\nThis will update the line item to use the current market price of the product and immediately recalculate the entire order total.`)) return;
+
+        try {
+            const response = await fetchWithAuth(`${ENDPOINTS.ORDERS}${id}/resync_item_price/`, {
+                method: 'POST',
+                body: JSON.stringify({ order_item_id: item.id })
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+                if (data.old_price === data.new_price) {
+                    showToast(`Price is already up to date at ${currency}${Number(data.new_price).toFixed(2)}`, 'info');
+                } else {
+                    showToast(
+                        `Price resynced from ${currency}${Number(data.old_price).toFixed(2)} to ${currency}${Number(data.new_price).toFixed(2)}`,
+                        'success'
+                    );
+                    fetchOrderDetails();
+                }
+            } else {
+                const err = await response.json();
+                showToast(`Error: ${err.error || 'Failed to resync price'}`, 'error');
+            }
+        } catch (error) {
+            console.error("Error resyncing price:", error);
+            showToast("Failed to resync price", 'error');
+        }
+    };
+
     const openEditPaymentModal = (payment) => {
         setEditPaymentData({
             id: payment.id,
@@ -790,7 +820,23 @@ export default function OrderDetails() {
                                                 <span className="product-id">#{item.product_display_id}</span>
                                             </div>
                                         </td>
-                                        <td>{currency}{Number(item.unit_price).toFixed(2)}</td>
+                                        <td>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                                {currency}{Number(item.unit_price).toFixed(2)}
+                                                {order.can_edit && order.delivery_status !== 'delivered' && (
+                                                    <GuardedAction permission="orders.edit_orders">
+                                                        <button 
+                                                            className="btn btn-ghost btn-sm" 
+                                                            onClick={(e) => { e.stopPropagation(); handleResyncPrice(item); }}
+                                                            title="Resync to current market price"
+                                                            style={{ padding: '2px 4px', fontSize: '1rem', lineHeight: 1 }}
+                                                        >
+                                                            🔄
+                                                        </button>
+                                                    </GuardedAction>
+                                                )}
+                                            </div>
+                                        </td>
                                         <td>{item.confirmed_quantity ?? item.quantity}</td>
                                         <td>
                                             <span style={{

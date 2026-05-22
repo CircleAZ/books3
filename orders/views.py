@@ -397,6 +397,75 @@ class OrderViewSet(viewsets.ModelViewSet):
 
         return Response(serializer.data)
 
+    @action(detail=True, methods=['post'])
+    def resync_item_price(self, request, pk=None):
+        """Resync a specific order item's unit price with the current product selling price."""
+        order = self.get_object()
+        
+        if order.order_status in ['completed', 'cancelled']:
+            return Response(
+                {'error': f'Cannot resync prices on a {order.order_status} order'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+            
+        if order.delivery_status == 'delivered':
+            return Response(
+                {'error': 'Cannot resync prices on a fully delivered order'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+            
+        item_id = request.data.get('order_item_id')
+        if not item_id:
+            return Response({'error': 'order_item_id is required'}, status=status.HTTP_400_BAD_REQUEST)
+            
+        try:
+            with transaction.atomic():
+                # Lock order
+                order = Order.objects.select_for_update().get(pk=order.pk)
+                
+                # Check status again inside lock
+                if order.order_status in ['completed', 'cancelled'] or order.delivery_status == 'delivered':
+                    return Response({'error': 'Cannot resync prices on this order due to its current status'}, status=status.HTTP_400_BAD_REQUEST)
+                
+                # Get item
+                from orders.models import OrderItem
+                try:
+                    item = order.items.select_related('product').get(pk=item_id)
+                except OrderItem.DoesNotExist:
+                    return Response({'error': 'Item not found in this order'}, status=status.HTTP_404_NOT_FOUND)
+
+                old_price = item.unit_price
+                new_price = item.product.selling_price
+                
+                if old_price == new_price:
+                    return Response({'message': 'Price is already up to date', 'new_price': new_price})
+                    
+                item.unit_price = new_price
+                item.save(update_fields=['unit_price', 'line_total', 'discount_amount', 'cost_price'])
+                
+                # Recalculate order totals and statuses
+                order.calculate_totals()
+                order.update_payment_status()
+                
+                # Audit trail
+                OrderStatusHistory.objects.create(
+                    order=order, status_field='order_details',
+                    old_value=f'Item {item.product.name} @ {old_price}', 
+                    new_value=f'Item {item.product.name} @ {new_price}',
+                    note='Resynced item price to current product selling price', 
+                    created_by=request.user
+                )
+                
+        except Exception as e:
+            logger.exception("Error resyncing price")
+            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            
+        return Response({
+            'status': 'Price resynced successfully',
+            'old_price': old_price,
+            'new_price': new_price
+        })
+
     def get_serializer_class(self):
         if self.action == 'list':
             return OrderListSerializer
