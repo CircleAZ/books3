@@ -402,15 +402,15 @@ class OrderViewSet(viewsets.ModelViewSet):
         """Resync a specific order item's unit price with the current product selling price."""
         order = self.get_object()
         
-        if order.order_status in ['completed', 'cancelled']:
+        if order.order_status == 'cancelled':
             return Response(
-                {'error': f'Cannot resync prices on a {order.order_status} order'},
+                {'error': 'Cannot resync prices on a cancelled order'},
                 status=status.HTTP_400_BAD_REQUEST
             )
             
-        if order.delivery_status == 'delivered':
+        if order.derived_status == 'Order Complete':
             return Response(
-                {'error': 'Cannot resync prices on a fully delivered order'},
+                {'error': 'Cannot resync prices on a fully settled and completed order'},
                 status=status.HTTP_400_BAD_REQUEST
             )
             
@@ -424,7 +424,7 @@ class OrderViewSet(viewsets.ModelViewSet):
                 order = Order.objects.select_for_update().get(pk=order.pk)
                 
                 # Check status again inside lock
-                if order.order_status in ['completed', 'cancelled'] or order.delivery_status == 'delivered':
+                if order.order_status == 'cancelled' or order.derived_status == 'Order Complete':
                     return Response({'error': 'Cannot resync prices on this order due to its current status'}, status=status.HTTP_400_BAD_REQUEST)
                 
                 # Get item

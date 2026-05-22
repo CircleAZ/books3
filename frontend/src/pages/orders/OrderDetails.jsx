@@ -823,7 +823,7 @@ export default function OrderDetails() {
                                         <td>
                                             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                                                 {currency}{Number(item.unit_price).toFixed(2)}
-                                                {order.can_edit && order.delivery_status !== 'delivered' && (
+                                                {order.derived_status !== 'Order Complete' && order.order_status !== 'cancelled' && (
                                                     <GuardedAction permission="orders.edit_orders">
                                                         <button 
                                                             className="btn btn-ghost btn-sm" 
