@@ -9,16 +9,25 @@ from .serializers import (OutletSerializer, OutletStockSerializer,
                           OutletStockTransferSerializer, OutletStockReturnSerializer,
                           OutletDailySaleSerializer, OutletPaymentSerializer,
                           OutletProductCommissionSerializer)
+from core.permissions import HasRequiredPermission
 
 class OutletViewSet(viewsets.ModelViewSet):
     queryset = Outlet.objects.with_financials().all()
     serializer_class = OutletSerializer
+    permission_classes = [HasRequiredPermission]
+    required_permission = 'outlets.manage_outlet'
+    permission_map = {
+        'list': 'outlets.view_outlet',
+        'retrieve': 'outlets.view_outlet',
+    }
 
 class OutletStockViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = OutletStock.objects.select_related(
         'outlet', 'product', 'product__category', 'product__vendor'
     ).prefetch_related('product__images')
     serializer_class = OutletStockSerializer
+    permission_classes = [HasRequiredPermission]
+    required_permission = 'outlets.view_outlet'
     filter_backends = [DjangoFilterBackend]
     filterset_fields = ['outlet', 'product']
 
@@ -29,6 +38,12 @@ class OutletProductCommissionViewSet(viewsets.ModelViewSet):
     """
     queryset = OutletProductCommission.objects.select_related('product')
     serializer_class = OutletProductCommissionSerializer
+    permission_classes = [HasRequiredPermission]
+    required_permission = 'outlets.manage_outlet'
+    permission_map = {
+        'list': 'outlets.view_outlet',
+        'retrieve': 'outlets.view_outlet',
+    }
     filter_backends = [DjangoFilterBackend]
     filterset_fields = ['outlet', 'product']
 
@@ -75,6 +90,8 @@ class OutletStockTransferViewSet(viewsets.ModelViewSet):
         'items__product__vendor', 'items__product__images'
     )
     serializer_class = OutletStockTransferSerializer
+    permission_classes = [HasRequiredPermission]
+    required_permission = 'outlets.manage_transfer'
     filter_backends = [DjangoFilterBackend]
     filterset_fields = ['outlet', 'status']
 
@@ -98,6 +115,8 @@ class OutletStockReturnViewSet(viewsets.ModelViewSet):
         'items__product__vendor', 'items__product__images'
     )
     serializer_class = OutletStockReturnSerializer
+    permission_classes = [HasRequiredPermission]
+    required_permission = 'outlets.manage_return'
     filter_backends = [DjangoFilterBackend]
     filterset_fields = ['outlet', 'status', 'reason']
 
@@ -121,6 +140,12 @@ class OutletDailySaleViewSet(viewsets.ModelViewSet):
         'items__product__vendor', 'items__product__images'
     )
     serializer_class = OutletDailySaleSerializer
+    permission_classes = [HasRequiredPermission]
+    required_permission = 'outlets.manage_outlet'
+    permission_map = {
+        'list': 'outlets.view_outlet',
+        'retrieve': 'outlets.view_outlet',
+    }
     filter_backends = [DjangoFilterBackend]
     filterset_fields = ['outlet', 'date']
 
@@ -130,6 +155,12 @@ class OutletDailySaleViewSet(viewsets.ModelViewSet):
 class OutletPaymentViewSet(viewsets.ModelViewSet):
     queryset = OutletPayment.objects.select_related('outlet', 'recorded_by')
     serializer_class = OutletPaymentSerializer
+    permission_classes = [HasRequiredPermission]
+    required_permission = 'outlets.manage_outlet'
+    permission_map = {
+        'list': 'outlets.view_outlet',
+        'retrieve': 'outlets.view_outlet',
+    }
     filter_backends = [DjangoFilterBackend]
     filterset_fields = ['outlet', 'payment_method', 'date']
 

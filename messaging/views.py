@@ -1,5 +1,6 @@
 """Messaging app views."""
 from rest_framework import viewsets, permissions, status
+from core.permissions import HasRequiredPermission
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from django.utils import timezone
@@ -47,7 +48,8 @@ class MessageTemplateViewSet(viewsets.ModelViewSet):
     """Message template CRUD."""
     queryset = MessageTemplate.objects.all()
     serializer_class = MessageTemplateSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [HasRequiredPermission]
+    required_permission = 'settings.manage_store'
     
     def get_queryset(self):
         queryset = super().get_queryset()
@@ -84,7 +86,8 @@ class MessageTemplateViewSet(viewsets.ModelViewSet):
 class MessageQueueViewSet(viewsets.ModelViewSet):
     """Message queue management."""
     queryset = MessageQueue.objects.select_related('gateway', 'template')
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [HasRequiredPermission]
+    required_permission = 'settings.manage_store'
     
     def get_serializer_class(self):
         if self.action == 'create':

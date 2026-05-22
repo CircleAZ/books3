@@ -29,7 +29,7 @@ export default function Dashboard() {
                 const promises = [];
                 const keys = [];
 
-                if (hasPermission('orders.view_orders') || hasPermission('reports.view_sales_reports')) {
+                if (hasPermission('orders.view_orders') || hasPermission('reports.view_sales')) {
                     promises.push(fetchWithAuth(ENDPOINTS.DASHBOARD_STATS));
                     keys.push('stats');
                     promises.push(fetchWithAuth(ENDPOINTS.DASHBOARD_SALES_TREND));
@@ -86,9 +86,9 @@ export default function Dashboard() {
             </section>
 
             {/* Stats Grid */}
-            {(hasPermission('orders.view_orders') || hasPermission('reports.view_sales_reports') || hasPermission('inventory.view_products')) && (
+            {(hasPermission('orders.view_orders') || hasPermission('reports.view_sales') || hasPermission('inventory.view_products')) && (
                 <div className="stats-grid">
-                    {(hasPermission('orders.view_orders') || hasPermission('reports.view_sales_reports')) && (
+                    {(hasPermission('orders.view_orders') || hasPermission('reports.view_sales')) && (
                         <>
                             <StatCard
                                 title="Today's Sales"
@@ -126,7 +126,7 @@ export default function Dashboard() {
             )}
 
             {/* Charts Section */}
-            {(hasPermission('orders.view_orders') || hasPermission('reports.view_sales_reports')) && (
+            {(hasPermission('orders.view_orders') || hasPermission('reports.view_sales')) && (
                 <div className="charts-grid">
                     <SalesTrendChart data={salesTrend} />
                     {hasPermission('inventory.view_products') && <TopProductsChart data={topProducts} />}
@@ -157,7 +157,7 @@ export default function Dashboard() {
                     </div>
                 )}
 
-                {hasPermission('reports.view_sales_reports') && <CoverageWidget />}
+                {hasPermission('reports.view_sales') && <CoverageWidget />}
             </div>
 
             <section className="quick-actions-section">
@@ -181,7 +181,7 @@ export default function Dashboard() {
                             <span>Add Customer</span>
                         </a>
                     )}
-                    {hasPermission('reports.view_sales_reports') && (
+                    {hasPermission('reports.view_sales') && (
                         <a href="/reports" className="quick-action-card">
                             <span className="action-icon">📊</span>
                             <span>View Reports</span>

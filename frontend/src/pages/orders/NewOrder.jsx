@@ -6,6 +6,7 @@ import { ENDPOINTS } from '../../config/api';
 import AddCustomer from '../customers/AddCustomer';
 import { useToast } from '../../context/ToastContext';
 import { compressImage } from '../../utils/imageCompression';
+import UniversalPaymentEngine from '../../components/common/UniversalPaymentEngine';
 import '../NewOrder.css';
 
 import '../../styles/components/form-layout.css';
@@ -29,15 +30,12 @@ export default function NewOrder() {
     const [orderDiscount, setOrderDiscount] = useState({ type: 'fixed', value: 0 });
 
     const [paymentMethod, setPaymentMethod] = useState('cash');
-    const [selectedUpiAccount, setSelectedUpiAccount] = useState('');
-    const [paymentAmount, setPaymentAmount] = useState('');
     const [payments, setPayments] = useState([]);
+    
+    // UPE Integrations
+    const [currentPaymentPayload, setCurrentPaymentPayload] = useState(null);
+    const [upiReferenceInput, setUpiReferenceInput] = useState('');
 
-    const [availablePaymentMethods, setAvailablePaymentMethods] = useState([]);
-    const [availableUpiAccounts, setAvailableUpiAccounts] = useState([]);
-    const [availableBankAccounts, setAvailableBankAccounts] = useState([]);
-    const [availableCashWallets, setAvailableCashWallets] = useState([]);
-    const [selectedDestination, setSelectedDestination] = useState('');
     const [availableCategories, setAvailableCategories] = useState([]);
 
     const [isLoading, setIsLoading] = useState(false);
@@ -281,45 +279,9 @@ export default function NewOrder() {
         const fetchSettings = async () => {
             try {
                 // Fire all 5 requests simultaneously — no data dependencies between them
-                const [methodsRes, upiRes, bankRes, walletRes, catRes] = await Promise.allSettled([
-                    fetchWithAuth(ENDPOINTS.SETTINGS_PAYMENT_METHODS),
-                    fetchWithAuth(ENDPOINTS.SETTINGS_UPI_ACCOUNTS),
-                    fetchWithAuth(ENDPOINTS.FINANCE_BANK_ACCOUNTS + '?active_only=true'),
-                    fetchWithAuth(ENDPOINTS.FINANCE_CASH_WALLETS + '?active_only=true'),
-                    fetchWithAuth(ENDPOINTS.INVENTORY_CATEGORIES),
+                const [catRes] = await Promise.allSettled([
+                    fetchWithAuth(ENDPOINTS.INVENTORY_CATEGORIES)
                 ]);
-
-                // Process payment methods
-                if (methodsRes.status === 'fulfilled' && methodsRes.value.ok) {
-                    const methodsData = await methodsRes.value.json();
-                    const enabled = (methodsData.results || methodsData).filter(m => m.is_enabled);
-                    setAvailablePaymentMethods(enabled);
-                    if (enabled.length > 0) {
-                        setPaymentMethod(enabled[0].id);
-                    }
-                }
-
-                // Process UPI accounts
-                if (upiRes.status === 'fulfilled' && upiRes.value.ok) {
-                    const upiData = await upiRes.value.json();
-                    const active = (upiData.results || upiData).filter(u => u.is_active);
-                    setAvailableUpiAccounts(active);
-                    if (active.length > 0) {
-                        setSelectedUpiAccount(active[0].upi_id);
-                    }
-                }
-
-                // Process bank accounts
-                if (bankRes.status === 'fulfilled' && bankRes.value.ok) {
-                    const bankData = await bankRes.value.json();
-                    setAvailableBankAccounts(bankData.results || bankData);
-                }
-
-                // Process cash wallets
-                if (walletRes.status === 'fulfilled' && walletRes.value.ok) {
-                    const walletData = await walletRes.value.json();
-                    setAvailableCashWallets(walletData.results || walletData);
-                }
 
                 // Process categories — sort alphabetically by name for dropdown
                 if (catRes.status === 'fulfilled' && catRes.value.ok) {
@@ -455,7 +417,8 @@ export default function NewOrder() {
 
     // Payment Logic
     const addPayment = () => {
-        const amt = parseFloat(paymentAmount);
+        if (!currentPaymentPayload) return;
+        const amt = parseFloat(currentPaymentPayload.amount);
         if (isNaN(amt) || amt <= 0) return;
 
         // VULN-2 fix: Warn on overpayment (allow but confirm)
@@ -465,55 +428,29 @@ export default function NewOrder() {
             }
         }
 
-        let destination_bank = null;
-        let destination_wallet = null;
+        const isUpi = currentPaymentPayload.payment_method === 'upi';
+        let upi_reference = '';
+        if (isUpi) {
+            upi_reference = upiReferenceInput.trim() || `QR-PAY-${Date.now()}`;
+        }
         
-        let methodDesc = paymentMethod;
-
-        if (paymentMethod === 'Customer Wallet') {
+        let methodDesc = currentPaymentPayload.payment_method;
+        if (methodDesc === 'store_credit') {
+            methodDesc = 'Customer Wallet';
             const wBal = selectedCustomer ? parseFloat(selectedCustomer.wallet_balance) : 0;
             if (!selectedCustomer || isNaN(wBal) || wBal < amt) {
                 showToast(`Error: Insufficient wallet balance (₹${wBal.toFixed(2)}).`, 'error');
                 return;
             }
-        } else {
-            const methodObj = availablePaymentMethods.find(m => m.id === paymentMethod);
-            const typeStr = methodObj ? methodObj.type : paymentMethod;
-            const currentType = (typeStr || '').toLowerCase();
-            methodDesc = methodObj ? methodObj.type : (currentType === 'cash' ? 'Cash' : 'UPI');
-
-            if (currentType.includes('cash') || currentType.includes('legacy')) {
-                destination_wallet = selectedDestination || (availableCashWallets.length > 0 ? availableCashWallets[0].id : null);
-                if (!destination_wallet) {
-                    showToast('Error: No active Cash Wallet found. Contact Admin.', 'error');
-                    return;
-                }
-            } else if (currentType === 'upi') {
-                const upiObj = availableUpiAccounts.find(u => u.upi_id === selectedUpiAccount);
-                if (!upiObj || !upiObj.linked_bank_account) {
-                    showToast('Error: Selected UPI Account has no linked bank account. Contact Admin.', 'error');
-                    return;
-                }
-                destination_bank = upiObj.linked_bank_account;
-            } else {
-                // Card or Bank
-                if (!methodObj || !methodObj.linked_bank_account) {
-                    showToast('Error: Selected Payment Method has no linked bank account. Contact Admin.', 'error');
-                    return;
-                }
-                destination_bank = methodObj.linked_bank_account;
-            }
         }
 
         setPayments(prev => [...prev, {
+            ...currentPaymentPayload,
             method: methodDesc,
-            amount: amt,
-            destination_bank,
-            destination_wallet,
-            upi_reference: paymentMethod === 'Customer Wallet' ? '' : (methodDesc.toLowerCase() === 'upi' ? `QR-PAY-${Date.now()}` : ''),
+            upi_reference,
             timestamp: new Date().toISOString()
         }]);
-        setPaymentAmount('');
+        setUpiReferenceInput('');
     };
 
     // VULN-5 fix: Individual payment removal
@@ -637,11 +574,11 @@ export default function NewOrder() {
                     discount_value: item.discountValue
                 })),
                 payments: payments.map(p => ({
-                    method: p.method,
+                    method: p.method === 'Customer Wallet' ? 'customer_wallet' : p.payment_method,
                     amount: p.amount,
-                    destination_bank: p.destination_bank,
-                    destination_wallet: p.destination_wallet,
-                    upi_reference: p.upi_reference
+                    destination_bank: p.destination_bank || null,
+                    destination_wallet: p.destination_wallet || null,
+                    upi_reference: p.upi_reference || ''
                 }))
             };
 
@@ -708,11 +645,7 @@ export default function NewOrder() {
         }
     };
 
-    const currentMethodObj = useMemo(() => availablePaymentMethods.find(m => m.id === paymentMethod), [availablePaymentMethods, paymentMethod]);
-    // Infer the behavior type from the dynamic string since the enum was removed
-    const typeString = (currentMethodObj ? currentMethodObj.type : paymentMethod).toLowerCase();
-    const isCash = typeString.includes('cash');
-    const isUpi = typeString.includes('upi') || typeString.includes('gpay') || typeString.includes('phonepe') || typeString.includes('paytm');
+    // Removed legacy UI helpers for manual payment state
 
     return (
         <div className="pos-container fade-in">
@@ -1057,93 +990,34 @@ export default function NewOrder() {
                 </div>
 
                 <div className="payment-section">
-                    <div className="payment-controls">
-                        <select
-                            className="form-control form-select"
-                            value={paymentMethod}
-                            onChange={e => setPaymentMethod(e.target.value)}
-                        >
-                            {availablePaymentMethods.length > 0 ? (
-                                <>
-                                    {availablePaymentMethods.map(method => (
-                                        <option key={method.id} value={method.id}>
-                                            {method.type}
-                                        </option>
-                                    ))}
-                                    {selectedCustomer && parseFloat(selectedCustomer.wallet_balance) > 0 && (
-                                        <option value="Customer Wallet">
-                                            Customer Wallet (Bal: {currency}{parseFloat(selectedCustomer.wallet_balance).toFixed(2)})
-                                        </option>
-                                    )}
-                                </>
-                            ) : (
-                                <>
-                                    <option value="cash">Cash</option>
-                                    <option value="upi">UPI</option>
-                                    {selectedCustomer && parseFloat(selectedCustomer.wallet_balance) > 0 && (
-                                        <option value="Customer Wallet">
-                                            Customer Wallet (Bal: {currency}{parseFloat(selectedCustomer.wallet_balance).toFixed(2)})
-                                        </option>
-                                    )}
-                                </>
-                            )}
-                        </select>
-                        
-                        {isCash && (
-                            <select
-                                className="form-control form-select"
-                                value={selectedDestination}
-                                onChange={e => setSelectedDestination(e.target.value)}
-                            >
-                                {availableCashWallets.map(w => (
-                                    <option key={w.id} value={w.id}>{w.name}</option>
-                                ))}
-                            </select>
-                        )}
-                        <input
-                            type="number"
-                            className="form-control"
-                            placeholder="Amount"
-                            value={paymentAmount}
-                            onChange={e => setPaymentAmount(e.target.value)}
-                            onKeyPress={e => e.key === 'Enter' && addPayment()}
-                        />
-                        <button className="btn btn-primary btn-sm" onClick={addPayment}>Add</button>
-                    </div>
-
-                    {/* UPI Account Selector */}
-                    {isUpi && availableUpiAccounts.length > 0 && (
-                        <div className="upi-account-selector mt-2">
-                            <label className="small text-muted">Select UPI Account:</label>
-                            <select
-                                className="form-control form-select"
-                                value={selectedUpiAccount}
-                                onChange={e => setSelectedUpiAccount(e.target.value)}
-                            >
-                                {availableUpiAccounts.map(account => (
-                                    <option key={account.id} value={account.upi_id}>
-                                        {account.display_name} ({account.upi_id})
-                                    </option>
-                                ))}
-                            </select>
-                        </div>
-                    )}
-
-                    {/* QR Code Display */}
-                    {isUpi && paymentAmount > 0 && selectedUpiAccount && (() => {
-                        const upiUrl = `upi://pay?pa=${selectedUpiAccount}&pn=AZBooks&am=${paymentAmount}&cu=INR`;
-                        const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(upiUrl)}`;
-                        return (
-                            <div className="upi-qr-code text-center my-2">
-                                <img
-                                    src={qrUrl}
-                                    alt="UPI QR Code"
-                                    style={{ border: '1px solid #ddd', borderRadius: '8px' }}
+                    <UniversalPaymentEngine
+                        key={payments.length} // Force reset on add
+                        transactionType="inflow"
+                        allowedMethods={['cash', 'upi', 'bank', 'cheque', ...(selectedCustomer && parseFloat(selectedCustomer.wallet_balance) > 0 ? ['store_credit'] : [])]}
+                        initialAmount={balanceDue > 0 ? balanceDue : ''}
+                        onValidPayload={setCurrentPaymentPayload}
+                    >
+                        {/* Option C: UPI Reference Input Fallback */}
+                        {currentPaymentPayload && currentPaymentPayload.payment_method === 'upi' && (
+                            <div className="form-group" style={{ marginTop: '10px' }}>
+                                <label className="small text-muted">UPI Reference (Optional):</label>
+                                <input 
+                                    type="text"
+                                    className="form-control form-control-sm"
+                                    placeholder={`e.g. UTR (Defaults to QR-PAY-...)`}
+                                    value={upiReferenceInput}
+                                    onChange={e => setUpiReferenceInput(e.target.value)}
                                 />
-                                <div className="small text-muted mt-1">Scan to pay {currency}{paymentAmount}</div>
                             </div>
-                        );
-                    })()}
+                        )}
+                        <button 
+                            className="btn btn-primary btn-sm w-100 mt-2" 
+                            disabled={!currentPaymentPayload}
+                            onClick={addPayment}
+                        >
+                            Add Payment
+                        </button>
+                    </UniversalPaymentEngine>
 
                     <div className="payments-list">
                         {payments.map((p, idx) => (

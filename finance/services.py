@@ -64,7 +64,7 @@ class LedgerService:
                 )
 
     @staticmethod
-    def process_withdrawal(amount, source_bank=None, source_wallet=None, reference="", description="", user=None, date=None):
+    def process_withdrawal(amount, source_bank=None, source_wallet=None, reference="", description="", user=None, date=None, allow_overdraft=False):
         if not source_bank and not source_wallet:
             return
             
@@ -72,7 +72,7 @@ class LedgerService:
         with transaction.atomic():
             if source_bank:
                 bank = BankAccount.objects.select_for_update().get(id=source_bank.id)
-                if bank.current_balance - Decimal(str(amount)) < 0:
+                if not allow_overdraft and (bank.current_balance - Decimal(str(amount)) < 0):
                     raise ValidationError(f"Insufficient funds in bank account: {bank.name}")
                 
                 return BankTransaction.objects.create(
@@ -87,7 +87,7 @@ class LedgerService:
             elif source_wallet:
                 wallet = CashWallet.objects.select_for_update().get(id=source_wallet.id)
                 wallet.balance -= Decimal(str(amount))
-                if wallet.balance < 0:
+                if not allow_overdraft and wallet.balance < 0:
                     raise ValidationError(f"Insufficient funds in cash wallet: {wallet.name}")
                 wallet.save(update_fields=['balance'])
                 return CashWalletTransaction.objects.create(

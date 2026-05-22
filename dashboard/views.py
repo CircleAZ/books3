@@ -1,6 +1,7 @@
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
+from core.permissions import HasRequiredPermission
 from decimal import Decimal
 from django.db.models import Sum, Count, F
 from django.db.models.functions import TruncDate
@@ -32,7 +33,8 @@ def _business_today():
 
 
 class DashboardStatsView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [HasRequiredPermission]
+    required_permission = ['reports.view_sales', 'orders.view_orders']
 
     def get(self, request):
         today_start, now_biz = _business_today()
@@ -74,7 +76,8 @@ class DashboardStatsView(APIView):
         return Response(serializer.data)
 
 class TopProductsView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [HasRequiredPermission]
+    required_permission = 'inventory.view_products'
 
     def get(self, request):
         # Top 5 products by quantity sold — ONLY valid sales (excludes draft/cancelled)
@@ -100,7 +103,8 @@ class TopProductsView(APIView):
         return Response(serializer.data)
 
 class SalesTrendView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [HasRequiredPermission]
+    required_permission = ['reports.view_sales', 'orders.view_orders']
 
     def get(self, request):
         # Last 7 days trend — using business timezone for day boundaries
@@ -129,7 +133,8 @@ class SalesTrendView(APIView):
         return Response(serializer.data)
 
 class RecentOrdersView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [HasRequiredPermission]
+    required_permission = 'orders.view_orders'
 
     def get(self, request):
         orders = Order.objects.select_related('customer').all().order_by('-created_at')[:5]

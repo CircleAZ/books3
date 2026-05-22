@@ -4,6 +4,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
 import { ENDPOINTS } from '../../config/api';
 import { getPurchaseOrderUrl, getReceiveUrl, PROCUREMENT_ENDPOINTS } from '../../services/procurementService';
+import UniversalPaymentEngine from '../../components/common/UniversalPaymentEngine';
 
 export default function PODetail() {
     const { id } = useParams();
@@ -27,14 +28,7 @@ export default function PODetail() {
 
     // Record Payment
     const [showPayment, setShowPayment] = useState(false);
-    const [payMethod, setPayMethod] = useState('cash');
-    const [payAmount, setPayAmount] = useState('');
-    const [wallets, setWallets] = useState([]);
-    const [banks, setBanks] = useState([]);
-    const [employees, setEmployees] = useState([]);
-    const [selectedWallet, setSelectedWallet] = useState('');
-    const [selectedBank, setSelectedBank] = useState('');
-    const [selectedEmployee, setSelectedEmployee] = useState('');
+    const [paymentEnginePayload, setPaymentEnginePayload] = useState(null);
 
     // Bypasses
     const [bypassInventoryVolume, setBypassInventoryVolume] = useState(false);
@@ -65,19 +59,7 @@ export default function PODetail() {
 
     useEffect(() => { fetchPO(); }, [fetchPO]);
 
-    // Fetch wallets + banks + employees for payment form
-    useEffect(() => {
-        if (!showPayment) return;
-        Promise.allSettled([
-            fetchWithAuth(ENDPOINTS.FINANCE_CASH_WALLETS + '?active_only=true'),
-            fetchWithAuth(ENDPOINTS.FINANCE_BANK_ACCOUNTS + '?active_only=true'),
-            fetchWithAuth(ENDPOINTS.SETTINGS_USERS),
-        ]).then(([wRes, bRes, eRes]) => {
-            if (wRes.status === 'fulfilled' && wRes.value.ok) wRes.value.json().then(d => { setWallets(d.results || d); });
-            if (bRes.status === 'fulfilled' && bRes.value.ok) bRes.value.json().then(d => { setBanks(d.results || d); });
-            if (eRes.status === 'fulfilled' && eRes.value.ok) eRes.value.json().then(d => { setEmployees((d.results || d).filter(u => u.is_active)); });
-        });
-    }, [showPayment, fetchWithAuth]);
+    // Wallet/Bank fetching logic for payment modal is handled by UniversalPaymentEngine.
 
     const openReceiveModal = () => {
         // S5: Auto-fill with remaining packs
@@ -144,20 +126,18 @@ export default function PODetail() {
     };
 
     const handleRecordPayment = async () => {
+        if (!paymentEnginePayload) return;
+
         const payload = { 
             purchase_order: id, 
-            amount: payAmount, 
-            payment_method: payMethod,
+            ...paymentEnginePayload,
             bypass_finance_expense: bypassFinanceExpense,
             bypass_finance_ledger: bypassFinanceLedger
         };
-        if (payMethod === 'cash' && selectedWallet) payload.source_wallet = selectedWallet;
-        if (payMethod === 'bank' && selectedBank) payload.source_bank = selectedBank;
-        if (payMethod === 'employee_expense' && selectedEmployee) payload.paid_by_employee = selectedEmployee;
 
         try {
             const res = await fetchWithAuth(PROCUREMENT_ENDPOINTS.PAYMENTS, { method: 'POST', body: JSON.stringify(payload) });
-            if (res.ok) { showToast('Payment recorded', 'success'); setShowPayment(false); setPayAmount(''); fetchPO(); }
+            if (res.ok) { showToast('Payment recorded', 'success'); setShowPayment(false); setPaymentEnginePayload(null); fetchPO(); }
             else { const e = await res.json(); showToast('Error: ' + (e.detail || JSON.stringify(e)), 'error'); }
         } catch (e) { showToast('Failed to record payment', 'error'); }
     };
@@ -371,62 +351,47 @@ export default function PODetail() {
                     <div style={{ background: 'var(--color-bg-primary)', borderRadius: '12px', padding: '1.5rem', maxWidth: '400px', width: '100%' }} onClick={e => e.stopPropagation()}>
                         <h3 style={{ margin: '0 0 1rem' }}>Record Payment</h3>
                         <p style={{ fontSize: '0.85rem', color: 'var(--color-text-secondary)', marginBottom: '12px' }}>Balance due: ₹{balanceDue.toFixed(2)}</p>
-                        <select className="form-control" value={payMethod} onChange={e => setPayMethod(e.target.value)} style={{ width: '100%', marginBottom: '10px' }}>
-                            <option value="cash">Cash</option><option value="bank">Bank Transfer</option><option value="employee_expense">Employee Expense</option>
-                        </select>
-                        {payMethod === 'cash' && wallets.length > 0 && (
-                            <select className="form-control" value={selectedWallet} onChange={e => setSelectedWallet(e.target.value)} style={{ width: '100%', marginBottom: '10px' }}>
-                                <option value="">Select wallet...</option>
-                                {wallets.map(w => <option key={w.id} value={w.id}>{w.name} (₹{parseFloat(w.balance).toFixed(2)})</option>)}
-                            </select>
-                        )}
-                        {payMethod === 'bank' && banks.length > 0 && (
-                            <select className="form-control" value={selectedBank} onChange={e => setSelectedBank(e.target.value)} style={{ width: '100%', marginBottom: '10px' }}>
-                                <option value="">Select bank...</option>
-                                {banks.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
-                            </select>
-                        )}
-                        {payMethod === 'employee_expense' && (
-                            <select className="form-control" value={selectedEmployee} onChange={e => setSelectedEmployee(e.target.value)} style={{ width: '100%', marginBottom: '10px' }}>
-                                <option value="">Select employee who paid...</option>
-                                {employees.map(e => <option key={e.id} value={e.id}>{e.first_name && e.last_name ? `${e.first_name} ${e.last_name}` : e.username}</option>)}
-                            </select>
-                        )}
-                        <input type="number" min="0.01" step="0.01" placeholder="Amount (₹)" value={payAmount} onChange={e => setPayAmount(e.target.value)} className="form-control" style={{ width: '100%', marginBottom: '10px' }} />
                         
-                        {rbac?.is_superuser && (
-                            <div style={{ marginTop: '0.5rem', marginBottom: '1rem', padding: '1rem', background: '#ef444411', border: '1px solid #ef444444', borderRadius: '8px' }}>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
-                                    <input type="checkbox" id="masterFinBypass" 
-                                        checked={bypassFinanceExpense && bypassFinanceLedger} 
-                                        onChange={e => {
-                                            setBypassFinanceExpense(e.target.checked);
-                                            setBypassFinanceLedger(e.target.checked);
-                                        }} 
-                                    />
-                                    <label htmlFor="masterFinBypass" style={{ color: '#ef4444', fontWeight: 600, fontSize: '0.9rem' }}>Master Finance Bypass (Historical Migration)</label>
-                                </div>
-                                <button className="btn btn-ghost btn-sm" style={{ padding: '0', fontSize: '0.8rem', color: 'var(--color-text-secondary)' }} onClick={() => setShowAdvancedPaymentBypass(!showAdvancedPaymentBypass)}>
-                                    {showAdvancedPaymentBypass ? 'Hide Advanced' : 'Show Advanced Granular Controls'}
-                                </button>
-                                {showAdvancedPaymentBypass && (
-                                    <div style={{ marginTop: '8px', paddingLeft: '24px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                            <input type="checkbox" id="bypassExp" checked={bypassFinanceExpense} onChange={e => setBypassFinanceExpense(e.target.checked)} />
-                                            <label htmlFor="bypassExp" style={{ fontSize: '0.85rem' }}>Bypass Expense Ledger Generation</label>
-                                        </div>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                            <input type="checkbox" id="bypassLedg" checked={bypassFinanceLedger} onChange={e => setBypassFinanceLedger(e.target.checked)} />
-                                            <label htmlFor="bypassLedg" style={{ fontSize: '0.85rem' }}>Bypass Cash/Bank Withdrawal</label>
-                                        </div>
+                        <UniversalPaymentEngine
+                            transactionType="outflow"
+                            allowedMethods={['cash', 'bank', 'employee_expense']}
+                            maxAmount={balanceDue}
+                            onValidPayload={setPaymentEnginePayload}
+                        >
+                            {rbac?.is_superuser && (
+                                <div style={{ marginTop: '0.5rem', marginBottom: '1rem', padding: '1rem', background: '#ef444411', border: '1px solid #ef444444', borderRadius: '8px' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+                                        <input type="checkbox" id="masterFinBypass" 
+                                            checked={bypassFinanceExpense && bypassFinanceLedger} 
+                                            onChange={e => {
+                                                setBypassFinanceExpense(e.target.checked);
+                                                setBypassFinanceLedger(e.target.checked);
+                                            }} 
+                                        />
+                                        <label htmlFor="masterFinBypass" style={{ color: '#ef4444', fontWeight: 600, fontSize: '0.9rem' }}>Master Finance Bypass (Historical Migration)</label>
                                     </div>
-                                )}
-                            </div>
-                        )}
+                                    <button className="btn btn-ghost btn-sm" style={{ padding: '0', fontSize: '0.8rem', color: 'var(--color-text-secondary)' }} onClick={() => setShowAdvancedPaymentBypass(!showAdvancedPaymentBypass)}>
+                                        {showAdvancedPaymentBypass ? 'Hide Advanced' : 'Show Advanced Granular Controls'}
+                                    </button>
+                                    {showAdvancedPaymentBypass && (
+                                        <div style={{ marginTop: '8px', paddingLeft: '24px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                <input type="checkbox" id="bypassExp" checked={bypassFinanceExpense} onChange={e => setBypassFinanceExpense(e.target.checked)} />
+                                                <label htmlFor="bypassExp" style={{ fontSize: '0.85rem' }}>Bypass Expense Ledger Generation</label>
+                                            </div>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                <input type="checkbox" id="bypassLedg" checked={bypassFinanceLedger} onChange={e => setBypassFinanceLedger(e.target.checked)} />
+                                                <label htmlFor="bypassLedg" style={{ fontSize: '0.85rem' }}>Bypass Cash/Bank Withdrawal</label>
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+                        </UniversalPaymentEngine>
 
                         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
                             <button className="btn btn-ghost" onClick={closePaymentModal}>Cancel</button>
-                            <button className="btn btn-primary" onClick={handleRecordPayment} disabled={!payAmount || (payMethod === 'employee_expense' && !selectedEmployee)}>Record Payment</button>
+                            <button className="btn btn-primary" onClick={handleRecordPayment} disabled={!paymentEnginePayload}>Record Payment</button>
                         </div>
                     </div>
                 </div>

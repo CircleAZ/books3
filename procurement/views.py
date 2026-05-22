@@ -1,4 +1,5 @@
 from rest_framework import viewsets, status, permissions
+from core.permissions import HasRequiredPermission
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from django.db import transaction
@@ -19,11 +20,13 @@ from .services import ProcurementService
 class TransporterViewSet(viewsets.ModelViewSet):
     queryset = Transporter.objects.all()
     serializer_class = TransporterSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [HasRequiredPermission]
+    required_permission = 'inventory.manage_stock'
 
 class PurchaseOrderViewSet(viewsets.ModelViewSet):
     queryset = PurchaseOrder.objects.select_related('vendor', 'created_by').prefetch_related('items', 'charges', 'payments').all().order_by('-created_at')
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [HasRequiredPermission]
+    required_permission = 'inventory.manage_stock'
 
     def get_serializer_class(self):
         if self.action in ['list']:
@@ -271,7 +274,8 @@ class PurchaseOrderViewSet(viewsets.ModelViewSet):
 class PurchaseChargeViewSet(viewsets.ModelViewSet):
     queryset = PurchaseCharge.objects.select_related('transporter').all()
     serializer_class = PurchaseChargeSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [HasRequiredPermission]
+    required_permission = 'inventory.manage_stock'
     
     def perform_create(self, serializer):
         charge = serializer.save()
@@ -293,7 +297,8 @@ class PurchaseChargeViewSet(viewsets.ModelViewSet):
 class PurchasePaymentViewSet(viewsets.ModelViewSet):
     queryset = PurchasePayment.objects.select_related('paid_by_employee', 'finance_expense', 'source_wallet', 'source_bank').all()
     serializer_class = PurchasePaymentSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [HasRequiredPermission]
+    required_permission = 'inventory.manage_stock'
 
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)

@@ -971,34 +971,25 @@ class Refund(UUIDPrimaryKeyModel):
         
     def _reverse_ledgers(self):
         """Reverse any linked financial transactions due to refund cancellation."""
+        from finance.services import LedgerService
         if self.bank_transaction:
-            from finance.models import BankTransaction
-            # Issue a reversing deposit
-            BankTransaction.objects.create(
-                account=self.bank_transaction.account,
-                date=self.bank_transaction.date,
-                transaction_type='deposit',
+            LedgerService.process_deposit(
                 amount=self.bank_transaction.amount,
+                destination_bank=self.bank_transaction.account,
                 reference=f"Reversal of {self.transaction_id}",
                 description=f"Refund Reversal for Order #{self.order.display_id}",
-                is_reconciled=False
+                date=self.bank_transaction.date,
+                user=self.created_by
             )
             
         if self.wallet_transaction:
-            from finance.models import CashWalletTransaction, CashWallet
-            wallet = CashWallet.objects.select_for_update().get(pk=self.wallet_transaction.wallet.pk)
-            new_balance = wallet.balance + self.wallet_transaction.amount
-            CashWalletTransaction.objects.create(
-                wallet=wallet,
-                transaction_type='deposit',
+            LedgerService.process_deposit(
                 amount=self.wallet_transaction.amount,
-                reference_id=f"Reversal of {self.transaction_id}",
+                destination_wallet=self.wallet_transaction.wallet,
+                reference=f"Reversal of {self.transaction_id}",
                 description=f"Refund Reversal for Order #{self.order.display_id}",
-                balance_after=new_balance,
-                created_by=self.created_by
+                user=self.created_by
             )
-            wallet.balance = new_balance
-            wallet.save(update_fields=['balance'])
             
         if self.customer_wallet_transaction:
             from customers.models import Wallet

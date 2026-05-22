@@ -1954,19 +1954,16 @@ class OpeningBalanceViewSet(viewsets.GenericViewSet,
 
                 # Process cash deposit if wallet specified and amount > 0
                 if wallet_id and opening_cash > 0:
-                    from .models import CashWallet, CashWalletTransaction
-                    wallet = CashWallet.objects.select_for_update().get(id=wallet_id)
-                    wallet.balance += opening_cash
-                    wallet.save(update_fields=['balance'])
-                    CashWalletTransaction.objects.create(
-                        wallet=wallet,
-                        transaction_type='deposit',
+                    from .models import CashWallet
+                    from .services import LedgerService
+                    wallet = CashWallet.objects.get(id=wallet_id)
+                    LedgerService.process_deposit(
                         amount=opening_cash,
-                        reference_id=f'opening_capital_{ob.id}',
+                        destination_wallet=wallet,
+                        reference=f'opening_capital_{ob.id}',
                         description=f'Opening capital: {data["label"]}',
-                        balance_after=wallet.balance,
                         date=effective_date,
-                        created_by=request.user,
+                        user=request.user
                     )
                     ob.wallet = wallet
                     ob.cash_recorded = True

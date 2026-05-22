@@ -4,6 +4,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useCurrency } from '../../context/CurrencyContext';
 import { useToast } from '../../context/ToastContext';
 import { ENDPOINTS } from '../../config/api';
+import UniversalPaymentEngine from '../../components/common/UniversalPaymentEngine';
 import './LoanDetails.css';
 
 import '../../styles/components/form-layout.css';
@@ -24,31 +25,20 @@ export default function LoanDetails() {
         amount: '',
         principal_portion: '',
         interest_portion: '',
-        method: '',
-        source_bank: '',
-        source_wallet: '',
         reference: '',
         notes: ''
     });
+    const [repayPayload, setRepayPayload] = useState(null);
 
-    const isCashMethod = (method) => {
-        if (!method) return false;
-        return method.toLowerCase().includes('cash');
-    };
     const [disburseFormData, setDisburseFormData] = useState({
         date: new Date().toISOString().split('T')[0],
         amount: '',
-        destination_type: 'bank',
-        destination_bank: '',
-        destination_wallet: '',
         reference: '',
         notes: ''
     });
+    const [disbursePayload, setDisbursePayload] = useState(null);
     const [submitting, setSubmitting] = useState(false);
     const [deleting, setDeleting] = useState(false);
-    const [availablePaymentMethods, setAvailablePaymentMethods] = useState([]);
-    const [bankAccounts, setBankAccounts] = useState([]);
-    const [cashWallets, setCashWallets] = useState([]);
 
     const fetchLoanDetails = useCallback(async () => {
         setLoading(true);
@@ -61,26 +51,8 @@ export default function LoanDetails() {
                 console.error('Failed to fetch loan details');
             }
 
-            // Fetch Payment Methods
-            const methodRes = await fetchWithAuth(ENDPOINTS.SETTINGS_PAYMENT_METHODS);
-            if (methodRes.ok) {
-                const methodData = await methodRes.json();
-                setAvailablePaymentMethods((methodData.results || methodData).filter(m => m.is_enabled));
-            }
-
-            // Fetch Bank Accounts
-            const bankRes = await fetchWithAuth(ENDPOINTS.FINANCE_BANK_ACCOUNTS);
-            if (bankRes.ok) {
-                const bankData = await bankRes.json();
-                setBankAccounts(bankData.results || bankData || []);
-            }
-
-            // Fetch Cash Wallets
-            const walletRes = await fetchWithAuth(ENDPOINTS.FINANCE_CASH_WALLETS);
-            if (walletRes.ok) {
-                const walletData = await walletRes.json();
-                setCashWallets(walletData.results || walletData || []);
-            }
+            // Removed manual fetching of payment methods, banks, and wallets.
+            // UniversalPaymentEngine handles it.
         } catch (error) {
             console.error('Error fetching loan details:', error);
         } finally {
@@ -104,16 +76,17 @@ export default function LoanDetails() {
 
     const handleRepayment = async (e) => {
         e.preventDefault();
+        if (!repayPayload) return;
         setSubmitting(true);
         try {
-            const payload = { ...repayFormData };
-            if (isCashMethod(repayFormData.method)) {
-                payload.source_wallet = repayFormData.source_wallet || null;
-                payload.source_bank = null;
-            } else {
-                payload.source_bank = repayFormData.source_bank || null;
-                payload.source_wallet = null;
+            const payload = { ...repayFormData, ...repayPayload };
+            
+            // MAP UPE OUTPUT TO LEGACY ENDPOINT SCHEMA
+            if (payload.payment_method) {
+                payload.method = payload.payment_method;
+                delete payload.payment_method;
             }
+            
             const response = await fetchWithAuth(`${ENDPOINTS.FINANCE_LOANS}${id}/repay/`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -128,12 +101,10 @@ export default function LoanDetails() {
                     amount: '',
                     principal_portion: '',
                     interest_portion: '',
-                    method: '',
-                    source_bank: '',
-                    source_wallet: '',
                     reference: '',
                     notes: ''
                 });
+                setRepayPayload(null);
                 fetchLoanDetails();
             } else {
                 const errorData = await response.json();
@@ -149,6 +120,7 @@ export default function LoanDetails() {
 
     const handleDisbursement = async (e) => {
         e.preventDefault();
+        if (!disbursePayload) return;
         setSubmitting(true);
         try {
             const payload = {
@@ -156,12 +128,11 @@ export default function LoanDetails() {
                 amount: disburseFormData.amount,
                 reference: disburseFormData.reference,
                 notes: disburseFormData.notes,
+                ...disbursePayload
             };
-            if (disburseFormData.destination_type === 'bank') {
-                payload.destination_bank = disburseFormData.destination_bank;
-            } else {
-                payload.destination_wallet = disburseFormData.destination_wallet;
-            }
+            
+            // Clean up standard UPE fields that this specific endpoint doesn't accept
+            delete payload.payment_method;
 
             const response = await fetchWithAuth(`${ENDPOINTS.FINANCE_LOANS}${id}/disburse/`, {
                 method: 'POST',
@@ -175,12 +146,10 @@ export default function LoanDetails() {
                 setDisburseFormData({
                     date: new Date().toISOString().split('T')[0],
                     amount: '',
-                    destination_type: 'bank',
-                    destination_bank: '',
-                    destination_wallet: '',
                     reference: '',
                     notes: ''
                 });
+                setDisbursePayload(null);
                 fetchLoanDetails();
             } else {
                 const errorData = await response.json();
@@ -370,43 +339,16 @@ export default function LoanDetails() {
                                     <label>Interest Portion ({currency})</label>
                                     <input type="number" name="interest_portion" value={repayFormData.interest_portion} onChange={handleInputChange} />
                                 </div>
-                                <div className="form-group">
-                                    <label>Payment Method</label>
-                                    <select name="method" value={repayFormData.method} onChange={handleInputChange} required>
-                                        <option value="">-- Select Method --</option>
-                                        {availablePaymentMethods.length > 0 ? (
-                                            availablePaymentMethods.map(method => (
-                                                <option key={method.id} value={method.type}>{method.type}</option>
-                                            ))
-                                        ) : (
-                                            <>
-                                                <option value="Cash">Cash</option>
-                                                <option value="Bank Transfer">Bank Transfer</option>
-                                            </>
-                                        )}
-                                    </select>
-                                </div>
-                                {repayFormData.method && (
-                                    <div className="form-group">
-                                        <label>Source Ledger</label>
-                                        <select
-                                            name={isCashMethod(repayFormData.method) ? 'source_wallet' : 'source_bank'}
-                                            value={isCashMethod(repayFormData.method) ? repayFormData.source_wallet : repayFormData.source_bank}
-                                            onChange={handleInputChange}
-                                        >
-                                            <option value="">-- Select Source --</option>
-                                            {isCashMethod(repayFormData.method) ? (
-                                                cashWallets.map(w => (
-                                                    <option key={w.id} value={w.id}>{w.name} ({currency}{parseFloat(w.balance || 0).toLocaleString()})</option>
-                                                ))
-                                            ) : (
-                                                bankAccounts.map(b => (
-                                                    <option key={b.id} value={b.id}>{b.account_name || b.bank_name} — {b.account_number}</option>
-                                                ))
-                                            )}
-                                        </select>
-                                    </div>
-                                )}
+                            </div>
+                            
+                            <UniversalPaymentEngine
+                                transactionType="outflow"
+                                allowedMethods={['cash', 'bank']}
+                                hideAmount={true}
+                                onValidPayload={setRepayPayload}
+                            />
+                            
+                            <div className="form-grid">
                                 <div className="form-group">
                                     <label>Reference #</label>
                                     <input type="text" name="reference" value={repayFormData.reference} onChange={handleInputChange} placeholder="TXN ID, Cheque #" />
@@ -418,7 +360,7 @@ export default function LoanDetails() {
                             </div>
                             <div className="modal-actions">
                                 <button type="button" className="btn btn-ghost" onClick={() => setShowRepayModal(false)}>Cancel</button>
-                                <button type="submit" className="btn btn-primary" disabled={submitting}>
+                                <button type="submit" className="btn btn-primary" disabled={submitting || !repayPayload}>
                                     {submitting ? 'Submitting...' : 'Record Repayment'}
                                 </button>
                             </div>
@@ -456,38 +398,16 @@ export default function LoanDetails() {
                                         required
                                     />
                                 </div>
-                                <div className="form-group">
-                                    <label>Destination Type *</label>
-                                    <select name="destination_type" value={disburseFormData.destination_type} onChange={handleDisburseInputChange}>
-                                        <option value="bank">Bank Account</option>
-                                        <option value="wallet">Cash Wallet</option>
-                                    </select>
-                                </div>
-                                {disburseFormData.destination_type === 'bank' ? (
-                                    <div className="form-group">
-                                        <label>Bank Account *</label>
-                                        <select name="destination_bank" value={disburseFormData.destination_bank} onChange={handleDisburseInputChange} required>
-                                            <option value="">-- Select Account --</option>
-                                            {bankAccounts.map(account => (
-                                                <option key={account.id} value={account.id}>
-                                                    {account.account_name || account.bank_name} — {account.account_number}
-                                                </option>
-                                            ))}
-                                        </select>
-                                    </div>
-                                ) : (
-                                    <div className="form-group">
-                                        <label>Cash Wallet *</label>
-                                        <select name="destination_wallet" value={disburseFormData.destination_wallet} onChange={handleDisburseInputChange} required>
-                                            <option value="">-- Select Wallet --</option>
-                                            {cashWallets.map(wallet => (
-                                                <option key={wallet.id} value={wallet.id}>
-                                                    {wallet.name}
-                                                </option>
-                                            ))}
-                                        </select>
-                                    </div>
-                                )}
+                            </div>
+                            
+                            <UniversalPaymentEngine
+                                transactionType="inflow"
+                                allowedMethods={['cash', 'bank']}
+                                hideAmount={true}
+                                onValidPayload={setDisbursePayload}
+                            />
+
+                            <div className="form-grid">
                                 <div className="form-group">
                                     <label>Reference #</label>
                                     <input type="text" name="reference" value={disburseFormData.reference} onChange={handleDisburseInputChange} placeholder="TXN ID" />
@@ -499,7 +419,7 @@ export default function LoanDetails() {
                             </div>
                             <div className="modal-actions">
                                 <button type="button" className="btn btn-ghost" onClick={() => setShowDisburseModal(false)}>Cancel</button>
-                                <button type="submit" className="btn btn-primary" disabled={submitting}>
+                                <button type="submit" className="btn btn-primary" disabled={submitting || !disbursePayload}>
                                     {submitting ? 'Processing...' : 'Record Disbursement'}
                                 </button>
                             </div>

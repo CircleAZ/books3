@@ -6,6 +6,7 @@ import { useToast } from '../../context/ToastContext';
 import { ENDPOINTS } from '../../config/api';
 import { sanitizeFKFields, sanitizeNumericFields, sanitizeDecimalFields } from '../../utils/payloadSanitizer';
 import MapComponent from '../../components/MapComponent';
+import UniversalPaymentEngine from '../../components/common/UniversalPaymentEngine';
 import './CustomerDetails.css';
 
 import '../../styles/components/form-layout.css';
@@ -33,15 +34,13 @@ const CustomerDetails = () => {
 
     // Withdrawal State
     const [showWithdrawModal, setShowWithdrawModal] = useState(false);
-    const [cashWallets, setCashWallets] = useState([]);
-    const [withdrawForm, setWithdrawForm] = useState({ amount: '', destination_wallet: '' });
+    const [withdrawPayload, setWithdrawPayload] = useState(null);
     const [withdrawError, setWithdrawError] = useState('');
     const [isWithdrawing, setIsWithdrawing] = useState(false);
 
     // Legacy Debt Settlement State
     const [showLegacyDebtModal, setShowLegacyDebtModal] = useState(false);
-    const [bankAccounts, setBankAccounts] = useState([]);
-    const [legacyDebtForm, setLegacyDebtForm] = useState({ amount: '', destination_wallet: '', destination_bank: '' });
+    const [legacyDebtPayload, setLegacyDebtPayload] = useState(null);
     const [legacyDebtError, setLegacyDebtError] = useState('');
     const [isSettlingDebt, setIsSettlingDebt] = useState(false);
 
@@ -160,22 +159,12 @@ const CustomerDetails = () => {
     const handleOpenWithdraw = async () => {
         setShowWithdrawModal(true);
         setWithdrawError('');
-        setWithdrawForm({ amount: '', destination_wallet: '' });
-        try {
-            const res = await fetchWithAuth(ENDPOINTS.FINANCE_CASH_WALLETS);
-            if (res.ok) {
-                const data = await res.json();
-                const active = data.filter(w => w.is_active);
-                setCashWallets(active);
-                if (active.length > 0) {
-                    setWithdrawForm(prev => ({ ...prev, destination_wallet: active[0].id }));
-                }
-            }
-        } catch (e) { console.error("Error fetching cash wallets", e); }
+        setWithdrawPayload(null);
     };
 
     const handleWithdraw = async (e) => {
         e.preventDefault();
+        if (!withdrawPayload) return;
         setIsWithdrawing(true);
         setWithdrawError('');
         try {
@@ -184,7 +173,7 @@ const CustomerDetails = () => {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(
                     sanitizeDecimalFields(
-                        sanitizeFKFields({ ...withdrawForm }, ['destination_wallet']),
+                        sanitizeFKFields({ ...withdrawPayload }, ['destination_wallet']),
                         ['amount']
                     )
                 )
@@ -207,33 +196,14 @@ const CustomerDetails = () => {
     const handleOpenLegacyDebt = async () => {
         setShowLegacyDebtModal(true);
         setLegacyDebtError('');
-        setLegacyDebtForm({ amount: '', destination_wallet: '', destination_bank: '' });
-        try {
-            const [walletsRes, banksRes] = await Promise.all([
-                fetchWithAuth(ENDPOINTS.FINANCE_CASH_WALLETS),
-                fetchWithAuth(ENDPOINTS.FINANCE_BANK_ACCOUNTS)
-            ]);
-            
-            if (walletsRes.ok) {
-                const data = await walletsRes.json();
-                const active = data.filter(w => w.is_active);
-                setCashWallets(active);
-                if (active.length > 0) {
-                    setLegacyDebtForm(prev => ({ ...prev, destination_wallet: active[0].id }));
-                }
-            }
-            if (banksRes.ok) {
-                const data = await banksRes.json();
-                const active = data.filter(b => b.is_active);
-                setBankAccounts(active);
-            }
-        } catch (e) { console.error("Error fetching financial accounts", e); }
+        setLegacyDebtPayload(null);
     };
 
     const handleSettleLegacyDebt = async (e) => {
         e.preventDefault();
         
-        if (!legacyDebtForm.destination_wallet && !legacyDebtForm.destination_bank) {
+        if (!legacyDebtPayload) return;
+        if (!legacyDebtPayload.destination_wallet && !legacyDebtPayload.destination_bank) {
             setLegacyDebtError('Please select a destination account for the funds.');
             return;
         }
@@ -243,10 +213,10 @@ const CustomerDetails = () => {
         
         const payload = sanitizeDecimalFields(
             sanitizeFKFields({
-                amount: legacyDebtForm.amount,
+                amount: legacyDebtPayload.amount,
                 is_fresh_cash: true,
-                destination_wallet_id: legacyDebtForm.destination_wallet || null,
-                destination_bank_id: legacyDebtForm.destination_bank || null
+                destination_wallet_id: legacyDebtPayload.destination_wallet || null,
+                destination_bank_id: legacyDebtPayload.destination_bank || null
             }, ['destination_wallet_id', 'destination_bank_id']),
             ['amount']
         );
@@ -743,37 +713,15 @@ const CustomerDetails = () => {
                         </p>
                         {withdrawError && <div className="payment-error text-danger" style={{ marginBottom: '1rem' }}>{withdrawError}</div>}
                         <form onSubmit={handleWithdraw}>
-                            <div className="form-group">
-                                <label>Amount to Withdraw ({currency})</label>
-                                <input
-                                    type="number"
-                                    step="0.01"
-                                    min="0.01"
-                                    max={wallet?.balance}
-                                    value={withdrawForm.amount}
-                                    onChange={e => setWithdrawForm({ ...withdrawForm, amount: e.target.value })}
-                                    className="form-control"
-                                    required
-                                    autoFocus
-                                />
-                            </div>
-                            <div className="form-group">
-                                <label>Source Physical Cash Wallet</label>
-                                <select
-                                    className="form-control"
-                                    value={withdrawForm.destination_wallet}
-                                    onChange={e => setWithdrawForm({ ...withdrawForm, destination_wallet: e.target.value })}
-                                    required
-                                >
-                                    <option value="">-- Select Cash Drawer --</option>
-                                    {cashWallets.map(w => (
-                                        <option key={w.id} value={w.id}>{w.name}</option>
-                                    ))}
-                                </select>
-                            </div>
+                            <UniversalPaymentEngine
+                                transactionType="inflow"
+                                allowedMethods={['cash']}
+                                maxAmount={wallet?.balance}
+                                onValidPayload={setWithdrawPayload}
+                            />
                             <div className="modal-actions" style={{ marginTop: '1.5rem' }}>
                                 <button type="button" className="btn btn-ghost" onClick={() => setShowWithdrawModal(false)}>Cancel</button>
-                                <button type="submit" className="btn btn-danger" disabled={isWithdrawing || !withdrawForm.amount || !withdrawForm.destination_wallet}>
+                                <button type="submit" className="btn btn-danger" disabled={isWithdrawing || !withdrawPayload}>
                                     {isWithdrawing ? 'Processing...' : 'Confirm Withdrawal'}
                                 </button>
                             </div>
@@ -792,55 +740,16 @@ const CustomerDetails = () => {
                         </p>
                         {legacyDebtError && <div className="payment-error text-danger" style={{ marginBottom: '1rem' }}>{legacyDebtError}</div>}
                         <form onSubmit={handleSettleLegacyDebt}>
-                            <div className="form-group">
-                                <label>Amount Received ({currency})</label>
-                                <input
-                                    type="number"
-                                    step="0.01"
-                                    min="0.01"
-                                    max={customer?.legacy_debt_remaining}
-                                    value={legacyDebtForm.amount}
-                                    onChange={e => setLegacyDebtForm({ ...legacyDebtForm, amount: e.target.value })}
-                                    className="form-control"
-                                    required
-                                    autoFocus
-                                />
-                            </div>
-                            
-                            <div className="form-row">
-                                <div className="form-group col-6">
-                                    <label>Deposit to Cash Wallet</label>
-                                    <select
-                                        className="form-control"
-                                        value={legacyDebtForm.destination_wallet}
-                                        onChange={e => setLegacyDebtForm({ ...legacyDebtForm, destination_wallet: e.target.value, destination_bank: '' })}
-                                        disabled={!!legacyDebtForm.destination_bank}
-                                    >
-                                        <option value="">-- None --</option>
-                                        {cashWallets.map(w => (
-                                            <option key={w.id} value={w.id}>{w.name}</option>
-                                        ))}
-                                    </select>
-                                </div>
-                                <div className="form-group col-6">
-                                    <label>Or Bank Account</label>
-                                    <select
-                                        className="form-control"
-                                        value={legacyDebtForm.destination_bank}
-                                        onChange={e => setLegacyDebtForm({ ...legacyDebtForm, destination_bank: e.target.value, destination_wallet: '' })}
-                                        disabled={!!legacyDebtForm.destination_wallet}
-                                    >
-                                        <option value="">-- None --</option>
-                                        {bankAccounts.map(b => (
-                                            <option key={b.id} value={b.id}>{b.bank_name} - {b.account_number.slice(-4)}</option>
-                                        ))}
-                                    </select>
-                                </div>
-                            </div>
+                            <UniversalPaymentEngine
+                                transactionType="inflow"
+                                allowedMethods={['cash', 'bank']}
+                                maxAmount={customer?.legacy_debt_remaining}
+                                onValidPayload={setLegacyDebtPayload}
+                            />
                             
                             <div className="modal-actions" style={{ marginTop: '1.5rem' }}>
                                 <button type="button" className="btn btn-ghost" onClick={() => setShowLegacyDebtModal(false)}>Cancel</button>
-                                <button type="submit" className="btn btn-success" disabled={isSettlingDebt || !legacyDebtForm.amount || (!legacyDebtForm.destination_wallet && !legacyDebtForm.destination_bank)}>
+                                <button type="submit" className="btn btn-success" disabled={isSettlingDebt || !legacyDebtPayload}>
                                     {isSettlingDebt ? 'Processing...' : 'Settle Debt'}
                                 </button>
                             </div>

@@ -606,36 +606,28 @@ class OutletPayment(DisplayIDMixin, SoftDeleteModel):
         
         if is_new:
             # Finance Ledger Integration
+            from finance.services import LedgerService
             if self.payment_method in [self.PaymentMethod.BANK, self.PaymentMethod.CHEQUE, self.PaymentMethod.UPI] and self.destination_bank:
-                from finance.models import BankTransaction
-                bt = BankTransaction.objects.create(
-                    account=self.destination_bank,
-                    transaction_type='deposit',
-                    date=self.date,
+                bt = LedgerService.process_deposit(
                     amount=self.amount,
-                    description=f"Outlet Payment: {self.outlet.name}",
+                    destination_bank=self.destination_bank,
                     reference=self.reference_id,
-                    recorded_by=self.recorded_by
+                    description=f"Outlet Payment: {self.outlet.name}",
+                    date=self.date,
+                    user=self.recorded_by
                 )
                 self.bank_transaction = bt
                 super().save(update_fields=['bank_transaction'])
                 
             elif self.payment_method == self.PaymentMethod.CASH and self.destination_wallet:
-                from finance.models import CashWalletTransaction, CashWallet
-                wallet = CashWallet.objects.select_for_update().get(pk=self.destination_wallet.pk)
-                new_balance = wallet.balance + self.amount
-                cwt = CashWalletTransaction.objects.create(
-                    wallet=wallet,
-                    transaction_type='deposit',
+                cwt = LedgerService.process_deposit(
                     amount=self.amount,
+                    destination_wallet=self.destination_wallet,
+                    reference=self.reference_id,
                     description=f"Outlet Payment: {self.outlet.name}",
-                    reference_id=self.reference_id,
-                    balance_after=new_balance,
                     date=self.date,
-                    created_by=self.recorded_by
+                    user=self.recorded_by
                 )
-                wallet.balance = new_balance
-                wallet.save(update_fields=['balance'])
                 self.wallet_transaction = cwt
                 super().save(update_fields=['wallet_transaction'])
 
@@ -647,12 +639,23 @@ class OutletPayment(DisplayIDMixin, SoftDeleteModel):
         to reverse the bank balance, since soft-deleting a payment won't touch the bank ledger.
         """
         super().soft_delete()
+        from finance.services import LedgerService
         if self.bank_transaction:
-            self.bank_transaction.delete() # Triggers BankTransaction balance reversal logic
+            LedgerService.process_withdrawal(
+                amount=self.bank_transaction.amount,
+                source_bank=self.bank_transaction.account,
+                reference=f"Void of {self.reference_id}",
+                description=f"Voided Outlet Payment: {self.outlet.name}",
+                user=self.recorded_by,
+                allow_overdraft=True
+            )
             
         if self.wallet_transaction:
-            from finance.models import CashWallet
-            wallet = CashWallet.objects.select_for_update().get(pk=self.destination_wallet.pk)
-            wallet.balance -= self.wallet_transaction.amount
-            wallet.save(update_fields=['balance'])
-            self.wallet_transaction.delete()
+            LedgerService.process_withdrawal(
+                amount=self.wallet_transaction.amount,
+                source_wallet=self.wallet_transaction.wallet,
+                reference=f"Void of {self.reference_id}",
+                description=f"Voided Outlet Payment: {self.outlet.name}",
+                user=self.recorded_by,
+                allow_overdraft=True
+            )

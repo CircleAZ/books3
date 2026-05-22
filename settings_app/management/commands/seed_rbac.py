@@ -71,6 +71,12 @@ DEFAULT_PERMISSIONS = {
         ('settings.manage_integrations', 'Manage Integrations'),
         ('settings.view_audit_logs', 'View Audit Logs'),
     ],
+    'outlets': [
+        ('outlets.view_outlet', 'View Outlets & Stock'),
+        ('outlets.manage_outlet', 'Manage Outlets & Daily Sales'),
+        ('outlets.manage_transfer', 'Manage Stock Transfers'),
+        ('outlets.manage_return', 'Manage Stock Returns'),
+    ],
 }
 
 # Default roles and which permissions they get
@@ -107,6 +113,9 @@ DEFAULT_ROLES = {
             'reports.view_sales', 'reports.view_inventory',
             'reports.view_customers', 'reports.view_finance',
             'reports.export',
+            # Outlets - full
+            'outlets.view_outlet', 'outlets.manage_outlet',
+            'outlets.manage_transfer', 'outlets.manage_return',
         ],
     },
     'Staff': {
@@ -122,6 +131,8 @@ DEFAULT_ROLES = {
             'orders.manage_payments',
             'finance.view_dashboard',
             'reports.view_sales',
+            # Outlets - view only
+            'outlets.view_outlet',
         ],
     },
     'Accountant': {

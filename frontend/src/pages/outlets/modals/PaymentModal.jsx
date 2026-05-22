@@ -6,24 +6,20 @@ import { useToast } from '../../../context/ToastContext';
 import '../../../styles/components/page-layout.css';
 import '../../../styles/components/form-layout.css';
 import '../../../styles/components/modal-system.css';
+import UniversalPaymentEngine from '../../../components/common/UniversalPaymentEngine';
+
 export default function PaymentModal({ isOpen, onClose, outletId, outstandingBalance, onPaymentComplete }) {
     const { fetchWithAuth } = useAuth();
     const { showToast } = useToast();
     const [loading, setLoading] = useState(false);
     
-    // We need to fetch Bank Accounts and Cash Wallets for finance ledger linking
-    const [bankAccounts, setBankAccounts] = useState([]);
-    const [cashWallets, setCashWallets] = useState([]);
+    const [paymentPayload, setPaymentPayload] = useState(null);
     
     const [formData, setFormData] = useState({
         outlet: outletId,
         date: new Date().toISOString().split('T')[0],
-        amount: '',
-        payment_method: 'bank',
         reference_id: '',
-        notes: '',
-        // These fields are needed for backend ledger injection
-        finance_account_id: '' 
+        notes: ''
     });
 
     useEffect(() => {
@@ -31,58 +27,21 @@ export default function PaymentModal({ isOpen, onClose, outletId, outstandingBal
             setFormData({
                 outlet: outletId,
                 date: new Date().toISOString().split('T')[0],
-                amount: outstandingBalance || '',
-                payment_method: 'bank',
                 reference_id: '',
-                notes: '',
-                finance_account_id: ''
+                notes: ''
             });
-            fetchFinanceAccounts();
+            setPaymentPayload(null);
         }
-    }, [isOpen, outletId, outstandingBalance]);
-
-    const fetchFinanceAccounts = async () => {
-        try {
-            const [banksRes, walletsRes] = await Promise.all([
-                fetchWithAuth(ENDPOINTS.FINANCE_BANK_ACCOUNTS),
-                fetchWithAuth(ENDPOINTS.FINANCE_CASH_WALLETS)
-            ]);
-            if (banksRes.ok) {
-                const banksData = await banksRes.json();
-                setBankAccounts(banksData.results || banksData);
-            }
-            if (walletsRes.ok) {
-                const walletsData = await walletsRes.json();
-                setCashWallets(walletsData.results || walletsData);
-            }
-        } catch (error) {
-            showToast("Failed to fetch finance accounts", "error");
-        }
-    };
+    }, [isOpen, outletId]);
 
     const handleSubmit = async (e) => {
         e.preventDefault();
         
-        if (!formData.amount || parseFloat(formData.amount) <= 0) {
-            showToast("Please enter a valid amount", "error");
-            return;
-        }
-
-        if (!formData.finance_account_id) {
-            showToast("Please select a target destination account for the funds", "error");
-            return;
-        }
+        if (!paymentPayload) return;
 
         setLoading(true);
         try {
-            const payload = { ...formData };
-            const requiresBank = ['bank', 'cheque', 'upi'].includes(payload.payment_method);
-            if (requiresBank) {
-                payload.destination_bank = payload.finance_account_id;
-            } else {
-                payload.destination_wallet = payload.finance_account_id;
-            }
-            delete payload.finance_account_id;
+            const payload = { ...formData, ...paymentPayload };
 
             // The backend ViewSet / Serializer should handle the link to bank_transaction/wallet_transaction.
             // We pass extra context fields.
@@ -108,9 +67,6 @@ export default function PaymentModal({ isOpen, onClose, outletId, outstandingBal
 
     if (!isOpen) return null;
 
-    const requiresBank = ['bank', 'cheque', 'upi'].includes(formData.payment_method);
-    const destinationAccounts = requiresBank ? bankAccounts : cashWallets;
-
     return (
         <div className="modal-overlay" style={overlayStyle}>
             <div className="modal-content" style={contentStyle}>
@@ -129,48 +85,15 @@ export default function PaymentModal({ isOpen, onClose, outletId, outstandingBal
                                 onChange={e => setFormData({...formData, date: e.target.value})}
                             />
                         </div>
-                        <div className="form-group">
-                            <label>Amount (₹) *</label>
-                            <input 
-                                type="number" 
-                                step="0.01"
-                                required 
-                                className="form-input"
-                                value={formData.amount}
-                                onChange={e => setFormData({...formData, amount: e.target.value})}
-                            />
-                        </div>
+                    <div className="form-group" style={{ marginBottom: '1.5rem' }}>
+                        <UniversalPaymentEngine
+                            transactionType="inflow"
+                            allowedMethods={['cash', 'bank', 'cheque', 'upi']}
+                            maxAmount={outstandingBalance}
+                            initialAmount={outstandingBalance}
+                            onValidPayload={setPaymentPayload}
+                        />
                     </div>
-
-                    <div className="form-row">
-                        <div className="form-group">
-                            <label>Payment Method *</label>
-                            <select 
-                                className="form-input"
-                                value={formData.payment_method}
-                                onChange={e => setFormData({...formData, payment_method: e.target.value, finance_account_id: ''})}
-                            >
-                                <option value="cash">Cash</option>
-                                <option value="bank">Bank Transfer (NEFT/RTGS/IMPS)</option>
-                                <option value="cheque">Cheque</option>
-                                <option value="upi">UPI</option>
-                            </select>
-                        </div>
-                        <div className="form-group">
-                            <label>Destination Account *</label>
-                            <select 
-                                required
-                                className="form-input"
-                                value={formData.finance_account_id}
-                                onChange={e => setFormData({...formData, finance_account_id: e.target.value})}
-                            >
-                                <option value="">Select Account...</option>
-                                {destinationAccounts.map(acc => (
-                                    <option key={acc.id} value={acc.id}>{acc.name} {acc.account_number ? `(*${acc.account_number.slice(-4)})` : ''}</option>
-                                ))}
-                            </select>
-                            <small className="text-muted">Funds will be injected here automatically.</small>
-                        </div>
                     </div>
 
                     <div className="form-group">
@@ -195,7 +118,7 @@ export default function PaymentModal({ isOpen, onClose, outletId, outstandingBal
 
                     <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.5rem', marginTop: '1.5rem' }}>
                         <button type="button" className="btn btn-secondary" onClick={onClose}>Cancel</button>
-                        <button type="submit" className="btn btn-success" disabled={loading}>
+                        <button type="submit" className="btn btn-success" disabled={loading || !paymentPayload}>
                             {loading ? 'Processing...' : 'Record Payment'}
                         </button>
                     </div>

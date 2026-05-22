@@ -1826,7 +1826,13 @@ class LegacyDebtViewSet(viewsets.ModelViewSet):
     """
     queryset = LegacyDebt.objects.all().select_related('customer')
     serializer_class = LegacyDebtSerializer
-    permission_classes = [IsAuthenticated, HasRequiredPermission]
+    permission_classes = [HasRequiredPermission]
+    required_permission = 'customers.manage_customers'
+    permission_map = {
+        'list': 'customers.view_customers',
+        'retrieve': 'customers.view_customers',
+        'summary': 'customers.view_customers',
+    }
 
     @action(detail=False, methods=['post'])
     @transaction.atomic
