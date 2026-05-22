@@ -793,6 +793,7 @@ class LoanViewSet(viewsets.ModelViewSet):
         """Record a loan disbursement into a bank account or cash wallet."""
         from django.db import transaction as db_transaction
         from decimal import Decimal
+        from .services import LedgerService
 
         loan = self.get_object()
         amount = Decimal(str(request.data.get('amount', 0)))
@@ -816,39 +817,34 @@ class LoanViewSet(viewsets.ModelViewSet):
             return Response({'error': 'Must specify a destination bank account or cash wallet.'},
                             status=status.HTTP_400_BAD_REQUEST)
 
+        # Resolve destination objects before the atomic block
+        destination_bank = None
+        destination_wallet = None
+        try:
+            if destination_bank_id:
+                destination_bank = BankAccount.objects.get(pk=destination_bank_id)
+            elif destination_wallet_id:
+                from .models import CashWallet
+                destination_wallet = CashWallet.objects.get(pk=destination_wallet_id)
+        except BankAccount.DoesNotExist:
+            return Response({'error': 'Bank account not found.'}, status=status.HTTP_404_NOT_FOUND)
+        except CashWallet.DoesNotExist:
+            return Response({'error': 'Cash wallet not found.'}, status=status.HTTP_404_NOT_FOUND)
+
         try:
             with db_transaction.atomic():
                 description = f"Loan disbursement from {loan.lender.name} - {loan.loan_number or loan.id}"
 
-                if destination_bank_id:
-                    bank_account = BankAccount.objects.get(pk=destination_bank_id)
-                    BankTransaction.objects.create(
-                        account=bank_account,
-                        transaction_type='deposit',
-                        date=disburse_date,
-                        amount=amount,
-                        description=description,
-                        reference=reference,
-                        related_loan=loan,
-                        recorded_by=request.user,
-                    )
-                elif destination_wallet_id:
-                    from .models import CashWallet, CashWalletTransaction
-                    wallet = CashWallet.objects.select_for_update().get(pk=destination_wallet_id)
-                    new_balance = wallet.balance + amount
-                    CashWalletTransaction.objects.create(
-                        wallet=wallet,
-                        transaction_type='deposit',
-                        amount=amount,
-                        description=description,
-                        reference_id=reference,
-                        related_loan=loan,
-                        balance_after=new_balance,
-                        date=disburse_date,
-                        created_by=request.user,
-                    )
-                    wallet.balance = new_balance
-                    wallet.save()
+                LedgerService.process_deposit(
+                    amount=amount,
+                    destination_bank=destination_bank,
+                    destination_wallet=destination_wallet,
+                    reference=reference,
+                    description=description,
+                    user=request.user,
+                    date=disburse_date,
+                    related_loan=loan,
+                )
 
                 # Update loan disbursed_amount
                 Loan.objects.filter(pk=loan.pk).update(
@@ -860,10 +856,8 @@ class LoanViewSet(viewsets.ModelViewSet):
                         'destination_wallet': destination_wallet_id or ''})
             loan.refresh_from_db()
             return Response(LoanSerializer(loan).data)
-        except BankAccount.DoesNotExist:
-            return Response({'error': 'Bank account not found.'}, status=status.HTTP_404_NOT_FOUND)
         except Exception as e:
-            logger.exception(f'Error disbursing loan {pk}')
+            logger.exception("Loan disburse failed for loan %s: %s", pk, e)
             return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     def perform_destroy(self, instance):

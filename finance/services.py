@@ -9,7 +9,7 @@ logger = logging.getLogger(__name__)
 
 class LedgerService:
     @staticmethod
-    def process_deposit(amount, destination_bank=None, destination_wallet=None, reference="", description="", user=None, date=None):
+    def process_deposit(amount, destination_bank=None, destination_wallet=None, reference="", description="", user=None, date=None, **kwargs):
         if not destination_bank and not destination_wallet:
             return  # Legacy or null routing
             
@@ -18,20 +18,22 @@ class LedgerService:
             if destination_bank:
                 # Lock row to prevent race conditions during transaction creation
                 bank = BankAccount.objects.select_for_update().get(id=destination_bank.id)
-                BankTransaction.objects.create(
+                return BankTransaction.objects.create(
                     account=bank,
                     date=tx_date,
                     transaction_type='deposit',
                     amount=amount,
                     reference=reference,
                     description=description,
-                    is_reconciled=False
+                    is_reconciled=False,
+                    recorded_by=user,
+                    **kwargs
                 )
             elif destination_wallet:
                 wallet = CashWallet.objects.select_for_update().get(id=destination_wallet.id)
                 wallet.balance += Decimal(str(amount))
                 wallet.save(update_fields=['balance'])
-                CashWalletTransaction.objects.create(
+                return CashWalletTransaction.objects.create(
                     wallet=wallet,
                     transaction_type='deposit',
                     amount=amount,
@@ -39,7 +41,8 @@ class LedgerService:
                     description=description,
                     balance_after=wallet.balance,
                     date=tx_date,
-                    created_by=user
+                    created_by=user,
+                    **kwargs
                 )
 
     @staticmethod
