@@ -39,7 +39,7 @@ function createMarkerIcon(status) {
 }
 
 // ── XSS-safe popup via DOM API ──
-function createPopupContent(customer, navigate) {
+function createPopupContent(customer, navigate, onOrderClick) {
     const container = document.createElement('div');
     container.className = 'map-popup-content';
 
@@ -100,7 +100,22 @@ function createPopupContent(customer, navigate) {
     if (customer.total_orders > 0) {
         orderRow.textContent = `📦 ${customer.total_orders} orders · ₹${Number(customer.total_spent).toLocaleString('en-IN')}`;
         container.appendChild(orderRow);
-        if (customer.last_order_date) {
+        
+        if (customer.season_orders_data && customer.season_orders_data.length > 0) {
+            const seasonOrdersContainer = document.createElement('div');
+            seasonOrdersContainer.className = 'popup-season-orders';
+            customer.season_orders_data.forEach(order => {
+                const orderBtn = document.createElement('button');
+                orderBtn.className = 'popup-order-btn';
+                orderBtn.textContent = `🛒 ${order.display_id} (₹${order.total}) - ${order.date}`;
+                orderBtn.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    if (onOrderClick) onOrderClick(order.id);
+                });
+                seasonOrdersContainer.appendChild(orderBtn);
+            });
+            container.appendChild(seasonOrdersContainer);
+        } else if (customer.last_order_date) {
             const lastOrder = document.createElement('div');
             lastOrder.className = 'popup-row';
             lastOrder.textContent = `🗓️ Last: ${customer.last_order_date}`;
@@ -141,6 +156,50 @@ export default function CustomerMap() {
     const [error, setError] = useState(null);
     const [mapData, setMapData] = useState(null);
     const [filterOpen, setFilterOpen] = useState(false);
+
+    // ── Phase 6: Order Modal Cache & State ──
+    const [orderModalOpen, setOrderModalOpen] = useState(false);
+    const [selectedOrderDetails, setSelectedOrderDetails] = useState(null);
+    const [loadingOrderDetails, setLoadingOrderDetails] = useState(false);
+    const orderCacheRef = useRef(new Map()); // LRU cache for 30 entries
+
+    const handleOpenOrderModal = useCallback(async (orderId) => {
+        setOrderModalOpen(true);
+        if (orderCacheRef.current.has(orderId)) {
+            // Move to end (most recently used)
+            const data = orderCacheRef.current.get(orderId);
+            orderCacheRef.current.delete(orderId);
+            orderCacheRef.current.set(orderId, data);
+            setSelectedOrderDetails(data);
+            return;
+        }
+
+        setLoadingOrderDetails(true);
+        setSelectedOrderDetails(null);
+        try {
+            const res = await fetchWithAuth(`${ENDPOINTS.ORDERS}${orderId}/`);
+            if (res.ok) {
+                const data = await res.json();
+                
+                // Add to cache
+                if (orderCacheRef.current.size >= 30) {
+                    const firstKey = orderCacheRef.current.keys().next().value;
+                    orderCacheRef.current.delete(firstKey);
+                }
+                orderCacheRef.current.set(orderId, data);
+                setSelectedOrderDetails(data);
+            } else {
+                showToast('Failed to load order details.', 'error');
+                setOrderModalOpen(false);
+            }
+        } catch (err) {
+            console.error('Order detail fetch error:', err);
+            showToast('Network error loading order.', 'error');
+            setOrderModalOpen(false);
+        } finally {
+            setLoadingOrderDetails(false);
+        }
+    }, [fetchWithAuth, showToast]);
 
     // Live Location State & Refs
     const [locationError, setLocationError] = useState(null);
@@ -437,7 +496,7 @@ export default function CustomerMap() {
                     isStandard: true
                 });
 
-                const popupContent = createPopupContent(customer, navigate);
+                const popupContent = createPopupContent(customer, navigate, handleOpenOrderModal);
                 marker.bindPopup(popupContent, {
                     maxWidth: 280,
                     minWidth: 200,
@@ -1420,6 +1479,110 @@ export default function CustomerMap() {
                             >
                                 {potentialEditForm.id ? 'Save Changes' : 'Drop Pin'}
                             </button>
+                        </div>
+                    </div>
+                </>
+            )}
+            {/* ── Phase 6: Order Details Modal ── */}
+            {orderModalOpen && (
+                <>
+                    <div className="filter-backdrop" onClick={() => setOrderModalOpen(false)} style={{ zIndex: 9998 }}></div>
+                    <div className="order-details-modal" style={{ zIndex: 9999 }}>
+                        <div className="filter-header">
+                            <h3>🛒 Order Details</h3>
+                            <button className="filter-close" onClick={() => setOrderModalOpen(false)}>✕</button>
+                        </div>
+                        <div className="filter-body" style={{ padding: '0 0 1rem 0' }}>
+                            {loadingOrderDetails ? (
+                                <div style={{ padding: '2rem', textAlign: 'center' }}>Loading order details...</div>
+                            ) : selectedOrderDetails ? (
+                                <div className="order-modal-content">
+                                    <div className="order-modal-summary" style={{ padding: '1rem', borderBottom: '1px solid #e5e7eb' }}>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
+                                            <strong>Order {selectedOrderDetails.display_id}</strong>
+                                            <span>{new Date(selectedOrderDetails.created_at).toLocaleDateString()}</span>
+                                        </div>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
+                                            <span>Total Items:</span>
+                                            <strong>{selectedOrderDetails.total_quantity}</strong>
+                                        </div>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
+                                            <span>Order Total:</span>
+                                            <strong>₹{selectedOrderDetails.effective_total || selectedOrderDetails.total}</strong>
+                                        </div>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
+                                            <span>Amount Paid:</span>
+                                            <strong style={{ color: '#16a34a' }}>₹{selectedOrderDetails.amount_paid}</strong>
+                                        </div>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 'bold' }}>
+                                            <span>Balance:</span>
+                                            <span style={{ 
+                                                color: parseFloat(selectedOrderDetails.remaining_balance) > 0 ? '#dc2626' : 
+                                                       parseFloat(selectedOrderDetails.remaining_balance) < 0 ? '#2563eb' : '#16a34a' 
+                                            }}>
+                                                {parseFloat(selectedOrderDetails.remaining_balance) < 0 
+                                                    ? `₹${Math.abs(selectedOrderDetails.remaining_balance)} (Overpaid)` 
+                                                    : `₹${selectedOrderDetails.remaining_balance}`}
+                                            </span>
+                                        </div>
+                                    </div>
+                                    
+                                    <div className="order-modal-section" style={{ padding: '1rem' }}>
+                                        <h4 style={{ margin: '0 0 0.5rem 0' }}>Items</h4>
+                                        <div style={{ maxHeight: '200px', overflowY: 'auto', border: '1px solid #e5e7eb', borderRadius: '4px' }}>
+                                            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.875rem' }}>
+                                                <thead style={{ background: '#f9fafb', position: 'sticky', top: 0 }}>
+                                                    <tr>
+                                                        <th style={{ padding: '0.5rem', textAlign: 'left', borderBottom: '1px solid #e5e7eb' }}>Item</th>
+                                                        <th style={{ padding: '0.5rem', textAlign: 'right', borderBottom: '1px solid #e5e7eb' }}>Qty</th>
+                                                        <th style={{ padding: '0.5rem', textAlign: 'right', borderBottom: '1px solid #e5e7eb' }}>Price</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    {selectedOrderDetails.items?.map((item, idx) => (
+                                                        <tr key={idx} style={{ borderBottom: '1px solid #f3f4f6' }}>
+                                                            <td style={{ padding: '0.5rem' }}>{item.product_name}</td>
+                                                            <td style={{ padding: '0.5rem', textAlign: 'right' }}>{item.quantity}</td>
+                                                            <td style={{ padding: '0.5rem', textAlign: 'right' }}>₹{item.price}</td>
+                                                        </tr>
+                                                    ))}
+                                                    {!selectedOrderDetails.items?.length && (
+                                                        <tr><td colSpan="3" style={{ padding: '0.5rem', textAlign: 'center', color: '#6b7280' }}>No items</td></tr>
+                                                    )}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+
+                                    {selectedOrderDetails.payments?.length > 0 && (
+                                        <div className="order-modal-section" style={{ padding: '0 1rem 1rem 1rem' }}>
+                                            <h4 style={{ margin: '0 0 0.5rem 0' }}>Payments</h4>
+                                            <div style={{ maxHeight: '150px', overflowY: 'auto', border: '1px solid #e5e7eb', borderRadius: '4px' }}>
+                                                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.875rem' }}>
+                                                    <thead style={{ background: '#f9fafb', position: 'sticky', top: 0 }}>
+                                                        <tr>
+                                                            <th style={{ padding: '0.5rem', textAlign: 'left', borderBottom: '1px solid #e5e7eb' }}>Date</th>
+                                                            <th style={{ padding: '0.5rem', textAlign: 'left', borderBottom: '1px solid #e5e7eb' }}>Method</th>
+                                                            <th style={{ padding: '0.5rem', textAlign: 'right', borderBottom: '1px solid #e5e7eb' }}>Amount</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody>
+                                                        {selectedOrderDetails.payments.map((pay, idx) => (
+                                                            <tr key={idx} style={{ borderBottom: '1px solid #f3f4f6' }}>
+                                                                <td style={{ padding: '0.5rem' }}>{new Date(pay.payment_date).toLocaleDateString()}</td>
+                                                                <td style={{ padding: '0.5rem' }}>{pay.payment_method_display || pay.payment_method}</td>
+                                                                <td style={{ padding: '0.5rem', textAlign: 'right', color: '#16a34a' }}>₹{pay.amount}</td>
+                                                            </tr>
+                                                        ))}
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            ) : (
+                                <div style={{ padding: '2rem', textAlign: 'center', color: '#ef4444' }}>Order not found</div>
+                            )}
                         </div>
                     </div>
                 </>

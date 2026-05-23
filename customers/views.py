@@ -224,6 +224,17 @@ class CustomerViewSet(viewsets.ModelViewSet):
             ).order_by('-created_at').values('display_id')[:1]
         )
 
+        # Prefetch valid season orders for the map popup links
+        order_prefetch = Prefetch(
+            'orders',
+            queryset=OrderModel.objects.filter(
+                order_status__in=valid_statuses,
+                created_at__date__gte=season_start,
+                created_at__date__lte=season_end,
+            ).order_by('-created_at'),
+            to_attr='season_orders_list'
+        )
+
         # Prefetch addresses WITH region join (kills N+1 on addr.region)
         address_prefetch = Prefetch(
             'addresses',
@@ -238,7 +249,7 @@ class CustomerViewSet(viewsets.ModelViewSet):
         customers = customers.select_related(
             'customer_group'
         ).prefetch_related(
-            address_prefetch, student_prefetch
+            address_prefetch, student_prefetch, order_prefetch
         ).annotate(
             last_order_date=Max(
                 'orders__created_at',
@@ -373,6 +384,17 @@ class CustomerViewSet(viewsets.ModelViewSet):
                 else:
                     classes_str = f"Classes: {', '.join(class_names)}"
 
+            # Build season orders data for links
+            season_orders_data = []
+            if hasattr(c, 'season_orders_list'):
+                for o in c.season_orders_list:
+                    season_orders_data.append({
+                        'id': str(o.id),
+                        'display_id': o.display_id,
+                        'total': str(o.total),
+                        'date': o.created_at.strftime('%Y-%m-%d'),
+                    })
+
             customer_list.append({
                 'id': str(c.id),
                 'display_id': c.display_id,
@@ -391,6 +413,7 @@ class CustomerViewSet(viewsets.ModelViewSet):
                 'last_order_date': c.last_order_date.strftime('%Y-%m-%d') if c.last_order_date else None,
                 'last_order_id': c.last_order_display_id,
                 'season_orders': c.season_order_count,
+                'season_orders_data': season_orders_data,
                 'marker_status': marker_status,
             })
 

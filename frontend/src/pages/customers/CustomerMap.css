@@ -194,6 +194,35 @@
 .popup-orders { margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--border-color, #334155); }
 .popup-group { font-size: 12px; color: var(--text-tertiary, #64748b); margin-top: 6px; }
 
+/* Clickable Order Buttons in Popup */
+.popup-season-orders {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin-top: 8px;
+    max-height: 120px;
+    overflow-y: auto;
+}
+
+.popup-order-btn {
+    width: 100%;
+    text-align: left;
+    padding: 6px 8px;
+    background: var(--surface-hover, #334155);
+    border: 1px solid var(--border-color, #475569);
+    border-radius: 6px;
+    color: var(--text-primary, #f1f5f9);
+    font-size: 12px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.popup-order-btn:hover {
+    background: var(--primary, #818cf8);
+    border-color: var(--primary, #818cf8);
+    color: #fff;
+}
+
 /* ============ Enhanced Stats Bar ============ */
 .map-stats-bar {
     position: absolute;
@@ -313,6 +342,86 @@
 @keyframes filterSlideIn {
     from { opacity: 0; transform: translateY(-8px); }
     to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ============ Order Details Modal ============ */
+.order-details-modal {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 90%;
+    max-width: 500px;
+    background: #ffffff; /* White bg for modal */
+    color: #1f2937; /* Dark text for contrast */
+    border-radius: 12px;
+    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+    display: flex;
+    flex-direction: column;
+    max-height: 85vh;
+    animation: orderModalFadeIn 0.2s ease-out;
+}
+
+@keyframes orderModalFadeIn {
+    from { opacity: 0; transform: translate(-50%, -48%); }
+    to   { opacity: 1; transform: translate(-50%, -50%); }
+}
+
+.order-details-modal .filter-header {
+    background: #f8fafc;
+    border-bottom: 1px solid #e2e8f0;
+    border-radius: 12px 12px 0 0;
+}
+
+.order-details-modal .filter-header h3 {
+    color: #0f172a;
+}
+
+.order-details-modal .filter-close {
+    color: #64748b;
+}
+
+.order-details-modal .filter-close:hover {
+    background: #e2e8f0;
+}
+
+.order-modal-content {
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+    background: #ffffff;
+}
+
+.order-modal-summary {
+    background: #f8fafc;
+    font-size: 14px;
+}
+
+.order-modal-section th {
+    background: #f1f5f9;
+    color: #475569;
+    font-weight: 600;
+}
+
+.order-modal-section td {
+    color: #334155;
+}
+
+.order-modal-section table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+}
+
+.order-modal-section th,
+.order-modal-section td {
+    padding: 8px 12px;
+    border-bottom: 1px solid #e2e8f0;
+    text-align: left;
+}
+
+.order-modal-section tr:last-child td {
+    border-bottom: none;
 }
 
 .filter-header {
