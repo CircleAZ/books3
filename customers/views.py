@@ -153,6 +153,7 @@ class CustomerViewSet(viewsets.ModelViewSet):
         from django.utils.html import strip_tags
         from django.utils import timezone
         from settings_app.models import Permission, RolePermission, Role, CustomerGroup
+        from .models import Student
         import datetime
 
         # RBAC check: customers.view_map
@@ -229,10 +230,15 @@ class CustomerViewSet(viewsets.ModelViewSet):
             queryset=Address.objects.select_related('region').prefetch_related('location_tags')
         )
 
+        student_prefetch = Prefetch(
+            'students',
+            queryset=Student.objects.select_related('class_obj')
+        )
+
         customers = customers.select_related(
             'customer_group'
         ).prefetch_related(
-            address_prefetch
+            address_prefetch, student_prefetch
         ).annotate(
             last_order_date=Max(
                 'orders__created_at',
@@ -352,11 +358,27 @@ class CustomerViewSet(viewsets.ModelViewSet):
                 strip_tags(lt.name) for lt in primary_addr.location_tags.all()
             ]
 
+            # Classes (prefetched via student_prefetch)
+            students = c.students.all()
+            if not students:
+                classes_str = "Class: NA"
+            else:
+                class_names = []
+                for s in students:
+                    c_name = (s.class_obj.name if s.class_obj else s.class_name).strip()
+                    class_names.append(c_name if c_name else 'NA')
+                
+                if len(class_names) == 1:
+                    classes_str = f"Class: {class_names[0]}"
+                else:
+                    classes_str = f"Classes: {', '.join(class_names)}"
+
             customer_list.append({
                 'id': str(c.id),
                 'display_id': c.display_id,
                 'full_name': strip_tags(c.full_name),
                 'phone': c.phone,
+                'classes_display': classes_str,
                 'village': strip_tags(primary_addr.region.name if primary_addr.region else ''),
                 'faliya': strip_tags(primary_addr.faliya or ''),
                 'landmark': strip_tags(primary_addr.landmark or ''),

@@ -58,6 +58,13 @@ function createPopupContent(customer, navigate) {
     displayId.textContent = customer.display_id;
     container.appendChild(displayId);
 
+    if (customer.classes_display) {
+        const classRow = document.createElement('div');
+        classRow.className = 'popup-row popup-class';
+        classRow.textContent = `📚 ${customer.classes_display}`;
+        container.appendChild(classRow);
+    }
+
     if (customer.phone) {
         const phoneRow = document.createElement('div');
         phoneRow.className = 'popup-row';
