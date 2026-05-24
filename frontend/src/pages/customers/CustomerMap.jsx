@@ -137,6 +137,11 @@ function createPopupContent(customer, navigate, onOrderClick) {
     return container;
 }
 
+function formatCurrency(val) {
+    const parsed = parseFloat(val);
+    return isNaN(parsed) ? '0.00' : parsed.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
 // ═══════════════════════════════════════════════
 // Main Component
 // ═══════════════════════════════════════════════
@@ -1492,58 +1497,57 @@ export default function CustomerMap() {
                             <h3>🛒 Order Details</h3>
                             <button className="filter-close" onClick={() => setOrderModalOpen(false)}>✕</button>
                         </div>
-                        <div className="filter-body" style={{ padding: '0 0 1rem 0' }}>
+                        <div className="filter-body">
                             {loadingOrderDetails ? (
                                 <div style={{ padding: '2rem', textAlign: 'center' }}>Loading order details...</div>
                             ) : selectedOrderDetails ? (
                                 <div className="order-modal-content">
-                                    <div className="order-modal-summary" style={{ padding: '1rem', borderBottom: '1px solid #e5e7eb' }}>
-                                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
+                                    <div className="order-modal-summary">
+                                        <div className="order-modal-summary-row">
                                             <strong>Order {selectedOrderDetails.display_id}</strong>
                                             <span>{new Date(selectedOrderDetails.created_at).toLocaleDateString()}</span>
                                         </div>
-                                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
+                                        <div className="order-modal-summary-row">
                                             <span>Total Items:</span>
-                                            <strong>{selectedOrderDetails.total_quantity}</strong>
+                                            <strong>{selectedOrderDetails.items?.reduce((sum, item) => sum + item.quantity, 0) || 0}</strong>
                                         </div>
-                                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
+                                        <div className="order-modal-summary-row">
                                             <span>Order Total:</span>
-                                            <strong>₹{selectedOrderDetails.effective_total || selectedOrderDetails.total}</strong>
+                                            <strong>₹{formatCurrency(selectedOrderDetails.effective_total || selectedOrderDetails.total)}</strong>
                                         </div>
-                                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
+                                        <div className="order-modal-summary-row">
                                             <span>Amount Paid:</span>
-                                            <strong style={{ color: '#16a34a' }}>₹{selectedOrderDetails.amount_paid}</strong>
+                                            <strong className="text-success">₹{formatCurrency(selectedOrderDetails.amount_paid)}</strong>
                                         </div>
-                                        <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 'bold' }}>
+                                        <div className="order-modal-summary-row total-row">
                                             <span>Balance:</span>
-                                            <span style={{ 
-                                                color: parseFloat(selectedOrderDetails.remaining_balance) > 0 ? '#dc2626' : 
-                                                       parseFloat(selectedOrderDetails.remaining_balance) < 0 ? '#2563eb' : '#16a34a' 
-                                            }}>
-                                                {parseFloat(selectedOrderDetails.remaining_balance) < 0 
-                                                    ? `₹${Math.abs(selectedOrderDetails.remaining_balance)} (Overpaid)` 
-                                                    : `₹${selectedOrderDetails.remaining_balance}`}
+                                            <span>
+                                                {parseFloat(selectedOrderDetails.balance_due) > 0 
+                                                    ? <span className="text-danger">₹{formatCurrency(selectedOrderDetails.balance_due)} (Due)</span>
+                                                    : parseFloat(selectedOrderDetails.change_due) > 0 
+                                                        ? <span className="text-primary">₹{formatCurrency(selectedOrderDetails.change_due)} (Overpaid)</span>
+                                                        : <span className="text-success">₹0.00 (Settled)</span>}
                                             </span>
                                         </div>
                                     </div>
                                     
-                                    <div className="order-modal-section" style={{ padding: '1rem' }}>
-                                        <h4 style={{ margin: '0 0 0.5rem 0' }}>Items</h4>
-                                        <div style={{ maxHeight: '200px', overflowY: 'auto', border: '1px solid #e5e7eb', borderRadius: '4px' }}>
-                                            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.875rem' }}>
-                                                <thead style={{ background: '#f9fafb', position: 'sticky', top: 0 }}>
+                                    <div className="order-modal-section">
+                                        <h4>Items</h4>
+                                        <div className="order-modal-table-wrapper">
+                                            <table>
+                                                <thead>
                                                     <tr>
-                                                        <th style={{ padding: '0.5rem', textAlign: 'left', borderBottom: '1px solid #e5e7eb' }}>Item</th>
-                                                        <th style={{ padding: '0.5rem', textAlign: 'right', borderBottom: '1px solid #e5e7eb' }}>Qty</th>
-                                                        <th style={{ padding: '0.5rem', textAlign: 'right', borderBottom: '1px solid #e5e7eb' }}>Price</th>
+                                                        <th>Item</th>
+                                                        <th className="text-right">Qty</th>
+                                                        <th className="text-right">Price</th>
                                                     </tr>
                                                 </thead>
                                                 <tbody>
                                                     {selectedOrderDetails.items?.map((item, idx) => (
-                                                        <tr key={idx} style={{ borderBottom: '1px solid #f3f4f6' }}>
-                                                            <td style={{ padding: '0.5rem' }}>{item.product_name}</td>
-                                                            <td style={{ padding: '0.5rem', textAlign: 'right' }}>{item.quantity}</td>
-                                                            <td style={{ padding: '0.5rem', textAlign: 'right' }}>₹{item.price}</td>
+                                                        <tr key={idx}>
+                                                            <td>{item.product_name}</td>
+                                                            <td className="text-right">{item.quantity}</td>
+                                                            <td className="text-right">₹{formatCurrency(item.unit_price)}</td>
                                                         </tr>
                                                     ))}
                                                     {!selectedOrderDetails.items?.length && (
@@ -1553,25 +1557,25 @@ export default function CustomerMap() {
                                             </table>
                                         </div>
                                     </div>
-
+ 
                                     {selectedOrderDetails.payments?.length > 0 && (
-                                        <div className="order-modal-section" style={{ padding: '0 1rem 1rem 1rem' }}>
-                                            <h4 style={{ margin: '0 0 0.5rem 0' }}>Payments</h4>
-                                            <div style={{ maxHeight: '150px', overflowY: 'auto', border: '1px solid #e5e7eb', borderRadius: '4px' }}>
-                                                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.875rem' }}>
-                                                    <thead style={{ background: '#f9fafb', position: 'sticky', top: 0 }}>
+                                        <div className="order-modal-section">
+                                            <h4>Payments</h4>
+                                            <div className="order-modal-table-wrapper payments-wrapper">
+                                                <table>
+                                                    <thead>
                                                         <tr>
-                                                            <th style={{ padding: '0.5rem', textAlign: 'left', borderBottom: '1px solid #e5e7eb' }}>Date</th>
-                                                            <th style={{ padding: '0.5rem', textAlign: 'left', borderBottom: '1px solid #e5e7eb' }}>Method</th>
-                                                            <th style={{ padding: '0.5rem', textAlign: 'right', borderBottom: '1px solid #e5e7eb' }}>Amount</th>
+                                                            <th>Date</th>
+                                                            <th>Method</th>
+                                                            <th className="text-right">Amount</th>
                                                         </tr>
                                                     </thead>
                                                     <tbody>
                                                         {selectedOrderDetails.payments.map((pay, idx) => (
-                                                            <tr key={idx} style={{ borderBottom: '1px solid #f3f4f6' }}>
-                                                                <td style={{ padding: '0.5rem' }}>{new Date(pay.payment_date).toLocaleDateString()}</td>
-                                                                <td style={{ padding: '0.5rem' }}>{pay.payment_method_display || pay.payment_method}</td>
-                                                                <td style={{ padding: '0.5rem', textAlign: 'right', color: '#16a34a' }}>₹{pay.amount}</td>
+                                                            <tr key={idx}>
+                                                                <td>{new Date(pay.created_at || pay.payment_date).toLocaleDateString()}</td>
+                                                                <td>{pay.method || pay.payment_method}</td>
+                                                                <td className="text-right text-success">₹{formatCurrency(pay.amount)}</td>
                                                             </tr>
                                                         ))}
                                                     </tbody>
