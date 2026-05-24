@@ -1420,6 +1420,34 @@
     }
 }
 
+/* ============ Compound Quantity Column ============ */
+.qty-compound {
+    white-space: nowrap;
+    font-weight: 600;
+}
+
+.qty-ordered {
+    color: var(--color-text-primary);
+}
+
+.qty-delivered {
+    color: var(--color-success);
+}
+
+.qty-returned {
+    color: var(--color-danger);
+}
+
+.qty-remaining {
+    color: var(--color-warning);
+}
+
+.qty-separator {
+    color: var(--color-border);
+    margin: 0 4px;
+    font-weight: 400;
+}
+
 /* ============ Overrides ============ */
 .order-details-modal .filter-header::before {
     display: none !important;

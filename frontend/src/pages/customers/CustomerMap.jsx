@@ -1546,7 +1546,15 @@ export default function CustomerMap() {
                                                     {selectedOrderDetails.items?.map((item, idx) => (
                                                         <tr key={idx}>
                                                             <td>{item.product_name}</td>
-                                                            <td className="text-right">{item.quantity}</td>
+                                                            <td className="text-right qty-compound">
+                                                                <span className="qty-ordered">{item.quantity}</span>
+                                                                <span className="qty-separator">|</span>
+                                                                <span className="qty-delivered">{item.delivered_quantity || 0}</span>
+                                                                <span className="qty-separator">|</span>
+                                                                <span className="qty-returned">{item.returned_quantity || 0}</span>
+                                                                <span className="qty-separator">|</span>
+                                                                <span className="qty-remaining">{item.remaining_quantity || 0}</span>
+                                                            </td>
                                                             <td className="text-right">₹{formatCurrency(item.unit_price)}</td>
                                                         </tr>
                                                     ))}
