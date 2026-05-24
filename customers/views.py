@@ -247,7 +247,7 @@ class CustomerViewSet(viewsets.ModelViewSet):
         )
 
         customers = customers.select_related(
-            'customer_group'
+            'customer_group', 'legacy_debt'
         ).prefetch_related(
             address_prefetch, student_prefetch, order_prefetch
         ).annotate(
@@ -386,6 +386,7 @@ class CustomerViewSet(viewsets.ModelViewSet):
 
             # Build season orders data for links
             season_orders_data = []
+            has_pending_payment = False
             if hasattr(c, 'season_orders_list'):
                 for o in c.season_orders_list:
                     season_orders_data.append({
@@ -394,6 +395,13 @@ class CustomerViewSet(viewsets.ModelViewSet):
                         'total': str(o.total),
                         'date': o.created_at.strftime('%Y-%m-%d'),
                     })
+                    if o.payment_status in ('pending', 'partial'):
+                        has_pending_payment = True
+
+            has_legacy_debt = False
+            ld = getattr(c, 'legacy_debt', None)
+            if ld and (ld.principal_amount - ld.recovered_amount) > 0:
+                has_legacy_debt = True
 
             customer_list.append({
                 'id': str(c.id),
@@ -415,6 +423,8 @@ class CustomerViewSet(viewsets.ModelViewSet):
                 'season_orders': c.season_order_count,
                 'season_orders_data': season_orders_data,
                 'marker_status': marker_status,
+                'has_pending_payment': has_pending_payment,
+                'has_legacy_debt': has_legacy_debt,
             })
 
         # Build village summary

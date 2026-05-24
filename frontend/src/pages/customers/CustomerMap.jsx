@@ -25,12 +25,57 @@ const MARKER_CONFIG = {
 const ALL_STATUSES = ['fully_delivered', 'partially_delivered', 'active', 'followup', 'lapsed', 'prospect'];
 const COVERED_STATUSES = ['active', 'fully_delivered', 'partially_delivered'];
 
-function createMarkerIcon(status) {
+const rupeeSvgIcon = (
+    <svg className="rupee-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+        <line x1="6" y1="3" x2="18" y2="3" />
+        <line x1="6" y1="8" x2="18" y2="8" />
+        <path d="M6 3h6a5 5 0 0 1 0 10H6" />
+        <path d="M9 13l9 9" />
+    </svg>
+);
+
+const rupeeSvg = `<svg class="rupee-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="width: 14px; height: 14px; display: inline-block; vertical-align: middle;"><line x1="6" y1="3" x2="18" y2="3" /><line x1="6" y1="8" x2="18" y2="8" /><path d="M6 3h6a5 5 0 0 1 0 10H6" /><path d="M9 13l9 9" /></svg>`;
+
+function createMarkerIcon(status, hasPendingPayment, hasLegacyDebt) {
     const config = MARKER_CONFIG[status] || MARKER_CONFIG.prospect;
+    
+    let pinClass = `marker-pin marker-${status}`;
+    let pinStyle = `background:${config.bg};border-color:${config.border};border-style:${config.borderStyle}`;
+    let iconContent = config.icon;
+
+    if (hasLegacyDebt) {
+        iconContent = rupeeSvg;
+        if (status === 'fully_delivered') {
+            pinClass += ' legacy-debt-fully';
+            pinStyle = '';
+        } else if (status === 'partially_delivered') {
+            pinClass += ' legacy-debt-partial';
+            pinStyle = '';
+        } else if (status === 'active') {
+            pinClass += ' legacy-debt-active';
+            pinStyle = '';
+        } else {
+            pinClass += ' legacy-debt-other';
+            pinStyle = '';
+        }
+    } else if (hasPendingPayment) {
+        iconContent = rupeeSvg;
+        if (status === 'fully_delivered') {
+            pinClass += ' payment-pending-fully';
+            pinStyle = '';
+        } else if (status === 'partially_delivered') {
+            pinClass += ' payment-pending-partial';
+            pinStyle = '';
+        } else if (status === 'active') {
+            pinClass += ' payment-pending';
+            pinStyle = `background:${config.bg};border-color:${config.border};border-style:${config.borderStyle}`;
+        }
+    }
+
     return L.divIcon({
         className: 'custom-map-marker',
-        html: `<div class="marker-pin marker-${status}" style="background:${config.bg};border-color:${config.border};border-style:${config.borderStyle}" aria-label="${config.label}">
-                 <span class="marker-icon">${config.icon}</span>
+        html: `<div class="${pinClass}" style="${pinStyle}" aria-label="${config.label}">
+                 <span class="marker-icon">${iconContent}</span>
                </div>`,
         iconSize: [32, 42],
         iconAnchor: [16, 42],
@@ -494,7 +539,7 @@ export default function CustomerMap() {
                 const lng = parseFloat(customer.longitude);
                 if (isNaN(lat) || isNaN(lng)) return;
 
-                const icon = createMarkerIcon(customer.marker_status);
+                const icon = createMarkerIcon(customer.marker_status, customer.has_pending_payment, customer.has_legacy_debt);
                 const marker = L.marker([lat, lng], {
                     icon,
                     markerStatus: customer.marker_status,
@@ -1201,7 +1246,30 @@ export default function CustomerMap() {
                         tabIndex={0}
                         aria-pressed={visibleLayers[key]}
                     >
-                        <span className="legend-dot" style={{background: cfg.bg, borderStyle: cfg.borderStyle}}>{cfg.icon}</span>
+                        <div className="legend-dots-container">
+                            <span className="legend-dot" style={{background: cfg.bg, borderStyle: cfg.borderStyle}}>{cfg.icon}</span>
+                            {key === 'fully_delivered' && (
+                                <>
+                                    <span className="legend-sub-dot payment-pending-fully" title="Payment Pending">{rupeeSvgIcon}</span>
+                                    <span className="legend-sub-dot legacy-debt-fully" title="Legacy Debt">{rupeeSvgIcon}</span>
+                                </>
+                            )}
+                            {key === 'partially_delivered' && (
+                                <>
+                                    <span className="legend-sub-dot payment-pending-partial" title="Payment Pending">{rupeeSvgIcon}</span>
+                                    <span className="legend-sub-dot legacy-debt-partial" title="Legacy Debt">{rupeeSvgIcon}</span>
+                                </>
+                            )}
+                            {key === 'active' && (
+                                <>
+                                    <span className="legend-sub-dot marker-active payment-pending" title="Payment Pending" style={{background: '#22c55e', borderColor: '#16a34a'}}>{rupeeSvgIcon}</span>
+                                    <span className="legend-sub-dot legacy-debt-active" title="Legacy Debt">{rupeeSvgIcon}</span>
+                                </>
+                            )}
+                            {['followup', 'lapsed', 'prospect'].includes(key) && (
+                                <span className="legend-sub-dot legacy-debt-other" title="Legacy Debt">{rupeeSvgIcon}</span>
+                            )}
+                        </div>
                         <span className="legend-label">{cfg.label}</span>
                     </div>
                 ))}

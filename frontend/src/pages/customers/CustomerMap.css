@@ -1448,6 +1448,84 @@
     font-weight: 400;
 }
 
+/* ============ Payment Pending & Legacy Debt Markers ============ */
+.marker-pin.payment-pending-fully {
+    background: linear-gradient(135deg, #00f9be 50%, var(--color-warning) 50%) !important;
+    border-color: #00c99a !important;
+}
+
+.marker-pin.payment-pending-partial {
+    background: linear-gradient(135deg, #d600f9 50%, var(--color-warning) 50%) !important;
+    border-color: #a800c4 !important;
+}
+
+.marker-pin.marker-active.payment-pending {
+    background: #22c55e !important;
+    border-color: #16a34a !important;
+}
+
+/* Legacy Debt (Reddish split / red border to identify problem customers) */
+.marker-pin.legacy-debt-fully {
+    background: linear-gradient(135deg, #00f9be 50%, var(--color-danger) 50%) !important;
+    border-color: var(--color-danger) !important;
+}
+
+.marker-pin.legacy-debt-partial {
+    background: linear-gradient(135deg, #d600f9 50%, var(--color-danger) 50%) !important;
+    border-color: var(--color-danger) !important;
+}
+
+.marker-pin.legacy-debt-active {
+    background: linear-gradient(135deg, #22c55e 50%, var(--color-danger) 50%) !important;
+    border-color: var(--color-danger) !important;
+}
+
+/* Fallback for other states (followup, lapsed, prospect) carrying legacy debt */
+.marker-pin.legacy-debt-other {
+    background: var(--color-danger) !important;
+    border-color: var(--color-danger) !important;
+}
+
+/* Rupee icon inside the marker pin needs to be rotated to stay upright */
+.marker-pin .rupee-icon {
+    transform: rotate(45deg);
+    color: #fff;
+    filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.4));
+    width: 14px;
+    height: 14px;
+    display: inline-block;
+}
+
+/* Legend sub-dots for variants display */
+.legend-dots-container {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    margin-right: 6px;
+    flex-shrink: 0;
+}
+
+.legend-sub-dot {
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 9px;
+    font-weight: 700;
+    color: #fff;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+    flex-shrink: 0;
+}
+
+.legend-sub-dot .rupee-icon {
+    width: 10px;
+    height: 10px;
+    transform: none !important; /* No rotation in legend */
+}
+
 /* ============ Overrides ============ */
 .order-details-modal .filter-header::before {
     display: none !important;
