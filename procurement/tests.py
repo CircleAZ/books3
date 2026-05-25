@@ -783,3 +783,113 @@ class RetroactiveWACTestCase(TestCase):
         # 10/3 = 3.3333 → new cost = 10 + 3.3333 = 13.3333
         self.assertAlmostEqual(float(self.pencil.cost_price), 13.3333, places=3)
 
+
+class POStockAlignmentTestCase(TestCase):
+    """Validates vendor_pack_size alignment and receipt reversal math/logic."""
+
+    def setUp(self):
+        self.user = User.objects.create(username="alignment_user", is_active=True)
+        self.category = Category.objects.create(name="Office Supplies")
+        self.vendor = Vendor.objects.create(name="Supplier Y")
+
+        # Base Product - starts empty
+        self.notebook = Product.objects.create(
+            name="Notebook (Base)", category=self.category,
+            cost_price=Decimal("10.00"), selling_price=Decimal("20.00"),
+            stock_quantity=0, physical_stock=0,
+        )
+
+    def test_base_product_received_in_packs(self):
+        """Receive 2 packs of size 50 of a base product. Stock should increase by 100 and WAC should stay correct."""
+        po = PurchaseOrder.objects.create(vendor=self.vendor, created_by=self.user)
+        item = PurchaseOrderItem.objects.create(
+            purchase_order=po, product=self.notebook,
+            vendor_pack_size=50, purchased_packs=2,
+            unit_cost_price=Decimal("10.00"),
+        )
+        po.subtotal = item.line_total
+        po.total_amount = item.line_total
+        po.save(update_fields=['subtotal', 'total_amount'])
+
+        ProcurementService.receive_order(
+            po.id, [{"item_id": item.id, "received_packs": 2}], self.user
+        )
+
+        self.notebook.refresh_from_db()
+        self.assertEqual(self.notebook.stock_quantity, 100)
+        self.assertEqual(self.notebook.physical_stock, 100)
+        # Unit cost should be exactly 10 (not 500)
+        self.assertEqual(self.notebook.cost_price, Decimal("10.0000"))
+
+    def test_full_receipt_reversal(self):
+        """Receive packs and then fully reverse them. Stock should revert and status should go back to ordered."""
+        po = PurchaseOrder.objects.create(vendor=self.vendor, created_by=self.user)
+        item = PurchaseOrderItem.objects.create(
+            purchase_order=po, product=self.notebook,
+            vendor_pack_size=10, purchased_packs=5,
+            unit_cost_price=Decimal("15.00"),
+        )
+        po.subtotal = item.line_total
+        po.total_amount = item.line_total
+        po.save(update_fields=['subtotal', 'total_amount'])
+
+        # Receive 5 packs (50 units)
+        ProcurementService.receive_order(
+            po.id, [{"item_id": item.id, "received_packs": 5}], self.user
+        )
+        self.notebook.refresh_from_db()
+        self.assertEqual(self.notebook.stock_quantity, 50)
+        
+        po.refresh_from_db()
+        self.assertEqual(po.status, PurchaseOrder.Status.RECEIVED)
+
+        # Reverse all 5 packs
+        ProcurementService.reverse_receipt(
+            po.id, [{"item_id": item.id, "received_packs": 5}], self.user
+        )
+
+        self.notebook.refresh_from_db()
+        self.assertEqual(self.notebook.stock_quantity, 0)
+        
+        po.refresh_from_db()
+        self.assertEqual(po.status, PurchaseOrder.Status.ORDERED)
+        
+        item.refresh_from_db()
+        self.assertEqual(item.received_packs, 0)
+
+    def test_partial_receipt_reversal(self):
+        """Receive packs and partially reverse them. Stock should adjust and status should remain partially_received."""
+        po = PurchaseOrder.objects.create(vendor=self.vendor, created_by=self.user)
+        item = PurchaseOrderItem.objects.create(
+            purchase_order=po, product=self.notebook,
+            vendor_pack_size=10, purchased_packs=5,
+            unit_cost_price=Decimal("15.00"),
+        )
+        po.subtotal = item.line_total
+        po.total_amount = item.line_total
+        po.save(update_fields=['subtotal', 'total_amount'])
+
+        # Receive 4 packs (40 units)
+        ProcurementService.receive_order(
+            po.id, [{"item_id": item.id, "received_packs": 4}], self.user
+        )
+        self.notebook.refresh_from_db()
+        self.assertEqual(self.notebook.stock_quantity, 40)
+        
+        po.refresh_from_db()
+        self.assertEqual(po.status, PurchaseOrder.Status.PARTIAL)
+
+        # Reverse 2 packs (20 units)
+        ProcurementService.reverse_receipt(
+            po.id, [{"item_id": item.id, "received_packs": 2}], self.user
+        )
+
+        self.notebook.refresh_from_db()
+        self.assertEqual(self.notebook.stock_quantity, 20)
+        
+        po.refresh_from_db()
+        self.assertEqual(po.status, PurchaseOrder.Status.PARTIAL)
+        
+        item.refresh_from_db()
+        self.assertEqual(item.received_packs, 2)
+

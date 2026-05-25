@@ -20,3 +20,6 @@ export const getPurchaseOrderUrl = (id) =>
 
 export const getReceiveUrl = (id) =>
     `${PROCUREMENT_ENDPOINTS.PURCHASE_ORDERS}${id}/receive/`;
+
+export const getReverseUrl = (id) =>
+    `${PROCUREMENT_ENDPOINTS.PURCHASE_ORDERS}${id}/reverse/`;

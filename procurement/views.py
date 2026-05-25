@@ -33,7 +33,7 @@ class PurchaseOrderViewSet(viewsets.ModelViewSet):
             return PurchaseOrderListSerializer
         if self.action in ['create_po']:
             return POCreateSerializer
-        if self.action in ['receive_items']:
+        if self.action in ['receive_items', 'reverse_items']:
             return POReceiveSerializer
         return PurchaseOrderDetailSerializer
 
@@ -138,6 +138,22 @@ class PurchaseOrderViewSet(viewsets.ModelViewSet):
                 request.user,
                 bypass_inventory_volume=bypass_vol,
                 bypass_inventory_wac=bypass_wac
+            )
+            return Response(PurchaseOrderDetailSerializer(po).data)
+        except (ValidationError, Exception) as e:
+            return Response({'detail': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+    @action(detail=True, methods=['post'], url_path='reverse')
+    def reverse_items(self, request, pk=None):
+        po = self.get_object()
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        
+        try:
+            po = ProcurementService.reverse_receipt(
+                po.id, 
+                serializer.validated_data['items'], 
+                request.user
             )
             return Response(PurchaseOrderDetailSerializer(po).data)
         except (ValidationError, Exception) as e:

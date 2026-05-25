@@ -88,7 +88,8 @@ class ProcurementService:
                     notes=f"PO #{po.display_id} Received" + (" [WAC Bypassed]" if bypass_inventory_wac else ""),
                     user=user,
                     unit_cost=pack_landed_cost if not bypass_inventory_wac else None,
-                    target_ledger='both'
+                    target_ledger='both',
+                    pack_size=po_item.vendor_pack_size
                 )
 
             # 5. Update PO Item state
@@ -340,4 +341,90 @@ class ProcurementService:
                 created_by=user,
                 notes="AUTO-GENERATED: Orphaned margin from retroactive WAC correction"
             )
+
+    @staticmethod
+    @transaction.atomic
+    def reverse_receipt(po_id, items_reversed_data, user):
+        """
+        Reverses received items for a PO.
+        items_reversed_data: list of dicts [{'item_id': UUID, 'received_packs': int}]
+        Note: we reuse 'received_packs' key from POReceiveSerializer to refer to packs to reverse.
+        """
+        po = PurchaseOrder.objects.select_for_update().get(id=po_id)
+        if po.status == PurchaseOrder.Status.CANCELLED:
+            raise ValidationError("Cannot reverse items for a cancelled order.")
+
+        total_po_value = sum(item.line_total for item in po.items.all())
+        total_charges = sum(charge.amount for charge in po.charges.all())
+
+        product_ids = []
+        for item_data in items_reversed_data:
+            po_item = PurchaseOrderItem.objects.get(id=item_data['item_id'], purchase_order=po)
+            if po_item.product.is_pack and po_item.product.base_product_id:
+                product_ids.append(po_item.product.base_product_id)
+            else:
+                product_ids.append(po_item.product_id)
+        
+        locked_products = {
+            p.id: p for p in Product.objects.select_for_update().filter(id__in=product_ids)
+        }
+
+        any_reversed_now = False
+
+        for item_data in items_reversed_data:
+            po_item = PurchaseOrderItem.objects.get(id=item_data['item_id'], purchase_order=po)
+            reversed_packs = int(item_data.get('received_packs', 0))
+            
+            if reversed_packs <= 0:
+                continue
+            
+            if reversed_packs > po_item.received_packs:
+                raise ValidationError(
+                    f"Cannot reverse {reversed_packs} packs for {po_item.product.name}. "
+                    f"Only {po_item.received_packs} packs have been received."
+                )
+                
+            any_reversed_now = True
+
+            # Calculate original landed cost for this item to log correct value value
+            proportion = (po_item.line_total / total_po_value) if total_po_value > 0 else Decimal('0.00')
+            item_charge_share = total_charges * proportion
+            
+            if po_item.ordered_quantity > 0:
+                charge_per_base_unit = item_charge_share / Decimal(str(po_item.ordered_quantity))
+            else:
+                charge_per_base_unit = Decimal('0.00')
+                
+            landed_unit_cost = po_item.unit_cost_price + charge_per_base_unit
+            pack_landed_cost = landed_unit_cost * po_item.vendor_pack_size
+
+            # Atomic Stock Deduction
+            StockService.adjust_stock(
+                product_id=po_item.product_id,
+                adjustment_type='decrease',
+                quantity=reversed_packs,
+                reason='audit_correction',
+                notes=f"PO #{po.display_id} Receipt Reversal",
+                user=user,
+                unit_cost=pack_landed_cost,
+                target_ledger='both',
+                pack_size=po_item.vendor_pack_size
+            )
+
+            po_item.received_packs -= reversed_packs
+            po_item.save(update_fields=['received_packs'])
+
+        if any_reversed_now:
+            # Recalculate overall PO status
+            all_items = po.items.all()
+            all_zero = all(item.received_packs == 0 for item in all_items)
+            any_received = any(item.received_packs > 0 for item in all_items)
+            
+            if all_zero:
+                po.status = PurchaseOrder.Status.ORDERED
+            elif any_received:
+                po.status = PurchaseOrder.Status.PARTIAL
+            po.save(update_fields=['status'])
+            
+        return po
 

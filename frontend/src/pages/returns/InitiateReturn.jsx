@@ -87,8 +87,8 @@ export default function InitiateReturn() {
                 if (response.ok) {
                     const data = await response.json();
                     setRecentOrders(data.results || []);
-                    // Assuming standard page size of 10 from backend
-                    setTotalPages(Math.ceil((data.count || 0) / 10) || 1);
+                    // Assuming standard page size of 20 from backend
+                    setTotalPages(Math.ceil((data.count || 0) / 20) || 1);
                 }
             } catch (error) {
                 console.error('Error fetching recent orders:', error);

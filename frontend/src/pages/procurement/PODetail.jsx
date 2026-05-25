@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
 import { ENDPOINTS } from '../../config/api';
-import { getPurchaseOrderUrl, getReceiveUrl, PROCUREMENT_ENDPOINTS } from '../../services/procurementService';
+import { getPurchaseOrderUrl, getReceiveUrl, getReverseUrl, PROCUREMENT_ENDPOINTS } from '../../services/procurementService';
 import UniversalPaymentEngine from '../../components/common/UniversalPaymentEngine';
 
 export default function PODetail() {
@@ -19,6 +19,11 @@ export default function PODetail() {
     const [showReceive, setShowReceive] = useState(false);
     const [receiveItems, setReceiveItems] = useState([]);
     const [isReceiving, setIsReceiving] = useState(false);
+
+    // Reverse modal
+    const [showReverse, setShowReverse] = useState(false);
+    const [reverseItems, setReverseItems] = useState([]);
+    const [isReversing, setIsReversing] = useState(false);
 
     // Add Charge
     const [showCharge, setShowCharge] = useState(false);
@@ -112,6 +117,58 @@ export default function PODetail() {
         setBypassInventoryVolume(false);
         setBypassInventoryWac(false);
         setShowAdvancedReceiveBypass(false);
+    };
+
+    const openReverseModal = () => {
+        setReverseItems((po?.items || []).filter(item => item.received_packs > 0).map(item => ({
+            item_id: item.id,
+            product_name: item.product_name,
+            received_packs_max: item.received_packs,
+            reversed_packs: 0,
+        })));
+        setShowReverse(true);
+    };
+
+    const handleReverse = async () => {
+        const payloadItems = reverseItems.filter(i => i.reversed_packs > 0).map(i => ({
+            item_id: i.item_id,
+            received_packs: parseInt(i.reversed_packs),
+        }));
+
+        if (payloadItems.length === 0) {
+            showToast('Please specify packs to reverse for at least one item', 'warning');
+            return;
+        }
+
+        setIsReversing(true);
+        try {
+            const freshRes = await fetchWithAuth(getPurchaseOrderUrl(id));
+            if (!freshRes.ok) { showToast('Failed to verify PO state', 'error'); setIsReversing(false); return; }
+            const freshPO = await freshRes.json();
+            if (freshPO.status === 'cancelled') {
+                showToast('PO is cancelled and cannot be modified.', 'warning');
+                setPo(freshPO); setShowReverse(false); setIsReversing(false); return;
+            }
+
+            const payload = {
+                items: payloadItems
+            };
+
+            const res = await fetchWithAuth(getReverseUrl(id), { method: 'POST', body: JSON.stringify(payload) });
+            if (res.ok) {
+                const data = await res.json();
+                setPo(data); setShowReverse(false);
+                showToast('Receipt reversed successfully', 'success');
+            } else {
+                const err = await res.json();
+                showToast('Error: ' + (err.detail || JSON.stringify(err)), 'error');
+            }
+        } catch (e) { showToast('Reversal failed', 'error'); }
+        finally { setIsReversing(false); }
+    };
+
+    const closeReverseModal = () => {
+        setShowReverse(false);
     };
 
     const handleAddCharge = async () => {
@@ -222,7 +279,12 @@ export default function PODetail() {
                         </tbody>
                     </table>
                 </div>
-                {canReceive && <button className="btn btn-primary btn-sm" style={{ marginTop: '1rem' }} onClick={openReceiveModal}>Receive Items</button>}
+                <div style={{ display: 'flex', gap: '8px', marginTop: '1rem' }}>
+                    {canReceive && <button className="btn btn-primary btn-sm" onClick={openReceiveModal}>Receive Items</button>}
+                    {(po.status === 'partially_received' || po.status === 'received') && (
+                        <button className="btn btn-ghost btn-sm" style={{ color: '#ef4444', border: '1px solid #ef444444' }} onClick={openReverseModal}>Reverse Receipt</button>
+                    )}
+                </div>
             </div>
 
             {/* Charges */}
@@ -322,6 +384,38 @@ export default function PODetail() {
                         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '1rem' }}>
                             <button className="btn btn-ghost" onClick={closeReceiveModal}>Cancel</button>
                             <button className="btn btn-primary" onClick={handleReceive} disabled={isReceiving}>{isReceiving ? 'Processing...' : 'Confirm Receive'}</button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Reverse Modal */}
+            {showReverse && (
+                <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }} onClick={closeReverseModal}>
+                    <div style={{ background: 'var(--color-bg-primary)', borderRadius: '12px', padding: '1.5rem', maxWidth: '500px', width: '100%', maxHeight: '80vh', overflowY: 'auto' }} onClick={e => e.stopPropagation()}>
+                        <h3 style={{ margin: '0 0 1rem', color: '#ef4444' }}>Reverse Received Items</h3>
+                        <p style={{ fontSize: '0.85rem', color: 'var(--color-text-secondary)', marginBottom: '1rem' }}>
+                            Specify how many received packs you want to reverse from stock. This will reduce inventory quantity at the original landed cost.
+                        </p>
+                        {reverseItems.map((ri, idx) => (
+                            <div key={ri.item_id} style={{ marginBottom: '12px', padding: '10px', background: 'var(--color-bg-secondary)', borderRadius: '8px' }}>
+                                <div style={{ fontWeight: 600, marginBottom: '4px', fontSize: '0.9rem' }}>{ri.product_name}</div>
+                                <div style={{ fontSize: '0.8rem', color: 'var(--color-text-secondary)', marginBottom: '6px' }}>
+                                    Already received: {ri.received_packs_max} packs
+                                </div>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                    <label style={{ fontSize: '0.8rem' }}>Reversing now:</label>
+                                    <input type="number" min="0" max={ri.received_packs_max} value={ri.reversed_packs}
+                                        onChange={e => { const v = Math.min(parseInt(e.target.value) || 0, ri.received_packs_max); setReverseItems(prev => prev.map((r, i) => i === idx ? { ...r, reversed_packs: v } : r)); }}
+                                        className="form-control" style={{ width: '80px', textAlign: 'center' }} />
+                                    <span style={{ fontSize: '0.8rem', color: 'var(--color-text-secondary)' }}>packs</span>
+                                </div>
+                            </div>
+                        ))}
+                        
+                        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '1rem' }}>
+                            <button className="btn btn-ghost" onClick={closeReverseModal}>Cancel</button>
+                            <button className="btn btn-primary" style={{ background: '#ef4444', borderColor: '#ef4444' }} onClick={handleReverse} disabled={isReversing}>{isReversing ? 'Processing...' : 'Confirm Reversal'}</button>
                         </div>
                     </div>
                 </div>

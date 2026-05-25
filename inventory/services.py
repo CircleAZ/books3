@@ -8,7 +8,7 @@ class StockService:
     RETRY_DELAY = 0.2  # seconds
 
     @staticmethod
-    def adjust_stock(product_id, adjustment_type, quantity, reason, notes, user=None, unit_cost=None, target_ledger='both'):
+    def adjust_stock(product_id, adjustment_type, quantity, reason, notes, user=None, unit_cost=None, target_ledger='both', pack_size=None):
         """
         Centrally manage stock adjustments to prevent race conditions.
         target_ledger: 'available' (stock_quantity), 'physical' (physical_stock), or 'both'
@@ -16,7 +16,7 @@ class StockService:
         for attempt in range(StockService.MAX_RETRIES):
             try:
                 return StockService._do_adjust_stock(
-                    product_id, adjustment_type, quantity, reason, notes, user, unit_cost, target_ledger
+                    product_id, adjustment_type, quantity, reason, notes, user, unit_cost, target_ledger, pack_size
                 )
             except OperationalError as e:
                 if 'database is locked' in str(e) and attempt < StockService.MAX_RETRIES - 1:
@@ -27,7 +27,7 @@ class StockService:
 
     @staticmethod
     @transaction.atomic
-    def _do_adjust_stock(product_id, adjustment_type, quantity, reason, notes, user, unit_cost=None, target_ledger='both'):
+    def _do_adjust_stock(product_id, adjustment_type, quantity, reason, notes, user, unit_cost=None, target_ledger='both', pack_size=None):
         """
         Perform atomic stock adjustment using optimistic locking.
         """
@@ -37,16 +37,20 @@ class StockService:
 
         # Initial non-locked fetch to check for Pack translation
         initial_product = Product.objects.get(pk=product_id)
-        is_translation = False
+        
+        # Determine the pack size to use
+        effective_pack_size = pack_size if pack_size is not None else (initial_product.pack_size if initial_product.is_pack else 1)
+        
         if initial_product.is_pack and initial_product.base_product_id:
             if adjustment_type == 'set':
                 raise ValueError("Cannot perform absolute 'set' operations on a Pack product. Adjust the Base product directly.")
-            is_translation = True
             product_id = initial_product.base_product_id
-            quantity = quantity * initial_product.pack_size
+            
+        if effective_pack_size > 1:
+            quantity = quantity * effective_pack_size
             if unit_cost is not None:
-                unit_cost = unit_cost / initial_product.pack_size
-            notes = f"[Pack Auto-Translate: {initial_product.name}] " + notes
+                unit_cost = unit_cost / effective_pack_size
+            notes = f"[Pack Multiplier: {initial_product.name} (Size: {effective_pack_size})] " + notes
 
         # Lock the row immediately
         product = Product.objects.select_for_update().get(pk=product_id)
