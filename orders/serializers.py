@@ -47,17 +47,28 @@ class OrderItemSerializer(serializers.ModelSerializer):
     product_name = serializers.CharField(source='product.name', read_only=True)
     product_display_id = serializers.IntegerField(source='product.display_id', read_only=True)
     product_stock = serializers.IntegerField(source='product.stock_quantity', read_only=True)
+    max_returnable_quantity = serializers.SerializerMethodField()
     
     class Meta:
         model = OrderItem
         fields = [
             'id', 'product', 'product_name', 'product_display_id', 'product_stock',
             'quantity', 'confirmed_quantity', 'delivered_quantity', 'remaining_quantity', 'returned_quantity',
+            'max_returnable_quantity',
             'unit_price', 
             'discount_type', 'discount_value', 'discount_amount',
             'line_total'
         ]
-        read_only_fields = ['id', 'confirmed_quantity', 'delivered_quantity', 'remaining_quantity', 'returned_quantity', 'discount_amount', 'line_total']
+        read_only_fields = ['id', 'confirmed_quantity', 'delivered_quantity', 'remaining_quantity', 'returned_quantity', 'max_returnable_quantity', 'discount_amount', 'line_total']
+
+    def get_max_returnable_quantity(self, obj):
+        already_returned = sum(
+            ri.quantity for ri in obj.return_items.filter(
+                return_request__status__in=['initiated', 'items_received', 'completed']
+            )
+        )
+        return max(0, obj.delivered_quantity - already_returned)
+
 
 
 class OrderListSerializer(serializers.ModelSerializer):
@@ -544,9 +555,7 @@ class ReturnItemSerializer(serializers.ModelSerializer):
     """Serializer for individual return items."""
     product_name = serializers.CharField(source='order_item.product.name', read_only=True)
     product_id = serializers.UUIDField(source='order_item.product.id', read_only=True)
-    unit_price = serializers.DecimalField(
-        source='order_item.unit_price', max_digits=10, decimal_places=2, read_only=True
-    )
+    unit_price = serializers.SerializerMethodField()
     reason_name = serializers.CharField(source='reason.name', read_only=True, default=None)
     line_total = serializers.SerializerMethodField()
     
@@ -560,7 +569,25 @@ class ReturnItemSerializer(serializers.ModelSerializer):
         read_only_fields = ['id', 'stock_restored', 'created_at']
     
     def get_line_total(self, obj):
-        return obj.order_item.unit_price * obj.quantity
+        from decimal import Decimal
+        order_item = obj.order_item
+        if order_item.quantity <= 0:
+            return Decimal('0.00')
+            
+        base_refund = (order_item.line_total / order_item.quantity) * obj.quantity
+        order = order_item.order
+        if order.subtotal > 0 and order.discount_amount > 0:
+            ratio = order.total / order.subtotal
+            return (base_refund * ratio).quantize(Decimal('0.01'))
+            
+        return Decimal(str(base_refund)).quantize(Decimal('0.01'))
+
+    def get_unit_price(self, obj):
+        from decimal import Decimal
+        if obj.quantity <= 0:
+            return Decimal('0.00')
+        return (self.get_line_total(obj) / obj.quantity).quantize(Decimal('0.01'))
+
 
 
 class ReturnListSerializer(serializers.ModelSerializer):
@@ -686,7 +713,7 @@ class ReturnCreateSerializer(serializers.ModelSerializer):
                     return_request__status__in=['initiated', 'items_received', 'completed']
                 )
             )
-            available = order_item.quantity - already_returned
+            available = order_item.delivered_quantity - already_returned
             
             if quantity > available:
                 raise serializers.ValidationError({

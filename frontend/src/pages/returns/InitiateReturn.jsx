@@ -119,6 +119,16 @@ export default function InitiateReturn() {
         }
     };
 
+    const getEffectiveUnitPrice = (item) => {
+        if (!selectedOrder || !item || item.quantity <= 0) return 0;
+        const orderTotal = Number(selectedOrder.total || 0);
+        const orderSubtotal = Number(selectedOrder.subtotal || 0);
+        const orderDiscountRatio = orderSubtotal > 0 ? (orderTotal / orderSubtotal) : 1;
+        const itemQuantity = Number(item.quantity || 1);
+        const itemLineTotal = Number(item.line_total || 0);
+        return (itemLineTotal / itemQuantity) * orderDiscountRatio;
+    };
+
     const toggleItemSelection = (itemId, item) => {
         setSelectedItems(prev => {
             const newSelected = { ...prev };
@@ -129,8 +139,7 @@ export default function InitiateReturn() {
                     order_item: itemId,
                     quantity: 1,
                     reason: returnReasons[0]?.id || '',
-                    stock_action: 'return_to_stock',
-                    unit_price: item.unit_price
+                    stock_action: 'return_to_stock'
                 };
             }
             return newSelected;
@@ -148,10 +157,13 @@ export default function InitiateReturn() {
     };
 
     const refundAmount = useMemo(() => {
-        return Object.values(selectedItems).reduce((total, item) => {
-            return total + ((parseInt(item.quantity, 10) || 0) * item.unit_price);
+        return Object.values(selectedItems).reduce((total, selItem) => {
+            const originalItem = selectedOrder?.items.find(i => i.id === selItem.order_item);
+            if (!originalItem) return total;
+            const effPrice = getEffectiveUnitPrice(originalItem);
+            return total + ((parseInt(selItem.quantity, 10) || 0) * effPrice);
         }, 0);
-    }, [selectedItems]);
+    }, [selectedItems, selectedOrder]);
 
     const handleSubmit = async () => {
         const itemsToReturn = Object.values(selectedItems);
@@ -163,8 +175,8 @@ export default function InitiateReturn() {
         // Validate quantities
         for (const item of itemsToReturn) {
             const originalItem = selectedOrder.items.find(i => i.id === item.order_item);
-            if (item.quantity <= 0 || item.quantity > originalItem.quantity) {
-                showToast(`Invalid quantity for ${originalItem.product_name}`, 'error');
+            if (item.quantity <= 0 || item.quantity > originalItem.max_returnable_quantity) {
+                showToast(`Invalid quantity for ${originalItem.product_name}. Maximum returnable is ${originalItem.max_returnable_quantity}.`, 'error');
                 return;
             }
             if (!item.reason) {
@@ -178,7 +190,7 @@ export default function InitiateReturn() {
             const payload = {
                 order: selectedOrder.id,
                 notes: notes,
-                items: itemsToReturn.map(({ unit_price, ...rest }) => rest)
+                items: itemsToReturn
             };
 
             const response = await fetchWithAuth(ENDPOINTS.RETURNS, {
@@ -349,7 +361,7 @@ export default function InitiateReturn() {
                                 </div>
                                 <div className="info-item">
                                     <label>Total Paid</label>
-                                    <span>{currency}{Number(selectedOrder.total || selectedOrder.total_amount || 0).toFixed(2)}</span>
+                                    <span>{currency}{Number(selectedOrder.amount_paid || 0).toFixed(2)}</span>
                                 </div>
                             </div>
                         </div>
@@ -365,7 +377,8 @@ export default function InitiateReturn() {
                                         <tr>
                                             <th>Select</th>
                                             <th>Product</th>
-                                            <th>Original Qty</th>
+                                            <th>Ordered Qty</th>
+                                            <th>Delivered Qty</th>
                                             <th>Return Qty</th>
                                             <th>Reason</th>
                                             <th>Stock Action</th>
@@ -380,27 +393,34 @@ export default function InitiateReturn() {
                                                         type="checkbox"
                                                         className="return-checkbox"
                                                         checked={!!selectedItems[item.id]}
+                                                        disabled={Number(item.max_returnable_quantity || 0) === 0}
                                                         onChange={() => toggleItemSelection(item.id, item)}
                                                     />
                                                 </td>
                                                 <td className="item-name-cell">
                                                     <span className="item-name">{item.product_name}</span>
                                                     <span className="item-sku">SKU: {item.product_sku || 'N/A'}</span>
+                                                    {Number(item.max_returnable_quantity || 0) === 0 && (
+                                                        <span className="badge-not-returnable" style={{ fontSize: '0.75rem', color: 'var(--color-danger)', display: 'block', marginTop: '4px' }}>
+                                                            Not Returnable (0 available)
+                                                        </span>
+                                                    )}
                                                 </td>
                                                 <td>{item.quantity}</td>
+                                                <td>{item.delivered_quantity}</td>
                                                 <td>
                                                     <input
                                                         type="number"
                                                         className="form-control qty-input"
                                                         min="1"
-                                                        max={item.quantity}
+                                                        max={item.max_returnable_quantity}
                                                         value={selectedItems[item.id]?.quantity ?? ''}
-                                                        disabled={!selectedItems[item.id]}
+                                                        disabled={!selectedItems[item.id] || Number(item.max_returnable_quantity || 0) === 0}
                                                         onChange={(e) => updateItemData(item.id, 'quantity', e.target.value)}
                                                         onBlur={(e) => {
                                                             let val = parseInt(e.target.value, 10);
                                                             if (isNaN(val) || val < 1) val = 1;
-                                                            if (val > item.quantity) val = item.quantity;
+                                                            if (val > item.max_returnable_quantity) val = item.max_returnable_quantity;
                                                             updateItemData(item.id, 'quantity', val);
                                                         }}
                                                         onKeyDown={(e) => {
@@ -446,7 +466,7 @@ export default function InitiateReturn() {
                                                     </div>
                                                 </td>
                                                 <td className="text-primary font-bold">
-                                                    {currency}{selectedItems[item.id] ? ((parseInt(selectedItems[item.id].quantity, 10) || 0) * item.unit_price).toFixed(2) : '0.00'}
+                                                    {currency}{selectedItems[item.id] ? ((parseInt(selectedItems[item.id].quantity, 10) || 0) * getEffectiveUnitPrice(item)).toFixed(2) : '0.00'}
                                                 </td>
                                             </tr>
                                         ))}
