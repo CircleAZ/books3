@@ -652,6 +652,26 @@
     padding: 12px 16px;
     box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
     backdrop-filter: blur(12px);
+    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    min-width: 175px;
+}
+
+.map-legend.collapsed {
+    padding: 8px 12px;
+    min-width: 100px;
+}
+
+.legend-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    cursor: pointer;
+    user-select: none;
+    gap: 8px;
+}
+
+.legend-header:hover .legend-title {
+    color: var(--color-primary);
 }
 
 .legend-title {
@@ -660,7 +680,17 @@
     text-transform: uppercase;
     letter-spacing: 0.5px;
     color: var(--color-text-muted);
-    margin-bottom: 8px;
+    transition: color 0.15s ease;
+}
+
+.legend-toggle-chevron {
+    font-size: 9px;
+    color: var(--color-text-muted);
+    transition: transform 0.25s ease;
+}
+
+.legend-body {
+    margin-top: 6px;
 }
 
 .legend-item {
