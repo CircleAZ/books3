@@ -277,24 +277,89 @@ export default function CustomerMap() {
 
     // Legend toggle: client-side visibility (no API refetch)
     const [visibleLayers, setVisibleLayers] = useState({
-        fully_delivered: true,
-        partially_delivered: true,
-        active: true,
-        followup: true,
-        lapsed: true,
-        prospect: true,
+        fully_delivered_standard: true,
+        fully_delivered_payment_pending: true,
+        fully_delivered_legacy_debt: true,
+        
+        partially_delivered_standard: true,
+        partially_delivered_payment_pending: true,
+        partially_delivered_legacy_debt: true,
+        
+        active_standard: true,
+        active_payment_pending: true,
+        active_legacy_debt: true,
+        
+        followup_standard: true,
+        followup_legacy_debt: true,
+        
+        lapsed_standard: true,
+        lapsed_legacy_debt: true,
+        
+        prospect_standard: true,
+        prospect_legacy_debt: true,
+        
         target_village: true,
     });
 
+    const getVariantsForStatus = (status) => {
+        if (['fully_delivered', 'partially_delivered', 'active'].includes(status)) {
+            return [`${status}_standard`, `${status}_payment_pending`, `${status}_legacy_debt`];
+        }
+        if (['followup', 'lapsed', 'prospect'].includes(status)) {
+            return [`${status}_standard`, `${status}_legacy_debt`];
+        }
+        return [];
+    };
+
+    const isGroupActive = (status) => {
+        const variants = getVariantsForStatus(status);
+        return variants.some(v => visibleLayers[v]);
+    };
+
+    const toggleGroup = (status) => {
+        setVisibleLayers(prev => {
+            const variants = getVariantsForStatus(status);
+            const anyActive = variants.some(v => prev[v]);
+            
+            const updated = { ...prev };
+            variants.forEach(v => {
+                updated[v] = !anyActive;
+            });
+            
+            const activeCount = Object.keys(updated)
+                .filter(k => k !== 'target_village' && updated[k]).length;
+                
+            if (activeCount === 0) {
+                return prev;
+            }
+            return updated;
+        });
+    };
+
+    const toggleVariant = (variantKey, e) => {
+        if (e) e.stopPropagation();
+        setVisibleLayers(prev => {
+            const updated = {
+                ...prev,
+                [variantKey]: !prev[variantKey]
+            };
+            
+            const activeCount = Object.keys(updated)
+                .filter(k => k !== 'target_village' && updated[k]).length;
+                
+            if (activeCount === 0) {
+                return prev;
+            }
+            return updated;
+        });
+    };
+
     const toggleLayer = (key) => {
         setVisibleLayers(prev => {
-            // Don't allow hiding ALL customer layers at once
-            const customerKeys = ALL_STATUSES;
-            if (customerKeys.includes(key)) {
-                const currentlyVisible = customerKeys.filter(k => prev[k]);
-                if (currentlyVisible.length <= 1 && prev[key]) return prev;
+            if (key === 'target_village') {
+                return { ...prev, target_village: !prev.target_village };
             }
-            return { ...prev, [key]: !prev[key] };
+            return prev;
         });
     };
 
@@ -532,8 +597,25 @@ export default function CustomerMap() {
         // --- 1. Standard Customers (filtered by visibleLayers) ---
         if (mapData.customers && mapData.customers.length > 0) {
             mapData.customers.forEach(customer => {
-                // Skip if this status is toggled off in legend
-                if (!visibleLayers[customer.marker_status]) return;
+                // Skip if this status/variant is toggled off in legend
+                const status = customer.marker_status;
+                const hasPending = customer.has_pending_payment;
+                const hasDebt = customer.has_legacy_debt;
+                
+                let variant = 'standard';
+                if (hasDebt) {
+                    variant = 'legacy_debt';
+                } else if (hasPending) {
+                    variant = 'payment_pending';
+                }
+                
+                // Active followup/lapsed/prospect don't have payment_pending in visibleLayers schema
+                if (variant === 'payment_pending' && ['followup', 'lapsed', 'prospect'].includes(status)) {
+                    variant = 'standard';
+                }
+                
+                const compoundKey = `${status}_${variant}`;
+                if (!visibleLayers[compoundKey]) return;
 
                 const lat = parseFloat(customer.latitude);
                 const lng = parseFloat(customer.longitude);
@@ -1237,42 +1319,95 @@ export default function CustomerMap() {
             {/* ── Legend (toggleable filters) ── */}
             <div className="map-legend">
                 <div className="legend-title">Legend</div>
-                {Object.entries(MARKER_CONFIG).map(([key, cfg]) => (
-                    <div
-                        key={key}
-                        className={`legend-item legend-toggle ${visibleLayers[key] ? '' : 'legend-off'}`}
-                        onClick={() => toggleLayer(key)}
-                        role="button"
-                        tabIndex={0}
-                        aria-pressed={visibleLayers[key]}
-                    >
-                        <div className="legend-dots-container">
-                            <span className="legend-dot" style={{background: cfg.bg, borderStyle: cfg.borderStyle}}>{cfg.icon}</span>
-                            {key === 'fully_delivered' && (
-                                <>
-                                    <span className="legend-sub-dot payment-pending-fully" title="Payment Pending">{rupeeSvgIcon}</span>
-                                    <span className="legend-sub-dot legacy-debt-fully" title="Legacy Debt">{rupeeSvgIcon}</span>
-                                </>
-                            )}
-                            {key === 'partially_delivered' && (
-                                <>
-                                    <span className="legend-sub-dot payment-pending-partial" title="Payment Pending">{rupeeSvgIcon}</span>
-                                    <span className="legend-sub-dot legacy-debt-partial" title="Legacy Debt">{rupeeSvgIcon}</span>
-                                </>
-                            )}
-                            {key === 'active' && (
-                                <>
-                                    <span className="legend-sub-dot marker-active payment-pending" title="Payment Pending" style={{background: '#22c55e', borderColor: '#16a34a'}}>{rupeeSvgIcon}</span>
-                                    <span className="legend-sub-dot legacy-debt-active" title="Legacy Debt">{rupeeSvgIcon}</span>
-                                </>
-                            )}
-                            {['followup', 'lapsed', 'prospect'].includes(key) && (
-                                <span className="legend-sub-dot legacy-debt-other" title="Legacy Debt">{rupeeSvgIcon}</span>
-                            )}
+                {Object.entries(MARKER_CONFIG).map(([key, cfg]) => {
+                    const groupActive = isGroupActive(key);
+                    return (
+                        <div
+                            key={key}
+                            className={`legend-item legend-toggle ${groupActive ? '' : 'legend-off'}`}
+                            onClick={() => toggleGroup(key)}
+                            role="button"
+                            tabIndex={0}
+                            aria-pressed={groupActive}
+                        >
+                            <div className="legend-dots-container">
+                                <span 
+                                    className={`legend-dot ${visibleLayers[`${key}_standard`] ? '' : 'legend-off'}`} 
+                                    style={{background: cfg.bg, borderStyle: cfg.borderStyle}}
+                                    onClick={(e) => toggleVariant(`${key}_standard`, e)}
+                                    title="Standard"
+                                >
+                                    {cfg.icon}
+                                </span>
+                                {key === 'fully_delivered' && (
+                                    <>
+                                        <span 
+                                            className={`legend-sub-dot payment-pending-fully ${visibleLayers.fully_delivered_payment_pending ? '' : 'legend-off'}`} 
+                                            title="Payment Pending"
+                                            onClick={(e) => toggleVariant('fully_delivered_payment_pending', e)}
+                                        >
+                                            {rupeeSvgIcon}
+                                        </span>
+                                        <span 
+                                            className={`legend-sub-dot legacy-debt-fully ${visibleLayers.fully_delivered_legacy_debt ? '' : 'legend-off'}`} 
+                                            title="Legacy Debt"
+                                            onClick={(e) => toggleVariant('fully_delivered_legacy_debt', e)}
+                                        >
+                                            {rupeeSvgIcon}
+                                        </span>
+                                    </>
+                                )}
+                                {key === 'partially_delivered' && (
+                                    <>
+                                        <span 
+                                            className={`legend-sub-dot payment-pending-partial ${visibleLayers.partially_delivered_payment_pending ? '' : 'legend-off'}`} 
+                                            title="Payment Pending"
+                                            onClick={(e) => toggleVariant('partially_delivered_payment_pending', e)}
+                                        >
+                                            {rupeeSvgIcon}
+                                        </span>
+                                        <span 
+                                            className={`legend-sub-dot legacy-debt-partial ${visibleLayers.partially_delivered_legacy_debt ? '' : 'legend-off'}`} 
+                                            title="Legacy Debt"
+                                            onClick={(e) => toggleVariant('partially_delivered_legacy_debt', e)}
+                                        >
+                                            {rupeeSvgIcon}
+                                        </span>
+                                    </>
+                                )}
+                                {key === 'active' && (
+                                    <>
+                                        <span 
+                                            className={`legend-sub-dot marker-active payment-pending ${visibleLayers.active_payment_pending ? '' : 'legend-off'}`} 
+                                            title="Payment Pending" 
+                                            style={{background: '#22c55e', borderColor: '#16a34a'}}
+                                            onClick={(e) => toggleVariant('active_payment_pending', e)}
+                                        >
+                                            {rupeeSvgIcon}
+                                        </span>
+                                        <span 
+                                            className={`legend-sub-dot legacy-debt-active ${visibleLayers.active_legacy_debt ? '' : 'legend-off'}`} 
+                                            title="Legacy Debt"
+                                            onClick={(e) => toggleVariant('active_legacy_debt', e)}
+                                        >
+                                            {rupeeSvgIcon}
+                                        </span>
+                                    </>
+                                )}
+                                {['followup', 'lapsed', 'prospect'].includes(key) && (
+                                    <span 
+                                        className={`legend-sub-dot legacy-debt-other ${visibleLayers[`${key}_legacy_debt`] ? '' : 'legend-off'}`} 
+                                        title="Legacy Debt"
+                                        onClick={(e) => toggleVariant(`${key}_legacy_debt`, e)}
+                                    >
+                                        {rupeeSvgIcon}
+                                    </span>
+                                )}
+                            </div>
+                            <span className="legend-label">{cfg.label}</span>
                         </div>
-                        <span className="legend-label">{cfg.label}</span>
-                    </div>
-                ))}
+                    );
+                })}
                 <div
                     className={`legend-item legend-toggle ${visibleLayers.target_village ? '' : 'legend-off'}`}
                     onClick={() => toggleLayer('target_village')}

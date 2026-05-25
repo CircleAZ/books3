@@ -1518,6 +1518,7 @@
     border: 1px solid rgba(255, 255, 255, 0.2);
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
     flex-shrink: 0;
+    transition: opacity 0.2s ease, transform 0.15s ease;
 }
 
 .legend-sub-dot .rupee-icon {
@@ -1529,5 +1530,12 @@
 /* ============ Overrides ============ */
 .order-details-modal .filter-header::before {
     display: none !important;
+}
+
+/* Legend interactive dot toggled-off states */
+.legend-dot.legend-off,
+.legend-sub-dot.legend-off {
+    opacity: 0.3 !important;
+    transform: scale(0.85);
 }
 
