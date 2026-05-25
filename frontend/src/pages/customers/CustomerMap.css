@@ -1449,39 +1449,46 @@
 }
 
 /* ============ Payment Pending & Legacy Debt Markers ============ */
-.marker-pin.payment-pending-fully {
+.marker-pin.payment-pending-fully,
+.legend-sub-dot.payment-pending-fully {
     background: linear-gradient(135deg, #00f9be 50%, var(--color-warning) 50%) !important;
     border-color: #00c99a !important;
 }
 
-.marker-pin.payment-pending-partial {
+.marker-pin.payment-pending-partial,
+.legend-sub-dot.payment-pending-partial {
     background: linear-gradient(135deg, #d600f9 50%, var(--color-warning) 50%) !important;
     border-color: #a800c4 !important;
 }
 
-.marker-pin.marker-active.payment-pending {
+.marker-pin.marker-active.payment-pending,
+.legend-sub-dot.payment-pending {
     background: #22c55e !important;
     border-color: #16a34a !important;
 }
 
 /* Legacy Debt (Reddish split / red border to identify problem customers) */
-.marker-pin.legacy-debt-fully {
+.marker-pin.legacy-debt-fully,
+.legend-sub-dot.legacy-debt-fully {
     background: linear-gradient(135deg, #00f9be 50%, var(--color-danger) 50%) !important;
     border-color: var(--color-danger) !important;
 }
 
-.marker-pin.legacy-debt-partial {
+.marker-pin.legacy-debt-partial,
+.legend-sub-dot.legacy-debt-partial {
     background: linear-gradient(135deg, #d600f9 50%, var(--color-danger) 50%) !important;
     border-color: var(--color-danger) !important;
 }
 
-.marker-pin.legacy-debt-active {
+.marker-pin.legacy-debt-active,
+.legend-sub-dot.legacy-debt-active {
     background: linear-gradient(135deg, #22c55e 50%, var(--color-danger) 50%) !important;
     border-color: var(--color-danger) !important;
 }
 
 /* Fallback for other states (followup, lapsed, prospect) carrying legacy debt */
-.marker-pin.legacy-debt-other {
+.marker-pin.legacy-debt-other,
+.legend-sub-dot.legacy-debt-other {
     background: var(--color-danger) !important;
     border-color: var(--color-danger) !important;
 }
