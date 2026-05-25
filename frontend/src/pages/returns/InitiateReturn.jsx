@@ -399,7 +399,7 @@ export default function InitiateReturn() {
                                                 </td>
                                                 <td className="item-name-cell">
                                                     <span className="item-name">{item.product_name}</span>
-                                                    <span className="item-sku">SKU: {item.product_sku || 'N/A'}</span>
+                                                    <span className="item-sku">Product ID: #{item.product_display_id || 'N/A'}</span>
                                                     {Number(item.max_returnable_quantity || 0) === 0 && (
                                                         <span className="badge-not-returnable" style={{ fontSize: '0.75rem', color: 'var(--color-danger)', display: 'block', marginTop: '4px' }}>
                                                             Not Returnable (0 available)
@@ -474,10 +474,32 @@ export default function InitiateReturn() {
                                 </table>
                             </div>
 
-                            <div className="refund-summary">
-                                <div className="refund-total">
-                                    <label>Total Refund Amount</label>
-                                    <div className="refund-amount">{currency}{refundAmount.toFixed(2)}</div>
+                            <div className="refund-summary" style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
+                                {Number(selectedOrder.max_refundable || 0) < refundAmount && (
+                                    <div className="unpaid-warning-banner" style={{
+                                        padding: '0.75rem 1rem',
+                                        background: 'rgba(239, 68, 68, 0.1)',
+                                        border: '1px solid rgba(239, 68, 68, 0.2)',
+                                        color: 'var(--color-danger)',
+                                        borderRadius: '8px',
+                                        fontSize: '0.85rem',
+                                        lineHeight: '1.5',
+                                        textAlign: 'left'
+                                    }}>
+                                        <strong>⚠️ Unpaid Order Balance:</strong> The customer has only paid {currency}{Number(selectedOrder.amount_paid || 0).toFixed(2)} on this order (Total: {currency}{Number(selectedOrder.total || 0).toFixed(2)}). The return will reduce their unpaid balance, but the maximum cash refund allowed is capped at {currency}{Number(selectedOrder.max_refundable || 0).toFixed(2)}.
+                                    </div>
+                                )}
+                                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '30px', alignItems: 'center', flexWrap: 'wrap' }}>
+                                    <div className="refund-total">
+                                        <label>Returned Items Value</label>
+                                        <div className="refund-amount">{currency}{refundAmount.toFixed(2)}</div>
+                                    </div>
+                                    <div className="refund-total" style={{ borderLeft: '1px solid var(--color-border)', paddingLeft: '30px' }}>
+                                        <label>Max Cash Refundable</label>
+                                        <div className="refund-amount" style={{ color: Number(selectedOrder.max_refundable || 0) === 0 ? 'var(--color-text-muted)' : 'var(--color-success)' }}>
+                                            {currency}{Math.min(Number(selectedOrder.max_refundable || 0), refundAmount).toFixed(2)}
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         </div>

@@ -101,7 +101,7 @@ export default function ReturnDetails() {
         return new Date(dateString).toLocaleString();
     };
 
-    const isFullyRefunded = Number(returnData.total_refunded) >= Number(returnData.total_refund_amount);
+    const isFullyRefunded = Number(returnData.total_refunded) >= Math.min(Number(returnData.total_refund_amount), Number(returnData.order_max_refundable || 0));
 
     return (
         <div className="return-details-container animate-fade-in">
@@ -255,19 +255,38 @@ export default function ReturnDetails() {
                             <p className="empty-state">No refunds recorded yet.</p>
                         )}
 
-                        <div className="refund-summary">
-                            <div className="summary-row">
-                                <span>Total Refund Amount:</span>
+                        <div className="refund-summary" style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginTop: '1.5rem' }}>
+                            {Number(returnData.order_max_refundable || 0) < Number(returnData.total_refund_amount) && (
+                                <div className="unpaid-warning-banner" style={{
+                                    padding: '0.75rem 1rem',
+                                    background: 'rgba(239, 68, 68, 0.1)',
+                                    border: '1px solid rgba(239, 68, 68, 0.2)',
+                                    color: 'var(--color-danger)',
+                                    borderRadius: '8px',
+                                    fontSize: '0.85rem',
+                                    lineHeight: '1.5',
+                                    textAlign: 'left',
+                                    width: '100%'
+                                }}>
+                                    <strong>⚠️ Unpaid Order Balance:</strong> The customer paid {currency}{Number(returnData.order_net_paid || 0).toFixed(2)} on this order (Total: {currency}{Number(returnData.order_total || 0).toFixed(2)}). The return reduces their debt, but the maximum cash refund allowed is capped at {currency}{Number(returnData.order_max_refundable || 0).toFixed(2)}.
+                                </div>
+                            )}
+                            <div className="summary-row" style={{ display: 'flex', justifyContent: 'space-between', width: '100%' }}>
+                                <span>Returned Items Value:</span>
                                 <span>{currency}{Number(returnData.total_refund_amount).toFixed(2)}</span>
                             </div>
-                            <div className="summary-row">
+                            <div className="summary-row" style={{ display: 'flex', justifyContent: 'space-between', width: '100%' }}>
+                                <span>Max Cash Refundable:</span>
+                                <span className="font-bold">{currency}{Number(returnData.order_max_refundable || 0).toFixed(2)}</span>
+                            </div>
+                            <div className="summary-row" style={{ display: 'flex', justifyContent: 'space-between', width: '100%' }}>
                                 <span>Total Refunded:</span>
                                 <span className="text-success">{currency}{Number(returnData.total_refunded).toFixed(2)}</span>
                             </div>
-                            <div className="summary-row total">
-                                <span>Remaining:</span>
-                                <span className={!isFullyRefunded ? 'text-warning' : ''}>
-                                    {currency}{(Number(returnData.total_refund_amount) - Number(returnData.total_refunded)).toFixed(2)}
+                            <div className="summary-row total" style={{ display: 'flex', justifyContent: 'space-between', width: '100%', borderTop: '1px solid var(--color-border)', paddingTop: '8px', fontWeight: 'bold' }}>
+                                <span>Remaining Cash Refund:</span>
+                                <span className={!isFullyRefunded && Number(returnData.order_max_refundable || 0) > Number(returnData.total_refunded) ? 'text-warning' : ''}>
+                                    {currency}{Math.max(0, Number(returnData.order_max_refundable || 0) - Number(returnData.total_refunded)).toFixed(2)}
                                 </span>
                             </div>
                         </div>
