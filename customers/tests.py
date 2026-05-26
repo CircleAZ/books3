@@ -356,3 +356,66 @@ class PotentialCustomerAPITest(TestCase):
         client = APIClient()  # No auth
         res = client.get(self.base_url)
         self.assertEqual(res.status_code, status.HTTP_401_UNAUTHORIZED)
+
+
+class CustomerMapDataSoftDeleteTest(TestCase):
+    """Verify that map_data excludes soft-deleted orders from aggregates."""
+
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username='salesman2', password='test1234', phone='9999900011',
+            is_superuser=True,
+        )
+        self.client = APIClient()
+        self.client.force_authenticate(user=self.user)
+
+    def test_map_data_excludes_soft_deleted_orders(self):
+        from orders.models import Order
+        from customers.models import Address
+        from django.contrib.gis.geos import Point
+
+        # Create customer
+        customer = Customer.objects.create(
+            first_name='Test', last_name='SoftDelete', phone='9999900070'
+        )
+        # Create primary address with coordinates
+        Address.objects.create(
+            customer=customer,
+            is_primary=True,
+            location=Point(72.83, 21.17, srid=4326),
+            address_line='Test Addr'
+        )
+
+        # Create 1 active order
+        Order.objects.create(
+            customer=customer,
+            total=1020.00,
+            order_status='confirmed',
+        )
+
+        # Create 1 soft-deleted order (with same valid sale status)
+        deleted_order = Order.objects.create(
+            customer=customer,
+            total=100.00,
+            order_status='confirmed',
+        )
+        # Set is_deleted=True and save
+        deleted_order.is_deleted = True
+        deleted_order.save()
+
+        # Hit the map_data endpoint
+        res = self.client.get('/api/customers/customers/map_data/')
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+
+        # Retrieve our customer
+        customer_data = None
+        for c in res.data['customers']:
+            if c['id'] == str(customer.id):
+                customer_data = c
+                break
+
+        self.assertIsNotNone(customer_data)
+        self.assertEqual(customer_data['total_orders'], 1)
+        self.assertEqual(float(customer_data['total_spent']), 1020.00)
+        self.assertEqual(customer_data['season_orders'], 1)
+

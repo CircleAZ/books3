@@ -253,14 +253,14 @@ class CustomerViewSet(viewsets.ModelViewSet):
         ).annotate(
             last_order_date=Max(
                 'orders__created_at',
-                filter=Q(orders__order_status__in=valid_statuses)
+                filter=Q(orders__order_status__in=valid_statuses, orders__is_deleted=False)
             ),
             total_order_count=Count(
                 'orders',
-                filter=Q(orders__order_status__in=valid_statuses)
+                filter=Q(orders__order_status__in=valid_statuses, orders__is_deleted=False)
             ),
             total_amount_spent=Coalesce(
-                Sum('orders__total', filter=Q(orders__order_status__in=valid_statuses)),
+                Sum('orders__total', filter=Q(orders__order_status__in=valid_statuses, orders__is_deleted=False)),
                 Value(0, output_field=DecimalField()),
                 output_field=DecimalField()
             ),
@@ -269,7 +269,8 @@ class CustomerViewSet(viewsets.ModelViewSet):
                 filter=Q(
                     orders__created_at__date__gte=season_start,
                     orders__created_at__date__lte=season_end,
-                    orders__order_status__in=valid_statuses
+                    orders__order_status__in=valid_statuses,
+                    orders__is_deleted=False
                 )
             ),
             season_delivered_count=Count(
@@ -278,7 +279,8 @@ class CustomerViewSet(viewsets.ModelViewSet):
                     orders__created_at__date__gte=season_start,
                     orders__created_at__date__lte=season_end,
                     orders__order_status__in=valid_statuses,
-                    orders__delivery_status='delivered'
+                    orders__delivery_status='delivered',
+                    orders__is_deleted=False
                 )
             ),
             season_partial_count=Count(
@@ -287,7 +289,8 @@ class CustomerViewSet(viewsets.ModelViewSet):
                     orders__created_at__date__gte=season_start,
                     orders__created_at__date__lte=season_end,
                     orders__order_status__in=valid_statuses,
-                    orders__delivery_status='partial'
+                    orders__delivery_status='partial',
+                    orders__is_deleted=False
                 )
             ),
             prev_season_order_count=Count(
@@ -295,7 +298,8 @@ class CustomerViewSet(viewsets.ModelViewSet):
                 filter=Q(
                     orders__created_at__date__gte=prev_season_start,
                     orders__created_at__date__lte=prev_season_end,
-                    orders__order_status__in=valid_statuses
+                    orders__order_status__in=valid_statuses,
+                    orders__is_deleted=False
                 )
             ),
             last_order_display_id=last_order_subquery,
@@ -586,14 +590,16 @@ class CustomerViewSet(viewsets.ModelViewSet):
                     filter=Q(
                         orders__created_at__date__gte=s_start,
                         orders__created_at__date__lte=s_end,
-                        orders__order_status__in=valid_statuses
+                        orders__order_status__in=valid_statuses,
+                        orders__is_deleted=False
                     )
                 ),
                 season_revenue=Coalesce(
                     Sum('orders__total', filter=Q(
                         orders__created_at__date__gte=s_start,
                         orders__created_at__date__lte=s_end,
-                        orders__order_status__in=valid_statuses
+                        orders__order_status__in=valid_statuses,
+                        orders__is_deleted=False
                     )),
                     Value(0, output_field=DecimalField()),
                     output_field=DecimalField()
@@ -730,7 +736,8 @@ class CustomerViewSet(viewsets.ModelViewSet):
                 filter=Q(
                     orders__created_at__date__gte=season_start,
                     orders__created_at__date__lte=season_end,
-                    orders__order_status__in=valid_statuses
+                    orders__order_status__in=valid_statuses,
+                    orders__is_deleted=False
                 )
             ),
         ).distinct()

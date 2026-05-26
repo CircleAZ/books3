@@ -566,13 +566,13 @@ class CustomerReportViewSet(ReportBaseViewSet):
         
         # Repeat customers: those who have more than 1 confirmed/completed order ever
         repeat_customers_count = Customer.objects.annotate(
-            order_count=Count('orders', filter=Q(orders__order_status__in=VALID_SALE_STATUSES))
+            order_count=Count('orders', filter=Q(orders__order_status__in=VALID_SALE_STATUSES, orders__is_deleted=False))
         ).filter(order_count__gt=1).count()
         
         # CLV metrics
         customer_stats = Customer.objects.annotate(
-            total_spent=Sum('orders__total', filter=Q(orders__order_status__in=VALID_SALE_STATUSES)),
-            order_count=Count('orders', filter=Q(orders__order_status__in=VALID_SALE_STATUSES))
+            total_spent=Sum('orders__total', filter=Q(orders__order_status__in=VALID_SALE_STATUSES, orders__is_deleted=False)),
+            order_count=Count('orders', filter=Q(orders__order_status__in=VALID_SALE_STATUSES, orders__is_deleted=False))
         ).filter(order_count__gt=0)
         
         avg_order_value = customer_stats.aggregate(avg=Avg('total_spent'))['avg'] or 0
@@ -593,8 +593,8 @@ class CustomerReportViewSet(ReportBaseViewSet):
     @action(detail=False, methods=['get'])
     def top(self, request):
         top_customers = Customer.objects.annotate(
-            total_spent=Sum('orders__total', filter=Q(orders__order_status__in=VALID_SALE_STATUSES)),
-            order_count=Count('orders', filter=Q(orders__order_status__in=VALID_SALE_STATUSES))
+            total_spent=Sum('orders__total', filter=Q(orders__order_status__in=VALID_SALE_STATUSES, orders__is_deleted=False)),
+            order_count=Count('orders', filter=Q(orders__order_status__in=VALID_SALE_STATUSES, orders__is_deleted=False))
         ).filter(total_spent__gt=0).order_by('-total_spent')[:10]
         
         data = []
@@ -617,9 +617,9 @@ class CustomerReportViewSet(ReportBaseViewSet):
         today = timezone.now().date()
         
         customers = Customer.objects.annotate(
-            last_order_date=Max('orders__created_at', filter=Q(orders__order_status__in=VALID_SALE_STATUSES)),
-            frequency=Count('orders', filter=Q(orders__order_status__in=VALID_SALE_STATUSES)),
-            monetary=Sum('orders__total', filter=Q(orders__order_status__in=VALID_SALE_STATUSES))
+            last_order_date=Max('orders__created_at', filter=Q(orders__order_status__in=VALID_SALE_STATUSES, orders__is_deleted=False)),
+            frequency=Count('orders', filter=Q(orders__order_status__in=VALID_SALE_STATUSES, orders__is_deleted=False)),
+            monetary=Sum('orders__total', filter=Q(orders__order_status__in=VALID_SALE_STATUSES, orders__is_deleted=False))
         ).filter(frequency__gt=0)
         
         segments = {
@@ -654,8 +654,8 @@ class CustomerReportViewSet(ReportBaseViewSet):
     def export(self, request):
         # Use annotations for performance instead of N+1 queries
         customers = Customer.objects.annotate(
-            total_spent=Sum('orders__total', filter=Q(orders__order_status__in=VALID_SALE_STATUSES)),
-            order_count=Count('orders', filter=Q(orders__order_status__in=VALID_SALE_STATUSES))
+            total_spent=Sum('orders__total', filter=Q(orders__order_status__in=VALID_SALE_STATUSES, orders__is_deleted=False)),
+            order_count=Count('orders', filter=Q(orders__order_status__in=VALID_SALE_STATUSES, orders__is_deleted=False))
         ).all()
         
         header = ['ID', 'Name', 'Email', 'Phone', 'Orders', 'Total Spent', 'Joined Date']
