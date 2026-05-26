@@ -83,7 +83,7 @@ class CommissionSystemTests(APITestCase):
     def test_resolve_falls_back_to_global_default(self):
         """No override → must use Product.default_commission_value."""
         rate = OutletDailySaleItem.resolve_commission_rate(self.outlet_a, self.product_a)
-        self.assertEqual(rate, Decimal('20.00'))
+        self.assertEqual(rate, ('percent', Decimal('20.00')))
 
     def test_resolve_uses_outlet_override(self):
         """Override exists → must use OutletProductCommission rate."""
@@ -91,7 +91,7 @@ class CommissionSystemTests(APITestCase):
             outlet=self.outlet_a, product=self.product_a, commission_value=Decimal('15.00')
         )
         rate = OutletDailySaleItem.resolve_commission_rate(self.outlet_a, self.product_a)
-        self.assertEqual(rate, Decimal('15.00'))
+        self.assertEqual(rate, ('percent', Decimal('15.00')))
 
     def test_resolve_override_is_outlet_specific(self):
         """Override on Shop Alpha must NOT affect Shop Beta."""
@@ -100,13 +100,13 @@ class CommissionSystemTests(APITestCase):
         )
         rate_a = OutletDailySaleItem.resolve_commission_rate(self.outlet_a, self.product_a)
         rate_b = OutletDailySaleItem.resolve_commission_rate(self.outlet_b, self.product_a)
-        self.assertEqual(rate_a, Decimal('15.00'))
-        self.assertEqual(rate_b, Decimal('20.00'))  # Global default
+        self.assertEqual(rate_a, ('percent', Decimal('15.00')))
+        self.assertEqual(rate_b, ('percent', Decimal('20.00')))  # Global default
 
     def test_resolve_zero_commission(self):
         """Product C has 0% default. No override. Rate must be 0."""
         rate = OutletDailySaleItem.resolve_commission_rate(self.outlet_a, self.product_c)
-        self.assertEqual(rate, Decimal('0.00'))
+        self.assertEqual(rate, ('percent', Decimal('0.00')))
 
     # ── 3. SALE FINANCIAL CALCULATIONS ─────────────────────────────────
 
@@ -119,22 +119,22 @@ class CommissionSystemTests(APITestCase):
         return sale
 
     def test_single_product_sale_global_default(self):
-        """10 x Product A @ ₹100, 20% commission → Gross=1000, Comm=200, Net=800."""
+        """10 x Product A @ ₹100, 20% commission → Gross=1000, Comm=100 (20% of 500 margin), Net=900."""
         sale = self._create_sale_direct(self.outlet_a, [(self.product_a, 10)])
         self.assertEqual(sale.gross_total, Decimal('1000.00'))
-        self.assertEqual(sale.commission_amount, Decimal('200.00'))
-        self.assertEqual(sale.net_total, Decimal('800.00'))
+        self.assertEqual(sale.commission_amount, Decimal('100.00'))
+        self.assertEqual(sale.net_total, Decimal('900.00'))
 
     def test_multi_product_sale_different_rates(self):
         """Mixed sale: Product A (20%) + Product B (5%) + Product C (0%)."""
         sale = self._create_sale_direct(self.outlet_a, [
-            (self.product_a, 5),   # 5*100=500, comm=100
-            (self.product_b, 3),   # 3*200=600, comm=30
+            (self.product_a, 5),   # 5*100=500, margin=250, comm=50 (20%)
+            (self.product_b, 3),   # 3*200=600, margin=360, comm=18 (5%)
             (self.product_c, 10),  # 10*50=500, comm=0
         ])
         self.assertEqual(sale.gross_total, Decimal('1600.00'))
-        self.assertEqual(sale.commission_amount, Decimal('130.00'))
-        self.assertEqual(sale.net_total, Decimal('1470.00'))
+        self.assertEqual(sale.commission_amount, Decimal('68.00'))
+        self.assertEqual(sale.net_total, Decimal('1532.00'))
 
     def test_sale_with_outlet_override(self):
         """Shop Alpha overrides Product A to 15%. Product B stays at global 5%."""
@@ -142,17 +142,17 @@ class CommissionSystemTests(APITestCase):
             outlet=self.outlet_a, product=self.product_a, commission_value=Decimal('15.00')
         )
         sale = self._create_sale_direct(self.outlet_a, [
-            (self.product_a, 10),  # 10*100=1000, comm=150 (15%)
-            (self.product_b, 5),   # 5*200=1000, comm=50 (5%)
+            (self.product_a, 10),  # 10*100=1000, margin=500, comm=75 (15%)
+            (self.product_b, 5),   # 5*200=1000, margin=600, comm=30 (5%)
         ])
         self.assertEqual(sale.gross_total, Decimal('2000.00'))
-        self.assertEqual(sale.commission_amount, Decimal('200.00'))
-        self.assertEqual(sale.net_total, Decimal('1800.00'))
+        self.assertEqual(sale.commission_amount, Decimal('105.00'))
+        self.assertEqual(sale.net_total, Decimal('1895.00'))
 
     def test_commission_frozen_at_sale_time(self):
         """Commission must be frozen. Changing the override AFTER sale must NOT affect old records."""
         sale = self._create_sale_direct(self.outlet_a, [(self.product_a, 10)])
-        original_commission = sale.commission_amount  # 200.00 (20%)
+        original_commission = sale.commission_amount  # 100.00 (20% of 500 margin)
 
         # Now create an override changing to 50%
         OutletProductCommission.objects.create(
@@ -176,8 +176,8 @@ class CommissionSystemTests(APITestCase):
         sale = self._create_sale_direct(self.outlet_a, [(self.product_b, 4)])
         item = sale.items.first()
         self.assertEqual(item.commission_value, Decimal('12.50'))
-        # 4 * 200 = 800, 12.5% of 800 = 100
-        self.assertEqual(item.commission_amount, Decimal('100.00'))
+        # 4 * 200 = 800, margin = 4 * 120 = 480, 12.5% of 480 = 60
+        self.assertEqual(item.commission_amount, Decimal('60.00'))
         self.assertEqual(item.unit_price, Decimal('200.00'))
 
     # ── 4. OUTLET STOCK DEDUCTION ──────────────────────────────────────
@@ -208,13 +208,13 @@ class CommissionSystemTests(APITestCase):
 
     def test_outstanding_balance_calculation(self):
         """Balance = Net Sales - Payments."""
-        self._create_sale_direct(self.outlet_a, [(self.product_a, 10)])  # Net=800
+        self._create_sale_direct(self.outlet_a, [(self.product_a, 10)])  # Net=900
         OutletPayment.objects.create(
             outlet=self.outlet_a, amount=Decimal('300.00'),
             payment_method='cash', recorded_by=self.user
         )
         self.outlet_a.refresh_from_db()
-        self.assertEqual(self.outlet_a.outstanding_balance, Decimal('500.00'))
+        self.assertEqual(self.outlet_a.outstanding_balance, Decimal('600.00'))
 
     # ── 6. API LAYER TESTS ─────────────────────────────────────────────
 
@@ -326,7 +326,7 @@ class CommissionSystemTests(APITestCase):
         sale.refresh_from_db()
 
         self.assertEqual(sale.gross_total, Decimal('1000.00'))
-        self.assertEqual(sale.commission_amount, Decimal('200.00'))
+        self.assertEqual(sale.commission_amount, Decimal('100.00'))
 
         os = OutletStock.objects.get(outlet=outlet_c, product=self.product_a)
         self.assertEqual(os.quantity, 20)
@@ -336,20 +336,20 @@ class CommissionSystemTests(APITestCase):
     def test_soft_delete_restores_stock_and_recalculates(self):
         """Voiding a sale item must restore outlet stock and recalculate parent totals."""
         sale = self._create_sale_direct(self.outlet_a, [
-            (self.product_a, 10),  # comm=200
-            (self.product_b, 5),   # comm=50
+            (self.product_a, 10),  # comm=100
+            (self.product_b, 5),   # comm=30
         ])
-        self.assertEqual(sale.commission_amount, Decimal('250.00'))
+        self.assertEqual(sale.commission_amount, Decimal('130.00'))
 
         # Void first item
         item = sale.items.filter(product=self.product_a).first()
         item.soft_delete()
 
         sale.refresh_from_db()
-        # Only Product B remains: 5*200=1000, comm=50
+        # Only Product B remains: 5*200=1000, comm=30
         self.assertEqual(sale.gross_total, Decimal('1000.00'))
-        self.assertEqual(sale.commission_amount, Decimal('50.00'))
-        self.assertEqual(sale.net_total, Decimal('950.00'))
+        self.assertEqual(sale.commission_amount, Decimal('30.00'))
+        self.assertEqual(sale.net_total, Decimal('970.00'))
 
         # Stock restored
         os = OutletStock.objects.get(outlet=self.outlet_a, product=self.product_a)

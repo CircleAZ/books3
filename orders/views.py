@@ -450,9 +450,9 @@ class OrderViewSet(viewsets.ModelViewSet):
                 # Audit trail
                 OrderStatusHistory.objects.create(
                     order=order, status_field='order_details',
-                    old_value=f'Item {item.product.name} @ {old_price}', 
-                    new_value=f'Item {item.product.name} @ {new_price}',
-                    note='Resynced item price to current product selling price', 
+                    old_value=str(old_price), 
+                    new_value=str(new_price),
+                    note=f"Resynced price for item '{item.product.name}' from {old_price} to {new_price}", 
                     created_by=request.user
                 )
                 
