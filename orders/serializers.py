@@ -494,42 +494,128 @@ class OrderCreateSerializer(serializers.ModelSerializer):
             setattr(instance, attr, value)
         instance.save()
         
-        # Replace items if provided
+        # Replace/update items if provided
         if items_data is not None:
-            # ZERO-TRUST FIX: Cache historical cost prices before deletion
-            historical_costs = {item.product_id: item.cost_price for item in instance.items.all()}
-            
-            instance.items.all().delete()
-            
-            # Bulk-fetch all products in a single query (same as create)
+            from rest_framework import serializers
+            from orders.models import OrderItem
             from inventory.models import Product
-            product_ids = [item['product'] for item in items_data]
+            
+            existing_items = {item.product_id: item for item in instance.items.all()}
+            incoming_products = [item['product'] for item in items_data]
+            
+            # 1. Validation Checks
+            # A. Check if any already delivered item is missing from incoming items (deletion attempt)
+            for old_pid, old_item in existing_items.items():
+                if old_item.delivered_quantity > 0 and old_pid not in incoming_products:
+                    raise serializers.ValidationError(
+                        {'items': [f"Cannot remove product '{old_item.product.name}' because it has already been partially delivered."]}
+                    )
+            
+            # B. Validate each incoming item against existing constraints
             products_map = {
-                p.id: p for p in Product.objects.filter(id__in=product_ids)
+                p.id: p for p in Product.objects.filter(id__in=incoming_products)
             }
-            missing = [pid for pid in product_ids if pid not in products_map]
+            missing = [pid for pid in incoming_products if pid not in products_map]
             if missing:
                 raise serializers.ValidationError(
                     {'items': [f"Product(s) not found: {missing}"]}
                 )
+                
+            for item_data in items_data:
+                pid = item_data['product']
+                product = products_map[pid]
+                new_qty = item_data['quantity']
+                new_price = item_data['unit_price']
+                new_disc_type = item_data.get('discount_type', '')
+                new_disc_val = item_data.get('discount_value', 0)
+                
+                if pid in existing_items:
+                    old_item = existing_items[pid]
+                    del_qty = old_item.delivered_quantity
+                    if del_qty > 0:
+                        # Enforce constraints for delivered items
+                        if new_qty < del_qty:
+                            raise serializers.ValidationError(
+                                {'items': [f"Quantity for product '{product.name}' cannot be less than delivered quantity ({del_qty})."]}
+                            )
+                        if new_price != old_item.unit_price:
+                            raise serializers.ValidationError(
+                                {'items': [f"Price for product '{product.name}' cannot be modified because it has already been partially delivered."]}
+                            )
+                        if new_disc_type != old_item.discount_type or new_disc_val != old_item.discount_value:
+                            raise serializers.ValidationError(
+                                {'items': [f"Discount for product '{product.name}' cannot be modified because it has already been partially delivered."]}
+                            )
+            
+            # 2. Database Modifications
+            processed_pids = set()
+            historical_costs = {item.product_id: item.cost_price for item in existing_items.values()}
             
             for item_data in items_data:
-                product = products_map[item_data['product']]
+                pid = item_data['product']
+                product = products_map[pid]
+                new_qty = item_data['quantity']
+                new_price = item_data['unit_price']
+                new_disc_type = item_data.get('discount_type', '')
+                new_disc_val = item_data.get('discount_value', 0)
                 
-                # Zero-Trust Cost Price Injection
-                historical_cost = historical_costs.get(product.id)
-                final_cost_price = historical_cost if historical_cost is not None else product.cost_price
+                # Calculate line discount & line total
+                from decimal import Decimal
+                gross = new_price * new_qty
+                if new_disc_type == 'percent' and new_disc_val:
+                    discount_amount = (gross * new_disc_val / Decimal('100')).quantize(Decimal('0.01'))
+                elif new_disc_type == 'fixed' and new_disc_val:
+                    discount_amount = min(new_disc_val, gross)
+                else:
+                    discount_amount = Decimal('0')
+                line_total = gross - discount_amount
                 
-                OrderItem.objects.create(
-                    order=instance,
-                    product=product,
-                    quantity=item_data['quantity'],
-                    unit_price=item_data['unit_price'],
-                    cost_price=final_cost_price,
-                    discount_type=item_data.get('discount_type', ''),
-                    discount_value=item_data.get('discount_value', 0)
-                )
-        
+                if pid in existing_items:
+                    old_item = existing_items[pid]
+                    # Update existing OrderItem
+                    old_item.quantity = new_qty
+                    # If active, also update confirmed_quantity
+                    if instance.order_status in ('confirmed', 'completed'):
+                        old_item.confirmed_quantity = new_qty
+                    
+                    # For undelivered items, allow price/discount updates
+                    if old_item.delivered_quantity == 0:
+                        old_item.unit_price = new_price
+                        old_item.discount_type = new_disc_type
+                        old_item.discount_value = new_disc_val
+                        old_item.discount_amount = discount_amount
+                        old_item.line_total = line_total
+                    else:
+                        # Price/discount were validated to be identical, but recalculate line total just in case of quantity changes
+                        old_item.discount_amount = discount_amount
+                        old_item.line_total = line_total
+                    
+                    old_item.save()
+                    processed_pids.add(pid)
+                else:
+                    # Create new OrderItem
+                    historical_cost = historical_costs.get(pid)
+                    final_cost_price = historical_cost if historical_cost is not None else product.cost_price
+                    
+                    OrderItem.objects.create(
+                        order=instance,
+                        product=product,
+                        quantity=new_qty,
+                        confirmed_quantity=new_qty if instance.order_status in ('confirmed', 'completed') else None,
+                        unit_price=new_price,
+                        cost_price=final_cost_price,
+                        discount_type=new_disc_type,
+                        discount_value=new_disc_val,
+                        discount_amount=discount_amount,
+                        line_total=line_total
+                    )
+                    processed_pids.add(pid)
+            
+            # Delete old items that were not in incoming payload and have 0 deliveries
+            for old_pid, old_item in existing_items.items():
+                if old_pid not in processed_pids and old_item.delivered_quantity == 0:
+                    old_item.delete()
+                    
         instance.calculate_totals()
         return instance
 

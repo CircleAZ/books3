@@ -314,7 +314,7 @@ class Order(DisplayIDMixin, SoftDeleteModel):
     def can_edit(self):
         """Check if order can be edited."""
         return (
-            self.delivery_status == 'pending'
+            self.delivery_status in ('pending', 'partial')
             and self.cancellation_status == 'na'
             and self.order_status != 'cancelled'
         )

@@ -116,8 +116,8 @@ export default function EditOrder() {
                 if (response.ok) {
                     const data = await response.json();
 
-                    if (data.delivery_status !== 'pending') {
-                        showToast('Delivered orders cannot be edited.', 'warning');
+                    if (data.delivery_status !== 'pending' && data.delivery_status !== 'partial') {
+                        showToast('Only pending or partially delivered orders can be edited.', 'warning');
                         navigate(`/orders/${id}`);
                         return;
                     }
@@ -143,7 +143,8 @@ export default function EditOrder() {
                         quantity: item.quantity,
                         discountType: item.discount_type || 'fixed',
                         discountValue: parseFloat(item.discount_value) || 0,
-                        stock_quantity: item.product_stock ?? 9999
+                        stock_quantity: item.product_stock ?? 9999,
+                        delivered_quantity: item.delivered_quantity || 0
                     }));
                     setCartItems(mappedItems);
 
@@ -286,7 +287,10 @@ export default function EditOrder() {
 
     const updateQuantity = (id, delta) => {
         setCartItems(prev => prev.map(item => {
-            if (item.id === id) return { ...item, quantity: Math.max(1, item.quantity + delta) };
+            if (item.id === id) {
+                const minQty = item.delivered_quantity || 1;
+                return { ...item, quantity: Math.max(minQty, item.quantity + delta) };
+            }
             return item;
         }));
     };
@@ -300,6 +304,11 @@ export default function EditOrder() {
     };
 
     const removeFromCart = (id) => {
+        const item = cartItems.find(i => i.id === id);
+        if (item && item.delivered_quantity > 0) {
+            showToast(`Cannot remove ${item.name} because it has already been partially delivered.`, 'warning');
+            return;
+        }
         const removed = cartItems.find(item => item.id === id);
         setCartItems(prev => prev.filter(item => item.id !== id));
         if (removed) {
@@ -311,11 +320,19 @@ export default function EditOrder() {
 
     const setQuantity = (id, qty) => {
         const val = parseInt(qty, 10);
-        if (isNaN(val) || val <= 0) {
-            removeFromCart(id);
+        const item = cartItems.find(i => i.id === id);
+        const minQty = item ? (item.delivered_quantity || 1) : 1;
+        
+        if (isNaN(val) || val < minQty) {
+            if (item && item.delivered_quantity > 0) {
+                setCartItems(prev => prev.map(i => i.id === id ? { ...i, quantity: minQty } : i));
+                showToast(`Quantity cannot be less than delivered quantity (${minQty}).`, 'warning');
+            } else {
+                removeFromCart(id);
+            }
         } else {
-            setCartItems(prev => prev.map(item =>
-                item.id === id ? { ...item, quantity: val } : item
+            setCartItems(prev => prev.map(i =>
+                i.id === id ? { ...i, quantity: val } : i
             ));
         }
     };
@@ -532,8 +549,8 @@ export default function EditOrder() {
                                         </div>
                                         {inCart ? (
                                             <div className="product-card-qty" onClick={e => e.stopPropagation()}>
-                                                <button className="qty-btn" onClick={() => { if (cartItem.quantity <= 1) removeFromCart(p.id); else updateQuantity(p.id, -1); }}>−</button>
-                                                <input type="number" className="qty-input" value={cartItem.quantity} onChange={e => { const val = e.target.value; if (val === '' || val === '0') return; setQuantity(p.id, val); }} onBlur={e => { if (!e.target.value || parseInt(e.target.value, 10) <= 0) removeFromCart(p.id); }} min="1" onClick={e => e.target.select()} />
+                                                <button className="qty-btn" onClick={() => { if (cartItem.quantity <= (cartItem.delivered_quantity || 1)) return; updateQuantity(p.id, -1); }} disabled={cartItem.quantity <= (cartItem.delivered_quantity || 1)}>−</button>
+                                                <input type="number" className="qty-input" value={cartItem.quantity} onChange={e => { const val = e.target.value; if (val === '' || val === '0') return; setQuantity(p.id, val); }} onBlur={e => { if (!e.target.value || parseInt(e.target.value, 10) <= (cartItem.delivered_quantity || 0)) setQuantity(p.id, cartItem.delivered_quantity || 1); }} min={cartItem.delivered_quantity || 1} onClick={e => e.target.select()} />
                                                 <button className="qty-btn" onClick={() => updateQuantity(p.id, 1)}>+</button>
                                             </div>
                                         ) : (
@@ -579,27 +596,34 @@ export default function EditOrder() {
                         <div key={item.id} className="cart-item">
                             <div className="cart-item-main">
                                 <div className="cart-item-details">
-                                    <span className="cart-item-name">{item.name}</span>
+                                    <span className="cart-item-name">
+                                        {item.name}
+                                        {item.delivered_quantity > 0 && (
+                                            <span className="text-success small" style={{ marginLeft: '6px' }}>
+                                                ({item.delivered_quantity} delivered)
+                                            </span>
+                                        )}
+                                    </span>
                                     <span className="cart-item-price-info">
-                                        {currency}<input type="number" className="cart-price-input" value={item.selling_price} onChange={e => updateItemPrice(item.id, e.target.value)} onBlur={e => { if (!e.target.value || parseFloat(e.target.value) < 0) updateItemPrice(item.id, 0); }} min="0" step="0.01" onClick={e => e.target.select()} /> × {item.quantity}
+                                        {currency}<input type="number" className="cart-price-input" value={item.selling_price} onChange={e => updateItemPrice(item.id, e.target.value)} onBlur={e => { if (!e.target.value || parseFloat(e.target.value) < 0) updateItemPrice(item.id, 0); }} min="0" step="0.01" onClick={e => e.target.select()} disabled={item.delivered_quantity > 0} /> × {item.quantity}
                                     </span>
                                 </div>
                                 <div className="cart-item-actions">
                                     <div className="qty-controls">
-                                        <button className="qty-btn" onClick={() => updateQuantity(item.id, -1)}>-</button>
+                                        <button className="qty-btn" onClick={() => updateQuantity(item.id, -1)} disabled={item.quantity <= (item.delivered_quantity || 1)}>-</button>
                                         <span className="qty-val">{item.quantity}</span>
                                         <button className="qty-btn" onClick={() => updateQuantity(item.id, 1)}>+</button>
                                     </div>
-                                    <button className="btn btn-ghost btn-sm text-danger" onClick={() => removeFromCart(item.id)}>×</button>
+                                    <button className="btn btn-ghost btn-sm text-danger" onClick={() => removeFromCart(item.id)} disabled={item.delivered_quantity > 0}>×</button>
                                 </div>
                             </div>
                             <div className="item-discount-row">
                                 <span>Disc:</span>
-                                <select className="form-control form-control-sm" style={{ width: '60px' }} value={item.discountType} onChange={e => updateItemDiscount(item.id, e.target.value, item.discountValue)}>
+                                <select className="form-control form-control-sm" style={{ width: '60px' }} value={item.discountType} onChange={e => updateItemDiscount(item.id, e.target.value, item.discountValue)} disabled={item.delivered_quantity > 0}>
                                     <option value="fixed">{currency}</option>
                                     <option value="percent">%</option>
                                 </select>
-                                <input type="number" className="form-control form-control-sm item-discount-input" value={item.discountValue} onChange={e => updateItemDiscount(item.id, item.discountType, e.target.value)} />
+                                <input type="number" className="form-control form-control-sm item-discount-input" value={item.discountValue} onChange={e => updateItemDiscount(item.id, item.discountType, e.target.value)} disabled={item.delivered_quantity > 0} />
                             </div>
                         </div>
                     ))}
