@@ -408,6 +408,7 @@ class CustomerViewSet(viewsets.ModelViewSet):
                 'display_id': c.display_id,
                 'full_name': strip_tags(c.full_name),
                 'phone': c.phone,
+                'notes': strip_tags(c.notes or ''),
                 'classes_display': classes_str,
                 'village': strip_tags(primary_addr.region.name if primary_addr.region else ''),
                 'faliya': strip_tags(primary_addr.faliya or ''),

@@ -44,6 +44,11 @@ const CustomerDetails = () => {
     const [legacyDebtError, setLegacyDebtError] = useState('');
     const [isSettlingDebt, setIsSettlingDebt] = useState(false);
 
+    // Notes State
+    const [isEditingNotes, setIsEditingNotes] = useState(false);
+    const [editedNotes, setEditedNotes] = useState('');
+    const [isSavingNotes, setIsSavingNotes] = useState(false);
+
     const fetchData = React.useCallback(async () => {
         setLoading(true);
         try {
@@ -60,6 +65,7 @@ const CustomerDetails = () => {
 
             const customerData = await customerRes.json();
             setCustomer(customerData);
+            setEditedNotes(customerData.notes || '');
 
             if (walletRes.ok) {
                 const walletData = await walletRes.json();
@@ -242,6 +248,36 @@ const CustomerDetails = () => {
         }
     };
 
+    const handleSaveNotes = async () => {
+        if (editedNotes.length > 2000) {
+            showToast("Notes cannot exceed 2000 characters.", 'error');
+            return;
+        }
+        setIsSavingNotes(true);
+        try {
+            const res = await fetchWithAuth(`${ENDPOINTS.CUSTOMERS}${id}/`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ notes: editedNotes })
+            });
+            if (res.ok) {
+                const updatedCustomer = await res.json();
+                setCustomer(updatedCustomer);
+                setEditedNotes(updatedCustomer.notes || '');
+                setIsEditingNotes(false);
+                showToast("Customer notes updated successfully.", 'success');
+            } else {
+                const errData = await res.json().catch(() => null);
+                const msg = errData?.detail || 'Failed to update notes';
+                showToast(msg, 'error');
+            }
+        } catch (e) {
+            showToast("Error updating customer notes.", 'error');
+        } finally {
+            setIsSavingNotes(false);
+        }
+    };
+
     if (loading && !customer) {
         return (
             <div className="loading-container">
@@ -341,6 +377,59 @@ const CustomerDetails = () => {
                             ))
                         ) : (
                             <span className="text-muted" style={{ padding: '0.5rem 1rem' }}>No student records found.</span>
+                        )}
+                    </div>
+                </div>
+
+                {/* Notes Section */}
+                <div className="customer-section">
+                    <div className="customer-section-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <h3>Notes</h3>
+                        {!isEditingNotes ? (
+                            <button className="btn btn-sm btn-outline" onClick={() => setIsEditingNotes(true)}>Edit</button>
+                        ) : (
+                            <div style={{ display: 'flex', gap: '8px' }}>
+                                <button className="btn btn-sm btn-primary" onClick={handleSaveNotes} disabled={isSavingNotes}>
+                                    {isSavingNotes ? 'Saving...' : 'Save'}
+                                </button>
+                                <button className="btn btn-sm btn-ghost" onClick={() => { setIsEditingNotes(false); setEditedNotes(customer.notes || ''); }}>
+                                    Cancel
+                                </button>
+                            </div>
+                        )}
+                    </div>
+                    <div className="customer-section-content" style={{ display: 'flex', flexDirection: 'column', minHeight: '150px' }}>
+                        {isEditingNotes ? (
+                            <textarea
+                                value={editedNotes}
+                                onChange={e => setEditedNotes(e.target.value)}
+                                placeholder="Add customer notes..."
+                                maxLength={2000}
+                                style={{
+                                    width: '100%',
+                                    flex: 1,
+                                    minHeight: '100px',
+                                    padding: '8px',
+                                    borderRadius: 'var(--radius-md)',
+                                    border: '1px solid var(--color-border)',
+                                    backgroundColor: 'var(--color-bg-tertiary)',
+                                    color: 'var(--color-text-primary)',
+                                    fontSize: '0.9rem',
+                                    fontFamily: 'inherit',
+                                    resize: 'vertical'
+                                }}
+                            />
+                        ) : (
+                            <div style={{
+                                whiteSpace: 'pre-wrap',
+                                wordBreak: 'break-word',
+                                fontSize: '0.95rem',
+                                color: customer.notes ? 'var(--color-text-primary)' : 'var(--color-text-muted)',
+                                fontStyle: customer.notes ? 'normal' : 'italic',
+                                flex: 1
+                            }}>
+                                {customer.notes || 'No notes added for this customer.'}
+                            </div>
                         )}
                     </div>
                 </div>

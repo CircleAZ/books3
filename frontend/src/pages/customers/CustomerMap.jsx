@@ -165,6 +165,31 @@ function createPopupContent(customer, navigate, onOrderClick) {
         container.appendChild(landmarkRow);
     }
 
+    if (customer.notes) {
+        const notesRow = document.createElement('div');
+        notesRow.className = 'popup-row popup-customer-notes';
+        notesRow.style.maxHeight = '80px';
+        notesRow.style.overflowY = 'auto';
+        notesRow.style.whiteSpace = 'pre-wrap';
+        notesRow.style.wordBreak = 'break-word';
+        notesRow.style.padding = '6px 8px';
+        notesRow.style.border = '1px solid var(--color-border)';
+        notesRow.style.borderRadius = 'var(--radius-sm)';
+        notesRow.style.backgroundColor = 'var(--color-bg-tertiary)';
+        notesRow.style.fontSize = '0.85rem';
+        notesRow.style.marginTop = '4px';
+        notesRow.style.marginBottom = '4px';
+        
+        const noteLabel = document.createElement('strong');
+        noteLabel.textContent = 'Note: ';
+        notesRow.appendChild(noteLabel);
+        
+        const noteText = document.createTextNode(customer.notes);
+        notesRow.appendChild(noteText);
+        
+        container.appendChild(notesRow);
+    }
+
     const orderRow = document.createElement('div');
     orderRow.className = 'popup-row popup-orders';
     if (customer.total_orders > 0) {
@@ -1793,6 +1818,24 @@ export default function CustomerMap() {
                                             </span>
                                         </div>
                                     </div>
+                                    
+                                    {selectedOrderDetails.notes && (
+                                        <div className="order-modal-section">
+                                            <h4>Notes</h4>
+                                            <div style={{
+                                                whiteSpace: 'pre-wrap',
+                                                wordBreak: 'break-word',
+                                                fontSize: '0.9rem',
+                                                padding: '8px',
+                                                borderRadius: 'var(--radius-md)',
+                                                border: '1px solid var(--color-border)',
+                                                backgroundColor: 'var(--color-bg-tertiary)',
+                                                color: 'var(--color-text-primary)'
+                                            }}>
+                                                {selectedOrderDetails.notes}
+                                            </div>
+                                        </div>
+                                    )}
                                     
                                     <div className="order-modal-section">
                                         <h4>Items</h4>

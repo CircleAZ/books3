@@ -28,6 +28,7 @@ export default function NewOrder() {
     const [popularProducts, setPopularProducts] = useState([]);
     const [cartItems, setCartItems] = useState([]);
     const [orderDiscount, setOrderDiscount] = useState({ type: 'fixed', value: 0 });
+    const [orderNotes, setOrderNotes] = useState('');
 
     const [paymentMethod, setPaymentMethod] = useState('cash');
     const [payments, setPayments] = useState([]);
@@ -538,6 +539,7 @@ export default function NewOrder() {
             setSelectedCustomer(null);
             setShowAddCustomer(false);
             setPayments([]);
+            setOrderNotes('');
             setOrderDiscount({ type: 'fixed', value: 0 });
         }
     };
@@ -566,6 +568,7 @@ export default function NewOrder() {
                 order_status: status,
                 discount_type: orderDiscount.type,
                 discount_value: orderDiscount.value,
+                notes: orderNotes,
                 items: cartItems.map(item => ({
                     product: item.id,
                     quantity: item.quantity,
@@ -610,6 +613,7 @@ export default function NewOrder() {
                 setSelectedCustomer(null);
                 setShowAddCustomer(false);
                 setPayments([]);
+                setOrderNotes('');
                 setOrderDiscount({ type: 'fixed', value: 0 });
             } else if (response.status === 409) {
                 // Duplicate order detected by backend fingerprint guard
@@ -987,6 +991,28 @@ export default function NewOrder() {
                         <span>Total</span>
                         <span>{currency}{grandTotal.toFixed(2)}</span>
                     </div>
+                </div>
+
+                <div className="order-notes-section" style={{ padding: 'var(--space-sm) var(--page-padding) var(--space-md)' }}>
+                    <label className="small text-muted" style={{ display: 'block', marginBottom: '4px', fontWeight: 600 }}>Order Notes (max 2000 chars)</label>
+                    <textarea
+                        className="form-control"
+                        placeholder="Add internal order notes..."
+                        maxLength={2000}
+                        style={{
+                            width: '100%',
+                            minHeight: '60px',
+                            resize: 'vertical',
+                            fontSize: '0.9rem',
+                            padding: '8px',
+                            borderRadius: 'var(--radius-md)',
+                            border: '1px solid var(--color-border)',
+                            backgroundColor: 'var(--color-bg-tertiary)',
+                            color: 'var(--color-text-primary)'
+                        }}
+                        value={orderNotes}
+                        onChange={e => setOrderNotes(e.target.value)}
+                    />
                 </div>
 
                 <div className="payment-section">

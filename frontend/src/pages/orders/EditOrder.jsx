@@ -29,6 +29,7 @@ export default function EditOrder() {
     const [popularProducts, setPopularProducts] = useState([]);
     const [cartItems, setCartItems] = useState([]);
     const [orderDiscount, setOrderDiscount] = useState({ type: 'fixed', value: 0 });
+    const [orderNotes, setOrderNotes] = useState('');
 
     const [loading, setLoading] = useState(true);
     const [processing, setProcessing] = useState(false);
@@ -134,6 +135,7 @@ export default function EditOrder() {
                     }
 
                     setOrderDiscount({ type: data.discount_type || 'fixed', value: parseFloat(data.discount_value) || 0 });
+                    setOrderNotes(data.notes || '');
 
                     // Map items to cart format
                     const mappedItems = data.items.map(item => ({
@@ -383,6 +385,7 @@ export default function EditOrder() {
                 customer: selectedCustomer?.id || null,
                 discount_type: orderDiscount.type,
                 discount_value: orderDiscount.value,
+                notes: orderNotes,
                 client_updated_at: originalOrder?.updated_at || null,
                 items: cartItems.map(item => ({
                     product: item.id,
@@ -645,6 +648,28 @@ export default function EditOrder() {
                         <input type="number" className="form-control form-control-sm" style={{ width: '60px', textAlign: 'right' }} value={orderDiscount.value} onChange={e => setOrderDiscount({ ...orderDiscount, value: parseFloat(e.target.value) || 0 })} />
                     </div>
                     <div className="summary-row total"><span>Total</span><span>{currency}{grandTotal.toFixed(2)}</span></div>
+                </div>
+
+                <div className="order-notes-section" style={{ padding: 'var(--space-sm) var(--page-padding) var(--space-md)' }}>
+                    <label className="small text-muted" style={{ display: 'block', marginBottom: '4px', fontWeight: 600 }}>Order Notes (max 2000 chars)</label>
+                    <textarea
+                        className="form-control"
+                        placeholder="Add internal order notes..."
+                        maxLength={2000}
+                        style={{
+                            width: '100%',
+                            minHeight: '60px',
+                            resize: 'vertical',
+                            fontSize: '0.9rem',
+                            padding: '8px',
+                            borderRadius: 'var(--radius-md)',
+                            border: '1px solid var(--color-border)',
+                            backgroundColor: 'var(--color-bg-tertiary)',
+                            color: 'var(--color-text-primary)'
+                        }}
+                        value={orderNotes}
+                        onChange={e => setOrderNotes(e.target.value)}
+                    />
                 </div>
 
                 <div className="pos-actions">
