@@ -352,6 +352,116 @@ function formatCurrency(val) {
     return isNaN(parsed) ? '0.00' : parsed.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
+// ── Inline-Editable Order Notes (React component for modal) ──
+function OrderNotesEditor({ order, fetchWithAuth, showToast, orderCacheRef, setSelectedOrderDetails }) {
+    const [isEditing, setIsEditing] = useState(false);
+    const [draft, setDraft] = useState(order.notes || '');
+    const [isSaving, setIsSaving] = useState(false);
+
+    const handleSave = async () => {
+        setIsSaving(true);
+        try {
+            const res = await fetchWithAuth(`${ENDPOINTS.ORDERS}${order.id}/`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ notes: draft })
+            });
+            if (res.ok) {
+                const updatedOrder = { ...order, notes: draft };
+                // Update LRU cache
+                if (orderCacheRef.current.has(order.id)) {
+                    orderCacheRef.current.set(order.id, updatedOrder);
+                }
+                setSelectedOrderDetails(updatedOrder);
+                showToast('Order note saved.', 'success');
+                setIsEditing(false);
+            } else {
+                showToast('Failed to save order note.', 'error');
+            }
+        } catch (err) {
+            console.error('Save order note error:', err);
+            showToast('Error saving order note.', 'error');
+        } finally {
+            setIsSaving(false);
+        }
+    };
+
+    return (
+        <div className="order-modal-section">
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <h4 style={{ margin: 0 }}>Notes</h4>
+                {!isEditing && (
+                    <button
+                        onClick={() => { setDraft(order.notes || ''); setIsEditing(true); }}
+                        style={{
+                            fontSize: '0.8rem', padding: '2px 8px', cursor: 'pointer',
+                            border: '1px solid var(--color-border)', borderRadius: 'var(--radius-sm)',
+                            background: 'var(--color-bg-tertiary)', color: 'var(--color-text-primary)'
+                        }}
+                    >
+                        {order.notes ? '✏️ Edit' : '+ Add Note'}
+                    </button>
+                )}
+            </div>
+
+            {isEditing ? (
+                <>
+                    <textarea
+                        value={draft}
+                        onChange={(e) => setDraft(e.target.value)}
+                        maxLength={2000}
+                        placeholder="Add order notes..."
+                        style={{
+                            width: '100%', minHeight: '70px', resize: 'vertical',
+                            fontSize: '0.9rem', padding: '8px', marginTop: '6px',
+                            borderRadius: 'var(--radius-md)', border: '1px solid var(--color-border)',
+                            backgroundColor: 'var(--color-bg-tertiary)', color: 'var(--color-text-primary)',
+                            fontFamily: 'inherit', boxSizing: 'border-box'
+                        }}
+                        autoFocus
+                    />
+                    <div style={{ display: 'flex', gap: '6px', marginTop: '6px' }}>
+                        <button
+                            onClick={handleSave}
+                            disabled={isSaving}
+                            style={{
+                                fontSize: '0.8rem', padding: '3px 12px', cursor: 'pointer',
+                                border: 'none', borderRadius: 'var(--radius-sm)',
+                                background: '#22c55e', color: '#fff', fontWeight: '600'
+                            }}
+                        >
+                            {isSaving ? '...' : 'Save'}
+                        </button>
+                        <button
+                            onClick={() => setIsEditing(false)}
+                            style={{
+                                fontSize: '0.8rem', padding: '3px 12px', cursor: 'pointer',
+                                border: '1px solid var(--color-border)', borderRadius: 'var(--radius-sm)',
+                                background: 'var(--color-bg-tertiary)', color: 'var(--color-text-primary)'
+                            }}
+                        >
+                            Cancel
+                        </button>
+                    </div>
+                </>
+            ) : order.notes ? (
+                <div style={{
+                    whiteSpace: 'pre-wrap', wordBreak: 'break-word',
+                    fontSize: '0.9rem', padding: '8px', marginTop: '6px',
+                    borderRadius: 'var(--radius-md)', border: '1px solid var(--color-border)',
+                    backgroundColor: 'var(--color-bg-tertiary)', color: 'var(--color-text-primary)'
+                }}>
+                    {order.notes}
+                </div>
+            ) : (
+                <div style={{ fontSize: '0.85rem', color: 'var(--color-text-secondary)', marginTop: '4px' }}>
+                    No notes yet.
+                </div>
+            )}
+        </div>
+    );
+}
+
 // ═══════════════════════════════════════════════
 // Main Component
 // ═══════════════════════════════════════════════
@@ -1934,23 +2044,13 @@ export default function CustomerMap() {
                                         </div>
                                     </div>
                                     
-                                    {selectedOrderDetails.notes && (
-                                        <div className="order-modal-section">
-                                            <h4>Notes</h4>
-                                            <div style={{
-                                                whiteSpace: 'pre-wrap',
-                                                wordBreak: 'break-word',
-                                                fontSize: '0.9rem',
-                                                padding: '8px',
-                                                borderRadius: 'var(--radius-md)',
-                                                border: '1px solid var(--color-border)',
-                                                backgroundColor: 'var(--color-bg-tertiary)',
-                                                color: 'var(--color-text-primary)'
-                                            }}>
-                                                {selectedOrderDetails.notes}
-                                            </div>
-                                        </div>
-                                    )}
+                                    <OrderNotesEditor
+                                        order={selectedOrderDetails}
+                                        fetchWithAuth={fetchWithAuth}
+                                        showToast={showToast}
+                                        orderCacheRef={orderCacheRef}
+                                        setSelectedOrderDetails={setSelectedOrderDetails}
+                                    />
                                     
                                     <div className="order-modal-section">
                                         <h4>Items</h4>
