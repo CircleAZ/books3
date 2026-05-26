@@ -28,6 +28,7 @@ export default function NewOrder() {
     const [popularProducts, setPopularProducts] = useState([]);
     const [cartItems, setCartItems] = useState([]);
     const [orderDiscount, setOrderDiscount] = useState({ type: 'fixed', value: 0 });
+    const [checkoutExpanded, setCheckoutExpanded] = useState(true);
     const [orderNotes, setOrderNotes] = useState('');
 
     const [paymentMethod, setPaymentMethod] = useState('cash');
@@ -961,118 +962,147 @@ export default function NewOrder() {
                     )}
                 </div>
 
-                <div className="order-summary">
-                    <div className="summary-row">
-                        <span>Subtotal</span>
-                        <span>{currency}{subtotal.toFixed(2)}</span>
-                    </div>
-                    <div className="summary-row">
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-                            <span>Order Discount</span>
-                            <select
-                                className="form-control form-control-sm"
-                                style={{ width: '50px', padding: '0 2px', height: '20px' }}
-                                value={orderDiscount.type}
-                                onChange={e => setOrderDiscount({ ...orderDiscount, type: e.target.value })}
-                            >
-                                <option value="fixed">{currency}</option>
-                                <option value="percent">%</option>
-                            </select>
+                {/* ── Collapsible Checkout Section ── */}
+                <div
+                    className="checkout-toggle-header"
+                    onClick={() => setCheckoutExpanded(prev => !prev)}
+                    style={{
+                        display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                        padding: '10px var(--page-padding)',
+                        cursor: 'pointer', userSelect: 'none',
+                        borderTop: '1px solid var(--color-border)',
+                        borderBottom: checkoutExpanded ? 'none' : '1px solid var(--color-border)',
+                        backgroundColor: 'var(--color-bg-secondary)',
+                    }}
+                >
+                    <span style={{ fontWeight: 700, fontSize: '1rem' }}>
+                        Total: {currency}{grandTotal.toFixed(2)}
+                    </span>
+                    <span style={{
+                        transition: 'transform 0.2s ease',
+                        transform: checkoutExpanded ? 'rotate(180deg)' : 'rotate(0deg)',
+                        fontSize: '1.1rem'
+                    }}>▼</span>
+                </div>
+
+                <div style={{
+                    maxHeight: checkoutExpanded ? '2000px' : '0',
+                    overflow: 'hidden',
+                    transition: 'max-height 0.3s ease'
+                }}>
+                    <div className="order-summary">
+                        <div className="summary-row">
+                            <span>Subtotal</span>
+                            <span>{currency}{subtotal.toFixed(2)}</span>
                         </div>
-                        <input
-                            type="number"
-                            className="form-control form-control-sm"
-                            style={{ width: '60px', textAlign: 'right' }}
-                            value={orderDiscount.value}
-                            onChange={e => setOrderDiscount({ ...orderDiscount, value: parseFloat(e.target.value) || 0 })}
+                        <div className="summary-row">
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                                <span>Order Discount</span>
+                                <select
+                                    className="form-control form-control-sm"
+                                    style={{ width: '50px', padding: '0 2px', height: '20px' }}
+                                    value={orderDiscount.type}
+                                    onChange={e => setOrderDiscount({ ...orderDiscount, type: e.target.value })}
+                                >
+                                    <option value="fixed">{currency}</option>
+                                    <option value="percent">%</option>
+                                </select>
+                            </div>
+                            <input
+                                type="number"
+                                className="form-control form-control-sm"
+                                style={{ width: '60px', textAlign: 'right' }}
+                                value={orderDiscount.value}
+                                onChange={e => setOrderDiscount({ ...orderDiscount, value: parseFloat(e.target.value) || 0 })}
+                            />
+                        </div>
+                        <div className="summary-row total">
+                            <span>Total</span>
+                            <span>{currency}{grandTotal.toFixed(2)}</span>
+                        </div>
+                    </div>
+
+                    <div className="order-notes-section" style={{ padding: 'var(--space-sm) var(--page-padding) var(--space-md)' }}>
+                        <label className="small text-muted" style={{ display: 'block', marginBottom: '4px', fontWeight: 600 }}>Order Notes (max 2000 chars)</label>
+                        <textarea
+                            className="form-control"
+                            placeholder="Add internal order notes..."
+                            maxLength={2000}
+                            style={{
+                                width: '100%',
+                                minHeight: '60px',
+                                resize: 'vertical',
+                                fontSize: '0.9rem',
+                                padding: '8px',
+                                borderRadius: 'var(--radius-md)',
+                                border: '1px solid var(--color-border)',
+                                backgroundColor: 'var(--color-bg-tertiary)',
+                                color: 'var(--color-text-primary)'
+                            }}
+                            value={orderNotes}
+                            onChange={e => setOrderNotes(e.target.value)}
                         />
                     </div>
-                    <div className="summary-row total">
-                        <span>Total</span>
-                        <span>{currency}{grandTotal.toFixed(2)}</span>
-                    </div>
-                </div>
 
-                <div className="order-notes-section" style={{ padding: 'var(--space-sm) var(--page-padding) var(--space-md)' }}>
-                    <label className="small text-muted" style={{ display: 'block', marginBottom: '4px', fontWeight: 600 }}>Order Notes (max 2000 chars)</label>
-                    <textarea
-                        className="form-control"
-                        placeholder="Add internal order notes..."
-                        maxLength={2000}
-                        style={{
-                            width: '100%',
-                            minHeight: '60px',
-                            resize: 'vertical',
-                            fontSize: '0.9rem',
-                            padding: '8px',
-                            borderRadius: 'var(--radius-md)',
-                            border: '1px solid var(--color-border)',
-                            backgroundColor: 'var(--color-bg-tertiary)',
-                            color: 'var(--color-text-primary)'
-                        }}
-                        value={orderNotes}
-                        onChange={e => setOrderNotes(e.target.value)}
-                    />
-                </div>
-
-                <div className="payment-section">
-                    <UniversalPaymentEngine
-                        key={payments.length} // Force reset on add
-                        transactionType="inflow"
-                        allowedMethods={['cash', 'upi', 'bank', 'cheque', ...(selectedCustomer && parseFloat(selectedCustomer.wallet_balance) > 0 ? ['store_credit'] : [])]}
-                        initialAmount={balanceDue > 0 ? balanceDue : ''}
-                        onValidPayload={setCurrentPaymentPayload}
-                    >
-                        {/* Option C: UPI Reference Input Fallback */}
-                        {currentPaymentPayload && currentPaymentPayload.payment_method === 'upi' && (
-                            <div className="form-group" style={{ marginTop: '10px' }}>
-                                <label className="small text-muted">UPI Reference (Optional):</label>
-                                <input 
-                                    type="text"
-                                    className="form-control form-control-sm"
-                                    placeholder={`e.g. UTR (Defaults to QR-PAY-...)`}
-                                    value={upiReferenceInput}
-                                    onChange={e => setUpiReferenceInput(e.target.value)}
-                                />
-                            </div>
-                        )}
-                        <button 
-                            className="btn btn-primary btn-sm w-100 mt-2" 
-                            disabled={!currentPaymentPayload}
-                            onClick={addPayment}
+                    <div className="payment-section">
+                        <UniversalPaymentEngine
+                            key={payments.length} // Force reset on add
+                            transactionType="inflow"
+                            allowedMethods={['cash', 'upi', 'bank', 'cheque', ...(selectedCustomer && parseFloat(selectedCustomer.wallet_balance) > 0 ? ['store_credit'] : [])]}
+                            initialAmount={balanceDue > 0 ? balanceDue : ''}
+                            onValidPayload={setCurrentPaymentPayload}
                         >
-                            Add Payment
-                        </button>
-                    </UniversalPaymentEngine>
+                            {/* Option C: UPI Reference Input Fallback */}
+                            {currentPaymentPayload && currentPaymentPayload.payment_method === 'upi' && (
+                                <div className="form-group" style={{ marginTop: '10px' }}>
+                                    <label className="small text-muted">UPI Reference (Optional):</label>
+                                    <input 
+                                        type="text"
+                                        className="form-control form-control-sm"
+                                        placeholder={`e.g. UTR (Defaults to QR-PAY-...)`}
+                                        value={upiReferenceInput}
+                                        onChange={e => setUpiReferenceInput(e.target.value)}
+                                    />
+                                </div>
+                            )}
+                            <button 
+                                className="btn btn-primary btn-sm w-100 mt-2" 
+                                disabled={!currentPaymentPayload}
+                                onClick={addPayment}
+                            >
+                                Add Payment
+                            </button>
+                        </UniversalPaymentEngine>
 
-                    <div className="payments-list">
-                        {payments.map((p, idx) => (
-                            <div key={idx} className="payment-item">
-                                <span>{p.method}</span>
-                                <span className="d-flex align-items-center gap-2">
-                                    {currency}{p.amount.toFixed(2)}
-                                    <button
-                                        className="btn-remove-payment"
-                                        onClick={() => removePayment(idx)}
-                                        title="Remove this payment"
-                                    >
-                                        ×
-                                    </button>
-                                </span>
-                            </div>
-                        ))}
-                    </div>
+                        <div className="payments-list">
+                            {payments.map((p, idx) => (
+                                <div key={idx} className="payment-item">
+                                    <span>{p.method}</span>
+                                    <span className="d-flex align-items-center gap-2">
+                                        {currency}{p.amount.toFixed(2)}
+                                        <button
+                                            className="btn-remove-payment"
+                                            onClick={() => removePayment(idx)}
+                                            title="Remove this payment"
+                                        >
+                                            ×
+                                        </button>
+                                    </span>
+                                </div>
+                            ))}
+                        </div>
 
-                    <div className={`balance-due ${balanceDue <= 0 ? 'balance-paid' : ''}`}>
-                        <span>{balanceDue <= 0 ? 'Change/Balance' : 'Balance Due'}</span>
-                        <span>{currency}{Math.abs(balanceDue).toFixed(2)}</span>
-                    </div>
-                    {
-                        payments.length > 0 && (
-                            <button className="btn btn-link btn-sm p-0 mt-1" onClick={clearPayments}>Clear Payments</button>
-                        )
-                    }
-                </div >
+                        <div className={`balance-due ${balanceDue <= 0 ? 'balance-paid' : ''}`}>
+                            <span>{balanceDue <= 0 ? 'Change/Balance' : 'Balance Due'}</span>
+                            <span>{currency}{Math.abs(balanceDue).toFixed(2)}</span>
+                        </div>
+                        {
+                            payments.length > 0 && (
+                                <button className="btn btn-link btn-sm p-0 mt-1" onClick={clearPayments}>Clear Payments</button>
+                            )
+                        }
+                    </div >
+                </div>
 
                 {cartItems.length > 0 && !selectedCustomer && (
                     <div className="inline-warning">
