@@ -146,8 +146,8 @@ export default function CreateTrip() {
                     amount: parseFloat(item.amount),
                     paid_by_type: item.paid_by_type,
                     paid_by_employee: item.paid_by_type === 'employee' ? item.paid_by_employee : null,
-                    source_bank: item.paid_by_type === 'company' && item.source_bank ? Number(item.source_bank) : null,
-                    source_wallet: item.paid_by_type === 'company' && item.source_wallet ? Number(item.source_wallet) : null,
+                    source_bank: item.paid_by_type === 'company' && item.source_bank ? item.source_bank : null,
+                    source_wallet: item.paid_by_type === 'company' && item.source_wallet ? item.source_wallet : null,
                 })),
             };
             const res = await fetchWithAuth(ENDPOINTS.FINANCE_EXPENSE_TRIPS, {
