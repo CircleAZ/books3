@@ -648,8 +648,7 @@ export default function CustomerMap() {
             });
             
             // nosemgrep: gitlab.eslint.detect-object-injection
-            const activeCount = Object.keys(updated)
-                .filter(k => k !== 'target_village' && updated[k]).length;
+            const activeCount = Object.keys(updated).filter(k => k !== 'target_village' && updated[k]).length;
                 
             if (activeCount === 0) {
                 return prev;
@@ -668,8 +667,7 @@ export default function CustomerMap() {
             };
             
             // nosemgrep: gitlab.eslint.detect-object-injection
-            const activeCount = Object.keys(updated)
-                .filter(k => k !== 'target_village' && updated[k]).length;
+            const activeCount = Object.keys(updated).filter(k => k !== 'target_village' && updated[k]).length;
                 
             if (activeCount === 0) {
                 return prev;
@@ -1584,21 +1582,23 @@ export default function CustomerMap() {
                             <div className="filter-field">
                                 <label>Status</label>
                                 <div className="status-checkboxes">
-                                    {ALL_STATUSES.map(s => (
-                                        <label key={s} className={`status-check ${s}`}>
-                                            <input
-                                                type="checkbox"
-                                                checked={(pendingFilters.status || ALL_STATUSES).includes(s)}
-                                                onChange={() => toggleStatus(s)}
-                                            />
-                                            {/* nosemgrep: gitlab.eslint.detect-object-injection */}
-                                            <span className="check-dot" style={{background: MARKER_CONFIG[s].bg}}>
-                                                {MARKER_CONFIG[s].icon}
-                                            </span>
-                                            {/* nosemgrep: gitlab.eslint.detect-object-injection */}
-                                            <span className="check-label">{MARKER_CONFIG[s].label}</span>
-                                        </label>
-                                    ))}
+                                    {ALL_STATUSES.map(s => {
+                                        // nosemgrep: gitlab.eslint.detect-object-injection
+                                        const config = MARKER_CONFIG[s];
+                                        return (
+                                            <label key={s} className={`status-check ${s}`}>
+                                                <input
+                                                    type="checkbox"
+                                                    checked={(pendingFilters.status || ALL_STATUSES).includes(s)}
+                                                    onChange={() => toggleStatus(s)}
+                                                />
+                                                <span className="check-dot" style={{background: config.bg}}>
+                                                    {config.icon}
+                                                </span>
+                                                <span className="check-label">{config.label}</span>
+                                            </label>
+                                        );
+                                    })}
                                 </div>
                             </div>
 
@@ -1663,6 +1663,10 @@ export default function CustomerMap() {
                     <div className="legend-body">
                         {Object.entries(MARKER_CONFIG).map(([key, cfg]) => {
                             const groupActive = isGroupActive(key);
+                            // nosemgrep: gitlab.eslint.detect-object-injection
+                            const isStandardVisible = visibleLayers[`${key}_standard`];
+                            // nosemgrep: gitlab.eslint.detect-object-injection
+                            const isLegacyDebtVisible = visibleLayers[`${key}_legacy_debt`];
                             return (
                                 <div
                                     key={key}
@@ -1673,9 +1677,8 @@ export default function CustomerMap() {
                                     aria-pressed={groupActive}
                                 >
                                     <div className="legend-dots-container">
-                                        {/* nosemgrep: gitlab.eslint.detect-object-injection */}
                                         <span 
-                                            className={`legend-dot ${visibleLayers[`${key}_standard`] ? '' : 'legend-off'}`}
+                                            className={`legend-dot ${isStandardVisible ? '' : 'legend-off'}`}
                                             style={{background: cfg.bg, borderStyle: cfg.borderStyle}}
                                             onClick={(e) => toggleVariant(`${key}_standard`, e)}
                                             title="Standard"
@@ -1738,9 +1741,8 @@ export default function CustomerMap() {
                                             </>
                                         )}
                                         {['followup', 'lapsed', 'prospect'].includes(key) && (
-                                            // nosemgrep: gitlab.eslint.detect-object-injection
                                             <span 
-                                                className={`legend-sub-dot legacy-debt-other ${visibleLayers[`${key}_legacy_debt`] ? '' : 'legend-off'}`}
+                                                className={`legend-sub-dot legacy-debt-other ${isLegacyDebtVisible ? '' : 'legend-off'}`}
                                                 title="Legacy Debt"
                                                 onClick={(e) => toggleVariant(`${key}_legacy_debt`, e)}
                                             >

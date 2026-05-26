@@ -564,6 +564,144 @@
     "reason": "False positive Code Injection bracket lookup or string literal"
   },
   {
+    "filePath": "frontend/src/pages/customers/CustomerMap.jsx",
+    "ruleId": "gitlab.eslint.detect-object-injection",
+    "lineText": "    const config = MARKER_CONFIG[status] || MARKER_CONFIG.prospect;\n",
+    "reason": "False positive Code Injection bracket lookup or string literal"
+  },
+  {
+    "filePath": "frontend/src/pages/customers/CustomerMap.jsx",
+    "ruleId": "javascript.lang.security.html-in-template-string.html-in-template-string",
+    "lineText": "        html: `<div class=\"${pinClass}\" style=\"${pinStyle}\" aria-label=\"${config.label}\">\n",
+    "reason": "False positive Improper Encoding bracket lookup or string literal"
+  },
+  {
+    "filePath": "frontend/src/pages/customers/CustomerMap.jsx",
+    "ruleId": "gitlab.eslint.detect-object-injection",
+    "lineText": "        return variants.some(v => visibleLayers[v]);\n",
+    "reason": "False positive Code Injection bracket lookup or string literal"
+  },
+  {
+    "filePath": "frontend/src/pages/customers/CustomerMap.jsx",
+    "ruleId": "gitlab.eslint.detect-object-injection",
+    "lineText": "            const anyActive = variants.some(v => prev[v]);\n",
+    "reason": "False positive Code Injection bracket lookup or string literal"
+  },
+  {
+    "filePath": "frontend/src/pages/customers/CustomerMap.jsx",
+    "ruleId": "gitlab.eslint.detect-object-injection",
+    "lineText": "                updated[v] = !anyActive;\n",
+    "reason": "False positive Code Injection bracket lookup or string literal"
+  },
+  {
+    "filePath": "frontend/src/pages/customers/CustomerMap.jsx",
+    "ruleId": "gitlab.eslint.detect-object-injection",
+    "lineText": "                .filter(k => k !== 'target_village' && updated[k]).length;\n",
+    "reason": "False positive Code Injection bracket lookup or string literal"
+  },
+  {
+    "filePath": "frontend/src/pages/customers/CustomerMap.jsx",
+    "ruleId": "gitlab.eslint.detect-object-injection",
+    "lineText": "                [variantKey]: !prev[variantKey]\n",
+    "reason": "False positive Code Injection bracket lookup or string literal"
+  },
+  {
+    "filePath": "frontend/src/pages/customers/CustomerMap.jsx",
+    "ruleId": "gitlab.eslint.detect-object-injection",
+    "lineText": "                .filter(k => k !== 'target_village' && updated[k]).length;\n",
+    "reason": "False positive Code Injection bracket lookup or string literal"
+  },
+  {
+    "filePath": "frontend/src/pages/customers/CustomerMap.jsx",
+    "ruleId": "javascript.lang.security.html-in-template-string.html-in-template-string",
+    "lineText": "                    if (fullyDelivered > 0) parts.push(`<span style=\"color:#00f9be;font-weight:700;\">\u2713${fullyDelivered}</span>`);\n",
+    "reason": "False positive Improper Encoding bracket lookup or string literal"
+  },
+  {
+    "filePath": "frontend/src/pages/customers/CustomerMap.jsx",
+    "ruleId": "javascript.lang.security.html-in-template-string.html-in-template-string",
+    "lineText": "                    if (partiallyDelivered > 0) parts.push(`<span style=\"color:#d600f9;font-weight:700;\">\u00bd${partiallyDelivered}</span>`);\n",
+    "reason": "False positive Improper Encoding bracket lookup or string literal"
+  },
+  {
+    "filePath": "frontend/src/pages/customers/CustomerMap.jsx",
+    "ruleId": "javascript.lang.security.html-in-template-string.html-in-template-string",
+    "lineText": "                    if (active > 0) parts.push(`<span style=\"color:#86efac;font-weight:700;\">${active}</span>`);\n",
+    "reason": "False positive Improper Encoding bracket lookup or string literal"
+  },
+  {
+    "filePath": "frontend/src/pages/customers/CustomerMap.jsx",
+    "ruleId": "javascript.lang.security.html-in-template-string.html-in-template-string",
+    "lineText": "                        htmlContent = `<span class=\"cluster-count\" style=\"line-height: 1; margin-bottom: 2px; font-size: 11px;\">${deliverySplit}/${totalStandard}</span>\n",
+    "reason": "False positive Improper Encoding bracket lookup or string literal"
+  },
+  {
+    "filePath": "frontend/src/pages/customers/CustomerMap.jsx",
+    "ruleId": "javascript.lang.security.html-in-template-string.html-in-template-string",
+    "lineText": "                        htmlContent = `<span class=\"cluster-count\" style=\"font-size: 11px;\">${deliverySplit}/${totalStandard}</span>`;\n",
+    "reason": "False positive Improper Encoding bracket lookup or string literal"
+  },
+  {
+    "filePath": "frontend/src/pages/customers/CustomerMap.jsx",
+    "ruleId": "javascript.lang.security.html-in-template-string.html-in-template-string",
+    "lineText": "                    htmlContent = `<span class=\"cluster-count\">+${totalPotential}</span>`;\n",
+    "reason": "False positive Improper Encoding bracket lookup or string literal"
+  },
+  {
+    "filePath": "frontend/src/pages/customers/CustomerMap.jsx",
+    "ruleId": "javascript.lang.security.html-in-template-string.html-in-template-string",
+    "lineText": "                    html: `<div class=\"cluster-badge\" style=\"background:${clusterColor}; width: 60px; height: 60px; border-radius: 50%; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 0; flex-shrink: 0;\">\n",
+    "reason": "False positive Improper Encoding bracket lookup or string literal"
+  },
+  {
+    "filePath": "frontend/src/pages/customers/CustomerMap.jsx",
+    "ruleId": "javascript.lang.security.html-in-template-string.html-in-template-string",
+    "lineText": "                    html: `<div class=\"marker-pin-potential\" aria-label=\"${dissolved ? 'Linked location' : 'Potential customer'}\" style=\"width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; color: #ec4899; background: transparent; border: none; transform: none !important; box-shadow: none;\">\n",
+    "reason": "False positive Improper Encoding bracket lookup or string literal"
+  },
+  {
+    "filePath": "frontend/src/pages/customers/CustomerMap.jsx",
+    "ruleId": "javascript.lang.security.html-in-template-string.html-in-template-string",
+    "lineText": "                    const tooltipHtml = `<div class=\"boundary-tooltip\"><strong>${escapeHtml(props.name || 'Unknown')}</strong>${props.parent_name ? `<br/><span class=\"boundary-tooltip-parent\">${escapeHtml(props.parent_name)}</span>` : ''}</div>`; // nosemgrep: javascript.lang.security.html-in-template-string.html-in-template-string\n",
+    "reason": "False positive Improper Encoding bracket lookup or string literal"
+  },
+  {
+    "filePath": "frontend/src/pages/customers/CustomerMap.jsx",
+    "ruleId": "javascript.lang.security.html-in-template-string.html-in-template-string",
+    "lineText": "                    const tooltipHtml = `<div class=\"boundary-tooltip\"><strong>${escapeHtml(props.name || 'Unknown')}</strong>${props.parent_name ? `<br/><span class=\"boundary-tooltip-parent\">${escapeHtml(props.parent_name)}</span>` : ''}</div>`; // nosemgrep: javascript.lang.security.html-in-template-string.html-in-template-string\n",
+    "reason": "False positive Improper Encoding bracket lookup or string literal"
+  },
+  {
+    "filePath": "frontend/src/pages/customers/CustomerMap.jsx",
+    "ruleId": "gitlab.eslint.detect-object-injection",
+    "lineText": "                                            <span className=\"check-dot\" style={{background: MARKER_CONFIG[s].bg}}>\n",
+    "reason": "False positive Code Injection bracket lookup or string literal"
+  },
+  {
+    "filePath": "frontend/src/pages/customers/CustomerMap.jsx",
+    "ruleId": "gitlab.eslint.detect-object-injection",
+    "lineText": "                                                {MARKER_CONFIG[s].icon}\n",
+    "reason": "False positive Code Injection bracket lookup or string literal"
+  },
+  {
+    "filePath": "frontend/src/pages/customers/CustomerMap.jsx",
+    "ruleId": "gitlab.eslint.detect-object-injection",
+    "lineText": "                                            <span className=\"check-label\">{MARKER_CONFIG[s].label}</span>\n",
+    "reason": "False positive Code Injection bracket lookup or string literal"
+  },
+  {
+    "filePath": "frontend/src/pages/customers/CustomerMap.jsx",
+    "ruleId": "gitlab.eslint.detect-object-injection",
+    "lineText": "                                            className={`legend-dot ${visibleLayers[`${key}_standard`] ? '' : 'legend-off'}`}\n",
+    "reason": "False positive Code Injection bracket lookup or string literal"
+  },
+  {
+    "filePath": "frontend/src/pages/customers/CustomerMap.jsx",
+    "ruleId": "gitlab.eslint.detect-object-injection",
+    "lineText": "                                                className={`legend-sub-dot legacy-debt-other ${visibleLayers[`${key}_legacy_debt`] ? '' : 'legend-off'}`}\n",
+    "reason": "False positive Code Injection bracket lookup or string literal"
+  },
+  {
     "filePath": "frontend/src/pages/finance/AddExpense.jsx",
     "ruleId": "gitlab.eslint.detect-object-injection",
     "lineText": "        if (errors[name]) {\n",
@@ -753,6 +891,102 @@
     "filePath": "frontend/src/pages/public/PublicReceipt.jsx",
     "ruleId": "gitlab.eslint.detect-object-injection",
     "lineText": "                                        <td>{t[p.method_display] || p.method_display}</td>\n",
+    "reason": "False positive Code Injection bracket lookup or string literal"
+  },
+  {
+    "filePath": "frontend/src/pages/returns/InitiateReturn.jsx",
+    "ruleId": "gitlab.eslint.detect-object-injection",
+    "lineText": "            if (newSelected[itemId]) {\n",
+    "reason": "False positive Code Injection bracket lookup or string literal"
+  },
+  {
+    "filePath": "frontend/src/pages/returns/InitiateReturn.jsx",
+    "ruleId": "gitlab.eslint.detect-object-injection",
+    "lineText": "                delete newSelected[itemId];\n",
+    "reason": "False positive Code Injection bracket lookup or string literal"
+  },
+  {
+    "filePath": "frontend/src/pages/returns/InitiateReturn.jsx",
+    "ruleId": "gitlab.eslint.detect-object-injection",
+    "lineText": "                newSelected[itemId] = {\n",
+    "reason": "False positive Code Injection bracket lookup or string literal"
+  },
+  {
+    "filePath": "frontend/src/pages/returns/InitiateReturn.jsx",
+    "ruleId": "gitlab.eslint.detect-object-injection",
+    "lineText": "                ...prev[itemId],\n",
+    "reason": "False positive Code Injection bracket lookup or string literal"
+  },
+  {
+    "filePath": "frontend/src/pages/returns/InitiateReturn.jsx",
+    "ruleId": "gitlab.eslint.detect-object-injection",
+    "lineText": "                                            <tr key={item.id} className={selectedItems[item.id] ? 'row-selected' : ''}>\n",
+    "reason": "False positive Code Injection bracket lookup or string literal"
+  },
+  {
+    "filePath": "frontend/src/pages/returns/InitiateReturn.jsx",
+    "ruleId": "gitlab.eslint.detect-object-injection",
+    "lineText": "                                                        checked={!!selectedItems[item.id]}\n",
+    "reason": "False positive Code Injection bracket lookup or string literal"
+  },
+  {
+    "filePath": "frontend/src/pages/returns/InitiateReturn.jsx",
+    "ruleId": "gitlab.eslint.detect-object-injection",
+    "lineText": "                                                        value={selectedItems[item.id]?.quantity ?? ''}\n",
+    "reason": "False positive Code Injection bracket lookup or string literal"
+  },
+  {
+    "filePath": "frontend/src/pages/returns/InitiateReturn.jsx",
+    "ruleId": "gitlab.eslint.detect-object-injection",
+    "lineText": "                                                        disabled={!selectedItems[item.id] || Number(item.max_returnable_quantity || 0) === 0}\n",
+    "reason": "False positive Code Injection bracket lookup or string literal"
+  },
+  {
+    "filePath": "frontend/src/pages/returns/InitiateReturn.jsx",
+    "ruleId": "gitlab.eslint.detect-object-injection",
+    "lineText": "                                                        value={selectedItems[item.id]?.reason || ''}\n",
+    "reason": "False positive Code Injection bracket lookup or string literal"
+  },
+  {
+    "filePath": "frontend/src/pages/returns/InitiateReturn.jsx",
+    "ruleId": "gitlab.eslint.detect-object-injection",
+    "lineText": "                                                        disabled={!selectedItems[item.id]}\n",
+    "reason": "False positive Code Injection bracket lookup or string literal"
+  },
+  {
+    "filePath": "frontend/src/pages/returns/InitiateReturn.jsx",
+    "ruleId": "gitlab.eslint.detect-object-injection",
+    "lineText": "                                                                checked={selectedItems[item.id]?.stock_action === 'return_to_stock'}\n",
+    "reason": "False positive Code Injection bracket lookup or string literal"
+  },
+  {
+    "filePath": "frontend/src/pages/returns/InitiateReturn.jsx",
+    "ruleId": "gitlab.eslint.detect-object-injection",
+    "lineText": "                                                                disabled={!selectedItems[item.id]}\n",
+    "reason": "False positive Code Injection bracket lookup or string literal"
+  },
+  {
+    "filePath": "frontend/src/pages/returns/InitiateReturn.jsx",
+    "ruleId": "gitlab.eslint.detect-object-injection",
+    "lineText": "                                                                checked={selectedItems[item.id]?.stock_action === 'damaged'}\n",
+    "reason": "False positive Code Injection bracket lookup or string literal"
+  },
+  {
+    "filePath": "frontend/src/pages/returns/InitiateReturn.jsx",
+    "ruleId": "gitlab.eslint.detect-object-injection",
+    "lineText": "                                                                disabled={!selectedItems[item.id]}\n",
+    "reason": "False positive Code Injection bracket lookup or string literal"
+  },
+  {
+    "filePath": "frontend/src/pages/returns/InitiateReturn.jsx",
+    "ruleId": "gitlab.eslint.detect-object-injection",
+    "lineText": "                                                    {currency}{selectedItems[item.id] ? ((parseInt(selectedItems[item.id].quantity, 10) || 0) * getEffectiveUnitPrice(item)).toFixed(2) : '0.00'}\n",
+    "reason": "False positive Code Injection bracket lookup or string literal"
+  },
+  {
+    "filePath": "frontend/src/pages/returns/InitiateReturn.jsx",
+    "ruleId": "gitlab.eslint.detect-object-injection",
+    "lineText": "                                                    {currency}{selectedItems[item.id] ? ((parseInt(selectedItems[item.id].quantity, 10) || 0) * getEffectiveUnitPrice(item)).toFixed(2) : '0.00'}\n",
     "reason": "False positive Code Injection bracket lookup or string literal"
   },
   {
