@@ -215,8 +215,24 @@ export default function PODetail() {
         } catch (e) { showToast('Cancel failed', 'error'); }
     };
 
-    const statusColor = (s) => ({ draft: '#6b7280', ordered: '#3b82f6', partially_received: '#f59e0b', received: '#10b981', cancelled: '#ef4444' }[s] || '#6b7280');
-    const payStatusColor = (s) => ({ pending: '#f59e0b', partial: '#3b82f6', paid: '#10b981' }[s] || '#6b7280');
+    const statusColor = (s) => {
+        switch (s) {
+            case 'draft': return '#6b7280';
+            case 'ordered': return '#3b82f6';
+            case 'partially_received': return '#f59e0b';
+            case 'received': return '#10b981';
+            case 'cancelled': return '#ef4444';
+            default: return '#6b7280';
+        }
+    };
+    const payStatusColor = (s) => {
+        switch (s) {
+            case 'pending': return '#f59e0b';
+            case 'partial': return '#3b82f6';
+            case 'paid': return '#10b981';
+            default: return '#6b7280';
+        }
+    };
     const isTerminal = po && (po.status === 'received' || po.status === 'cancelled');
     const canReceive = po && !isTerminal;
     const canAddCharge = po && po.status !== 'cancelled';

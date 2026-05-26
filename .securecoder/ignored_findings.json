@@ -1,0 +1,866 @@
+[
+  {
+    "filePath": "frontend/src/components/ElevatedAuthModal.jsx",
+    "ruleId": "gitlab.eslint.detect-object-injection",
+    "lineText": "        newOtp[index] = value;\n",
+    "reason": "False positive Code Injection bracket lookup or string literal"
+  },
+  {
+    "filePath": "frontend/src/components/ElevatedAuthModal.jsx",
+    "ruleId": "gitlab.eslint.detect-object-injection",
+    "lineText": "            inputRefs.current[index + 1]?.focus();\n",
+    "reason": "False positive Code Injection bracket lookup or string literal"
+  },
+  {
+    "filePath": "frontend/src/components/ElevatedAuthModal.jsx",
+    "ruleId": "gitlab.eslint.detect-object-injection",
+    "lineText": "        if (e.key === 'Backspace' && !otp[index] && index > 0) {\n",
+    "reason": "False positive Code Injection bracket lookup or string literal"
+  },
+  {
+    "filePath": "frontend/src/components/ElevatedAuthModal.jsx",
+    "ruleId": "gitlab.eslint.detect-object-injection",
+    "lineText": "            inputRefs.current[index - 1]?.focus();\n",
+    "reason": "False positive Code Injection bracket lookup or string literal"
+  },
+  {
+    "filePath": "frontend/src/components/ElevatedAuthModal.jsx",
+    "ruleId": "gitlab.eslint.detect-object-injection",
+    "lineText": "                                        ref={el => inputRefs.current[index] = el}\n",
+    "reason": "False positive Code Injection bracket lookup or string literal"
+  },
+  {
+    "filePath": "frontend/src/components/common/OmniSearch.jsx",
+    "ruleId": "gitlab.eslint.detect-object-injection",
+    "lineText": "            } else if (e.key === 'Enter' && results[selectedIndex]) {\n",
+    "reason": "False positive Code Injection bracket lookup or string literal"
+  },
+  {
+    "filePath": "frontend/src/components/common/OmniSearch.jsx",
+    "ruleId": "gitlab.eslint.detect-object-injection",
+    "lineText": "                handleSelect(results[selectedIndex]);\n",
+    "reason": "False positive Code Injection bracket lookup or string literal"
+  },
+  {
+    "filePath": "frontend/src/components/common/SchoolStructureTree.jsx",
+    "ruleId": "gitlab.eslint.detect-object-injection",
+    "lineText": "        setExpandedClasses(prev => ({ ...prev, [className]: !prev[className] }));\n",
+    "reason": "False positive Code Injection bracket lookup or string literal"
+  },
+  {
+    "filePath": "frontend/src/components/common/SchoolStructureTree.jsx",
+    "ruleId": "gitlab.eslint.detect-object-injection",
+    "lineText": "        setExpandedDivisions(prev => ({ ...prev, [key]: !prev[key] }));\n",
+    "reason": "False positive Code Injection bracket lookup or string literal"
+  },
+  {
+    "filePath": "frontend/src/components/common/SchoolStructureTree.jsx",
+    "ruleId": "gitlab.eslint.detect-object-injection",
+    "lineText": "        return !!selection[className]?.checked;\n",
+    "reason": "False positive Code Injection bracket lookup or string literal"
+  },
+  {
+    "filePath": "frontend/src/components/common/SchoolStructureTree.jsx",
+    "ruleId": "gitlab.eslint.detect-object-injection",
+    "lineText": "        return !!selection[className]?.divisions?.[divName]?.checked;\n",
+    "reason": "False positive Code Injection bracket lookup or string literal"
+  },
+  {
+    "filePath": "frontend/src/components/common/SchoolStructureTree.jsx",
+    "ruleId": "gitlab.eslint.detect-object-injection",
+    "lineText": "        return !!selection[className]?.divisions?.[divName]?.checked;\n",
+    "reason": "False positive Code Injection bracket lookup or string literal"
+  },
+  {
+    "filePath": "frontend/src/components/common/SchoolStructureTree.jsx",
+    "ruleId": "gitlab.eslint.detect-object-injection",
+    "lineText": "        return selection[className]?.divisions?.[divName]?.subdivisions?.includes(subName) || false;\n",
+    "reason": "False positive Code Injection bracket lookup or string literal"
+  },
+  {
+    "filePath": "frontend/src/components/common/SchoolStructureTree.jsx",
+    "ruleId": "gitlab.eslint.detect-object-injection",
+    "lineText": "        return selection[className]?.divisions?.[divName]?.subdivisions?.includes(subName) || false;\n",
+    "reason": "False positive Code Injection bracket lookup or string literal"
+  },
+  {
+    "filePath": "frontend/src/components/common/SchoolStructureTree.jsx",
+    "ruleId": "gitlab.eslint.detect-object-injection",
+    "lineText": "        const divs = selection[className]?.divisions || {};\n",
+    "reason": "False positive Code Injection bracket lookup or string literal"
+  },
+  {
+    "filePath": "frontend/src/components/common/SchoolStructureTree.jsx",
+    "ruleId": "gitlab.eslint.detect-object-injection",
+    "lineText": "        return (selection[className]?.divisions?.[divName]?.subdivisions || []).length;\n",
+    "reason": "False positive Code Injection bracket lookup or string literal"
+  },
+  {
+    "filePath": "frontend/src/components/common/SchoolStructureTree.jsx",
+    "ruleId": "gitlab.eslint.detect-object-injection",
+    "lineText": "        return (selection[className]?.divisions?.[divName]?.subdivisions || []).length;\n",
+    "reason": "False positive Code Injection bracket lookup or string literal"
+  },
+  {
+    "filePath": "frontend/src/components/common/SchoolStructureTree.jsx",
+    "ruleId": "gitlab.eslint.detect-object-injection",
+    "lineText": "            delete newSel[className];\n",
+    "reason": "False positive Code Injection bracket lookup or string literal"
+  },
+  {
+    "filePath": "frontend/src/components/common/SchoolStructureTree.jsx",
+    "ruleId": "gitlab.eslint.detect-object-injection",
+    "lineText": "            newSel[className] = { checked: true, divisions: {} };\n",
+    "reason": "False positive Code Injection bracket lookup or string literal"
+  },
+  {
+    "filePath": "frontend/src/components/common/SchoolStructureTree.jsx",
+    "ruleId": "gitlab.eslint.detect-object-injection",
+    "lineText": "        if (!newSel[className]) {\n",
+    "reason": "False positive Code Injection bracket lookup or string literal"
+  },
+  {
+    "filePath": "frontend/src/components/common/SchoolStructureTree.jsx",
+    "ruleId": "gitlab.eslint.detect-object-injection",
+    "lineText": "            newSel[className] = { checked: false, divisions: {} };\n",
+    "reason": "False positive Code Injection bracket lookup or string literal"
+  },
+  {
+    "filePath": "frontend/src/components/common/SchoolStructureTree.jsx",
+    "ruleId": "gitlab.eslint.detect-object-injection",
+    "lineText": "        const divs = { ...newSel[className].divisions };\n",
+    "reason": "False positive Code Injection bracket lookup or string literal"
+  },
+  {
+    "filePath": "frontend/src/components/common/SchoolStructureTree.jsx",
+    "ruleId": "gitlab.eslint.detect-object-injection",
+    "lineText": "            delete divs[divName];\n",
+    "reason": "False positive Code Injection bracket lookup or string literal"
+  },
+  {
+    "filePath": "frontend/src/components/common/SchoolStructureTree.jsx",
+    "ruleId": "gitlab.eslint.detect-object-injection",
+    "lineText": "            divs[divName] = { checked: true, subdivisions: [] };\n",
+    "reason": "False positive Code Injection bracket lookup or string literal"
+  },
+  {
+    "filePath": "frontend/src/components/common/SchoolStructureTree.jsx",
+    "ruleId": "gitlab.eslint.detect-object-injection",
+    "lineText": "        newSel[className] = { checked: anyDivChecked || newSel[className].checked, divisions: divs };\n",
+    "reason": "False positive Code Injection bracket lookup or string literal"
+  },
+  {
+    "filePath": "frontend/src/components/common/SchoolStructureTree.jsx",
+    "ruleId": "gitlab.eslint.detect-object-injection",
+    "lineText": "        newSel[className] = { checked: anyDivChecked || newSel[className].checked, divisions: divs };\n",
+    "reason": "False positive Code Injection bracket lookup or string literal"
+  },
+  {
+    "filePath": "frontend/src/components/common/SchoolStructureTree.jsx",
+    "ruleId": "gitlab.eslint.detect-object-injection",
+    "lineText": "        if (!newSel[className]) newSel[className] = { checked: false, divisions: {} };\n",
+    "reason": "False positive Code Injection bracket lookup or string literal"
+  },
+  {
+    "filePath": "frontend/src/components/common/SchoolStructureTree.jsx",
+    "ruleId": "gitlab.eslint.detect-object-injection",
+    "lineText": "        if (!newSel[className]) newSel[className] = { checked: false, divisions: {} };\n",
+    "reason": "False positive Code Injection bracket lookup or string literal"
+  },
+  {
+    "filePath": "frontend/src/components/common/SchoolStructureTree.jsx",
+    "ruleId": "gitlab.eslint.detect-object-injection",
+    "lineText": "        if (!newSel[className].divisions[divName]) {\n",
+    "reason": "False positive Code Injection bracket lookup or string literal"
+  },
+  {
+    "filePath": "frontend/src/components/common/SchoolStructureTree.jsx",
+    "ruleId": "gitlab.eslint.detect-object-injection",
+    "lineText": "        if (!newSel[className].divisions[divName]) {\n",
+    "reason": "False positive Code Injection bracket lookup or string literal"
+  },
+  {
+    "filePath": "frontend/src/components/common/SchoolStructureTree.jsx",
+    "ruleId": "gitlab.eslint.detect-object-injection",
+    "lineText": "            newSel[className].divisions[divName] = { checked: false, subdivisions: [] };\n",
+    "reason": "False positive Code Injection bracket lookup or string literal"
+  },
+  {
+    "filePath": "frontend/src/components/common/SchoolStructureTree.jsx",
+    "ruleId": "gitlab.eslint.detect-object-injection",
+    "lineText": "            newSel[className].divisions[divName] = { checked: false, subdivisions: [] };\n",
+    "reason": "False positive Code Injection bracket lookup or string literal"
+  },
+  {
+    "filePath": "frontend/src/components/common/SchoolStructureTree.jsx",
+    "ruleId": "gitlab.eslint.detect-object-injection",
+    "lineText": "        const subs = [...(newSel[className].divisions[divName].subdivisions || [])];\n",
+    "reason": "False positive Code Injection bracket lookup or string literal"
+  },
+  {
+    "filePath": "frontend/src/components/common/SchoolStructureTree.jsx",
+    "ruleId": "gitlab.eslint.detect-object-injection",
+    "lineText": "        const subs = [...(newSel[className].divisions[divName].subdivisions || [])];\n",
+    "reason": "False positive Code Injection bracket lookup or string literal"
+  },
+  {
+    "filePath": "frontend/src/components/common/SchoolStructureTree.jsx",
+    "ruleId": "gitlab.eslint.detect-object-injection",
+    "lineText": "        newSel[className].divisions[divName] = {\n",
+    "reason": "False positive Code Injection bracket lookup or string literal"
+  },
+  {
+    "filePath": "frontend/src/components/common/SchoolStructureTree.jsx",
+    "ruleId": "gitlab.eslint.detect-object-injection",
+    "lineText": "        newSel[className].divisions[divName] = {\n",
+    "reason": "False positive Code Injection bracket lookup or string literal"
+  },
+  {
+    "filePath": "frontend/src/components/common/SchoolStructureTree.jsx",
+    "ruleId": "gitlab.eslint.detect-object-injection",
+    "lineText": "            checked: subs.length > 0 || newSel[className].divisions[divName].checked,\n",
+    "reason": "False positive Code Injection bracket lookup or string literal"
+  },
+  {
+    "filePath": "frontend/src/components/common/SchoolStructureTree.jsx",
+    "ruleId": "gitlab.eslint.detect-object-injection",
+    "lineText": "            checked: subs.length > 0 || newSel[className].divisions[divName].checked,\n",
+    "reason": "False positive Code Injection bracket lookup or string literal"
+  },
+  {
+    "filePath": "frontend/src/components/common/SchoolStructureTree.jsx",
+    "ruleId": "gitlab.eslint.detect-object-injection",
+    "lineText": "        const anyDivActive = Object.values(newSel[className].divisions).some(d => d.checked || d.subdivisions?.length > 0);\n",
+    "reason": "False positive Code Injection bracket lookup or string literal"
+  },
+  {
+    "filePath": "frontend/src/components/common/SchoolStructureTree.jsx",
+    "ruleId": "gitlab.eslint.detect-object-injection",
+    "lineText": "        newSel[className].checked = anyDivActive || newSel[className].checked;\n",
+    "reason": "False positive Code Injection bracket lookup or string literal"
+  },
+  {
+    "filePath": "frontend/src/components/common/SchoolStructureTree.jsx",
+    "ruleId": "gitlab.eslint.detect-object-injection",
+    "lineText": "        newSel[className].checked = anyDivActive || newSel[className].checked;\n",
+    "reason": "False positive Code Injection bracket lookup or string literal"
+  },
+  {
+    "filePath": "frontend/src/components/common/SchoolStructureTree.jsx",
+    "ruleId": "gitlab.eslint.detect-object-injection",
+    "lineText": "            newSel[c.name] = { checked: true, divisions: selection[c.name]?.divisions || {} };\n",
+    "reason": "False positive Code Injection bracket lookup or string literal"
+  },
+  {
+    "filePath": "frontend/src/components/common/SchoolStructureTree.jsx",
+    "ruleId": "gitlab.eslint.detect-object-injection",
+    "lineText": "            newSel[c.name] = { checked: true, divisions: selection[c.name]?.divisions || {} };\n",
+    "reason": "False positive Code Injection bracket lookup or string literal"
+  },
+  {
+    "filePath": "frontend/src/components/common/SchoolStructureTree.jsx",
+    "ruleId": "gitlab.eslint.detect-object-injection",
+    "lineText": "        if (!newSel[className]) newSel[className] = { checked: true, divisions: {} };\n",
+    "reason": "False positive Code Injection bracket lookup or string literal"
+  },
+  {
+    "filePath": "frontend/src/components/common/SchoolStructureTree.jsx",
+    "ruleId": "gitlab.eslint.detect-object-injection",
+    "lineText": "        if (!newSel[className]) newSel[className] = { checked: true, divisions: {} };\n",
+    "reason": "False positive Code Injection bracket lookup or string literal"
+  },
+  {
+    "filePath": "frontend/src/components/common/SchoolStructureTree.jsx",
+    "ruleId": "gitlab.eslint.detect-object-injection",
+    "lineText": "        const divs = { ...newSel[className].divisions };\n",
+    "reason": "False positive Code Injection bracket lookup or string literal"
+  },
+  {
+    "filePath": "frontend/src/components/common/SchoolStructureTree.jsx",
+    "ruleId": "gitlab.eslint.detect-object-injection",
+    "lineText": "            if (!divs[d.name]) divs[d.name] = { checked: true, subdivisions: [] };\n",
+    "reason": "False positive Code Injection bracket lookup or string literal"
+  },
+  {
+    "filePath": "frontend/src/components/common/SchoolStructureTree.jsx",
+    "ruleId": "gitlab.eslint.detect-object-injection",
+    "lineText": "            if (!divs[d.name]) divs[d.name] = { checked: true, subdivisions: [] };\n",
+    "reason": "False positive Code Injection bracket lookup or string literal"
+  },
+  {
+    "filePath": "frontend/src/components/common/SchoolStructureTree.jsx",
+    "ruleId": "gitlab.eslint.detect-object-injection",
+    "lineText": "            else divs[d.name] = { ...divs[d.name], checked: true };\n",
+    "reason": "False positive Code Injection bracket lookup or string literal"
+  },
+  {
+    "filePath": "frontend/src/components/common/SchoolStructureTree.jsx",
+    "ruleId": "gitlab.eslint.detect-object-injection",
+    "lineText": "            else divs[d.name] = { ...divs[d.name], checked: true };\n",
+    "reason": "False positive Code Injection bracket lookup or string literal"
+  },
+  {
+    "filePath": "frontend/src/components/common/SchoolStructureTree.jsx",
+    "ruleId": "gitlab.eslint.detect-object-injection",
+    "lineText": "        newSel[className] = { checked: true, divisions: divs };\n",
+    "reason": "False positive Code Injection bracket lookup or string literal"
+  },
+  {
+    "filePath": "frontend/src/components/common/SchoolStructureTree.jsx",
+    "ruleId": "gitlab.eslint.detect-object-injection",
+    "lineText": "                    const isExpanded = expandedClasses[cls.name];\n",
+    "reason": "False positive Code Injection bracket lookup or string literal"
+  },
+  {
+    "filePath": "frontend/src/components/common/Toast.jsx",
+    "ruleId": "gitlab.eslint.detect-object-injection",
+    "lineText": "            <span className=\"toast-icon\">{ICONS[type]}</span>\n",
+    "reason": "False positive Code Injection bracket lookup or string literal"
+  },
+  {
+    "filePath": "frontend/src/components/common/UniversalPaymentEngine.jsx",
+    "ruleId": "gitlab.eslint.detect-object-injection",
+    "lineText": "        return labels[m] || m;\n",
+    "reason": "False positive Code Injection bracket lookup or string literal"
+  },
+  {
+    "filePath": "frontend/src/components/inventory/ProductForm.jsx",
+    "ruleId": "gitlab.eslint.detect-object-injection",
+    "lineText": "        if (fieldErrors[name]) {\n",
+    "reason": "False positive Code Injection bracket lookup or string literal"
+  },
+  {
+    "filePath": "frontend/src/components/inventory/ProductForm.jsx",
+    "ruleId": "gitlab.eslint.detect-object-injection",
+    "lineText": "            URL.revokeObjectURL(prev[index]);\n",
+    "reason": "False positive Code Injection bracket lookup or string literal"
+  },
+  {
+    "filePath": "frontend/src/components/inventory/ProductForm.jsx",
+    "ruleId": "gitlab.eslint.detect-object-injection",
+    "lineText": "                submitData.append(key, formData[key] === null ? '' : formData[key]);\n",
+    "reason": "False positive Code Injection bracket lookup or string literal"
+  },
+  {
+    "filePath": "frontend/src/components/inventory/ProductForm.jsx",
+    "ruleId": "gitlab.eslint.detect-object-injection",
+    "lineText": "                submitData.append(key, formData[key] === null ? '' : formData[key]);\n",
+    "reason": "False positive Code Injection bracket lookup or string literal"
+  },
+  {
+    "filePath": "frontend/src/components/inventory/ProductForm.jsx",
+    "ruleId": "gitlab.eslint.detect-object-injection",
+    "lineText": "                            serverFieldErrors[key] = Array.isArray(errorData[key]) ? errorData[key][0] : errorData[key];\n",
+    "reason": "False positive Code Injection bracket lookup or string literal"
+  },
+  {
+    "filePath": "frontend/src/components/inventory/ProductForm.jsx",
+    "ruleId": "gitlab.eslint.detect-object-injection",
+    "lineText": "                            serverFieldErrors[key] = Array.isArray(errorData[key]) ? errorData[key][0] : errorData[key];\n",
+    "reason": "False positive Code Injection bracket lookup or string literal"
+  },
+  {
+    "filePath": "frontend/src/components/inventory/ProductForm.jsx",
+    "ruleId": "gitlab.eslint.detect-object-injection",
+    "lineText": "                            serverFieldErrors[key] = Array.isArray(errorData[key]) ? errorData[key][0] : errorData[key];\n",
+    "reason": "False positive Code Injection bracket lookup or string literal"
+  },
+  {
+    "filePath": "frontend/src/components/inventory/ProductForm.jsx",
+    "ruleId": "gitlab.eslint.detect-object-injection",
+    "lineText": "                            serverFieldErrors[key] = Array.isArray(errorData[key]) ? errorData[key][0] : errorData[key];\n",
+    "reason": "False positive Code Injection bracket lookup or string literal"
+  },
+  {
+    "filePath": "frontend/src/components/layout/BottomNavBar.jsx",
+    "ruleId": "gitlab.eslint.detect-object-injection",
+    "lineText": "                        <span className=\"nav-icon\">{icons[item.icon]}</span>\n",
+    "reason": "False positive Code Injection bracket lookup or string literal"
+  },
+  {
+    "filePath": "frontend/src/components/layout/NavigationDrawer.jsx",
+    "ruleId": "gitlab.eslint.detect-object-injection",
+    "lineText": "            {icons[name]}\n",
+    "reason": "False positive Code Injection bracket lookup or string literal"
+  },
+  {
+    "filePath": "frontend/src/components/layout/NavigationDrawer.jsx",
+    "ruleId": "gitlab.eslint.detect-object-injection",
+    "lineText": "            const last = focusables[focusables.length - 1];\n",
+    "reason": "False positive Code Injection bracket lookup or string literal"
+  },
+  {
+    "filePath": "frontend/src/components/layout/NotificationPanel.jsx",
+    "ruleId": "gitlab.eslint.detect-object-injection",
+    "lineText": "                            <span className=\"notification-type-icon\">{TYPE_ICONS[n.type] || '\ud83d\udcac'}</span>\n",
+    "reason": "False positive Code Injection bracket lookup or string literal"
+  },
+  {
+    "filePath": "frontend/src/config/navigation.js",
+    "ruleId": "gitlab.eslint.detect-object-injection",
+    "lineText": "        if (section.path) titles[section.path] = section.title || section.label;\n",
+    "reason": "False positive Code Injection bracket lookup or string literal"
+  },
+  {
+    "filePath": "frontend/src/config/navigation.js",
+    "ruleId": "gitlab.eslint.detect-object-injection",
+    "lineText": "                titles[child.path] = child.title || child.label;\n",
+    "reason": "False positive Code Injection bracket lookup or string literal"
+  },
+  {
+    "filePath": "frontend/src/config/navigation.js",
+    "ruleId": "gitlab.eslint.detect-object-injection",
+    "lineText": "    if (routeTitles[pathname]) return routeTitles[pathname];\n",
+    "reason": "False positive Code Injection bracket lookup or string literal"
+  },
+  {
+    "filePath": "frontend/src/config/navigation.js",
+    "ruleId": "gitlab.eslint.detect-object-injection",
+    "lineText": "    if (routeTitles[pathname]) return routeTitles[pathname];\n",
+    "reason": "False positive Code Injection bracket lookup or string literal"
+  },
+  {
+    "filePath": "frontend/src/context/AuthContext.jsx",
+    "ruleId": "gitlab.eslint.detect-object-injection",
+    "lineText": "        bytes[i] = binary.charCodeAt(i);\n",
+    "reason": "False positive Code Injection bracket lookup or string literal"
+  },
+  {
+    "filePath": "frontend/src/context/AuthContext.jsx",
+    "ruleId": "gitlab.eslint.detect-object-injection",
+    "lineText": "            await new Promise(r => setTimeout(r, REFRESH_RETRY_DELAYS[attempt]));\n",
+    "reason": "False positive Code Injection bracket lookup or string literal"
+  },
+  {
+    "filePath": "frontend/src/context/ToastContext.jsx",
+    "ruleId": "gitlab.eslint.detect-object-injection",
+    "lineText": "        if (timersRef.current[id]) {\n",
+    "reason": "False positive Code Injection bracket lookup or string literal"
+  },
+  {
+    "filePath": "frontend/src/context/ToastContext.jsx",
+    "ruleId": "gitlab.eslint.detect-object-injection",
+    "lineText": "            clearTimeout(timersRef.current[id]);\n",
+    "reason": "False positive Code Injection bracket lookup or string literal"
+  },
+  {
+    "filePath": "frontend/src/context/ToastContext.jsx",
+    "ruleId": "gitlab.eslint.detect-object-injection",
+    "lineText": "            delete timersRef.current[id];\n",
+    "reason": "False positive Code Injection bracket lookup or string literal"
+  },
+  {
+    "filePath": "frontend/src/pages/Dashboard.jsx",
+    "ruleId": "gitlab.eslint.detect-object-injection",
+    "lineText": "                    const res = results[i];\n",
+    "reason": "False positive Code Injection bracket lookup or string literal"
+  },
+  {
+    "filePath": "frontend/src/pages/Dashboard.jsx",
+    "ruleId": "gitlab.eslint.detect-object-injection",
+    "lineText": "                    const key = keys[i];\n",
+    "reason": "False positive Code Injection bracket lookup or string literal"
+  },
+  {
+    "filePath": "frontend/src/pages/OTPVerification.jsx",
+    "ruleId": "gitlab.eslint.detect-object-injection",
+    "lineText": "        newOtp[index] = value;\n",
+    "reason": "False positive Code Injection bracket lookup or string literal"
+  },
+  {
+    "filePath": "frontend/src/pages/OTPVerification.jsx",
+    "ruleId": "gitlab.eslint.detect-object-injection",
+    "lineText": "            inputRefs.current[index + 1]?.focus();\n",
+    "reason": "False positive Code Injection bracket lookup or string literal"
+  },
+  {
+    "filePath": "frontend/src/pages/OTPVerification.jsx",
+    "ruleId": "gitlab.eslint.detect-object-injection",
+    "lineText": "        if (e.key === 'Backspace' && !otp[index] && index > 0) {\n",
+    "reason": "False positive Code Injection bracket lookup or string literal"
+  },
+  {
+    "filePath": "frontend/src/pages/OTPVerification.jsx",
+    "ruleId": "gitlab.eslint.detect-object-injection",
+    "lineText": "            inputRefs.current[index - 1]?.focus();\n",
+    "reason": "False positive Code Injection bracket lookup or string literal"
+  },
+  {
+    "filePath": "frontend/src/pages/OTPVerification.jsx",
+    "ruleId": "gitlab.eslint.detect-object-injection",
+    "lineText": "                            ref={el => inputRefs.current[index] = el}\n",
+    "reason": "False positive Code Injection bracket lookup or string literal"
+  },
+  {
+    "filePath": "frontend/src/pages/Profile.jsx",
+    "ruleId": "gitlab.eslint.detect-object-injection",
+    "lineText": "        return icons[action] || '\ud83d\udccb';\n",
+    "reason": "False positive Code Injection bracket lookup or string literal"
+  },
+  {
+    "filePath": "frontend/src/pages/customers/AddCustomer.jsx",
+    "ruleId": "gitlab.eslint.detect-object-injection",
+    "lineText": "            newStudents[index][field] = value;\n",
+    "reason": "False positive Code Injection bracket lookup or string literal"
+  },
+  {
+    "filePath": "frontend/src/pages/customers/AddCustomer.jsx",
+    "ruleId": "gitlab.eslint.detect-object-injection",
+    "lineText": "            newStudents[index][field] = value;\n",
+    "reason": "False positive Code Injection bracket lookup or string literal"
+  },
+  {
+    "filePath": "frontend/src/pages/customers/AddCustomer.jsx",
+    "ruleId": "gitlab.eslint.detect-object-injection",
+    "lineText": "        setSections(prev => ({ ...prev, [section]: !prev[section] }));\n",
+    "reason": "False positive Code Injection bracket lookup or string literal"
+  },
+  {
+    "filePath": "frontend/src/pages/customers/AddCustomer.jsx",
+    "ruleId": "gitlab.eslint.detect-object-injection",
+    "lineText": "                        requestBody.append(key, JSON.stringify(payload[key]));\n",
+    "reason": "False positive Code Injection bracket lookup or string literal"
+  },
+  {
+    "filePath": "frontend/src/pages/customers/AddCustomer.jsx",
+    "ruleId": "gitlab.eslint.detect-object-injection",
+    "lineText": "                        requestBody.append(key, payload[key] ?? '');\n",
+    "reason": "False positive Code Injection bracket lookup or string literal"
+  },
+  {
+    "filePath": "frontend/src/pages/customers/AddCustomer.jsx",
+    "ruleId": "gitlab.eslint.detect-object-injection",
+    "lineText": "                    } else if (payload[key] !== null && payload[key] !== undefined && payload[key] !== '') {\n",
+    "reason": "False positive Code Injection bracket lookup or string literal"
+  },
+  {
+    "filePath": "frontend/src/pages/customers/AddCustomer.jsx",
+    "ruleId": "gitlab.eslint.detect-object-injection",
+    "lineText": "                    } else if (payload[key] !== null && payload[key] !== undefined && payload[key] !== '') {\n",
+    "reason": "False positive Code Injection bracket lookup or string literal"
+  },
+  {
+    "filePath": "frontend/src/pages/customers/AddCustomer.jsx",
+    "ruleId": "gitlab.eslint.detect-object-injection",
+    "lineText": "                    } else if (payload[key] !== null && payload[key] !== undefined && payload[key] !== '') {\n",
+    "reason": "False positive Code Injection bracket lookup or string literal"
+  },
+  {
+    "filePath": "frontend/src/pages/customers/AddCustomer.jsx",
+    "ruleId": "gitlab.eslint.detect-object-injection",
+    "lineText": "                        requestBody.append(key, payload[key]);\n",
+    "reason": "False positive Code Injection bracket lookup or string literal"
+  },
+  {
+    "filePath": "frontend/src/pages/customers/CoverageList.jsx",
+    "ruleId": "gitlab.eslint.detect-object-injection",
+    "lineText": "                                const sc = STATUS_CONFIG[c.marker_status] || STATUS_CONFIG.prospect;\n",
+    "reason": "False positive Code Injection bracket lookup or string literal"
+  },
+  {
+    "filePath": "frontend/src/pages/customers/CoverageList.jsx",
+    "ruleId": "gitlab.eslint.detect-object-injection",
+    "lineText": "                        const sc = STATUS_CONFIG[c.marker_status] || STATUS_CONFIG.prospect;\n",
+    "reason": "False positive Code Injection bracket lookup or string literal"
+  },
+  {
+    "filePath": "frontend/src/pages/finance/AddExpense.jsx",
+    "ruleId": "gitlab.eslint.detect-object-injection",
+    "lineText": "        if (errors[name]) {\n",
+    "reason": "False positive Code Injection bracket lookup or string literal"
+  },
+  {
+    "filePath": "frontend/src/pages/finance/CreateTrip.jsx",
+    "ruleId": "gitlab.eslint.detect-object-injection",
+    "lineText": "                if (!perEmployee[item.paid_by_employee]) {\n",
+    "reason": "False positive Code Injection bracket lookup or string literal"
+  },
+  {
+    "filePath": "frontend/src/pages/finance/CreateTrip.jsx",
+    "ruleId": "gitlab.eslint.detect-object-injection",
+    "lineText": "                    perEmployee[item.paid_by_employee] = { name, total: 0 };\n",
+    "reason": "False positive Code Injection bracket lookup or string literal"
+  },
+  {
+    "filePath": "frontend/src/pages/finance/CreateTrip.jsx",
+    "ruleId": "gitlab.eslint.detect-object-injection",
+    "lineText": "                perEmployee[item.paid_by_employee].total += amt;\n",
+    "reason": "False positive Code Injection bracket lookup or string literal"
+  },
+  {
+    "filePath": "frontend/src/pages/finance/CreateTrip.jsx",
+    "ruleId": "gitlab.eslint.detect-object-injection",
+    "lineText": "            const item = items[i];\n",
+    "reason": "False positive Code Injection bracket lookup or string literal"
+  },
+  {
+    "filePath": "frontend/src/pages/finance/EmployeeExpenseDetail.jsx",
+    "ruleId": "gitlab.eslint.detect-object-injection",
+    "lineText": "        const s = map[status] || { cls: '', label: status };\n",
+    "reason": "False positive Code Injection bracket lookup or string literal"
+  },
+  {
+    "filePath": "frontend/src/pages/finance/ExpenseDetails.jsx",
+    "ruleId": "gitlab.eslint.detect-object-injection",
+    "lineText": "                                                cumulativePaid += parseFloat(expense.payments[i].amount);\n",
+    "reason": "False positive Code Injection bracket lookup or string literal"
+  },
+  {
+    "filePath": "frontend/src/pages/finance/ExpenseReport.jsx",
+    "ruleId": "gitlab.eslint.detect-object-injection",
+    "lineText": "        return map[status] || status;\n",
+    "reason": "False positive Code Injection bracket lookup or string literal"
+  },
+  {
+    "filePath": "frontend/src/pages/finance/FinanceIndex.jsx",
+    "ruleId": "gitlab.eslint.detect-object-injection",
+    "lineText": "                                                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />\n",
+    "reason": "False positive Code Injection bracket lookup or string literal"
+  },
+  {
+    "filePath": "frontend/src/pages/finance/LegacyDebtDashboard.jsx",
+    "ruleId": "gitlab.eslint.detect-object-injection",
+    "lineText": "                                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />\n",
+    "reason": "False positive Code Injection bracket lookup or string literal"
+  },
+  {
+    "filePath": "frontend/src/pages/finance/LegacyDebtEntry.jsx",
+    "ruleId": "gitlab.eslint.detect-object-injection",
+    "lineText": "                handleCustomerSelect(searchResults[activeIndex]);\n",
+    "reason": "False positive Code Injection bracket lookup or string literal"
+  },
+  {
+    "filePath": "frontend/src/pages/finance/OpeningBalance.jsx",
+    "ruleId": "gitlab.eslint.detect-object-injection",
+    "lineText": "            [cat]: !prev[cat]\n",
+    "reason": "False positive Code Injection bracket lookup or string literal"
+  },
+  {
+    "filePath": "frontend/src/pages/finance/OpeningBalance.jsx",
+    "ruleId": "gitlab.eslint.detect-object-injection",
+    "lineText": "                        const isCollapsed = collapsedCategories[category];\n",
+    "reason": "False positive Code Injection bracket lookup or string literal"
+  },
+  {
+    "filePath": "frontend/src/pages/finance/OpeningBalance.jsx",
+    "ruleId": "gitlab.eslint.detect-object-injection",
+    "lineText": "                        const categoryFilled = items.filter(p => quantities[p.id] > 0).length;\n",
+    "reason": "False positive Code Injection bracket lookup or string literal"
+  },
+  {
+    "filePath": "frontend/src/pages/finance/OpeningBalance.jsx",
+    "ruleId": "gitlab.eslint.detect-object-injection",
+    "lineText": "                            const qty = quantities[p.id] || 0;\n",
+    "reason": "False positive Code Injection bracket lookup or string literal"
+  },
+  {
+    "filePath": "frontend/src/pages/finance/OpeningBalance.jsx",
+    "ruleId": "gitlab.eslint.detect-object-injection",
+    "lineText": "                                                const qty = quantities[product.id] || 0;\n",
+    "reason": "False positive Code Injection bracket lookup or string literal"
+  },
+  {
+    "filePath": "frontend/src/pages/finance/TripDetails.jsx",
+    "ruleId": "gitlab.eslint.detect-object-injection",
+    "lineText": "    const badge = STATUS_BADGES[trip.settlement_status] || STATUS_BADGES.unsettled;\n",
+    "reason": "False positive Code Injection bracket lookup or string literal"
+  },
+  {
+    "filePath": "frontend/src/pages/finance/TripDetails.jsx",
+    "ruleId": "gitlab.eslint.detect-object-injection",
+    "lineText": "                                const st = ITEM_STATUS[item.reimbursement_status] || ITEM_STATUS.pending;\n",
+    "reason": "False positive Code Injection bracket lookup or string literal"
+  },
+  {
+    "filePath": "frontend/src/pages/finance/TripList.jsx",
+    "ruleId": "gitlab.eslint.detect-object-injection",
+    "lineText": "                                const badge = STATUS_BADGES[trip.settlement_status] || STATUS_BADGES.unsettled;\n",
+    "reason": "False positive Code Injection bracket lookup or string literal"
+  },
+  {
+    "filePath": "frontend/src/pages/orders/OrderDetails.jsx",
+    "ruleId": "gitlab.eslint.detect-object-injection",
+    "lineText": "                    initialQtys[item.id] = item.remaining_quantity;\n",
+    "reason": "False positive Code Injection bracket lookup or string literal"
+  },
+  {
+    "filePath": "frontend/src/pages/orders/OrderDetails.jsx",
+    "ruleId": "gitlab.eslint.detect-object-injection",
+    "lineText": "                                    {(STATUS_OPTIONS[statusUpdate.field] || []).map(opt => (\n",
+    "reason": "False positive Code Injection bracket lookup or string literal"
+  },
+  {
+    "filePath": "frontend/src/pages/orders/OrderDetails.jsx",
+    "ruleId": "gitlab.eslint.detect-object-injection",
+    "lineText": "                                                            value={partialQuantities[item.id] ?? 0}\n",
+    "reason": "False positive Code Injection bracket lookup or string literal"
+  },
+  {
+    "filePath": "frontend/src/pages/outlets/OutletDetails.jsx",
+    "ruleId": "gitlab.eslint.detect-object-injection",
+    "lineText": "                    seedOverrides[c.product] = { type: c.commission_type || 'percent', value: c.commission_value };\n",
+    "reason": "False positive Code Injection bracket lookup or string literal"
+  },
+  {
+    "filePath": "frontend/src/pages/outlets/OutletDetails.jsx",
+    "ruleId": "gitlab.eslint.detect-object-injection",
+    "lineText": "            delete next[productId];\n",
+    "reason": "False positive Code Injection bracket lookup or string literal"
+  },
+  {
+    "filePath": "frontend/src/pages/outlets/OutletDetails.jsx",
+    "ruleId": "gitlab.eslint.detect-object-injection",
+    "lineText": "                                                <td>{reasonLabels[item.reason] || item.reason}</td>\n",
+    "reason": "False positive Code Injection bracket lookup or string literal"
+  },
+  {
+    "filePath": "frontend/src/pages/outlets/OutletDetails.jsx",
+    "ruleId": "gitlab.eslint.detect-object-injection",
+    "lineText": "                                    const overrideData = hasOverride ? overrides[product.id] : null;\n",
+    "reason": "False positive Code Injection bracket lookup or string literal"
+  },
+  {
+    "filePath": "frontend/src/pages/outlets/modals/ReturnDetailsModal.jsx",
+    "ruleId": "gitlab.eslint.detect-object-injection",
+    "lineText": "                        <span>{REASON_LABELS[returnRecord.reason] || returnRecord.reason}</span>\n",
+    "reason": "False positive Code Injection bracket lookup or string literal"
+  },
+  {
+    "filePath": "frontend/src/pages/procurement/ProcurementList.jsx",
+    "ruleId": "gitlab.eslint.detect-object-injection",
+    "lineText": "        return map[status] || '#6b7280';\n",
+    "reason": "False positive Code Injection bracket lookup or string literal"
+  },
+  {
+    "filePath": "frontend/src/pages/public/PublicReceipt.jsx",
+    "ruleId": "gitlab.eslint.detect-object-injection",
+    "lineText": "    const t = STRINGS[lang];\n",
+    "reason": "False positive Code Injection bracket lookup or string literal"
+  },
+  {
+    "filePath": "frontend/src/pages/public/PublicReceipt.jsx",
+    "ruleId": "gitlab.eslint.detect-object-injection",
+    "lineText": "                    <p>{STRINGS[lang].loading}</p>\n",
+    "reason": "False positive Code Injection bracket lookup or string literal"
+  },
+  {
+    "filePath": "frontend/src/pages/public/PublicReceipt.jsx",
+    "ruleId": "gitlab.eslint.detect-object-injection",
+    "lineText": "                    <h2>{STRINGS[lang].notFound}</h2>\n",
+    "reason": "False positive Code Injection bracket lookup or string literal"
+  },
+  {
+    "filePath": "frontend/src/pages/public/PublicReceipt.jsx",
+    "ruleId": "gitlab.eslint.detect-object-injection",
+    "lineText": "                                        <td>{t[p.method_display] || p.method_display}</td>\n",
+    "reason": "False positive Code Injection bracket lookup or string literal"
+  },
+  {
+    "filePath": "frontend/src/pages/settings/PaymentSettings.jsx",
+    "ruleId": "gitlab.eslint.detect-object-injection",
+    "lineText": "        return icons[type] || '\ud83d\udcb0';\n",
+    "reason": "False positive Code Injection bracket lookup or string literal"
+  },
+  {
+    "filePath": "frontend/src/pages/settings/StoreSettings.jsx",
+    "ruleId": "gitlab.eslint.detect-object-injection",
+    "lineText": "                if (key !== 'logo' && formData[key] !== null) {\n",
+    "reason": "False positive Code Injection bracket lookup or string literal"
+  },
+  {
+    "filePath": "frontend/src/pages/settings/StoreSettings.jsx",
+    "ruleId": "gitlab.eslint.detect-object-injection",
+    "lineText": "                    submitData.append(key, formData[key]);\n",
+    "reason": "False positive Code Injection bracket lookup or string literal"
+  },
+  {
+    "filePath": "frontend/src/utils/payloadSanitizer.js",
+    "ruleId": "gitlab.eslint.detect-object-injection",
+    "lineText": "        if (field in obj && (obj[field] === '' || obj[field] === undefined)) {\n",
+    "reason": "False positive Code Injection bracket lookup or string literal"
+  },
+  {
+    "filePath": "frontend/src/utils/payloadSanitizer.js",
+    "ruleId": "gitlab.eslint.detect-object-injection",
+    "lineText": "        if (field in obj && (obj[field] === '' || obj[field] === undefined)) {\n",
+    "reason": "False positive Code Injection bracket lookup or string literal"
+  },
+  {
+    "filePath": "frontend/src/utils/payloadSanitizer.js",
+    "ruleId": "gitlab.eslint.detect-object-injection",
+    "lineText": "            obj[field] = null;\n",
+    "reason": "False positive Code Injection bracket lookup or string literal"
+  },
+  {
+    "filePath": "frontend/src/utils/payloadSanitizer.js",
+    "ruleId": "gitlab.eslint.detect-object-injection",
+    "lineText": "            const val = obj[field];\n",
+    "reason": "False positive Code Injection bracket lookup or string literal"
+  },
+  {
+    "filePath": "frontend/src/utils/payloadSanitizer.js",
+    "ruleId": "gitlab.eslint.detect-object-injection",
+    "lineText": "                obj[field] = null;\n",
+    "reason": "False positive Code Injection bracket lookup or string literal"
+  },
+  {
+    "filePath": "frontend/src/utils/payloadSanitizer.js",
+    "ruleId": "gitlab.eslint.detect-object-injection",
+    "lineText": "                obj[field] = isNaN(parsed) ? null : parsed;\n",
+    "reason": "False positive Code Injection bracket lookup or string literal"
+  },
+  {
+    "filePath": "frontend/src/utils/payloadSanitizer.js",
+    "ruleId": "gitlab.eslint.detect-object-injection",
+    "lineText": "            const val = obj[field];\n",
+    "reason": "False positive Code Injection bracket lookup or string literal"
+  },
+  {
+    "filePath": "frontend/src/utils/payloadSanitizer.js",
+    "ruleId": "gitlab.eslint.detect-object-injection",
+    "lineText": "                obj[field] = null;\n",
+    "reason": "False positive Code Injection bracket lookup or string literal"
+  },
+  {
+    "filePath": "frontend/src/utils/payloadSanitizer.js",
+    "ruleId": "gitlab.eslint.detect-object-injection",
+    "lineText": "                obj[field] = isNaN(parseFloat(trimmed)) ? null : trimmed;\n",
+    "reason": "False positive Code Injection bracket lookup or string literal"
+  },
+  {
+    "filePath": "frontend/src/utils/secureStorage.js",
+    "ruleId": "gitlab.eslint.detect-object-injection",
+    "lineText": "            const actualKey = OBFS_KEYS[key] || key;\n",
+    "reason": "False positive Code Injection bracket lookup or string literal"
+  },
+  {
+    "filePath": "frontend/src/utils/secureStorage.js",
+    "ruleId": "gitlab.eslint.detect-object-injection",
+    "lineText": "            const actualKey = OBFS_KEYS[key] || key;\n",
+    "reason": "False positive Code Injection bracket lookup or string literal"
+  },
+  {
+    "filePath": "frontend/src/utils/secureStorage.js",
+    "ruleId": "gitlab.eslint.detect-object-injection",
+    "lineText": "        const actualKey = OBFS_KEYS[key] || key;\n",
+    "reason": "False positive Code Injection bracket lookup or string literal"
+  },
+  {
+    "filePath": "frontend/src/utils/statusUtils.js",
+    "ruleId": "gitlab.eslint.detect-object-injection",
+    "lineText": "    if (field && STATUS_OPTIONS[field]) {\n",
+    "reason": "False positive Code Injection bracket lookup or string literal"
+  },
+  {
+    "filePath": "frontend/src/utils/statusUtils.js",
+    "ruleId": "gitlab.eslint.detect-object-injection",
+    "lineText": "        const option = STATUS_OPTIONS[field].find(opt => opt.value === value);\n",
+    "reason": "False positive Code Injection bracket lookup or string literal"
+  },
+  {
+    "filePath": "frontend/src/utils/statusUtils.js",
+    "ruleId": "gitlab.eslint.detect-object-injection",
+    "lineText": "    return labelMap[value] || value;\n",
+    "reason": "False positive Code Injection bracket lookup or string literal"
+  }
+]

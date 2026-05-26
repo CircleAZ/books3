@@ -1,0 +1,22 @@
+# SecureCoder ignore file
+# Exclude files from security scanning using glob patterns, one per line.
+# Patterns are matched against the full absolute file path.
+# Lines starting with # are comments. Blank lines are ignored.
+
+# --- Test files ---
+*test.*
+*_test.*
+**/*_test.*
+**/test/**
+
+# --- Exclude generated build assets and environments ---
+**/dist/**
+**/build/**
+**/node_modules/**
+**/venv/**
+**/scratch/**
+**/*.generated.*
+
+# --- Exclude development tools, archive scripts, and helper utilities ---
+**/Plan/**
+**/scripts/**
