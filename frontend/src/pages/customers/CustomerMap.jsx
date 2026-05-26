@@ -109,7 +109,7 @@ function createMarkerIcon(status, hasPendingPayment, hasLegacyDebt) {
 }
 
 // ── XSS-safe popup via DOM API ──
-function createPopupContent(customer, navigate, onOrderClick) {
+function createPopupContent(customer, navigate, onOrderClick, fetchWithAuth, showToast) {
     const container = document.createElement('div');
     container.className = 'map-popup-content';
 
@@ -165,30 +165,145 @@ function createPopupContent(customer, navigate, onOrderClick) {
         container.appendChild(landmarkRow);
     }
 
-    if (customer.notes) {
-        const notesRow = document.createElement('div');
-        notesRow.className = 'popup-row popup-customer-notes';
-        notesRow.style.maxHeight = '80px';
-        notesRow.style.overflowY = 'auto';
-        notesRow.style.whiteSpace = 'pre-wrap';
-        notesRow.style.wordBreak = 'break-word';
-        notesRow.style.padding = '6px 8px';
-        notesRow.style.border = '1px solid var(--color-border)';
-        notesRow.style.borderRadius = 'var(--radius-sm)';
-        notesRow.style.backgroundColor = 'var(--color-bg-tertiary)';
-        notesRow.style.fontSize = '0.85rem';
-        notesRow.style.marginTop = '4px';
-        notesRow.style.marginBottom = '4px';
-        
-        const noteLabel = document.createElement('strong');
-        noteLabel.textContent = 'Note: ';
-        notesRow.appendChild(noteLabel);
-        
-        const noteText = document.createTextNode(customer.notes);
-        notesRow.appendChild(noteText);
-        
-        container.appendChild(notesRow);
-    }
+    // ── Editable Notes Section ──
+    const notesSection = document.createElement('div');
+    notesSection.className = 'popup-notes-section';
+    notesSection.style.marginTop = '4px';
+    notesSection.style.marginBottom = '4px';
+
+    let currentNotes = customer.notes || '';
+
+    const renderDisplayMode = () => {
+        notesSection.innerHTML = '';
+
+        if (currentNotes) {
+            const notesRow = document.createElement('div');
+            notesRow.className = 'popup-row popup-customer-notes';
+            notesRow.style.maxHeight = '80px';
+            notesRow.style.overflowY = 'auto';
+            notesRow.style.whiteSpace = 'pre-wrap';
+            notesRow.style.wordBreak = 'break-word';
+            notesRow.style.padding = '6px 8px';
+            notesRow.style.border = '1px solid var(--color-border)';
+            notesRow.style.borderRadius = 'var(--radius-sm)';
+            notesRow.style.backgroundColor = 'var(--color-bg-tertiary)';
+            notesRow.style.fontSize = '0.85rem';
+
+            const noteLabel = document.createElement('strong');
+            noteLabel.textContent = 'Note: ';
+            notesRow.appendChild(noteLabel);
+            notesRow.appendChild(document.createTextNode(currentNotes));
+            notesSection.appendChild(notesRow);
+        }
+
+        const editBtn = document.createElement('button');
+        editBtn.className = 'popup-edit-note-btn';
+        editBtn.textContent = currentNotes ? '✏️ Edit Note' : '+ Add Note';
+        editBtn.style.fontSize = '0.8rem';
+        editBtn.style.padding = '2px 8px';
+        editBtn.style.marginTop = '4px';
+        editBtn.style.cursor = 'pointer';
+        editBtn.style.border = '1px solid var(--color-border)';
+        editBtn.style.borderRadius = 'var(--radius-sm)';
+        editBtn.style.background = 'var(--color-bg-tertiary)';
+        editBtn.style.color = 'var(--color-text-primary)';
+        editBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            renderEditMode();
+        });
+        notesSection.appendChild(editBtn);
+    };
+
+    const renderEditMode = () => {
+        notesSection.innerHTML = '';
+
+        const textarea = document.createElement('textarea');
+        textarea.value = currentNotes;
+        textarea.maxLength = 2000;
+        textarea.placeholder = 'Add customer notes...';
+        textarea.style.width = '100%';
+        textarea.style.minHeight = '60px';
+        textarea.style.resize = 'vertical';
+        textarea.style.fontSize = '0.85rem';
+        textarea.style.padding = '6px 8px';
+        textarea.style.borderRadius = 'var(--radius-sm)';
+        textarea.style.border = '1px solid var(--color-border)';
+        textarea.style.backgroundColor = 'var(--color-bg-tertiary)';
+        textarea.style.color = 'var(--color-text-primary)';
+        textarea.style.fontFamily = 'inherit';
+        textarea.style.boxSizing = 'border-box';
+        notesSection.appendChild(textarea);
+
+        const btnRow = document.createElement('div');
+        btnRow.style.display = 'flex';
+        btnRow.style.gap = '6px';
+        btnRow.style.marginTop = '4px';
+
+        const saveBtn = document.createElement('button');
+        saveBtn.textContent = 'Save';
+        saveBtn.className = 'popup-save-note-btn';
+        saveBtn.style.fontSize = '0.8rem';
+        saveBtn.style.padding = '2px 10px';
+        saveBtn.style.cursor = 'pointer';
+        saveBtn.style.border = 'none';
+        saveBtn.style.borderRadius = 'var(--radius-sm)';
+        saveBtn.style.background = '#22c55e';
+        saveBtn.style.color = '#fff';
+        saveBtn.style.fontWeight = '600';
+
+        const cancelBtn = document.createElement('button');
+        cancelBtn.textContent = 'Cancel';
+        cancelBtn.style.fontSize = '0.8rem';
+        cancelBtn.style.padding = '2px 10px';
+        cancelBtn.style.cursor = 'pointer';
+        cancelBtn.style.border = '1px solid var(--color-border)';
+        cancelBtn.style.borderRadius = 'var(--radius-sm)';
+        cancelBtn.style.background = 'var(--color-bg-tertiary)';
+        cancelBtn.style.color = 'var(--color-text-primary)';
+
+        cancelBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            renderDisplayMode();
+        });
+
+        saveBtn.addEventListener('click', async (e) => {
+            e.stopPropagation();
+            const newNotes = textarea.value;
+            saveBtn.disabled = true;
+            saveBtn.textContent = '...';
+            try {
+                const res = await fetchWithAuth(`${ENDPOINTS.CUSTOMERS}${customer.id}/`, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ notes: newNotes })
+                });
+                if (res.ok) {
+                    currentNotes = newNotes;
+                    customer.notes = newNotes;
+                    if (showToast) showToast('Note saved.', 'success');
+                    renderDisplayMode();
+                } else {
+                    if (showToast) showToast('Failed to save note.', 'error');
+                    saveBtn.disabled = false;
+                    saveBtn.textContent = 'Save';
+                }
+            } catch (err) {
+                console.error('Save note error:', err);
+                if (showToast) showToast('Error saving note.', 'error');
+                saveBtn.disabled = false;
+                saveBtn.textContent = 'Save';
+            }
+        });
+
+        btnRow.appendChild(saveBtn);
+        btnRow.appendChild(cancelBtn);
+        notesSection.appendChild(btnRow);
+
+        textarea.focus();
+    };
+
+    renderDisplayMode();
+    container.appendChild(notesSection);
 
     const orderRow = document.createElement('div');
     orderRow.className = 'popup-row popup-orders';
@@ -700,7 +815,7 @@ export default function CustomerMap() {
                     isStandard: true
                 });
 
-                const popupContent = createPopupContent(customer, navigate, handleOpenOrderModal);
+                const popupContent = createPopupContent(customer, navigate, handleOpenOrderModal, fetchWithAuth, showToast);
                 marker.bindPopup(popupContent, {
                     maxWidth: 280,
                     minWidth: 200,
