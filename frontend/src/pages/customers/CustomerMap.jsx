@@ -476,6 +476,15 @@ export default function CustomerMap() {
     const targetLayerRef = useRef(null);
     const boundaryLayerRef = useRef(null);
 
+    // Lock root layout scroll when map is active
+    useEffect(() => {
+        document.body.classList.add('map-page-active');
+        document.documentElement.classList.add('map-page-active');
+        return () => {
+            document.body.classList.remove('map-page-active');
+            document.documentElement.classList.remove('map-page-active');
+        };
+    }, []);
 
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
