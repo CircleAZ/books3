@@ -172,6 +172,12 @@ class Order(DisplayIDMixin, SoftDeleteModel):
     
     def calculate_totals(self):
         """Recalculate subtotal, discount, and total from items, and sync payment status in a single database write."""
+        # Evict prefetch cache to prevent stale querysets during updates/edits (V-02)
+        if hasattr(self, '_prefetched_objects_cache'):
+            self._prefetched_objects_cache.pop('items', None)
+            self._prefetched_objects_cache.pop('payments', None)
+            self._prefetched_objects_cache.pop('refunds', None)
+
         self.subtotal = sum(item.line_total for item in self.items.all())
         
         # Calculate order-level discount
@@ -215,6 +221,11 @@ class Order(DisplayIDMixin, SoftDeleteModel):
     
     def update_payment_status(self):
         """Update payment status based on payments and refunds."""
+        # Evict prefetch cache to prevent stale querysets during updates/edits (V-02)
+        if hasattr(self, '_prefetched_objects_cache'):
+            self._prefetched_objects_cache.pop('payments', None)
+            self._prefetched_objects_cache.pop('refunds', None)
+
         total_paid = sum(p.amount for p in self.payments.all())
         total_refunded = sum(
             r.amount for r in self.refunds.filter(status='completed')

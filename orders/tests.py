@@ -407,3 +407,90 @@ class OrderEditTestCase(TestCase):
         self.assertEqual(order.total, Decimal('200.00'))
         # 2. Payment status automatically updated to partial (since only ₹100 is paid)
         self.assertEqual(order.payment_status, 'partial')
+
+    def test_item_removal_updates_totals_with_prefetch_cache(self):
+        """Test that completely removing an item from an order via PUT API correctly updates subtotal/total despite prefetch cache (V-02)."""
+        from finance.models import CashWallet
+        from rest_framework.test import APIClient
+        
+        self.user.is_superuser = True
+        self.user.save()
+        
+        wallet = CashWallet.objects.create(name="POS Till", balance=Decimal("500.00"))
+        
+        # Create confirmed order with two items (product_a = ₹100, product_b = ₹150). Total ₹250.00
+        order = Order.objects.create(
+            customer=self.customer,
+            order_status='confirmed',
+            created_by=self.user
+        )
+        # Item 1: product_a x 1 (₹100)
+        item_a = OrderItem.objects.create(
+            order=order,
+            product=self.product_a,
+            quantity=1,
+            unit_price=Decimal('100.00')
+        )
+        # Item 2: product_b x 1 (₹150). We need to create product_b first.
+        from inventory.models import Product
+        product_b = Product.objects.create(
+            name="Test Book B",
+            selling_price=Decimal('150.00'),
+            cost_price=Decimal('100.00'),
+            stock_quantity=10,
+            display_id=2000
+        )
+        item_b = OrderItem.objects.create(
+            order=order,
+            product=product_b,
+            quantity=1,
+            unit_price=Decimal('150.00')
+        )
+        
+        order.calculate_totals()
+        self.assertEqual(order.total, Decimal('250.00'))
+        
+        client = APIClient()
+        client.force_authenticate(user=self.user)
+        
+        # Pay ₹250.00 (Fully Paid)
+        payment_data = {
+            'order': str(order.id),
+            'amount': '250.00',
+            'method': 'cash',
+            'destination_wallet': str(wallet.id)
+        }
+        res = client.post('/api/orders/payments/', payment_data, format='json')
+        self.assertEqual(res.status_code, 201)
+        
+        order.refresh_from_db()
+        self.assertEqual(order.payment_status, 'paid')
+        
+        # Now update order items via API, completely removing item_b (Product B) and keeping only item_a (Product A)
+        update_payload = {
+            'customer': str(self.customer.id),
+            'order_status': 'confirmed',
+            'items': [
+                {
+                    'product': str(self.product_a.id),
+                    'quantity': 1,
+                    'unit_price': '100.00',
+                    'discount_type': '',
+                    'discount_value': '0.00'
+                }
+            ]
+        }
+        
+        # This PUT request runs OrderViewSet.update which prefetches 'items' and passes it to OrderCreateSerializer.update.
+        # It must correctly recalculate the totals to ₹100.00 (since product_b was removed).
+        res = client.put(f'/api/orders/orders/{order.id}/', update_payload, format='json')
+        self.assertEqual(res.status_code, 200, res.data)
+        
+        # Assertions
+        order.refresh_from_db()
+        # 1. Subtotal and total must be updated to ₹100.00 (reflects removal of Product B)
+        self.assertEqual(order.subtotal, Decimal('100.00'))
+        self.assertEqual(order.total, Decimal('100.00'))
+        # 2. Payment status becomes overpaid (paid ₹250 for ₹100 order)
+        self.assertEqual(order.payment_status, 'overpaid')
+
