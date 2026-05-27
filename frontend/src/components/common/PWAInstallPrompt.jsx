@@ -10,12 +10,8 @@ export default function PWAInstallPrompt() {
         localStorage.getItem('azbooks_install_dismissed') === 'true'
     );
 
-    // Gate: Only show PWA install prompt to authenticated staff.
-    // Public visitors (e.g. customers viewing receipts at /r/:uuid) must never see this.
-    if (!isAuthenticated) return null;
-
     useEffect(() => {
-        if (isDismissed) return;
+        if (isDismissed || !isAuthenticated) return;
 
         // 1. Android/Chrome Flow
         const handleReady = () => {
@@ -50,7 +46,7 @@ export default function PWAInstallPrompt() {
         return () => {
             window.removeEventListener('app-install-prompt-ready', handleReady);
         };
-    }, [isDismissed]);
+    }, [isDismissed, isAuthenticated]);
 
     const handleDismiss = () => {
         localStorage.setItem('azbooks_install_dismissed', 'true');
@@ -77,7 +73,9 @@ export default function PWAInstallPrompt() {
         window.deferredInstallPrompt = null;
     };
 
-    if (isDismissed) return null;
+    // Gate: Only show PWA install prompt to authenticated staff.
+    // Public visitors (e.g. customers viewing receipts at /r/:uuid) must never see this.
+    if (!isAuthenticated || isDismissed) return null;
 
     if (deferredPrompt) {
         return (
