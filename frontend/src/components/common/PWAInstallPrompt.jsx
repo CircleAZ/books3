@@ -1,12 +1,18 @@
 import { useEffect, useState } from 'react';
+import { useAuth } from '../../context/AuthContext';
 import './PWAInstallPrompt.css';
 
 export default function PWAInstallPrompt() {
+    const { isAuthenticated } = useAuth();
     const [deferredPrompt, setDeferredPrompt] = useState(window.deferredInstallPrompt);
     const [showIosPrompt, setShowIosPrompt] = useState(false);
     const [isDismissed, setIsDismissed] = useState(
         localStorage.getItem('azbooks_install_dismissed') === 'true'
     );
+
+    // Gate: Only show PWA install prompt to authenticated staff.
+    // Public visitors (e.g. customers viewing receipts at /r/:uuid) must never see this.
+    if (!isAuthenticated) return null;
 
     useEffect(() => {
         if (isDismissed) return;

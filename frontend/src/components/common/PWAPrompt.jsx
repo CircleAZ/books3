@@ -1,9 +1,11 @@
 import { useEffect, useState } from 'react';
 import { useRegisterSW } from 'virtual:pwa-register/react';
+import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
 import './PWAPrompt.css';
 
 export default function PWAPrompt() {
+    const { isAuthenticated } = useAuth();
     const { showToast } = useToast();
     const {
         needRefresh: [needRefresh, setNeedRefresh],
@@ -54,6 +56,8 @@ export default function PWAPrompt() {
         await updateServiceWorker(true);
     };
 
+    // Gate: Only show update prompt to authenticated staff
+    if (!isAuthenticated) return null;
     if (!needRefresh) return null;
 
     return (
