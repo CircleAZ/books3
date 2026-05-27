@@ -171,15 +171,51 @@ class AddressSerializer(serializers.ModelSerializer):
         return value
     
     def _resolve_village_to_region(self, validated_data):
-        """Bridge: convert 'village' text to 'region' FK if no explicit region was provided."""
+        """Bridge: convert 'village' text or spatial location coordinates to 'region' FK.
+        Enforces internal boundary hierarchy using PostGIS coordinates first,
+        falling back to village name matching if no spatial match is found.
+        """
+        # Always pop 'village' first since it's a write-only field not present on the model
         village_name = validated_data.pop('village', None)
-        if village_name and not validated_data.get('region'):
+        
+        # If region is already explicitly provided, respect it
+        if validated_data.get('region'):
+            return
+
+        region = None
+        # 1. Try to resolve region from spatial intersection using Point location
+        # Use location from validated_data (if populated) or fall back to instance's location if updating
+        point = validated_data.get('location')
+        if not point and self.instance and hasattr(self.instance, 'location'):
+            point = self.instance.location
+
+        if point and not (point.x == 0.0 and point.y == 0.0):
             from customers.models import GeographicRegion
             region = GeographicRegion.objects.filter(
-                name__iexact=village_name.strip()
+                boundary__intersects=point,
+                layer='village',
+                is_deleted=False
             ).first()
-            if region:
-                validated_data['region'] = region
+
+        # 2. Fallback: resolve by village text name if no spatial region was found
+        if not region and village_name:
+            from customers.models import GeographicRegion
+            region = GeographicRegion.objects.filter(
+                name__iexact=village_name.strip(),
+                layer='village',
+                is_deleted=False
+            ).first()
+
+        # 3. If we tried to resolve but found nothing, set region to None to clear any legacy region assignments.
+        # But only do this if coordinates or village were explicitly provided in the payload.
+        if not region:
+            initial = getattr(self, 'initial_data', {}) or {}
+            has_coords_input = ('latitude' in initial or 'longitude' in initial)
+            has_village_input = ('village' in initial)
+            if (has_village_input and not village_name) or (has_coords_input and not point):
+                validated_data['region'] = None
+        else:
+            validated_data['region'] = region
 
     def _resolve_location(self, validated_data):
         """Convert lat/lng to PostGIS PointField."""
@@ -190,13 +226,13 @@ class AddressSerializer(serializers.ModelSerializer):
             validated_data['location'] = Point(lng, lat, srid=4326)
 
     def create(self, validated_data):
-        self._resolve_village_to_region(validated_data)
         self._resolve_location(validated_data)
+        self._resolve_village_to_region(validated_data)
         return super().create(validated_data)
 
     def update(self, instance, validated_data):
-        self._resolve_village_to_region(validated_data)
         self._resolve_location(validated_data)
+        self._resolve_village_to_region(validated_data)
         return super().update(instance, validated_data)
 
     def to_representation(self, instance):
@@ -497,8 +533,8 @@ class CustomerCreateUpdateSerializer(serializers.ModelSerializer):
         # Create addresses
         addr_serializer = AddressSerializer()
         for i, addr_data in enumerate(addresses_data):
-            addr_serializer._resolve_village_to_region(addr_data)
             addr_serializer._resolve_location(addr_data)
+            addr_serializer._resolve_village_to_region(addr_data)
             location_tags = addr_data.pop('location_tags', [])
             
             address = Address.objects.create(
@@ -594,8 +630,18 @@ class CustomerCreateUpdateSerializer(serializers.ModelSerializer):
             addr_serializer = AddressSerializer()
             
             for i, addr_data in enumerate(addresses_data):
-                addr_serializer._resolve_village_to_region(addr_data)
+                # Bind the correct Address instance to the serializer helper for fallback resolution
+                addr_id = addr_data.get('id')
+                if addr_id:
+                    try:
+                        addr_serializer.instance = Address.objects.get(pk=addr_id)
+                    except Address.DoesNotExist:
+                        addr_serializer.instance = None
+                else:
+                    addr_serializer.instance = None
+
                 addr_serializer._resolve_location(addr_data)
+                addr_serializer._resolve_village_to_region(addr_data)
                 location_tags = addr_data.pop('location_tags', [])
                 addr_id = addr_data.pop('id', None)
                 
