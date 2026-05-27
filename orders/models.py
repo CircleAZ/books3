@@ -171,7 +171,7 @@ class Order(DisplayIDMixin, SoftDeleteModel):
         return f"Order #{self.display_id} - {customer_name}"
     
     def calculate_totals(self):
-        """Recalculate subtotal, discount, and total from items, and sync payment status in a single database write."""
+        """Recalculate subtotal, discount, and total from items, and sync payment and delivery status in a single database write."""
         # Evict prefetch cache to prevent stale querysets during updates/edits (V-02)
         if hasattr(self, '_prefetched_objects_cache'):
             self._prefetched_objects_cache.pop('items', None)
@@ -209,14 +209,35 @@ class Order(DisplayIDMixin, SoftDeleteModel):
             self.payment_status = 'partial'
         else:
             self.payment_status = 'pending'
+
+        # Synchronize delivery status in-memory to reflect any item/quantity modifications (V-03)
+        items = self.items.all()
+        if items.exists():
+            all_delivered = True
+            any_delivered = False
+            for item in items:
+                base = item.confirmed_quantity if item.confirmed_quantity is not None else item.quantity
+                delivered = sum(di.quantity for di in item.delivery_items.all())
+                if delivered > 0:
+                    any_delivered = True
+                if delivered < base:
+                    all_delivered = False
             
-        update_fields = ['subtotal', 'discount_amount', 'total', 'payment_status']
+            if all_delivered:
+                self.delivery_status = 'delivered'
+            elif any_delivered:
+                self.delivery_status = 'partial'
+            else:
+                self.delivery_status = 'pending'
+            
+        update_fields = ['subtotal', 'discount_amount', 'total', 'payment_status', 'delivery_status', 'overall_status']
         
         # Auto-transition: first payment on draft → confirmed
         if total_paid > 0 and self.order_status == 'draft':
             self.order_status = 'confirmed'
             update_fields.append('order_status')
             
+        self._refresh_overall_status()
         self.save(update_fields=update_fields)
     
     def update_payment_status(self):
@@ -246,11 +267,12 @@ class Order(DisplayIDMixin, SoftDeleteModel):
             self.payment_status = 'pending'
         
         # Auto-transition: first payment on draft → confirmed
+        self._refresh_overall_status()
         if total_paid > 0 and self.order_status == 'draft':
             self.order_status = 'confirmed'
-            self.save(update_fields=['payment_status', 'order_status'])
+            self.save(update_fields=['payment_status', 'order_status', 'overall_status'])
         else:
-            self.save(update_fields=['payment_status'])
+            self.save(update_fields=['payment_status', 'overall_status'])
     
     @property
     def net_paid(self):
@@ -422,6 +444,10 @@ class Order(DisplayIDMixin, SoftDeleteModel):
 
     def update_delivery_status(self):
         """Auto-compute delivery_status from delivery records. Like update_payment_status."""
+        # Evict prefetch cache to prevent stale querysets during updates/edits (V-02)
+        if hasattr(self, '_prefetched_objects_cache'):
+            self._prefetched_objects_cache.pop('items', None)
+
         items = self.items.all()
         if not items.exists():
             return
@@ -445,7 +471,8 @@ class Order(DisplayIDMixin, SoftDeleteModel):
         else:
             self.delivery_status = 'pending'
         
-        self.save(update_fields=['delivery_status'])
+        self._refresh_overall_status()
+        self.save(update_fields=['delivery_status', 'overall_status'])
     
     def freeze_confirmed_quantities(self):
         """Freeze all item quantities and batch-deduct stock in minimal queries.

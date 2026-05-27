@@ -494,3 +494,99 @@ class OrderEditTestCase(TestCase):
         # 2. Payment status becomes overpaid (paid ₹250 for ₹100 order)
         self.assertEqual(order.payment_status, 'overpaid')
 
+    def test_item_removal_updates_delivery_status_and_overall_status(self):
+        """Test that removing undelivered items from a partially delivered order transitions it to delivered and Order Complete (V-03)."""
+        from finance.models import CashWallet
+        from orders.models import Delivery, DeliveryItem
+        from rest_framework.test import APIClient
+        
+        self.user.is_superuser = True
+        self.user.save()
+        
+        wallet = CashWallet.objects.create(name="POS Till", balance=Decimal("500.00"))
+        
+        # 1. Create order with two items (product_a x1, product_b x1)
+        order = Order.objects.create(
+            customer=self.customer,
+            order_status='confirmed',
+            created_by=self.user
+        )
+        item_a = OrderItem.objects.create(
+            order=order,
+            product=self.product_a,
+            quantity=1,
+            unit_price=Decimal('100.00')
+        )
+        from inventory.models import Product
+        product_b = Product.objects.create(
+            name="Test Book B",
+            selling_price=Decimal('150.00'),
+            cost_price=Decimal('100.00'),
+            stock_quantity=10,
+            display_id=2000
+        )
+        item_b = OrderItem.objects.create(
+            order=order,
+            product=product_b,
+            quantity=1,
+            unit_price=Decimal('150.00')
+        )
+        order.calculate_totals()
+        
+        # 2. Pay 100.00 (Partial Payment initially)
+        client = APIClient()
+        client.force_authenticate(user=self.user)
+        payment_data = {
+            'order': str(order.id),
+            'amount': '100.00',
+            'method': 'cash',
+            'destination_wallet': str(wallet.id)
+        }
+        res = client.post('/api/orders/payments/', payment_data, format='json')
+        self.assertEqual(res.status_code, 201)
+        
+        # 3. Create a partial delivery (delivering only product_a)
+        delivery = Delivery.objects.create(
+            order=order,
+            delivered_by=self.user
+        )
+        DeliveryItem.objects.create(
+            delivery=delivery,
+            order_item=item_a,
+            quantity=1
+        )
+        # Trigger save hook to sync delivery status
+        delivery.save()
+        
+        order.refresh_from_db()
+        self.assertEqual(order.payment_status, 'partial')
+        self.assertEqual(order.delivery_status, 'partial')
+        self.assertEqual(order.overall_status, 'Partially Delivered')
+        
+        # 4. Now, PUT an update completely removing product_b from the order
+        update_payload = {
+            'customer': str(self.customer.id),
+            'order_status': 'confirmed',
+            'items': [
+                {
+                    'product': str(self.product_a.id),
+                    'quantity': 1,
+                    'unit_price': '100.00',
+                    'discount_type': '',
+                    'discount_value': '0.00'
+                }
+            ]
+        }
+        res = client.put(f'/api/orders/orders/{order.id}/', update_payload, format='json')
+        self.assertEqual(res.status_code, 200)
+        
+        # 5. Assertions
+        order.refresh_from_db()
+        # Subtotal/total are updated
+        self.assertEqual(order.total, Decimal('100.00'))
+        # Delivery status must transition to 'delivered' since only product_a remains and it is 100% delivered
+        self.assertEqual(order.delivery_status, 'delivered')
+        # Overall status must instantly transition to 'Order Complete'
+        self.assertEqual(order.overall_status, 'Order Complete')
+
+
