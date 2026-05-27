@@ -893,3 +893,79 @@ class POStockAlignmentTestCase(TestCase):
         item.refresh_from_db()
         self.assertEqual(item.received_packs, 2)
 
+
+class POPaymentExpenseSynchronizationTestCase(TestCase):
+    """Validates that PO payments auto-generate ExpensePayment records and synchronize statuses."""
+
+    def setUp(self):
+        self.user = User.objects.create(username="sync_user", is_active=True)
+        self.category = Category.objects.create(name="Inventory Supplies")
+        self.vendor = Vendor.objects.create(name="Vendor Z")
+        self.po = PurchaseOrder.objects.create(
+            vendor=self.vendor, created_by=self.user,
+            total_amount=Decimal("1000.00"),
+        )
+        # Create bank and cash wallet mock accounts
+        from finance.models import BankAccount, CashWallet
+        self.bank = BankAccount.objects.create(
+            name="HDFC Current", 
+            opening_balance=Decimal("5000.00"),
+            current_balance=Decimal("5000.00")
+        )
+        self.wallet = CashWallet.objects.create(name="Mayank Wallet", balance=Decimal("1000.00"))
+
+    def test_cash_payment_synchronizes_expense(self):
+        """CASH payment auto-creates ExpensePayment and shifts Expense to PAID."""
+        payment = PurchasePayment.objects.create(
+            purchase_order=self.po, amount=Decimal("600.00"),
+            payment_method=PurchasePayment.PaymentMethod.CASH,
+            source_wallet=self.wallet,
+        )
+        
+        ProcurementService.process_payment(payment.id, self.user)
+        
+        payment.refresh_from_db()
+        self.assertIsNotNone(payment.finance_expense)
+        expense = payment.finance_expense
+        
+        # Verify expense payment was generated
+        from finance.models import ExpensePayment
+        exp_payments = ExpensePayment.objects.filter(expense=expense)
+        self.assertEqual(exp_payments.count(), 1)
+        exp_pay = exp_payments.first()
+        
+        self.assertEqual(exp_pay.amount, Decimal("600.00"))
+        self.assertEqual(exp_pay.source_wallet, self.wallet)
+        self.assertEqual(exp_pay.payment_method, ExpensePayment.PaymentMethod.CASH)
+        
+        # Verify expense status shifted
+        expense.refresh_from_db()
+        self.assertEqual(expense.paid_amount, Decimal("600.00"))
+        self.assertEqual(expense.payment_status, Expense.PaymentStatus.PAID)
+
+    def test_bank_payment_synchronizes_expense(self):
+        """BANK payment auto-creates ExpensePayment and shifts Expense to PAID."""
+        payment = PurchasePayment.objects.create(
+            purchase_order=self.po, amount=Decimal("400.00"),
+            payment_method=PurchasePayment.PaymentMethod.BANK,
+            source_bank=self.bank,
+        )
+        
+        ProcurementService.process_payment(payment.id, self.user)
+        
+        payment.refresh_from_db()
+        expense = payment.finance_expense
+        self.assertIsNotNone(expense)
+        
+        # Verify expense payment generated
+        from finance.models import ExpensePayment
+        exp_pay = ExpensePayment.objects.get(expense=expense)
+        self.assertEqual(exp_pay.amount, Decimal("400.00"))
+        self.assertEqual(exp_pay.source_bank, self.bank)
+        self.assertEqual(exp_pay.payment_method, ExpensePayment.PaymentMethod.BANK)
+        
+        expense.refresh_from_db()
+        self.assertEqual(expense.paid_amount, Decimal("400.00"))
+        self.assertEqual(expense.payment_status, Expense.PaymentStatus.PAID)
+
+

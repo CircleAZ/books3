@@ -171,7 +171,7 @@ class Order(DisplayIDMixin, SoftDeleteModel):
         return f"Order #{self.display_id} - {customer_name}"
     
     def calculate_totals(self):
-        """Recalculate subtotal, discount, and total from items."""
+        """Recalculate subtotal, discount, and total from items, and sync payment status in a single database write."""
         self.subtotal = sum(item.line_total for item in self.items.all())
         
         # Calculate order-level discount
@@ -183,7 +183,35 @@ class Order(DisplayIDMixin, SoftDeleteModel):
             self.discount_amount = Decimal('0')
         
         self.total = self.subtotal - self.discount_amount
-        self.save(update_fields=['subtotal', 'discount_amount', 'total'])
+        
+        # Synchronize payment status in-memory to avoid double-saving and redundant signals
+        total_paid = sum(p.amount for p in self.payments.all())
+        total_refunded = sum(
+            r.amount for r in self.refunds.filter(status='completed')
+        )
+        
+        net_paid = total_paid - total_refunded
+        effective_total = self.effective_total
+        
+        if net_paid <= 0 and total_paid > 0:
+            self.payment_status = 'refunded'
+        elif net_paid > effective_total:
+            self.payment_status = 'overpaid'
+        elif net_paid == effective_total:
+            self.payment_status = 'paid'
+        elif net_paid > 0:
+            self.payment_status = 'partial'
+        else:
+            self.payment_status = 'pending'
+            
+        update_fields = ['subtotal', 'discount_amount', 'total', 'payment_status']
+        
+        # Auto-transition: first payment on draft → confirmed
+        if total_paid > 0 and self.order_status == 'draft':
+            self.order_status = 'confirmed'
+            update_fields.append('order_status')
+            
+        self.save(update_fields=update_fields)
     
     def update_payment_status(self):
         """Update payment status based on payments and refunds."""
@@ -733,6 +761,38 @@ class Payment(UUIDPrimaryKeyModel):
             import threading
             threading.Thread(target=run_dispatch, args=(self.order.id, self.id), daemon=True).start()
             threading.Thread(target=run_r2, args=(self.order.id,), daemon=True).start()
+
+        transaction.on_commit(trigger_async_tasks)
+
+    def delete(self, *args, **kwargs):
+        order = self.order
+        super().delete(*args, **kwargs)
+        
+        # Invalidate local cache and re-calculate payment status on a fresh instance
+        from orders.models import Order
+        fresh_order = Order.objects.get(pk=order.pk)
+        fresh_order.update_payment_status()
+        
+        # Dispatch receipt snapshot update asynchronously after commit
+        from django.db import transaction
+        
+        def run_r2(order_id):
+            from django.db import close_old_connections
+            import logging
+            try:
+                close_old_connections()
+                from orders.models import Order
+                order = Order.objects.get(id=order_id)
+                from messaging.r2 import update_receipt_snapshot
+                update_receipt_snapshot(order)
+            except Exception:
+                logging.getLogger(__name__).exception("R2 snapshot thread failed for order #%s", order_id)
+            finally:
+                close_old_connections()
+
+        def trigger_async_tasks():
+            import threading
+            threading.Thread(target=run_r2, args=(fresh_order.id,), daemon=True).start()
 
         transaction.on_commit(trigger_async_tasks)
 

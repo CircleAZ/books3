@@ -1083,8 +1083,9 @@ class OrderViewSet(viewsets.ModelViewSet):
                             source_bank=payment.destination_bank,
                             source_wallet=payment.destination_wallet,
                             reference=f"edit_payment_{order.display_id}",
-                            description=f"Payment edit: Order #{order.display_id} ({old_amount} → {new_amount})",
-                            user=request.user
+                            description=f"Payment edit correction: Order #{order.display_id} ({old_amount} → {new_amount})",
+                            user=request.user,
+                            allow_overdraft=True  # Correcting fictional over-recording typo
                         )
                     except Exception as e:
                         return Response(
@@ -1114,9 +1115,50 @@ class OrderViewSet(viewsets.ModelViewSet):
                 created_by=request.user
             )
 
-            # Recalculate order payment status
+            # Recalculate order payment status (fresh fetch to invalidate cached querysets)
+            order = Order.objects.select_for_update().get(pk=order.pk)
             order.update_payment_status()
             order.refresh_from_db()
+
+            # Dispatch payment notification + update R2 snapshot asynchronously after commit
+            # (Matches the pattern in Payment.save() for new payments)
+            from django.db import transaction as db_transaction
+            
+            def run_dispatch(order_id, payment_id):
+                from django.db import close_old_connections
+                import logging
+                try:
+                    close_old_connections()
+                    from orders.models import Order, Payment
+                    order = Order.objects.get(id=order_id)
+                    payment = Payment.objects.get(id=payment_id)
+                    from messaging.dispatch import dispatch_payment_update
+                    dispatch_payment_update(order, payment=payment)
+                except Exception:
+                    logging.getLogger(__name__).exception("Payment dispatch thread failed for order #%s", order_id)
+                finally:
+                    close_old_connections()
+                    
+            def run_r2(order_id):
+                from django.db import close_old_connections
+                import logging
+                try:
+                    close_old_connections()
+                    from orders.models import Order
+                    order = Order.objects.get(id=order_id)
+                    from messaging.r2 import update_receipt_snapshot
+                    update_receipt_snapshot(order)
+                except Exception:
+                    logging.getLogger(__name__).exception("R2 snapshot thread failed for order #%s", order_id)
+                finally:
+                    close_old_connections()
+
+            def trigger_async_tasks():
+                import threading
+                threading.Thread(target=run_dispatch, args=(order.id, payment.id), daemon=True).start()
+                threading.Thread(target=run_r2, args=(order.id,), daemon=True).start()
+
+            db_transaction.on_commit(trigger_async_tasks)
 
         # Re-dispatch notifications
         try:
@@ -1294,6 +1336,41 @@ class PaymentViewSet(viewsets.ModelViewSet):
                 description=f"Payment for Order #{payment.order.display_id}",
                 user=self.request.user
             )
+
+    def perform_destroy(self, instance):
+        with transaction.atomic():
+            # Adjust ledger or refund wallet based on payment method before deleting
+            is_customer_wallet = instance.method == 'Customer Wallet'
+            
+            if is_customer_wallet:
+                # Restoring store credit to customer's wallet
+                customer_wallet = getattr(instance.order.customer, 'wallet', None)
+                if customer_wallet:
+                    customer_wallet.credit(
+                        instance.amount,
+                        f"Voided wallet payment on Order #{instance.order.display_id}",
+                        user=self.request.user
+                    )
+                else:
+                    raise serializers.ValidationError({'error': 'Customer wallet not found. Cannot refund wallet payment.'})
+            else:
+                # Bank or Cash Wallet payments: reverse deposit with allow_overdraft=True
+                from finance.services import LedgerService
+                try:
+                    LedgerService.process_withdrawal(
+                        amount=instance.amount,
+                        source_bank=instance.destination_bank,
+                        source_wallet=instance.destination_wallet,
+                        reference=f"void_payment_{instance.order.display_id}",
+                        description=f"Voided payment for Order #{instance.order.display_id}",
+                        user=self.request.user,
+                        allow_overdraft=True  # Voiding mistake is allowed to overdraft
+                    )
+                except Exception as e:
+                    logger.exception("Voiding payment failed for payment %s: %s", instance.id, e)
+                    raise serializers.ValidationError({'error': f'Ledger adjustment failed: {str(e)}'})
+            
+            instance.delete()
 
 
 class OrderNoteViewSet(viewsets.ModelViewSet):

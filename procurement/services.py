@@ -171,6 +171,28 @@ class ProcurementService:
             payment.finance_expense = expense
             payment.save(update_fields=['finance_expense'])
             
+            # Create ExpensePayment record for CASH or BANK payment types (mirroring ExpenseTrip pattern)
+            if payment.payment_method in [PurchasePayment.PaymentMethod.CASH, PurchasePayment.PaymentMethod.BANK]:
+                from finance.models import ExpensePayment
+                
+                exp_method = (
+                    ExpensePayment.PaymentMethod.CASH 
+                    if payment.payment_method == PurchasePayment.PaymentMethod.CASH 
+                    else ExpensePayment.PaymentMethod.BANK
+                )
+                
+                ExpensePayment.objects.create(
+                    expense=expense,
+                    payment_date=timezone.now().date(),
+                    amount=payment.amount,
+                    payment_method=exp_method,
+                    source_bank=payment.source_bank,
+                    source_wallet=payment.source_wallet,
+                    reference=payment.reference_id or f"PO-{po.display_id}",
+                    notes=f"Auto-created payment for PO #{po.display_id} payment record",
+                    payer=user
+                )
+            
             # Create EmployeeExpense record so it feeds into the reimbursement pipeline
             if payment.payment_method == PurchasePayment.PaymentMethod.EMPLOYEE_EXPENSE:
                 EmployeeExpense.objects.create(

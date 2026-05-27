@@ -216,3 +216,194 @@ class OrderEditTestCase(TestCase):
         with self.assertRaises(DRFValidationError) as ctx:
             serializer.save()
         self.assertIn("Cannot remove product", str(ctx.exception))
+
+    def test_payment_edit_correction_under_deficit(self):
+        """Test that editing a payment downwards corrects status and ledger, allowing overdraft for typos."""
+        from finance.models import CashWallet
+        from orders.models import Payment
+        from rest_framework.test import APIClient
+        
+        self.user.is_superuser = True
+        self.user.save()
+        
+        # Setup a cash wallet with some initial balance
+        wallet = CashWallet.objects.create(name="POS Till", balance=Decimal("100.00"))
+        
+        # Create confirmed order of ₹660.00
+        order = Order.objects.create(
+            customer=self.customer,
+            order_status='confirmed',
+            delivery_status='pending',
+            created_by=self.user
+        )
+        OrderItem.objects.create(
+            order=order,
+            product=self.product_a,
+            quantity=6,
+            unit_price=Decimal('110.00')
+        )
+        order.calculate_totals()
+        self.assertEqual(order.total, Decimal('660.00'))
+        
+        # Record payment of ₹660.00 via views/serializer
+        client = APIClient()
+        client.force_authenticate(user=self.user)
+        
+        # Call API to create payment
+        payment_data = {
+            'order': str(order.id),
+            'amount': '660.00',
+            'method': 'cash',
+            'destination_wallet': str(wallet.id)
+        }
+        res = client.post('/api/orders/payments/', payment_data, format='json')
+        self.assertEqual(res.status_code, 201)
+        
+        # Verify order status is Paid and wallet balance increased to ₹760
+        order.refresh_from_db()
+        self.assertEqual(order.payment_status, 'paid')
+        wallet.refresh_from_db()
+        self.assertEqual(wallet.balance, Decimal('760.00'))
+        
+        # Simulate that cash wallet digital balance gets depleted to ₹0 (e.g. spent on salary/expense)
+        wallet.balance = Decimal('0.00')
+        wallet.save()
+        
+        # Fetch payment ID
+        payment = order.payments.first()
+        
+        # Now correct the payment from ₹660 to ₹560 (reduction of ₹100)
+        # This represents the user correcting a typo
+        edit_payload = {
+            'payment_id': str(payment.id),
+            'amount': '560.00'
+        }
+        res = client.post(f'/api/orders/orders/{order.id}/edit_payment/', edit_payload, format='json')
+        self.assertEqual(res.status_code, 200, res.data)
+        
+        # Assertions
+        order.refresh_from_db()
+        # 1. Order payment status must transition to partial
+        self.assertEqual(order.payment_status, 'partial')
+        # 2. Wallet balance must successfully overdraft by ₹100 to balance the typo correction
+        wallet.refresh_from_db()
+        self.assertEqual(wallet.balance, Decimal('-100.00'))
+
+    def test_payment_deletion_ledger_and_status_sync(self):
+        """Test that deleting a payment record reverses the ledger deposit and resets order status."""
+        from finance.models import CashWallet
+        from orders.models import Payment
+        from rest_framework.test import APIClient
+        
+        self.user.is_superuser = True
+        self.user.save()
+        
+        wallet = CashWallet.objects.create(name="Main Safe", balance=Decimal("200.00"))
+        
+        order = Order.objects.create(
+            customer=self.customer,
+            order_status='confirmed',
+            created_by=self.user
+        )
+        OrderItem.objects.create(
+            order=order,
+            product=self.product_a,
+            quantity=2,
+            unit_price=Decimal('100.00')
+        )
+        order.calculate_totals()
+        
+        client = APIClient()
+        client.force_authenticate(user=self.user)
+        
+        # Create ₹200 payment
+        payment_data = {
+            'order': str(order.id),
+            'amount': '200.00',
+            'method': 'cash',
+            'destination_wallet': str(wallet.id)
+        }
+        res = client.post('/api/orders/payments/', payment_data, format='json')
+        self.assertEqual(res.status_code, 201)
+        
+        order.refresh_from_db()
+        self.assertEqual(order.payment_status, 'paid')
+        wallet.refresh_from_db()
+        self.assertEqual(wallet.balance, Decimal('400.00'))
+        
+        # Delete payment
+        payment = order.payments.first()
+        res = client.delete(f'/api/orders/payments/{payment.id}/')
+        self.assertEqual(res.status_code, 204)
+        
+        # Assertions
+        order.refresh_from_db()
+        # 1. Status goes back to pending
+        self.assertEqual(order.payment_status, 'pending')
+        # 2. Ledger deposit is reversed (balance goes back to ₹200)
+        wallet.refresh_from_db()
+        self.assertEqual(wallet.balance, Decimal('200.00'))
+
+    def test_item_update_triggers_status_recalculation(self):
+        """Test that changing item quantities automatically triggers payment status recalculation."""
+        from finance.models import CashWallet
+        from rest_framework.test import APIClient
+        
+        self.user.is_superuser = True
+        self.user.save()
+        
+        wallet = CashWallet.objects.create(name="POS Register", balance=Decimal("100.00"))
+        
+        order = Order.objects.create(
+            customer=self.customer,
+            order_status='confirmed',
+            created_by=self.user
+        )
+        OrderItem.objects.create(
+            order=order,
+            product=self.product_a,
+            quantity=1,
+            unit_price=Decimal('100.00')
+        )
+        order.calculate_totals()
+        
+        client = APIClient()
+        client.force_authenticate(user=self.user)
+        
+        # Pay ₹100.00 (Paid status)
+        payment_data = {
+            'order': str(order.id),
+            'amount': '100.00',
+            'method': 'cash',
+            'destination_wallet': str(wallet.id)
+        }
+        res = client.post('/api/orders/payments/', payment_data, format='json')
+        self.assertEqual(res.status_code, 201)
+        
+        order.refresh_from_db()
+        self.assertEqual(order.payment_status, 'paid')
+        
+        # Now update order items via API to double the quantity (making total ₹200.00)
+        update_payload = {
+            'customer': str(self.customer.id),
+            'order_status': 'confirmed',
+            'items': [
+                {
+                    'product': str(self.product_a.id),
+                    'quantity': 2,
+                    'unit_price': '100.00',
+                    'discount_type': '',
+                    'discount_value': '0.00'
+                }
+            ]
+        }
+        
+        res = client.put(f'/api/orders/orders/{order.id}/', update_payload, format='json')
+        self.assertEqual(res.status_code, 200, res.data)
+        
+        # Assertions
+        order.refresh_from_db()
+        # 1. Total updated to ₹200.00
+        self.assertEqual(order.total, Decimal('200.00'))
+        # 2. Payment status automatically updated to partial (since only ₹100 is paid)
+        self.assertEqual(order.payment_status, 'partial')
