@@ -124,7 +124,14 @@ class ProductViewSet(viewsets.ModelViewSet):
             
         exclude_prefix = self.request.query_params.get('exclude_category_prefix')
         if exclude_prefix:
-            qs = qs.exclude(category__name__startswith=exclude_prefix)
+            qs = qs.exclude(
+                Q(category__isnull=False) & (
+                    Q(category__name__startswith=exclude_prefix) |
+                    Q(category__name__icontains='nav') |
+                    Q(category__name__icontains='text') |
+                    Q(category__name__icontains='ideal')
+                )
+            )
         
         # --- Commission & Transfer Filters (used by Outlet Commissions tab) ---
         
