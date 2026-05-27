@@ -7,7 +7,7 @@ from rest_framework.throttling import UserRateThrottle
 from django_filters.rest_framework import DjangoFilterBackend
 from django.db.models import Sum, Q, Count, Subquery, OuterRef
 from django.db.models import Prefetch
-from django.db import transaction
+from django.db import transaction, models
 from orders.constants import VALID_SALE_STATUSES
 
 from core.permissions import HasRequiredPermission
