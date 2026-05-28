@@ -5,7 +5,7 @@ from rest_framework import serializers
 from decimal import Decimal
 from django.utils.html import strip_tags
 from .models import (
-    Order, OrderItem, Payment, OrderStatusHistory, OrderNote,
+    Order, OrderItem, Payment, OrderStatusHistory,
     ReturnReason, Return, ReturnItem, Refund, CreditNote,
     Delivery, DeliveryItem
 )
@@ -95,14 +95,6 @@ class OrderStatusHistorySerializer(serializers.ModelSerializer):
         read_only_fields = ['id', 'created_at', 'created_by_name']
 
 
-class OrderNoteSerializer(serializers.ModelSerializer):
-    created_by_name = serializers.CharField(source='created_by.username', read_only=True, default=None)
-    
-    class Meta:
-        model = OrderNote
-        fields = ['id', 'order', 'content', 'created_at', 'created_by_name']
-        read_only_fields = ['id', 'created_at', 'created_by_name']
-
 
 class DeliveryItemSerializer(serializers.ModelSerializer):
     product_name = serializers.CharField(source='order_item.product.name', read_only=True)
@@ -129,7 +121,6 @@ class OrderDetailSerializer(serializers.ModelSerializer):
     payments = PaymentSerializer(many=True, read_only=True)
     deliveries = DeliverySerializer(many=True, read_only=True)
     status_history = OrderStatusHistorySerializer(many=True, read_only=True)
-    order_notes = OrderNoteSerializer(many=True, read_only=True)
     customer_name = serializers.SerializerMethodField()
     customer_phone = serializers.SerializerMethodField()
     amount_paid = serializers.DecimalField(max_digits=12, decimal_places=2, read_only=True)
@@ -158,7 +149,7 @@ class OrderDetailSerializer(serializers.ModelSerializer):
             'subtotal', 'discount_type', 'discount_value', 'discount_amount', 'total',
             'amount_paid', 'net_paid', 'total_refunded', 'balance_due', 'change_due',
             'returned_value', 'effective_total', 'max_refundable',
-            'notes', 'items', 'payments', 'deliveries', 'status_history', 'order_notes',
+            'notes', 'items', 'payments', 'deliveries', 'status_history',
             'receipt_uuid',
             'created_at', 'updated_at'
         ]

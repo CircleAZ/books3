@@ -19,7 +19,9 @@ export default function OrderDetails() {
     const [order, setOrder] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
-    const [noteContent, setNoteContent] = useState('');
+    const [isEditingNotes, setIsEditingNotes] = useState(false);
+    const [editedNotes, setEditedNotes] = useState('');
+    const [isSavingNotes, setIsSavingNotes] = useState(false);
     const [showStatusModal, setShowStatusModal] = useState(false);
     const [statusUpdate, setStatusUpdate] = useState({ field: 'order_status', value: '', note: '' });
     const [showShareMenu, setShowShareMenu] = useState(false);
@@ -59,6 +61,7 @@ export default function OrderDetails() {
             if (response.ok) {
                 const data = await response.json();
                 setOrder(data);
+                setEditedNotes(data.notes || '');
                 setError(null);
             } else {
                 setError('Failed to fetch order details');
@@ -118,21 +121,33 @@ export default function OrderDetails() {
         fetchPaymentSettings();
     }, [fetchOrderDetails, fetchWithAuth]);
 
-    const handleAddNote = async (e) => {
-        e.preventDefault();
-        if (!noteContent.trim()) return;
-
+    const handleSaveNotes = async () => {
+        if (editedNotes.length > 2000) {
+            showToast("Notes cannot exceed 2000 characters.", 'error');
+            return;
+        }
+        setIsSavingNotes(true);
         try {
-            const response = await fetchWithAuth(`${ENDPOINTS.ORDERS}${id}/add_note/`, {
-                method: 'POST',
-                body: JSON.stringify({ content: noteContent })
+            const res = await fetchWithAuth(`${ENDPOINTS.ORDERS}${id}/`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ notes: editedNotes })
             });
-            if (response.ok) {
-                setNoteContent('');
-                fetchOrderDetails(); // Refresh to show new note
+            if (res.ok) {
+                const updatedOrder = await res.json();
+                setOrder(updatedOrder);
+                setEditedNotes(updatedOrder.notes || '');
+                setIsEditingNotes(false);
+                showToast("Order notes updated successfully.", 'success');
+            } else {
+                const errData = await res.json().catch(() => null);
+                const msg = errData?.detail || 'Failed to update notes';
+                showToast(msg, 'error');
             }
-        } catch (err) {
-            console.error('Failed to add note:', err);
+        } catch (e) {
+            showToast("Error updating order notes.", 'error');
+        } finally {
+            setIsSavingNotes(false);
         }
     };
 
@@ -1063,28 +1078,55 @@ export default function OrderDetails() {
 
                     {/* Notes Section */}
                     <div className="card notes-card">
-                        <h3>Internal Notes</h3>
-                        <div className="notes-list">
-                            {order.order_notes.length > 0 ? order.order_notes.map(note => (
-                                <div key={note.id} className="note-item">
-                                    <p className="note-content">{note.content}</p>
-                                    <div className="note-meta">
-                                        <span>{note.created_by_name}</span>
-                                        <span>{new Date(note.created_at).toLocaleDateString()}</span>
-                                    </div>
+                        <div className="card-header-with-action" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-md)' }}>
+                            <h3 style={{ margin: 0 }}>Internal Notes</h3>
+                            {!isEditingNotes ? (
+                                <button className="btn btn-sm btn-outline" onClick={() => setIsEditingNotes(true)}>Edit</button>
+                            ) : (
+                                <div style={{ display: 'flex', gap: '8px' }}>
+                                    <button className="btn btn-sm btn-primary" onClick={handleSaveNotes} disabled={isSavingNotes}>
+                                        {isSavingNotes ? 'Saving...' : 'Save'}
+                                    </button>
+                                    <button className="btn btn-sm btn-ghost" onClick={() => { setIsEditingNotes(false); setEditedNotes(order.notes || ''); }}>
+                                        Cancel
+                                    </button>
                                 </div>
-                            )) : <p className="empty-state">No notes added</p>}
+                            )}
                         </div>
-                        <form className="add-note-form" onSubmit={handleAddNote}>
-                            <textarea
-                                placeholder="Add a note..."
-                                value={noteContent}
-                                onChange={(e) => setNoteContent(e.target.value)}
-                            />
-                            <button type="submit" className="btn btn-primary btn-sm" disabled={!noteContent.trim()}>
-                                Add Note
-                            </button>
-                        </form>
+                        <div className="card-content" style={{ display: 'flex', flexDirection: 'column', minHeight: '120px' }}>
+                            {isEditingNotes ? (
+                                <textarea
+                                    value={editedNotes}
+                                    onChange={e => setEditedNotes(e.target.value)}
+                                    placeholder="Add internal notes..."
+                                    maxLength={2000}
+                                    style={{
+                                        width: '100%',
+                                        flex: 1,
+                                        minHeight: '80px',
+                                        padding: '8px',
+                                        borderRadius: 'var(--radius-md)',
+                                        border: '1px solid var(--color-border)',
+                                        backgroundColor: 'var(--color-bg-tertiary)',
+                                        color: 'var(--color-text-primary)',
+                                        fontSize: '0.9rem',
+                                        fontFamily: 'inherit',
+                                        resize: 'vertical'
+                                    }}
+                                />
+                            ) : (
+                                <div style={{
+                                    whiteSpace: 'pre-wrap',
+                                    wordBreak: 'break-word',
+                                    fontSize: '0.95rem',
+                                    color: order.notes ? 'var(--color-text-primary)' : 'var(--color-text-muted)',
+                                    fontStyle: order.notes ? 'normal' : 'italic',
+                                    flex: 1
+                                }}>
+                                    {order.notes || 'No notes added for this order.'}
+                                </div>
+                            )}
+                        </div>
                     </div>
                 </div>
             </div>

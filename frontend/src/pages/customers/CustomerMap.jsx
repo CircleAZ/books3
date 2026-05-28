@@ -121,7 +121,7 @@ function escapeHtml(str) {
 }
 
 // ── XSS-safe popup via DOM API ──
-function createPopupContent(customer, navigate, onOrderClick, fetchWithAuth, showToast) {
+function createPopupContent(customer, navigate, onOrderClick, fetchWithAuth, showToast, onCustomerNoteUpdate) {
     const container = document.createElement('div');
     container.className = 'map-popup-content';
 
@@ -291,7 +291,11 @@ function createPopupContent(customer, navigate, onOrderClick, fetchWithAuth, sho
                 });
                 if (res.ok) {
                     currentNotes = newNotes;
-                    customer.notes = newNotes;
+                    if (onCustomerNoteUpdate) {
+                        onCustomerNoteUpdate(customer.id, newNotes);
+                    } else {
+                        customer.notes = newNotes;
+                    }
                     if (showToast) showToast('Note saved.', 'success');
                     renderDisplayMode();
                 } else {
@@ -546,6 +550,18 @@ export default function CustomerMap() {
             setLoadingOrderDetails(false);
         }
     }, [fetchWithAuth, showToast]);
+
+    const handleCustomerNoteUpdate = useCallback((customerId, newNotes) => {
+        setMapData(prev => {
+            if (!prev || !prev.customers) return prev;
+            return {
+                ...prev,
+                customers: prev.customers.map(c => 
+                    c.id === customerId ? { ...c, notes: newNotes } : c
+                )
+            };
+        });
+    }, []);
 
     // Live Location State & Refs
     const [locationError, setLocationError] = useState(null);
@@ -957,7 +973,7 @@ export default function CustomerMap() {
                     isStandard: true
                 });
 
-                const popupContent = createPopupContent(customer, navigate, handleOpenOrderModal, fetchWithAuth, showToast);
+                const popupContent = createPopupContent(customer, navigate, handleOpenOrderModal, fetchWithAuth, showToast, handleCustomerNoteUpdate);
                 marker.bindPopup(popupContent, {
                     maxWidth: 280,
                     minWidth: 200,

@@ -860,27 +860,6 @@ class OrderStatusHistory(UUIDPrimaryKeyModel):
         return f"Order #{self.order.display_id}: {self.status_field} {self.old_value} → {self.new_value}"
 
 
-class OrderNote(UUIDPrimaryKeyModel):
-    """
-    Notes attached to an order for internal communication.
-    """
-    order = models.ForeignKey(Order, on_delete=models.CASCADE, related_name='order_notes')
-    content = models.TextField()
-    
-    created_at = models.DateTimeField(auto_now_add=True)
-    created_by = models.ForeignKey(
-        settings.AUTH_USER_MODEL,
-        on_delete=models.SET_NULL,
-        null=True
-    )
-    
-    class Meta:
-        ordering = ['-created_at']
-    
-    def __str__(self):
-        return f"Note on Order #{self.order.display_id}"
-
-
 class ReturnReason(SoftDeleteModel):
     """
     Reasons for returning items (e.g., Damaged, Wrong Item, Changed Mind).

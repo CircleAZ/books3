@@ -2,7 +2,7 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 from .views import (
-    OrderViewSet, PaymentViewSet, OrderNoteViewSet,
+    OrderViewSet, PaymentViewSet,
     ReturnReasonViewSet, ReturnViewSet, RefundViewSet
 )
 from .receipt_views import PublicReceiptView, ReceiptBalanceView
@@ -10,7 +10,6 @@ from .receipt_views import PublicReceiptView, ReceiptBalanceView
 router = DefaultRouter()
 router.register(r'orders', OrderViewSet)
 router.register(r'payments', PaymentViewSet)
-router.register(r'order-notes', OrderNoteViewSet)
 router.register(r'return-reasons', ReturnReasonViewSet)
 router.register(r'returns', ReturnViewSet)
 router.register(r'refunds', RefundViewSet)

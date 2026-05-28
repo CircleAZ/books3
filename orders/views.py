@@ -14,13 +14,13 @@ import django_filters
 from core.permissions import HasRequiredPermission
 
 from .models import (
-    Order, OrderItem, Payment, OrderStatusHistory, OrderNote,
+    Order, OrderItem, Payment, OrderStatusHistory,
     ReturnReason, Return, ReturnItem, Refund, CreditNote
 )
 from messaging.dispatch import dispatch_receipt, dispatch_payment_update
 from .serializers import (
     OrderListSerializer, OrderDetailSerializer, OrderCreateSerializer,
-    OrderItemSerializer, PaymentSerializer, OrderStatusHistorySerializer, OrderNoteSerializer,
+    OrderItemSerializer, PaymentSerializer, OrderStatusHistorySerializer,
     ReturnReasonSerializer, ReturnListSerializer, ReturnDetailSerializer, ReturnCreateSerializer,
     RefundSerializer, CreditNoteSerializer
 )
@@ -109,7 +109,7 @@ class OrderViewSet(viewsets.ModelViewSet):
                 'deliveries', 'deliveries__items',
                 'deliveries__items__order_item__product',
                 'deliveries__delivered_by',
-                'status_history', 'order_notes'
+                'status_history'
             ).annotate(**self._shared_annotations)
 
         # ── Access control ──
@@ -1297,22 +1297,6 @@ class OrderViewSet(viewsets.ModelViewSet):
             'derived_status': order.derived_status
         })
     
-    @action(detail=True, methods=['post'])
-    def add_note(self, request, pk=None):
-        """Add a note to the order."""
-        order = self.get_object()
-        content = request.data.get('content', '').strip()
-        
-        if not content:
-            return Response({'error': 'Content is required'}, status=status.HTTP_400_BAD_REQUEST)
-        
-        note = OrderNote.objects.create(
-            order=order,
-            content=content,
-            created_by=request.user
-        )
-        
-        return Response(OrderNoteSerializer(note).data, status=status.HTTP_201_CREATED)
 
 
 class PaymentViewSet(viewsets.ModelViewSet):
@@ -1373,17 +1357,6 @@ class PaymentViewSet(viewsets.ModelViewSet):
             instance.delete()
 
 
-class OrderNoteViewSet(viewsets.ModelViewSet):
-    """CRUD for order notes."""
-    queryset = OrderNote.objects.all().select_related('order', 'created_by')
-    serializer_class = OrderNoteSerializer
-    permission_classes = [HasRequiredPermission]
-    required_permission = 'orders.view_orders'
-    filter_backends = [DjangoFilterBackend]
-    filterset_fields = ['order']
-    
-    def perform_create(self, serializer):
-        serializer.save(created_by=self.request.user)
 
 
 # ============================================================================
