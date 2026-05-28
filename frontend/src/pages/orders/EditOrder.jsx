@@ -281,7 +281,14 @@ export default function EditOrder() {
             if (existing) {
                 return prev.map(item => item.id === product.id ? { ...item, quantity: item.quantity + 1 } : item);
             }
-            return [...prev, { ...product, selling_price: Number(product.selling_price), quantity: 1, discountType: 'fixed', discountValue: 0 }];
+            return [...prev, { 
+                ...product, 
+                selling_price: Number(product.selling_price), 
+                quantity: 1, 
+                discountType: 'fixed', 
+                discountValue: 0,
+                delivered_quantity: 0
+            }];
         });
         setProductSearch('');
         setProductResults([]);

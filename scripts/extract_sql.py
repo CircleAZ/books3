@@ -2,7 +2,7 @@ import os
 import pandas as pd
 import psycopg2
 
-DB_URL = "postgresql://neondb_owner:npg_GLaIc3fg1YkT@ep-bold-cake-a18p3jim-pooler.ap-southeast-1.aws.neon.tech/neondb?sslmode=require"
+DB_URL = "postgresql://neondb_owner:npg_VJEC5jtzp1Pu@ep-autumn-star-ao5bwuz1-pooler.c-2.ap-southeast-1.aws.neon.tech/neondb?sslmode=require"
 
 def extract():
     conn = psycopg2.connect(DB_URL)
