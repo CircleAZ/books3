@@ -154,6 +154,7 @@ WSGI_APPLICATION = 'azbooks.wsgi.application'
 # Format: postgis://user:password@host:port/dbname?sslmode=require
 
 DATABASE_URL = os.getenv('DATABASE_URL', 'postgis://postgres:postgres@localhost:5432/azbooks')
+REPORT_DATABASE_URL = os.getenv('REPORT_DATABASE_URL', '')
 
 # Check if connection goes through Neon's PgBouncer pooler
 is_pooled = 'neon.tech' in DATABASE_URL and '-pooler' in DATABASE_URL
@@ -176,13 +177,44 @@ if 'neon.tech' in DATABASE_URL:
 # Without this, finance/views.py CSV export will crash.
 DATABASES['default']['DISABLE_SERVER_SIDE_CURSORS'] = True
 
-# If running CLI management commands, bypass PgBouncer pooler by default
+import sys
+IS_TESTING = 'test' in sys.argv or any('test' in arg for arg in sys.argv)
+
+# Graceful fallback: Configure 'reports' database replica connection
+if REPORT_DATABASE_URL and not IS_TESTING:
+    is_report_pooled = 'neon.tech' in REPORT_DATABASE_URL and '-pooler' in REPORT_DATABASE_URL
+    DATABASES['reports'] = dj_database_url.config(
+        default=REPORT_DATABASE_URL,
+        engine='django.contrib.gis.db.backends.postgis',
+        conn_max_age=0 if is_report_pooled else 600,
+        conn_health_checks=True,
+    )
+    if 'neon.tech' in REPORT_DATABASE_URL:
+        DATABASES['reports']['OPTIONS'] = {'sslmode': 'require'}
+    DATABASES['reports']['DISABLE_SERVER_SIDE_CURSORS'] = True
+    DATABASES['reports']['TEST'] = {'MIRROR': 'default'}
+else:
+    # Graceful fallback to default primary DB
+    DATABASES['reports'] = DATABASES['default'].copy() if IS_TESTING else DATABASES['default']
+    if IS_TESTING:
+        DATABASES['reports']['TEST'] = {'MIRROR': 'default'}
+
+# Database router for read replica offloading
+DATABASE_ROUTERS = ['core.db_routers.ReportReplicaRouter']
+
+# If running CLI management commands or custom scripts, bypass PgBouncer pooler by default
 # to avoid connection pool conflicts during migrations or one-off administrative scripts.
 import sys
-if len(sys.argv) > 1 and sys.argv[1] not in ('runserver', 'run_gunicorn', 'wsgi'):
+is_web_server = len(sys.argv) > 1 and sys.argv[1] in ('runserver', 'run_gunicorn', 'wsgi')
+if not is_web_server:
     host = DATABASES['default'].get('HOST', '')
     if 'neon.tech' in host and '-pooler' in host:
         DATABASES['default']['HOST'] = host.replace('-pooler', '')
+    
+    # Also bypass for the 'reports' database if it is a distinct pooled connection
+    rep_host = DATABASES['reports'].get('HOST', '')
+    if 'neon.tech' in rep_host and '-pooler' in rep_host:
+        DATABASES['reports']['HOST'] = rep_host.replace('-pooler', '')
 
 
 

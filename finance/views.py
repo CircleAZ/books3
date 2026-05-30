@@ -1475,8 +1475,8 @@ class FinancialDashboardView(APIView):
             'end_date': end_date,
         }
 
-        # Cache for 5 minutes (today period cached for 1 minute)
-        ttl = 60 if period == 'today' else 300
+        # Cache for 30 minutes (today period cached for 1 minute)
+        ttl = 60 if period == 'today' else 1800
         cache.set(cache_key, data, timeout=ttl)
         
         return Response(data)

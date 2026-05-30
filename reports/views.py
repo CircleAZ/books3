@@ -1,6 +1,7 @@
 from rest_framework import viewsets, permissions, status
 from core.permissions import HasRequiredPermission
 from rest_framework.decorators import action
+from core.db_routers import use_read_replica
 from rest_framework.response import Response
 from django.db.models import Sum, Count, Avg, F, Q, ExpressionWrapper, DecimalField, Max, Case, When, Value, CharField
 from django.db.models.functions import TruncDate, Coalesce, Concat
@@ -163,6 +164,7 @@ class SalesReportViewSet(ReportBaseViewSet):
     required_permission = 'reports.view_sales'
     
     @action(detail=False, methods=['get'])
+    @use_read_replica
     def summary(self, request):
         result = self._validate_dates(request)
         if isinstance(result, Response):
@@ -187,6 +189,7 @@ class SalesReportViewSet(ReportBaseViewSet):
         return Response(summary)
 
     @action(detail=False, methods=['get'])
+    @use_read_replica
     def top_products(self, request):
         result = self._validate_dates(request)
         if isinstance(result, Response):
@@ -215,6 +218,7 @@ class SalesReportViewSet(ReportBaseViewSet):
         return Response(data)
 
     @action(detail=False, methods=['get'])
+    @use_read_replica
     def by_customer(self, request):
         result = self._validate_dates(request)
         if isinstance(result, Response):
@@ -243,6 +247,7 @@ class SalesReportViewSet(ReportBaseViewSet):
         return Response(data)
 
     @action(detail=False, methods=['get'])
+    @use_read_replica
     def trends(self, request):
         result = self._validate_dates(request)
         if isinstance(result, Response):
@@ -262,6 +267,7 @@ class SalesReportViewSet(ReportBaseViewSet):
         return Response(trends)
 
     @action(detail=False, methods=['get'])
+    @use_read_replica
     def export(self, request):
         result = self._validate_dates(request)
         if isinstance(result, Response):
@@ -301,6 +307,7 @@ class SalesReportViewSet(ReportBaseViewSet):
         return self.export_file(request, f'sales_report_{period}', header, rows)
 
     @action(detail=False, methods=['get'])
+    @use_read_replica
     def by_payment_method(self, request):
         """Sales grouped by payment method."""
         result = self._validate_dates(request)
@@ -323,6 +330,7 @@ class InventoryReportViewSet(ReportBaseViewSet):
     required_permission = 'reports.view_inventory'
     
     @action(detail=False, methods=['get'])
+    @use_read_replica
     def valuation(self, request):
         valuation = Product.objects.aggregate(
             total_cost_value=Sum(F('stock_quantity') * F('cost_price'), output_field=DecimalField()),
@@ -337,6 +345,7 @@ class InventoryReportViewSet(ReportBaseViewSet):
         return Response(valuation)
 
     @action(detail=False, methods=['get'])
+    @use_read_replica
     def low_stock(self, request):
         low_stock_products = Product.objects.filter(
             stock_quantity__lt=F('low_stock_threshold')
@@ -347,6 +356,7 @@ class InventoryReportViewSet(ReportBaseViewSet):
         return Response(low_stock_products)
 
     @action(detail=False, methods=['get'])
+    @use_read_replica
     def dead_stock(self, request):
         try:
             days = int(request.query_params.get('days', 30))
@@ -386,6 +396,7 @@ class InventoryReportViewSet(ReportBaseViewSet):
         return Response(data)
 
     @action(detail=False, methods=['get'])
+    @use_read_replica
     def movement(self, request):
         """Stock movement report: inflows, outflows, adjustments."""
         result = self._validate_dates(request)
@@ -431,6 +442,7 @@ class InventoryReportViewSet(ReportBaseViewSet):
         })
 
     @action(detail=False, methods=['get'])
+    @use_read_replica
     def aging(self, request):
         """Aging stock report: products not sold in X configurable days."""
         try:
@@ -465,6 +477,7 @@ class InventoryReportViewSet(ReportBaseViewSet):
         })
 
     @action(detail=False, methods=['get'])
+    @use_read_replica
     def turnover(self, request):
         """Inventory turnover rate: COGS / Average Inventory Value."""
         result = self._validate_dates(request)
@@ -508,6 +521,7 @@ class InventoryReportViewSet(ReportBaseViewSet):
         })
 
     @action(detail=False, methods=['get'])
+    @use_read_replica
     def export(self, request):
         export_type = request.query_params.get('type', 'all')
         
@@ -547,6 +561,7 @@ class CustomerReportViewSet(ReportBaseViewSet):
     required_permission = 'reports.view_customers'
     
     @action(detail=False, methods=['get'])
+    @use_read_replica
     def summary(self, request):
         result = self._validate_dates(request)
         if isinstance(result, Response):
@@ -591,6 +606,7 @@ class CustomerReportViewSet(ReportBaseViewSet):
         })
 
     @action(detail=False, methods=['get'])
+    @use_read_replica
     def top(self, request):
         top_customers = Customer.objects.annotate(
             total_spent=Sum('orders__total', filter=Q(orders__order_status__in=VALID_SALE_STATUSES, orders__is_deleted=False)),
@@ -612,15 +628,19 @@ class CustomerReportViewSet(ReportBaseViewSet):
         return Response(data)
 
     @action(detail=False, methods=['get'])
+    @use_read_replica
     def rfm(self, request):
         """RFM segmentation — returns segment counts for frontend."""
+        from datetime import date, timedelta
+        
         today = timezone.now().date()
         
+        # Get raw lightweight dictionaries, avoiding slow Django model instantiation overhead
         customers = Customer.objects.annotate(
             last_order_date=Max('orders__created_at', filter=Q(orders__order_status__in=VALID_SALE_STATUSES, orders__is_deleted=False)),
-            frequency=Count('orders', filter=Q(orders__order_status__in=VALID_SALE_STATUSES, orders__is_deleted=False)),
+            frequency=Count('orders', filter=Q(orders__order_status__in=VALID_SALE_STATUSES, orders__is_deleted=False), distinct=True),
             monetary=Sum('orders__total', filter=Q(orders__order_status__in=VALID_SALE_STATUSES, orders__is_deleted=False))
-        ).filter(frequency__gt=0)
+        ).filter(frequency__gt=0).values('last_order_date', 'frequency', 'monetary')
         
         segments = {
             'Champions': 0,
@@ -631,9 +651,10 @@ class CustomerReportViewSet(ReportBaseViewSet):
         }
         
         for c in customers:
-            recency = (today - c.last_order_date.date()).days if c.last_order_date else 999
-            freq = c.frequency or 0
-            monetary = float(c.monetary or 0)
+            last_order = c['last_order_date']
+            recency = (today - last_order.date()).days if last_order else 999
+            freq = c['frequency'] or 0
+            monetary = float(c['monetary'] or 0)
             
             # Simple RFM scoring
             if recency <= 30 and freq >= 3 and monetary >= 5000:
@@ -646,11 +667,12 @@ class CustomerReportViewSet(ReportBaseViewSet):
                 segments['At Risk'] += 1
             else:
                 segments['Lost'] += 1
-        
+                
         data = [{'segment': k, 'count': v} for k, v in segments.items()]
         return Response(data)
 
     @action(detail=False, methods=['get'])
+    @use_read_replica
     def export(self, request):
         # Use annotations for performance instead of N+1 queries
         customers = Customer.objects.annotate(
@@ -674,6 +696,7 @@ class CustomerReportViewSet(ReportBaseViewSet):
         return self.export_file(request, 'customer_report', header, rows)
 
     @action(detail=False, methods=['get'])
+    @use_read_replica
     def locations(self, request):
         """Customer locations for map visualization."""
         tag = request.query_params.get('tag')
@@ -754,6 +777,7 @@ class FinanceReportViewSet(ReportBaseViewSet):
     required_permission = 'finance.view_reports'
     
     @action(detail=False, methods=['get'])
+    @use_read_replica
     def pnl(self, request):
         """
         Profit and Loss Statement (Phase 6.1 Rewrite).
@@ -779,12 +803,12 @@ class FinanceReportViewSet(ReportBaseViewSet):
             order_status__in=VALID_SALE_STATUSES
         ).aggregate(total=Sum('total'))['total'] or Decimal('0.00')
         
-        # Calculate total returned value in the period
+        # Calculate total returned value in the period - optimized with prefetching to avoid N+1 query loop
         completed_returns = OrderReturn.objects.filter(
             status='completed',
             updated_at__date__range=[start_date, end_date],
             order__order_status__in=VALID_SALE_STATUSES
-        )
+        ).prefetch_related('items__order_item', 'order')
         returned_value = Decimal('0.00')
         for ret in completed_returns:
             returned_value += ret.total_refund_amount
@@ -806,17 +830,15 @@ class FinanceReportViewSet(ReportBaseViewSet):
             total_cost=Sum(F('cost_price') * F('quantity'), output_field=DecimalField())
         )['total_cost'] or Decimal('0.00')
         
-        # Subtract cost of returned items
+        # Subtract cost of returned items - pushed entirely to SQL aggregation
         from orders.models import ReturnItem
-        returned_cogs = Decimal('0.00')
-        returned_items = ReturnItem.objects.filter(
+        returned_cogs = ReturnItem.objects.filter(
             return_request__status='completed',
             return_request__updated_at__date__range=[start_date, end_date],
             return_request__order__order_status__in=VALID_SALE_STATUSES
-        ).select_related('order_item')
-        for ri in returned_items:
-            if ri.order_item.cost_price:
-                returned_cogs += ri.order_item.cost_price * ri.quantity
+        ).aggregate(
+            total_returned_cost=Sum(F('order_item__cost_price') * F('quantity'), output_field=DecimalField())
+        )['total_returned_cost'] or Decimal('0.00')
         
         net_cogs = gross_cogs - returned_cogs
         
@@ -881,6 +903,7 @@ class FinanceReportViewSet(ReportBaseViewSet):
         })
 
     @action(detail=False, methods=['get'])
+    @use_read_replica
     def liabilities(self, request):
         """
         Dashboard metrics: Accounts Payable, Salaries Payable, etc.
@@ -908,6 +931,7 @@ class FinanceReportViewSet(ReportBaseViewSet):
         })
 
     @action(detail=False, methods=['get'])
+    @use_read_replica
     def cash_flow(self, request):
         """Cash Flow Statement."""
         from finance.models import (
@@ -994,6 +1018,7 @@ class FinanceReportViewSet(ReportBaseViewSet):
         })
 
     @action(detail=False, methods=['get'])
+    @use_read_replica
     def balance_sheet(self, request):
         """Snapshot of Assets, Liabilities, and Equity."""
         from finance.models import Expense, Lender, BankAccount
@@ -1062,6 +1087,7 @@ class FinanceReportViewSet(ReportBaseViewSet):
         })
         
     @action(detail=False, methods=['get'])
+    @use_read_replica
     def expense_report(self, request):
         """Detailed Expense Report with category and status breakdowns."""
         from finance.models import Expense, ExpenseCategory

@@ -9,6 +9,7 @@ from django.db.models import Sum, Q, Count, Subquery, OuterRef
 from django.db.models import Prefetch
 from django.db import transaction, models
 from orders.constants import VALID_SALE_STATUSES
+from core.db_routers import use_read_replica
 
 from core.permissions import HasRequiredPermission
 from .models import Customer, Address, CustomerLink, Wallet, WalletTransaction, TargetVillage, PotentialCustomer, GeographicRegion, LegacyDebt
@@ -148,6 +149,7 @@ class CustomerViewSet(viewsets.ModelViewSet):
         return Response({'orders': [], 'total_spent': 0})
 
     @action(detail=False, methods=['get'], url_path='map_data')
+    @use_read_replica
     def map_data(self, request):
         """
         Returns customer geo data with order stats for the Customer Map View.
