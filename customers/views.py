@@ -113,11 +113,18 @@ class CustomerViewSet(viewsets.ModelViewSet):
     filterset_fields = ['customer_group']
     
     def get_queryset(self):
-        # ── Lean path: list view — no address prefetch ──
+        # ── Lean path: list view — only prefetch primary address ──
         if self.action == 'list':
+            from django.db.models import Prefetch
+            from customers.models import Address
+            primary_addr_prefetch = Prefetch(
+                'addresses',
+                queryset=Address.objects.filter(is_primary=True),
+                to_attr='primary_addresses_prefetched'
+            )
             return Customer.objects.select_related(
                 'customer_group', 'wallet', 'legacy_debt'
-            ).prefetch_related('students')
+            ).prefetch_related('students', primary_addr_prefetch)
         # ── Fat path: retrieve/update — full address data ──
         return Customer.objects.select_related(
             'customer_group', 'wallet', 'legacy_debt'

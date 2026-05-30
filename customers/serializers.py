@@ -328,6 +328,10 @@ class CustomerListSerializer(serializers.ModelSerializer):
         return None
     
     def get_primary_address(self, obj):
+        if hasattr(obj, 'primary_addresses_prefetched'):
+            primary = obj.primary_addresses_prefetched[0] if obj.primary_addresses_prefetched else None
+            return str(primary) if primary else None
+
         addresses = getattr(obj, '_prefetched_objects_cache', {}).get('addresses', None)
         if addresses is not None:
             primary = next((a for a in addresses if a.is_primary), None)

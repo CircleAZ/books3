@@ -174,7 +174,8 @@ class OrderDetailSerializer(serializers.ModelSerializer):
         return str(obj.receipt_uuid) if obj.receipt_uuid else None
 
     def get_total_refunded(self, obj):
-        return sum(r.amount for r in obj.refunds.filter(status='completed'))
+        # Use Python in-memory filtering over all() to leverage prefetched refunds
+        return sum(r.amount for r in obj.refunds.all() if r.status == 'completed')
 
 
 class OrderItemCreateSerializer(serializers.Serializer):

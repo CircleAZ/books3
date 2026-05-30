@@ -102,14 +102,15 @@ class OrderViewSet(viewsets.ModelViewSet):
         else:
             # ── Fat path: retrieve, create, update, custom actions ──
             qs = Order.objects.select_related(
-                'customer', 'created_by'
+                'customer', 'customer__wallet', 'created_by'
             ).prefetch_related(
                 'items', 'items__product',
                 'payments',
                 'deliveries', 'deliveries__items',
                 'deliveries__items__order_item__product',
                 'deliveries__delivered_by',
-                'status_history'
+                'status_history',
+                'refunds'
             ).annotate(**self._shared_annotations)
 
         # ── Access control ──

@@ -34,9 +34,9 @@ from .models import (
 from .serializers import (
     ExpenseCategorySerializer, ExpenseSerializer, ExpenseCreateSerializer,
     ExpensePaymentSerializer, OtherIncomeSerializer,
-    BankAccountSerializer, BankTransactionSerializer,
-    EmployeeExpenseSerializer, EmployeeSalarySerializer, SalaryPaymentSerializer,
-    LenderSerializer, LoanSerializer, LoanRepaymentSerializer,
+    BankAccountSerializer, BankAccountListSerializer, BankTransactionSerializer,
+    EmployeeExpenseSerializer, EmployeeSalarySerializer, EmployeeSalaryListSerializer, SalaryPaymentSerializer,
+    LenderSerializer, LenderListSerializer, LoanSerializer, LoanListSerializer, LoanRepaymentSerializer,
     IncomeCategorySerializer, RecurringExpenseSerializer, CategoryBudgetSerializer,
     FinanceAuditLogSerializer, FinancialDashboardSerializer,
     ExpenseTripSerializer, ExpenseTripItemSerializer
@@ -373,6 +373,11 @@ class BankAccountViewSet(viewsets.ModelViewSet):
     }
     pagination_class = FinancePagination
     
+    def get_serializer_class(self):
+        if self.action == 'list':
+            return BankAccountListSerializer
+        return self.serializer_class
+
     def get_queryset(self):
         qs = super().get_queryset()
         if self.request.query_params.get('active_only'):
@@ -611,6 +616,11 @@ class EmployeeSalaryViewSet(viewsets.ModelViewSet):
     required_permission = 'finance.manage_salaries'
     pagination_class = FinancePagination
     
+    def get_serializer_class(self):
+        if self.action == 'list':
+            return EmployeeSalaryListSerializer
+        return self.serializer_class
+    
     @action(detail=True, methods=['post'], throttle_classes=[FinanceActionThrottle])
     def pay(self, request, pk=None):
         """Record a salary payment."""
@@ -704,12 +714,17 @@ class LenderViewSet(viewsets.ModelViewSet):
     required_permission = 'finance.manage_loans'
     pagination_class = FinancePagination
     
+    def get_serializer_class(self):
+        if self.action == 'list':
+            return LenderListSerializer
+        return self.serializer_class
+
     def get_queryset(self):
         # Lean for list — no loans prefetch
         if self.action == 'list':
             qs = Lender.objects.all()
         else:
-            qs = Lender.objects.prefetch_related('loans')
+            qs = Lender.objects.prefetch_related('loans__repayments')
         
         search = self.request.query_params.get('search')
         if search:
@@ -729,6 +744,11 @@ class LoanViewSet(viewsets.ModelViewSet):
     required_permission = 'finance.manage_loans'
     pagination_class = FinancePagination
     
+    def get_serializer_class(self):
+        if self.action == 'list':
+            return LoanListSerializer
+        return self.serializer_class
+
     def get_queryset(self):
         # Lean for list — no repayments prefetch
         if self.action == 'list':
@@ -1004,14 +1024,11 @@ class ExpenseTripViewSet(viewsets.ModelViewSet):
     pagination_class = FinancePagination
 
     def get_queryset(self):
-        # Lean for list — no item prefetch
-        if self.action == 'list':
-            qs = ExpenseTrip.objects.select_related('created_by')
-        else:
-            qs = ExpenseTrip.objects.prefetch_related(
-                'items', 'items__category', 'items__paid_by_employee',
-                'items__expense', 'items__employee_expense'
-            ).select_related('created_by')
+        # Unconditionally prefetch items and nested relations to prevent N+1 queries during list/retrieve serialization
+        qs = ExpenseTrip.objects.prefetch_related(
+            'items', 'items__category', 'items__paid_by_employee',
+            'items__expense', 'items__employee_expense'
+        ).select_related('created_by')
         search = self.request.query_params.get('search')
         if search:
             qs = qs.filter(

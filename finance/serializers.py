@@ -267,6 +267,11 @@ class BankAccountSerializer(serializers.ModelSerializer):
         return data
 
 
+class BankAccountListSerializer(BankAccountSerializer):
+    class Meta(BankAccountSerializer.Meta):
+        fields = [f for f in BankAccountSerializer.Meta.fields if f != 'recent_transactions']
+
+
 # ======== Employee Finance Serializers ========
 
 class EmployeeExpenseSerializer(serializers.ModelSerializer):
@@ -324,6 +329,11 @@ class EmployeeSalarySerializer(serializers.ModelSerializer):
         return SalaryPaymentSerializer(payments, many=True).data
 
 
+class EmployeeSalaryListSerializer(EmployeeSalarySerializer):
+    class Meta(EmployeeSalarySerializer.Meta):
+        fields = [f for f in EmployeeSalarySerializer.Meta.fields if f != 'recent_payments']
+
+
 # ======== Lender Serializers ========
 
 class LoanRepaymentSerializer(serializers.ModelSerializer):
@@ -366,6 +376,11 @@ class LoanSerializer(serializers.ModelSerializer):
         return _sanitize(value)
 
 
+class LoanListSerializer(LoanSerializer):
+    class Meta(LoanSerializer.Meta):
+        fields = [f for f in LoanSerializer.Meta.fields if f != 'repayments']
+
+
 class LenderSerializer(serializers.ModelSerializer):
     total_loans = serializers.IntegerField(read_only=True)
     total_outstanding = serializers.DecimalField(max_digits=14, decimal_places=2, read_only=True)
@@ -398,6 +413,11 @@ class LenderSerializer(serializers.ModelSerializer):
 
     def validate_notes(self, value):
         return _sanitize(value)
+
+
+class LenderListSerializer(LenderSerializer):
+    class Meta(LenderSerializer.Meta):
+        fields = [f for f in LenderSerializer.Meta.fields if f not in ('active_loans', 'loans')]
 
 
 # ======== New Feature Serializers ========
@@ -517,16 +537,16 @@ class ExpenseTripSerializer(serializers.ModelSerializer):
         read_only_fields = ['id', 'settlement_status', 'created_by', 'created_at', 'updated_at']
 
     def get_total_amount(self, obj):
-        return str(sum(i.amount for i in obj.items.filter(is_deleted=False)))
+        return str(sum(i.amount for i in obj.items.all() if not i.is_deleted))
 
     def get_company_amount(self, obj):
         return str(sum(
-            i.amount for i in obj.items.filter(paid_by_type='company', is_deleted=False)
+            i.amount for i in obj.items.all() if i.paid_by_type == 'company' and not i.is_deleted
         ))
 
     def get_reimbursement_due(self, obj):
-        emp_items = obj.items.filter(paid_by_type='employee', is_deleted=False)
-        reimbursed = emp_items.filter(employee_expense__status='reimbursed')
+        emp_items = [i for i in obj.items.all() if i.paid_by_type == 'employee' and not i.is_deleted]
+        reimbursed = [i for i in emp_items if i.employee_expense and i.employee_expense.status == 'reimbursed']
         total = sum(i.amount for i in emp_items)
         paid = sum(i.amount for i in reimbursed)
         return str(total - paid)
@@ -534,7 +554,7 @@ class ExpenseTripSerializer(serializers.ModelSerializer):
     def get_employee_breakdown(self, obj):
         from django.contrib.auth import get_user_model
         User = get_user_model()
-        emp_items = obj.items.filter(paid_by_type='employee', is_deleted=False)
+        emp_items = [i for i in obj.items.all() if i.paid_by_type == 'employee' and not i.is_deleted]
         breakdown = {}
         for item in emp_items:
             if not item.paid_by_employee:
