@@ -720,11 +720,22 @@ class LenderViewSet(viewsets.ModelViewSet):
         return self.serializer_class
 
     def get_queryset(self):
-        # Lean for list — no loans prefetch
+        # Lean for list — annotate aggregates to avoid N+1 from model properties
         if self.action == 'list':
-            qs = Lender.objects.all()
+            qs = Lender.objects.annotate(
+                _annotated_total_loans=Count('loans', filter=Q(loans__is_active=True))
+            ).prefetch_related(
+                Prefetch('loans', queryset=Loan.objects.filter(is_active=True), to_attr='active_loans_cache')
+            )
         else:
-            qs = Lender.objects.prefetch_related('loans__repayments')
+            qs = Lender.objects.prefetch_related(
+                Prefetch(
+                    'loans',
+                    queryset=Loan.objects.select_related('lender').prefetch_related(
+                        Prefetch('repayments', queryset=LoanRepayment.objects.select_related('recorded_by'))
+                    )
+                )
+            )
         
         search = self.request.query_params.get('search')
         if search:

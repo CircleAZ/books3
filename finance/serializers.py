@@ -382,8 +382,8 @@ class LoanListSerializer(LoanSerializer):
 
 
 class LenderSerializer(serializers.ModelSerializer):
-    total_loans = serializers.IntegerField(read_only=True)
-    total_outstanding = serializers.DecimalField(max_digits=14, decimal_places=2, read_only=True)
+    total_loans = serializers.SerializerMethodField()
+    total_outstanding = serializers.SerializerMethodField()
     active_loans = serializers.SerializerMethodField()
     loans = serializers.SerializerMethodField()
     
@@ -394,8 +394,34 @@ class LenderSerializer(serializers.ModelSerializer):
                   'created_at', 'updated_at']
         read_only_fields = ['id', 'created_at', 'updated_at']
     
+    def get_total_loans(self, obj):
+        # 1. Read from queryset annotation (_annotated_total_loans) if available
+        annotated = getattr(obj, '_annotated_total_loans', None)
+        if annotated is not None:
+            return annotated
+        # 2. Check if general loans prefetch cache exists
+        if hasattr(obj, '_prefetched_objects_cache') and 'loans' in obj._prefetched_objects_cache:
+            return sum(1 for loan in obj.loans.all() if loan.is_active)
+        # 3. Fallback to model property
+        return obj.total_loans
+
+    def get_total_outstanding(self, obj):
+        # 1. Check if active loans prefetch cache/attribute exists
+        active_loans = getattr(obj, 'active_loans_cache', None)
+        if active_loans is not None:
+            return sum(loan.balance_due for loan in active_loans)
+        # 2. Check if general loans prefetch cache exists
+        if hasattr(obj, '_prefetched_objects_cache') and 'loans' in obj._prefetched_objects_cache:
+            return sum(loan.balance_due for loan in obj.loans.all() if loan.is_active)
+        # 3. Fallback to model property
+        return obj.total_outstanding
+
     def get_active_loans(self, obj):
-        loans = obj.loans.filter(is_active=True)[:5]
+        # Check if general loans prefetch cache exists
+        if hasattr(obj, '_prefetched_objects_cache') and 'loans' in obj._prefetched_objects_cache:
+            loans = [loan for loan in obj.loans.all() if loan.is_active][:5]
+        else:
+            loans = obj.loans.filter(is_active=True)[:5]
         return LoanSerializer(loans, many=True).data
 
     def get_loans(self, obj):
@@ -418,6 +444,7 @@ class LenderSerializer(serializers.ModelSerializer):
 class LenderListSerializer(LenderSerializer):
     class Meta(LenderSerializer.Meta):
         fields = [f for f in LenderSerializer.Meta.fields if f not in ('active_loans', 'loans')]
+
 
 
 # ======== New Feature Serializers ========
