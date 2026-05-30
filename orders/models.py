@@ -165,6 +165,23 @@ class Order(DisplayIDMixin, SoftDeleteModel):
     
     class Meta:
         ordering = ['-created_at']
+        indexes = [
+            models.Index(
+                fields=['-created_at'],
+                name='order_active_created_idx',
+                condition=models.Q(is_deleted=False)
+            ),
+            models.Index(
+                fields=['payment_status', '-created_at'],
+                name='order_active_pay_created_idx',
+                condition=models.Q(is_deleted=False)
+            ),
+            models.Index(
+                fields=['order_status', '-created_at'],
+                name='order_active_stat_created_idx',
+                condition=models.Q(is_deleted=False)
+            ),
+        ]
     
     def __str__(self):
         customer_name = self.guest_name if self.is_guest else (self.customer.full_name if self.customer else 'Unknown')

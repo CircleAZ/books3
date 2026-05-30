@@ -980,6 +980,13 @@ class ExpenseTrip(SoftDeleteModel):
 
     class Meta:
         ordering = ['-date', '-created_at']
+        indexes = [
+            models.Index(
+                fields=['-date', '-created_at'],
+                name='trip_active_date_created_idx',
+                condition=models.Q(is_deleted=False)
+            ),
+        ]
 
     def __str__(self):
         return f"{self.name} ({self.date})"

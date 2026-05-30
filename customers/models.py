@@ -86,6 +86,13 @@ class Customer(DisplayIDMixin, SoftDeleteModel):
     
     class Meta:
         ordering = ['-created_at', '-id']
+        indexes = [
+            models.Index(
+                fields=['-created_at', '-id'],
+                name='cust_active_created_idx',
+                condition=models.Q(is_deleted=False)
+            ),
+        ]
     
     def __str__(self):
         return self.full_name
@@ -200,6 +207,13 @@ class Address(UUIDPrimaryKeyModel):
     
     class Meta:
         verbose_name_plural = "Addresses"
+        indexes = [
+            models.Index(
+                fields=['customer_id', 'location'],
+                name='addr_primary_loc_idx',
+                condition=models.Q(is_primary=True)
+            ),
+        ]
     
     def __str__(self):
         parts = []
