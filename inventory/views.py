@@ -1,4 +1,7 @@
 from rest_framework import viewsets, filters, status
+import logging
+logger = logging.getLogger(__name__)
+
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
@@ -35,6 +38,33 @@ class CategoryViewSet(viewsets.ModelViewSet):
     }
     pagination_class = None
 
+    def list(self, request, *args, **kwargs):
+        from django.core.cache import cache
+        import hashlib
+        import json
+        
+        try:
+            cache_version = cache.get_or_set('category_cache_version', 1)
+            params = sorted(request.query_params.items())
+            params_hash = hashlib.md5(json.dumps(params).encode('utf-8')).hexdigest()
+            cache_key = f"category_list_v{cache_version}_{params_hash}"
+            
+            cached_data = cache.get(cache_key)
+            if cached_data is not None:
+                return Response(cached_data)
+        except Exception as e:
+            logger.warning(f"Category cache lookup failed: {e}")
+            cache_key = None
+            
+        response = super().list(request, *args, **kwargs)
+        
+        if cache_key is not None and response.status_code == 200:
+            try:
+                cache.set(cache_key, response.data, timeout=86400)  # 24 hours
+            except Exception as e:
+                logger.warning(f"Category cache write failed: {e}")
+        return response
+
     def destroy(self, request, *args, **kwargs):
         instance = self.get_object()
         reassign_to_id = request.query_params.get('reassign_to')
@@ -70,6 +100,33 @@ class VendorViewSet(viewsets.ModelViewSet):
     }
     pagination_class = None
 
+    def list(self, request, *args, **kwargs):
+        from django.core.cache import cache
+        import hashlib
+        import json
+        
+        try:
+            cache_version = cache.get_or_set('vendor_cache_version', 1)
+            params = sorted(request.query_params.items())
+            params_hash = hashlib.md5(json.dumps(params).encode('utf-8')).hexdigest()
+            cache_key = f"vendor_list_v{cache_version}_{params_hash}"
+            
+            cached_data = cache.get(cache_key)
+            if cached_data is not None:
+                return Response(cached_data)
+        except Exception as e:
+            logger.warning(f"Vendor cache lookup failed: {e}")
+            cache_key = None
+            
+        response = super().list(request, *args, **kwargs)
+        
+        if cache_key is not None and response.status_code == 200:
+            try:
+                cache.set(cache_key, response.data, timeout=86400)  # 24 hours
+            except Exception as e:
+                logger.warning(f"Vendor cache write failed: {e}")
+        return response
+
 class TagViewSet(viewsets.ModelViewSet):
     queryset = Tag.objects.all()
     serializer_class = TagSerializer
@@ -95,6 +152,33 @@ class ProductViewSet(viewsets.ModelViewSet):
     filterset_fields = ['category', 'vendor', 'is_deleted']
     ordering_fields = ['display_id', 'created_at', 'name', 'category__name', 'vendor__name', 'cost_price', 'selling_price', 'stock_quantity', 'order_count', 'delivered_quantity', 'owed_quantity']
     ordering = ['-created_at', 'id']
+
+    def list(self, request, *args, **kwargs):
+        from django.core.cache import cache
+        import hashlib
+        import json
+        
+        try:
+            cache_version = cache.get_or_set('product_cache_version', 1)
+            params = sorted(request.query_params.items())
+            params_hash = hashlib.md5(json.dumps(params).encode('utf-8')).hexdigest()
+            cache_key = f"product_list_v{cache_version}_{params_hash}"
+            
+            cached_data = cache.get(cache_key)
+            if cached_data is not None:
+                return Response(cached_data)
+        except Exception as e:
+            logger.warning(f"Product cache lookup failed: {e}")
+            cache_key = None
+            
+        response = super().list(request, *args, **kwargs)
+        
+        if cache_key is not None and response.status_code == 200:
+            try:
+                cache.set(cache_key, response.data, timeout=300)  # 5 minutes
+            except Exception as e:
+                logger.warning(f"Product cache write failed: {e}")
+        return response
 
     def get_queryset(self):
         qs = super().get_queryset()

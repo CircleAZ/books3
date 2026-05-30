@@ -366,8 +366,11 @@ async function routeWithFailover(request, url, ctx) {
 
       // Success — cache GET responses at the edge
       if (isGET && response.ok && !isNoCachePath(path)) {
-        const responseToCache = response.clone();
-        ctx.waitUntil(cacheResponse(url, responseToCache));
+        const cacheControl = response.headers.get('Cache-Control') || '';
+        if (!cacheControl.includes('no-store') && !cacheControl.includes('no-cache') && !cacheControl.includes('private')) {
+          const responseToCache = response.clone();
+          ctx.waitUntil(cacheResponse(url, responseToCache));
+        }
       }
 
       // Tag which backend served this request
@@ -436,7 +439,10 @@ async function revalidateCache(request, url, cache, cacheKey) {
     );
     
     if (response.ok) {
-      await cacheResponse(url, response.clone());
+      const cacheControl = response.headers.get('Cache-Control') || '';
+      if (!cacheControl.includes('no-store') && !cacheControl.includes('no-cache') && !cacheControl.includes('private')) {
+        await cacheResponse(url, response.clone());
+      }
     }
   } catch (e) {
     // Revalidation failure is non-critical — stale data continues serving
@@ -452,6 +458,13 @@ async function revalidateCache(request, url, cache, cacheKey) {
  * Check if a path should never be cached.
  */
 function isNoCachePath(path) {
+  if (path.startsWith('/api/orders/receipts/')) {
+    // Receipts balance endpoint must NEVER be cached
+    if (path.endsWith('/balance/')) {
+      return true;
+    }
+    return false; // Can be cached!
+  }
   return NO_CACHE_PREFIXES.some(prefix => path.startsWith(prefix));
 }
 

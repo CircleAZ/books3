@@ -156,3 +156,7 @@ extract_mendhar_pending.py
 mendhar_pending_report.md
 scripts/backfill_procurement_orphans.py
 scripts/reconcile_historical_po_stock.py
+
+# Securecoder cache
+.securecoder/
+

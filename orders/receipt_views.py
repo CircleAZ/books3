@@ -54,7 +54,9 @@ class PublicReceiptView(APIView):
             'upi_vpa': upi_vpa,
             'logo': logo_url,
         }
-        return Response(data)
+        response = Response(data)
+        response['Cache-Control'] = 'public, max-age=60'
+        return response
 
 
 class ReceiptBalanceView(APIView):
