@@ -1604,7 +1604,8 @@ class GeographicRegionViewSet(viewsets.ModelViewSet):
                 # CRITICAL: Since this is a detached thread, Django will NOT automatically close
                 # the database connection when the thread exits. We must explicitly close it
                 # to prevent exhausting the PostgreSQL connection pool.
-                connection.close()
+                from django.db import close_old_connections
+                close_old_connections()
 
         # Spawn thread to avoid blocking Gunicorn/Nginx
         thread = threading.Thread(target=run_sync)

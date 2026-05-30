@@ -155,12 +155,15 @@ WSGI_APPLICATION = 'azbooks.wsgi.application'
 
 DATABASE_URL = os.getenv('DATABASE_URL', 'postgis://postgres:postgres@localhost:5432/azbooks')
 
+# Check if connection goes through Neon's PgBouncer pooler
+is_pooled = 'neon.tech' in DATABASE_URL and '-pooler' in DATABASE_URL
+
 DATABASES = {
     'default': dj_database_url.config(
         default=DATABASE_URL,
         engine='django.contrib.gis.db.backends.postgis',
-        conn_max_age=600,              # Keep connections alive 10 min
-        conn_health_checks=True,       # Auto-reconnect stale connections
+        conn_max_age=0 if is_pooled else 600,  # Disable connection lifetime caching under PgBouncer pooler
+        conn_health_checks=True,               # Auto-reconnect stale connections
     )
 }
 
@@ -172,6 +175,15 @@ if 'neon.tech' in DATABASE_URL:
 # (used by Django's .iterator()) are incompatible with transaction pooling.
 # Without this, finance/views.py CSV export will crash.
 DATABASES['default']['DISABLE_SERVER_SIDE_CURSORS'] = True
+
+# If running CLI management commands, bypass PgBouncer pooler by default
+# to avoid connection pool conflicts during migrations or one-off administrative scripts.
+import sys
+if len(sys.argv) > 1 and sys.argv[1] not in ('runserver', 'run_gunicorn', 'wsgi'):
+    host = DATABASES['default'].get('HOST', '')
+    if 'neon.tech' in host and '-pooler' in host:
+        DATABASES['default']['HOST'] = host.replace('-pooler', '')
+
 
 
 # Cache configuration
