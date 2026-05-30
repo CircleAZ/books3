@@ -5,6 +5,8 @@ import { useCurrency } from '../../context/CurrencyContext';
 import { ENDPOINTS } from '../../config/api';
 import { useToast } from '../../context/ToastContext';
 import { useCart } from '../../context/CartContext';
+import { usePermissions } from '../../utils/usePermissions';
+import ManagerOverrideModal from '../../components/ManagerOverrideModal';
 import '../NewOrder.css';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
 
@@ -17,8 +19,13 @@ export default function EditOrder() {
     const { currency } = useCurrency();
     const { showToast } = useToast();
     const { isDrawerOpen, setIsDrawerOpen, setCartData } = useCart();
+    const { hasPermission } = usePermissions();
 
     // State
+    const [activeOverride, setActiveOverride] = useState(null);
+    const [tempPrices, setTempPrices] = useState({});
+    const [tempDiscounts, setTempDiscounts] = useState({});
+    const [tempOrderDiscount, setTempOrderDiscount] = useState('');
     const [originalOrder, setOriginalOrder] = useState(null);
     const [customerSearch, setCustomerSearch] = useState('');
     const [customerResults, setCustomerResults] = useState([]);
@@ -142,6 +149,7 @@ export default function EditOrder() {
                         id: item.product, // Product ID
                         name: item.product_name,
                         selling_price: Number(parseFloat(item.unit_price)),
+                        original_price: Number(parseFloat(item.unit_price)),
                         quantity: item.quantity,
                         discountType: item.discount_type || 'fixed',
                         discountValue: parseFloat(item.discount_value) || 0,
@@ -284,6 +292,7 @@ export default function EditOrder() {
             return [...prev, { 
                 ...product, 
                 selling_price: Number(product.selling_price), 
+                original_price: Number(product.selling_price), 
                 quantity: 1, 
                 discountType: 'fixed', 
                 discountValue: 0,
@@ -304,12 +313,154 @@ export default function EditOrder() {
         }));
     };
 
-    const updateItemDiscount = (id, type, value) => {
-        setCartItems(prev => prev.map(item => item.id === id ? { ...item, discountType: type, discountValue: parseFloat(value) || 0 } : item));
+    const handlePriceCommit = (id, priceStr) => {
+        const item = cartItems.find(i => i.id === id);
+        if (!item) return;
+        const parsedPrice = parseFloat(priceStr);
+        const finalPrice = isNaN(parsedPrice) || parsedPrice < 0 ? 0 : parsedPrice;
+
+        if (finalPrice === item.selling_price) {
+            setTempPrices(prev => {
+                const copy = { ...prev };
+                delete copy[id];
+                return copy;
+            });
+            return;
+        }
+
+        const origPrice = item.original_price !== undefined ? item.original_price : item.selling_price;
+        const isOverride = finalPrice !== origPrice;
+
+        if (isOverride && !hasPermission('orders.edit_orders')) {
+            setActiveOverride({
+                permission: 'orders.edit_orders',
+                actionDescription: `Override unit price of ${item.name} from ₹${origPrice.toFixed(2)} to ₹${finalPrice.toFixed(2)}`,
+                onSuccess: () => {
+                    setCartItems(prev => prev.map(i => i.id === id ? { ...i, selling_price: finalPrice } : i));
+                    setTempPrices(prev => {
+                        const copy = { ...prev };
+                        delete copy[id];
+                        return copy;
+                    });
+                    showToast(`Price override for ${item.name} authorized.`, 'success');
+                },
+                onCancel: () => {
+                    setTempPrices(prev => {
+                        const copy = { ...prev };
+                        delete copy[id];
+                        return copy;
+                    });
+                }
+            });
+        } else {
+            setCartItems(prev => prev.map(i => i.id === id ? { ...i, selling_price: finalPrice } : i));
+            setTempPrices(prev => {
+                const copy = { ...prev };
+                delete copy[id];
+                return copy;
+            });
+        }
     };
 
-    const updateItemPrice = (id, price) => {
-        setCartItems(prev => prev.map(item => item.id === id ? { ...item, selling_price: parseFloat(price) || 0 } : item));
+    const handleDiscountTypeChange = (id, newType) => {
+        const item = cartItems.find(i => i.id === id);
+        if (!item) return;
+
+        if (item.discountValue === 0) {
+            setCartItems(prev => prev.map(i => i.id === id ? { ...i, discountType: newType } : i));
+            return;
+        }
+
+        if (!hasPermission('orders.edit_orders')) {
+            setActiveOverride({
+                permission: 'orders.edit_orders',
+                actionDescription: `Change discount type for ${item.name} to ${newType === 'percent' ? '%' : 'fixed'}`,
+                onSuccess: () => {
+                    setCartItems(prev => prev.map(i => i.id === id ? { ...i, discountType: newType } : i));
+                    showToast(`Discount type change authorized.`, 'success');
+                },
+                onCancel: () => {
+                    // Do nothing
+                }
+            });
+        } else {
+            setCartItems(prev => prev.map(i => i.id === id ? { ...i, discountType: newType } : i));
+        }
+    };
+
+    const handleDiscountValueCommit = (id, valStr) => {
+        const item = cartItems.find(i => i.id === id);
+        if (!item) return;
+
+        const parsedVal = parseFloat(valStr) || 0;
+        const finalVal = parsedVal < 0 ? 0 : parsedVal;
+
+        if (finalVal === item.discountValue) {
+            setTempDiscounts(prev => {
+                const copy = { ...prev };
+                delete copy[id];
+                return copy;
+            });
+            return;
+        }
+
+        if (finalVal > 0 && !hasPermission('orders.edit_orders')) {
+            setActiveOverride({
+                permission: 'orders.edit_orders',
+                actionDescription: `Apply line discount of ${finalVal}${item.discountType === 'percent' ? '%' : ''} to ${item.name}`,
+                onSuccess: () => {
+                    setCartItems(prev => prev.map(i => i.id === id ? { ...i, discountValue: finalVal } : i));
+                    setTempDiscounts(prev => {
+                        const copy = { ...prev };
+                        delete copy[id];
+                        return copy;
+                    });
+                    showToast(`Line discount for ${item.name} authorized.`, 'success');
+                },
+                onCancel: () => {
+                    setTempDiscounts(prev => {
+                        const copy = { ...prev };
+                        delete copy[id];
+                        return copy;
+                    });
+                }
+            });
+        } else {
+            setCartItems(prev => prev.map(i => i.id === id ? { ...i, discountValue: finalVal } : i));
+            setTempDiscounts(prev => {
+                const copy = { ...prev };
+                delete copy[id];
+                return copy;
+            });
+        }
+    };
+
+    const handleOrderDiscountCommit = (valStr) => {
+        const parsed = parseFloat(valStr) || 0;
+        const finalVal = parsed < 0 ? 0 : parsed;
+
+        if (finalVal === orderDiscount.value) {
+            setTempOrderDiscount('');
+            return;
+        }
+
+        if (finalVal > 0 && !hasPermission('orders.edit_orders')) {
+            setActiveOverride({
+                permission: 'orders.edit_orders',
+                actionDescription: `Apply order discount of ${finalVal}${orderDiscount.type === 'percent' ? '%' : ''}`,
+                onSuccess: () => {
+                    setOrderDiscount(prev => ({ ...prev, value: finalVal }));
+                    setTempOrderDiscount('');
+                    showToast('Order discount authorized.', 'success');
+                },
+                onCancel: () => {
+                    setTempOrderDiscount('');
+                }
+            });
+        } else {
+            setOrderDiscount(prev => ({ ...prev, value: finalVal }));
+            setTempOrderDiscount('');
+        }
     };
 
     const removeFromCart = (id) => {
@@ -430,37 +581,56 @@ export default function EditOrder() {
 
     // --- Quick Product Create (FormData for photo upload) ---
     const handleCreateProduct = async (e) => {
-        e.preventDefault();
-        setIsCreatingProduct(true);
-        try {
-            const formData = new FormData();
-            formData.append('name', newProduct.name);
-            formData.append('selling_price', newProduct.selling_price);
-            formData.append('cost_price', newProduct.selling_price);
-            formData.append('is_additional', 'true');
-            formData.append('stock_quantity', '0');
-            if (newProduct.category) formData.append('category', newProduct.category);
-            if (referencePhoto) formData.append('images', referencePhoto);
+        if (e && e.preventDefault) e.preventDefault();
 
-            const response = await fetchWithAuth(ENDPOINTS.INVENTORY_PRODUCTS, {
-                method: 'POST',
-                body: formData
+        const executeCreate = async () => {
+            setIsCreatingProduct(true);
+            try {
+                const formData = new FormData();
+                formData.append('name', newProduct.name);
+                formData.append('selling_price', newProduct.selling_price);
+                formData.append('cost_price', newProduct.selling_price);
+                formData.append('is_additional', 'true');
+                formData.append('stock_quantity', '0');
+                if (newProduct.category) formData.append('category', newProduct.category);
+                if (referencePhoto) formData.append('images', referencePhoto);
+
+                const response = await fetchWithAuth(ENDPOINTS.INVENTORY_PRODUCTS, {
+                    method: 'POST',
+                    body: formData
+                });
+                if (response.ok) {
+                    const product = await response.json();
+                    addToCart(product);
+                    setShowQuickProduct(false);
+                    setNewProduct({ name: '', selling_price: '', category: '', is_additional: true });
+                    setReferencePhoto(null);
+                    showToast('Product created and added to cart', 'success');
+                } else {
+                    const err = await response.json();
+                    showToast('Failed to create product: ' + JSON.stringify(err), 'error');
+                }
+            } catch (error) {
+                console.error('Error creating product:', error);
+                showToast('Error creating product', 'error');
+            } finally { setIsCreatingProduct(false); }
+        };
+
+        if (!hasPermission('inventory.manage_products')) {
+            setActiveOverride({
+                permission: 'inventory.manage_products',
+                actionDescription: `Quick add product: ${newProduct.name}`,
+                onSuccess: () => {
+                    executeCreate();
+                    showToast('Product creation authorized.', 'success');
+                },
+                onCancel: () => {
+                    // Do nothing, leave quick-add modal open
+                }
             });
-            if (response.ok) {
-                const product = await response.json();
-                addToCart(product);
-                setShowQuickProduct(false);
-                setNewProduct({ name: '', selling_price: '', category: '', is_additional: true });
-                setReferencePhoto(null);
-                showToast('Product created and added to cart', 'success');
-            } else {
-                const err = await response.json();
-                showToast('Failed to create product: ' + JSON.stringify(err), 'error');
-            }
-        } catch (error) {
-            console.error('Error creating product:', error);
-            showToast('Error creating product', 'error');
-        } finally { setIsCreatingProduct(false); }
+        } else {
+            executeCreate();
+        }
     };
 
     if (loading) return <LoadingSpinner />;
@@ -595,7 +765,13 @@ export default function EditOrder() {
                     )}
                     {clearStage === 'ready' && (
                         <div className="clear-actions">
-                            <button className="btn btn-ghost btn-sm text-danger" onClick={() => { setCartItems([]); setClearStage('idle'); }}>Clear</button>
+                            <button className="btn btn-ghost btn-sm text-danger" onClick={() => { 
+                                setCartItems([]); 
+                                setTempPrices({});
+                                setTempDiscounts({});
+                                setTempOrderDiscount('');
+                                setClearStage('idle'); 
+                            }}>Clear</button>
                             <button className="btn btn-ghost btn-sm" onClick={() => setClearStage('idle')}>Cancel</button>
                         </div>
                     )}
@@ -615,7 +791,7 @@ export default function EditOrder() {
                                         )}
                                     </span>
                                     <span className="cart-item-price-info">
-                                        {currency}<input type="number" className="cart-price-input" value={item.selling_price} onChange={e => updateItemPrice(item.id, e.target.value)} onBlur={e => { if (!e.target.value || parseFloat(e.target.value) < 0) updateItemPrice(item.id, 0); }} min="0" step="0.01" onClick={e => e.target.select()} disabled={item.delivered_quantity > 0} /> × {item.quantity}
+                                        {currency}<input type="number" className="cart-price-input" value={tempPrices[item.id] !== undefined ? tempPrices[item.id] : item.selling_price} onChange={e => setTempPrices(prev => ({ ...prev, [item.id]: e.target.value }))} onBlur={e => handlePriceCommit(item.id, e.target.value)} onKeyDown={e => { if (e.key === 'Enter') handlePriceCommit(item.id, e.target.value); }} min="0" step="0.01" onClick={e => e.target.select()} disabled={item.delivered_quantity > 0} /> × {item.quantity}
                                     </span>
                                 </div>
                                 <div className="cart-item-actions">
@@ -629,11 +805,11 @@ export default function EditOrder() {
                             </div>
                             <div className="item-discount-row">
                                 <span>Disc:</span>
-                                <select className="form-control form-control-sm" style={{ width: '60px' }} value={item.discountType} onChange={e => updateItemDiscount(item.id, e.target.value, item.discountValue)} disabled={item.delivered_quantity > 0}>
+                                <select className="form-control form-control-sm" style={{ width: '60px' }} value={item.discountType} onChange={e => handleDiscountTypeChange(item.id, e.target.value)} disabled={item.delivered_quantity > 0}>
                                     <option value="fixed">{currency}</option>
                                     <option value="percent">%</option>
                                 </select>
-                                <input type="number" className="form-control form-control-sm item-discount-input" value={item.discountValue} onChange={e => updateItemDiscount(item.id, item.discountType, e.target.value)} disabled={item.delivered_quantity > 0} />
+                                <input type="number" className="form-control form-control-sm item-discount-input" value={tempDiscounts[item.id] !== undefined ? tempDiscounts[item.id] : item.discountValue} onChange={e => setTempDiscounts(prev => ({ ...prev, [item.id]: e.target.value }))} onBlur={e => handleDiscountValueCommit(item.id, e.target.value)} onKeyDown={e => { if (e.key === 'Enter') handleDiscountValueCommit(item.id, e.target.value); }} disabled={item.delivered_quantity > 0} />
                             </div>
                         </div>
                     ))}
@@ -652,7 +828,7 @@ export default function EditOrder() {
                                 <option value="percent">%</option>
                             </select>
                         </div>
-                        <input type="number" className="form-control form-control-sm" style={{ width: '60px', textAlign: 'right' }} value={orderDiscount.value} onChange={e => setOrderDiscount({ ...orderDiscount, value: parseFloat(e.target.value) || 0 })} />
+                        <input type="number" className="form-control form-control-sm" style={{ width: '60px', textAlign: 'right' }} value={tempOrderDiscount !== '' ? tempOrderDiscount : orderDiscount.value} onChange={e => setTempOrderDiscount(e.target.value)} onBlur={e => handleOrderDiscountCommit(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') handleOrderDiscountCommit(e.target.value); }} />
                     </div>
                     <div className="summary-row total"><span>Total</span><span>{currency}{grandTotal.toFixed(2)}</span></div>
                 </div>
@@ -744,6 +920,20 @@ export default function EditOrder() {
                         </form>
                     </div>
                 </div>
+            )}
+            {activeOverride && (
+                <ManagerOverrideModal
+                    permission={activeOverride.permission}
+                    actionDescription={activeOverride.actionDescription}
+                    onClose={() => {
+                        if (activeOverride.onCancel) activeOverride.onCancel();
+                        setActiveOverride(null);
+                    }}
+                    onSuccess={() => {
+                        activeOverride.onSuccess();
+                        setActiveOverride(null);
+                    }}
+                />
             )}
         </div>
     );

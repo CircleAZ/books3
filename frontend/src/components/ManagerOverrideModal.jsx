@@ -12,7 +12,7 @@ import { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { API_BASE } from '../config/api';
 
-export function ManagerOverrideModal({ permission, onClose, onSuccess }) {
+export function ManagerOverrideModal({ permission, actionDescription, onClose, onSuccess }) {
     const { fetchWithAuth } = useAuth();
     const [username, setUsername] = useState('');
     const [password, setPassword] = useState('');
@@ -31,7 +31,7 @@ export function ManagerOverrideModal({ permission, onClose, onSuccess }) {
                     manager_username: username,
                     manager_password: password,
                     required_permission: permission,
-                    action_description: `Override for ${permission}`,
+                    action_description: actionDescription || `Override for ${permission}`,
                 }),
             });
 

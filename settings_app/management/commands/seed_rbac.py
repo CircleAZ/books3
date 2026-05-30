@@ -123,7 +123,7 @@ DEFAULT_ROLES = {
         'is_system': True,
         'is_default': True,  # New users get this role by default
         'permissions': [
-            'inventory.view_products', 'inventory.manage_products',
+            'inventory.view_products',
             'customers.view_customers', 'customers.manage_customers',
             'customers.view_addresses', 'customers.manage_addresses',
             'customers.view_map',
