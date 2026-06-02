@@ -846,7 +846,7 @@ def get_reachable_fields(entity_key, current_prefix="", current_model=None, dept
     if visited_models is None:
         visited_models = set()
         
-    if depth > 2:  # Limit relation nesting depth
+    if depth > 3:  # Limit relation nesting depth to allow 3-hop joins (4 tables)
         return []
         
     config = SCHEMA_WHITELIST.get(entity_key)
@@ -874,7 +874,7 @@ def get_reachable_fields(entity_key, current_prefix="", current_model=None, dept
         fields = []
         
     for field in fields:
-        if field.is_relation and field.related_model and not field.many_to_many and not field.one_to_many:
+        if field.is_relation and field.related_model:
             rel_model = field.related_model
             if rel_model in visited_models:
                 continue
@@ -983,7 +983,7 @@ class QueryViewSet(viewsets.ModelViewSet):
                     if connections[db_alias].vendor == 'postgresql':
                         with connections[db_alias].cursor() as cursor:
                             cursor.execute("SET LOCAL statement_timeout = 5000")
-                    results = list(qs[:100])
+                    results = list(qs.distinct()[:100])
             except utils.OperationalError as e:
                 if "timeout" in str(e).lower() or "cancel" in str(e).lower():
                     return Response(

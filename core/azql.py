@@ -5,7 +5,7 @@ Provides lexing, parsing, and dynamic Django ORM compilation.
 
 import re
 from datetime import datetime
-from django.db.models import Q, F, Sum, Subquery, OuterRef
+from django.db.models import Q, F, Sum, Subquery, OuterRef, Exists
 from django.db.models.functions import Coalesce
 from django.apps import apps
 from django.utils import timezone
@@ -294,6 +294,73 @@ def validate_relation_path(base_entity, field_path):
             
     return False
 
+
+def compile_subquery_relation_lookup(model, path_parts, op, val, active_user=None):
+    """
+    Recursively compiles relation paths containing one-to-many or many-to-many relations
+    into correlation Exists subqueries to avoid duplicate Cartesian joins and support sibling conditions.
+    """
+    current_model = model
+    for i, step in enumerate(path_parts):
+        try:
+            field = current_model._meta.get_field(step)
+        except Exception:
+            # Let Django's ORM raise standard FieldError on execution
+            break
+            
+        is_one_to_many = getattr(field, 'one_to_many', False)
+        is_many_to_many = getattr(field, 'many_to_many', False)
+        
+        if is_one_to_many or is_many_to_many:
+            prefix = '__'.join(path_parts[:i])
+            suffix = path_parts[i+1:]
+            target_model = field.related_model
+            
+            # Recursively compile the suffix on the target model
+            sub_q = compile_subquery_relation_lookup(target_model, suffix, op, val, active_user)
+            
+            # Correlate target model back to the current parent model
+            if is_one_to_many:
+                link_field = field.remote_field.name
+            else:
+                link_field = field.related_query_name()
+                
+            subquery_qs = target_model.objects.filter(**{link_field: OuterRef('pk')}).filter(sub_q)
+            exists_q = Exists(subquery_qs)
+            
+            if prefix:
+                return Q(**{f"{prefix}__in": Subquery(current_model.objects.filter(exists_q).values('pk'))})
+            else:
+                return exists_q
+                
+        if field.is_relation and field.related_model:
+            current_model = field.related_model
+        else:
+            break
+            
+    # Default leaf compilation
+    full_path = '__'.join(path_parts)
+    if op == '=':
+        return Q(**{full_path: val})
+    elif op == '!=':
+        return ~Q(**{full_path: val})
+    elif op == '>':
+        return Q(**{f"{full_path}__gt": val})
+    elif op == '<':
+        return Q(**{f"{full_path}__lt": val})
+    elif op == '>=':
+        return Q(**{f"{full_path}__gte": val})
+    elif op == '<=':
+        return Q(**{f"{full_path}__lte": val})
+    elif op == 'LIKE' or op == 'CONTAINS':
+        return Q(**{f"{full_path}__icontains": val})
+    elif op == 'IN':
+        if isinstance(val, str):
+            vals = [v.strip() for v in val.split(',')]
+            return Q(**{f"{full_path}__in": vals})
+        return Q(**{f"{full_path}__in": val})
+    raise ValidationError(f"Unsupported operator: {op}")
+
 # Token specifications for the Lexer
 TOKEN_SPECIFICATION = [
     ('LPAREN',    r'\('),
@@ -468,27 +535,11 @@ class AZQLParser:
         return base_val
 
     def compile_lookup(self, field_path, op, val):
-        if op == '=':
-            return Q(**{field_path: val})
-        elif op == '!=':
-            return ~Q(**{field_path: val})
-        elif op == '>':
-            return Q(**{f"{field_path}__gt": val})
-        elif op == '<':
-            return Q(**{f"{field_path}__lt": val})
-        elif op == '>=':
-            return Q(**{f"{field_path}__gte": val})
-        elif op == '<=':
-            return Q(**{f"{field_path}__lte": val})
-        elif op == 'LIKE' or op == 'CONTAINS':
-            return Q(**{f"{field_path}__icontains": val})
-        elif op == 'IN':
-            # Parse commas if string
-            if isinstance(val, str):
-                vals = [v.strip() for v in val.split(',')]
-                return Q(**{f"{field_path}__in": vals})
-            return Q(**{f"{field_path}__in": val})
-        raise ValidationError(f"Unsupported operator: {op}")
+        if op == 'WAS_EVER' or op == 'WAS EVER' or op == 'EVER':
+            return self.compile_was_ever(field_path, val)
+        path_parts = field_path.split('__')
+        ModelClass = apps.get_model(SCHEMA_WHITELIST[self.base_entity]['model'])
+        return compile_subquery_relation_lookup(ModelClass, path_parts, op, val, self.active_user)
 
     def compile_was_ever(self, field_path, val):
         # Resolve target model from relation paths
@@ -743,27 +794,11 @@ class VisualCompiler:
             value = parser.resolve_macro(value)
             
         op = operator.upper()
-        if op == '=':
-            return Q(**{field: value})
-        elif op == '!=':
-            return ~Q(**{field: value})
-        elif op == '>':
-            return Q(**{f"{field}__gt": value})
-        elif op == '<':
-            return Q(**{f"{field}__lt": value})
-        elif op == '>=':
-            return Q(**{f"{field}__gte": value})
-        elif op == '<=':
-            return Q(**{f"{field}__lte": value})
-        elif op == 'LIKE' or op == 'CONTAINS':
-            return Q(**{f"{field}__icontains": value})
-        elif op == 'IN':
-            if isinstance(value, str):
-                vals = [v.strip() for v in value.split(',')]
-                return Q(**{f"{field}__in": vals})
-            return Q(**{f"{field}__in": value})
-        elif op in ('WAS EVER', 'EVER'):
+        if op in ('WAS EVER', 'EVER'):
             # Leverage the parsed compiler's history evaluator
             parser = AZQLParser([], entity, active_user)
             return parser.compile_was_ever(field, value)
-        raise ValidationError(f"Unsupported visual operator: {operator}")
+            
+        path_parts = field.split('__')
+        ModelClass = apps.get_model(SCHEMA_WHITELIST[entity]['model'])
+        return compile_subquery_relation_lookup(ModelClass, path_parts, op, value, active_user)

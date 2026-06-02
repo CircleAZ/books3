@@ -458,4 +458,98 @@ class AZQLAPIViewSetTestCase(APITestCase):
         fn_field = next(f for f in fields if f['name'] == 'customer__first_name')
         self.assertEqual(fn_field['label'], "Customer : First Name")
 
+    def test_reverse_relation_query_deduplication(self):
+        """Verify that reverse relation queries compile successfully and distinct() prevents duplication."""
+        self.client.force_authenticate(user=self.manager_user)
+        
+        # Create a customer
+        customer = Customer.objects.create(
+            first_name="Alpesh",
+            last_name="Patel",
+            phone="9988776655"
+        )
+        
+        # Create 2 separate orders for this customer containing the same product
+        for i in range(2):
+            order = Order.objects.create(
+                customer=customer,
+                subtotal=Decimal('50.00'),
+                total=Decimal('50.00'),
+                order_status='draft'
+            )
+            OrderItem.objects.create(
+                order=order,
+                product=self.product,
+                quantity=1,
+                unit_price=Decimal('50.00'),
+                line_total=Decimal('50.00')
+            )
+            
+        # Run query: Customers that ordered "A4 Paper"
+        payload = {
+            "query_type": "azql",
+            "azql_text": "SELECT first_name FROM Customer WHERE orders__items__product__name = 'A4 Paper'"
+        }
+        response = self.client.post('/api/reports/queries/run/', payload, format='json')
+        self.assertEqual(response.status_code, 200)
+        
+        # Assert that we get exactly 1 result due to distinct() deduplication, instead of 2 results
+        results = response.data['results']
+        self.assertEqual(len(results), 1)
+        self.assertEqual(results[0]['first_name'], 'Alpesh')
+
+    def test_schema_endpoint_includes_reverse_relations(self):
+        """Verify that the schema metadata endpoint includes reverse one-to-many relationships at depth 3."""
+        self.client.force_authenticate(user=self.manager_user)
+        response = self.client.get('/api/reports/queries/schema/')
+        self.assertEqual(response.status_code, 200)
+        
+        # Verify that customer entity fields list includes deep reverse relation
+        customer_fields = response.data['entities']['customer']['fields']
+        field_names = [f['name'] for f in customer_fields]
+        self.assertIn('orders__items__product__name', field_names)
+
+    def test_reverse_relation_sibling_and_conditions(self):
+        """Verify that multiple logical AND conditions on a reverse relation are compiled into independent Exists subqueries."""
+        self.client.force_authenticate(user=self.manager_user)
+        
+        # Create second product
+        pencil = Product.objects.create(
+            name="Pencil",
+            category=self.category,
+            selling_price=Decimal('10.00'),
+            cost_price=Decimal('5.00'),
+            physical_stock=200,
+            stock_quantity=200
+        )
+        
+        # Customer 1 (Alpesh): Ordered BOTH A4 Paper and Pencil
+        alpesh = Customer.objects.create(first_name="Alpesh", last_name="Patel", phone="9988776655")
+        
+        order_1 = Order.objects.create(customer=alpesh, total=Decimal('50.00'), order_status='draft')
+        OrderItem.objects.create(order=order_1, product=self.product, quantity=1, unit_price=Decimal('50.00'), line_total=Decimal('50.00')) # A4 Paper
+        
+        order_2 = Order.objects.create(customer=alpesh, total=Decimal('10.00'), order_status='draft')
+        OrderItem.objects.create(order=order_2, product=pencil, quantity=1, unit_price=Decimal('10.00'), line_total=Decimal('10.00')) # Pencil
+        
+        # Customer 2 (Bhavesh): Ordered ONLY A4 Paper
+        bhavesh = Customer.objects.create(first_name="Bhavesh", last_name="Shah", phone="8877665544")
+        order_3 = Order.objects.create(customer=bhavesh, total=Decimal('50.00'), order_status='draft')
+        OrderItem.objects.create(order=order_3, product=self.product, quantity=1, unit_price=Decimal('50.00'), line_total=Decimal('50.00')) # A4 Paper
+        
+        # Run query: Customers that ordered BOTH "A4 Paper" AND "Pencil"
+        payload = {
+            "query_type": "azql",
+            "azql_text": "SELECT first_name FROM Customer WHERE orders__items__product__name = 'A4 Paper' AND orders__items__product__name = 'Pencil'"
+        }
+        response = self.client.post('/api/reports/queries/run/', payload, format='json')
+        self.assertEqual(response.status_code, 200)
+        
+        # Verify result contains exactly 1 customer (Alpesh) and NOT Bhavesh
+        results = response.data['results']
+        self.assertEqual(len(results), 1)
+        self.assertEqual(results[0]['first_name'], 'Alpesh')
+
+
+
 
