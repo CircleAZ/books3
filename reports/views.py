@@ -980,8 +980,9 @@ class QueryViewSet(viewsets.ModelViewSet):
             
             try:
                 with transaction.atomic(using=db_alias):
-                    with connections[db_alias].cursor() as cursor:
-                        cursor.execute("SET LOCAL statement_timeout = 5000")
+                    if connections[db_alias].vendor == 'postgresql':
+                        with connections[db_alias].cursor() as cursor:
+                            cursor.execute("SET LOCAL statement_timeout = 5000")
                     results = list(qs[:100])
             except utils.OperationalError as e:
                 if "timeout" in str(e).lower() or "cancel" in str(e).lower():

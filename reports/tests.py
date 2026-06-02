@@ -16,14 +16,24 @@ class ReportsOptimizationTestCase(TestCase):
     def setUp(self):
         # 1. Hard purge the test database using cascading raw SQL execution to guarantee a 100% clean state
         with connection.cursor() as cursor:
-            cursor.execute("TRUNCATE TABLE orders_returnitem CASCADE;")
-            cursor.execute("TRUNCATE TABLE orders_refund CASCADE;")
-            cursor.execute("TRUNCATE TABLE orders_payment CASCADE;")
-            cursor.execute("TRUNCATE TABLE orders_orderitem CASCADE;")
-            cursor.execute("TRUNCATE TABLE orders_order CASCADE;")
-            cursor.execute("TRUNCATE TABLE customers_customer CASCADE;")
-            cursor.execute("TRUNCATE TABLE inventory_product CASCADE;")
-            cursor.execute("TRUNCATE TABLE inventory_category CASCADE;")
+            if connection.vendor == 'sqlite':
+                cursor.execute("DELETE FROM orders_returnitem;")
+                cursor.execute("DELETE FROM orders_refund;")
+                cursor.execute("DELETE FROM orders_payment;")
+                cursor.execute("DELETE FROM orders_orderitem;")
+                cursor.execute("DELETE FROM orders_order;")
+                cursor.execute("DELETE FROM customers_customer;")
+                cursor.execute("DELETE FROM inventory_product;")
+                cursor.execute("DELETE FROM inventory_category;")
+            else:
+                cursor.execute("TRUNCATE TABLE orders_returnitem CASCADE;")
+                cursor.execute("TRUNCATE TABLE orders_refund CASCADE;")
+                cursor.execute("TRUNCATE TABLE orders_payment CASCADE;")
+                cursor.execute("TRUNCATE TABLE orders_orderitem CASCADE;")
+                cursor.execute("TRUNCATE TABLE orders_order CASCADE;")
+                cursor.execute("TRUNCATE TABLE customers_customer CASCADE;")
+                cursor.execute("TRUNCATE TABLE inventory_product CASCADE;")
+                cursor.execute("TRUNCATE TABLE inventory_category CASCADE;")
 
         # Create a superuser
         self.user, _ = User.objects.get_or_create(

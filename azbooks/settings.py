@@ -178,7 +178,7 @@ if 'neon.tech' in DATABASE_URL:
 DATABASES['default']['DISABLE_SERVER_SIDE_CURSORS'] = True
 
 import sys
-IS_TESTING = 'test' in sys.argv or any('test' in arg for arg in sys.argv)
+IS_TESTING = 'test' in sys.argv or any('test' in arg for arg in sys.argv) or os.getenv('IS_TESTING') == 'True'
 
 # Graceful fallback: Configure 'reports' database replica connection
 if REPORT_DATABASE_URL and not IS_TESTING:
@@ -255,6 +255,12 @@ AUTH_PASSWORD_VALIDATORS = [
         'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator',
     },
 ]
+
+# Speed up password hashing during unit testing to eliminate CPU bottlenecks
+if IS_TESTING:
+    PASSWORD_HASHERS = [
+        'django.contrib.auth.hashers.MD5PasswordHasher',
+    ]
 
 
 # Internationalization
