@@ -59,6 +59,7 @@ DEFAULT_PERMISSIONS = {
         ('reports.view_customers', 'View Customer Reports'),
         ('reports.view_finance', 'View Financial Reports'),
         ('reports.export', 'Export Reports'),
+        ('reports.manage_queries', 'Access Visual Query Builder & AZQL Editor'),
     ],
     'settings': [
         ('settings.manage_store', 'Manage Store Settings'),
@@ -112,7 +113,7 @@ DEFAULT_ROLES = {
             # Reports - all
             'reports.view_sales', 'reports.view_inventory',
             'reports.view_customers', 'reports.view_finance',
-            'reports.export',
+            'reports.export', 'reports.manage_queries',
             # Outlets - full
             'outlets.view_outlet', 'outlets.manage_outlet',
             'outlets.manage_transfer', 'outlets.manage_return',

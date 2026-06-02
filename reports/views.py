@@ -10,6 +10,9 @@ from django.utils.dateparse import parse_date
 from datetime import timedelta
 from decimal import Decimal
 import logging
+from django.core.exceptions import ValidationError as DjangoValidationError
+from django.apps import apps
+from core.azql import AZQLCompiler, VisualCompiler, SCHEMA_WHITELIST
 
 logger = logging.getLogger(__name__)
 
@@ -17,8 +20,8 @@ from orders.models import Order, OrderItem
 from orders.constants import VALID_SALE_STATUSES
 from inventory.models import Product, StockHistory
 from customers.models import Customer, Address
-from .models import ActivityLog
-from .serializers import ActivityLogSerializer
+from .models import ActivityLog, SavedQuery, QueryStateHistory
+from .serializers import ActivityLogSerializer, SavedQuerySerializer, QueryStateHistorySerializer
 import csv
 import re
 from django.http import HttpResponse
@@ -771,6 +774,238 @@ class ActivityLogViewSet(viewsets.ReadOnlyModelViewSet):
                 queryset = queryset.filter(created_at__date__lte=end_date)
             
         return queryset
+
+
+def get_field_choices(model_class, field_path):
+    parts = field_path.split('__')
+    current_model = model_class
+    for part in parts[:-1]:
+        try:
+            field = current_model._meta.get_field(part)
+            current_model = field.related_model
+            if not current_model:
+                return None
+        except Exception:
+            return None
+    try:
+        final_field = current_model._meta.get_field(parts[-1])
+        if final_field.choices:
+            return [{'value': val, 'label': label} for val, label in final_field.choices]
+    except Exception:
+        pass
+    return None
+
+
+def get_field_type(model_class, field_path):
+    parts = field_path.split('__')
+    current_model = model_class
+    for part in parts[:-1]:
+        try:
+            field = current_model._meta.get_field(part)
+            current_model = field.related_model
+            if not current_model:
+                return "string"
+        except Exception:
+            return "string"
+    try:
+        final_field = current_model._meta.get_field(parts[-1])
+        internal_type = final_field.get_internal_type()
+        if internal_type in ('IntegerField', 'PositiveIntegerField', 'PositiveSmallIntegerField', 'SmallIntegerField', 'BigIntegerField'):
+            return "integer"
+        elif internal_type in ('DecimalField', 'FloatField'):
+            return "decimal"
+        elif internal_type in ('DateTimeField', 'DateField'):
+            return "datetime"
+        elif internal_type == 'BooleanField':
+            return "boolean"
+    except Exception:
+        pass
+    return "string"
+
+
+def get_field_label(model_class, field_path):
+    parts = field_path.split('__')
+    current_model = model_class
+    for part in parts[:-1]:
+        try:
+            field = current_model._meta.get_field(part)
+            current_model = field.related_model
+            if not current_model:
+                return field_path.replace('__', ' ').title()
+        except Exception:
+            return field_path.replace('__', ' ').title()
+    try:
+        final_field = current_model._meta.get_field(parts[-1])
+        return str(final_field.verbose_name).title()
+    except Exception:
+        pass
+    return field_path.replace('__', ' ').title()
+
+
+class QueryViewSet(viewsets.ModelViewSet):
+    queryset = SavedQuery.objects.all()
+    serializer_class = SavedQuerySerializer
+    permission_classes = [HasRequiredPermission]
+    required_permission = 'reports.manage_queries'
+
+    def get_queryset(self):
+        # Users can view their own queries or shared queries
+        return SavedQuery.objects.filter(
+            is_deleted=False
+        ).filter(
+            Q(created_by=self.request.user) | Q(is_shared=True)
+        )
+
+    def _is_owner_or_admin(self, instance):
+        user = self.request.user
+        if user.is_superuser:
+            return True
+        if instance.created_by == user:
+            return True
+        # Check if user has Admin role
+        from settings_app.models import Role
+        return Role.objects.filter(role_users__user=user, name='Admin').exists()
+
+    def perform_update(self, serializer):
+        from rest_framework.exceptions import PermissionDenied
+        instance = self.get_object()
+        if not self._is_owner_or_admin(instance):
+            raise PermissionDenied(
+                "You do not have permission to modify this saved query."
+            )
+        serializer.save()
+
+    def perform_destroy(self, instance):
+        from rest_framework.exceptions import PermissionDenied
+        if not self._is_owner_or_admin(instance):
+            raise PermissionDenied(
+                "You do not have permission to delete this saved query."
+            )
+        instance.delete()
+
+    @action(detail=False, methods=['post'])
+    @use_read_replica
+    def run(self, request):
+        query_type = request.data.get('query_type')
+        entity = request.data.get('entity')
+        
+        if not query_type:
+            return Response({'error': 'Missing query_type'}, status=status.HTTP_400_BAD_REQUEST)
+            
+        try:
+            if query_type == 'azql':
+                azql_text = request.data.get('azql_text')
+                if not azql_text:
+                    return Response({'error': 'Missing azql_text for azql query'}, status=status.HTTP_400_BAD_REQUEST)
+                # Compile using the parsed compiler
+                qs, selected_columns = AZQLCompiler.compile(azql_text, active_user=request.user)
+            elif query_type == 'visual':
+                if not entity:
+                    return Response({'error': 'Missing entity for visual query'}, status=status.HTTP_400_BAD_REQUEST)
+                rules = request.data.get('rules', {})
+                columns = request.data.get('columns', [])
+                if not columns:
+                    # Default to all whitelisted fields for this entity if columns not specified
+                    columns = list(SCHEMA_WHITELIST.get(entity, {}).get('fields', []))
+                qs, selected_columns = VisualCompiler.compile(entity, rules, columns, active_user=request.user)
+            else:
+                return Response({'error': f'Unsupported query_type: {query_type}'}, status=status.HTTP_400_BAD_REQUEST)
+                
+            # Limit rows to 100 and execute with a 5000ms timeout
+            from django.conf import settings
+            from django.db import transaction, connections, utils
+            
+            db_alias = 'reports' if not getattr(settings, 'IS_TESTING', False) else 'default'
+            
+            try:
+                with transaction.atomic(using=db_alias):
+                    with connections[db_alias].cursor() as cursor:
+                        cursor.execute("SET LOCAL statement_timeout = 5000")
+                    results = list(qs[:100])
+            except utils.OperationalError as e:
+                if "timeout" in str(e).lower() or "cancel" in str(e).lower():
+                    return Response(
+                        {"error": "Query execution timed out. Maximum limit is 5000ms."},
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
+                raise
+                
+            return Response({
+                'results': results,
+                'columns': selected_columns
+            })
+            
+        except DjangoValidationError as e:
+            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+        except Exception as e:
+            logger.exception("Error running query")
+            return Response({'error': f"Internal compiler or execution error: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    @action(detail=False, methods=['get'])
+    def schema(self, request):
+        schema_data = {}
+        for entity_key, config in SCHEMA_WHITELIST.items():
+            model_path = config['model']
+            fields_list = config['fields']
+            try:
+                model_class = apps.get_model(model_path)
+                entity_label = model_class._meta.verbose_name.title()
+            except Exception:
+                entity_label = entity_key.title()
+                model_class = None
+                
+            fields_data = []
+            for field_path in sorted(fields_list):
+                choices = None
+                field_type = "string"
+                field_label = field_path.replace('__', ' ').title()
+                
+                if model_class:
+                    choices = get_field_choices(model_class, field_path)
+                    field_type = get_field_type(model_class, field_path)
+                    field_label = get_field_label(model_class, field_path)
+                    
+                fields_data.append({
+                    'name': field_path,
+                    'label': field_label,
+                    'type': field_type,
+                    'choices': choices
+                })
+                
+            schema_data[entity_key] = {
+                'label': entity_label,
+                'fields': fields_data
+            }
+            
+        operators = [
+            {'value': '=', 'label': '='},
+            {'value': '!=', 'label': '!='},
+            {'value': '>', 'label': '>'},
+            {'value': '<', 'label': '<'},
+            {'value': '>=', 'label': '>='},
+            {'value': '<=', 'label': '<='},
+            {'value': 'LIKE', 'label': 'LIKE'},
+            {'value': 'CONTAINS', 'label': 'CONTAINS'},
+            {'value': 'IN', 'label': 'IN'},
+            {'value': 'WAS EVER', 'label': 'WAS EVER'}
+        ]
+        
+        return Response({
+            'entities': schema_data,
+            'operators': operators
+        })
+
+
+class QueryStateHistoryViewSet(viewsets.ModelViewSet):
+    queryset = QueryStateHistory.objects.all()
+    serializer_class = QueryStateHistorySerializer
+    permission_classes = [HasRequiredPermission]
+    required_permission = 'reports.manage_queries'
+
+    def get_queryset(self):
+        # Users can only see and restore their own history
+        return QueryStateHistory.objects.filter(user=self.request.user)
+
 
 class FinanceReportViewSet(ReportBaseViewSet):
     permission_classes = [HasRequiredPermission]

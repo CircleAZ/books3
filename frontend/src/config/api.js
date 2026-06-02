@@ -134,6 +134,12 @@ export const ENDPOINTS = {
 
     // Token
     TOKEN_REFRESH: `${API_BASE}/token/refresh/`,
+
+    // Queries (AZQL Engine)
+    QUERIES: `${API_BASE}/reports/queries/`,
+    QUERIES_RUN: `${API_BASE}/reports/queries/run/`,
+    QUERIES_SCHEMA: `${API_BASE}/reports/queries/schema/`,
+    QUERIES_HISTORY: `${API_BASE}/reports/queries-history/`,
 };
 
 export default API_BASE;

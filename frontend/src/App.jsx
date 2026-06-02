@@ -103,6 +103,7 @@ const InventoryReports = lazy(() => import('./pages/reports/InventoryReports'));
 const CustomerReports = lazy(() => import('./pages/reports/CustomerReports'));
 const DataExport = lazy(() => import('./pages/reports/DataExport'));
 const ActivityLog = lazy(() => import('./pages/reports/ActivityLog'));
+const QueryBuilder = lazy(() => import('./pages/queries/QueryBuilder'));
 
 // Settings
 const SettingsIndex = lazy(() => import('./pages/settings/SettingsIndex'));
@@ -568,6 +569,11 @@ function AppRoutes() {
       <Route path="/reports/activity" element={
         <PermissionRoute permission="settings.view_audit_logs">
           <LazyPage><ActivityLog /></LazyPage>
+        </PermissionRoute>
+      } />
+      <Route path="/queries" element={
+        <PermissionRoute permission="reports.manage_queries">
+          <LazyPage><QueryBuilder /></LazyPage>
         </PermissionRoute>
       } />
 

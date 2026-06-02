@@ -153,6 +153,7 @@ export const menuSections = [
             { label: 'Customer Reports', title: 'Customer Reports', path: '/reports/customers', permission: 'reports.view_customers' },
             { label: 'Activity Log', title: 'Activity Log', path: '/reports/activity', permission: 'settings.view_audit_logs' },
             { label: 'Export Data', title: 'Export Data', path: '/reports/export', permission: 'reports.export' },
+            { label: 'Query Playground', title: 'Query Playground', path: '/queries', permission: 'reports.manage_queries' },
         ],
     },
     { type: 'separator' },
