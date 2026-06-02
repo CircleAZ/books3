@@ -209,6 +209,26 @@ class AZQLCompilerTestCase(TestCase):
         self.assertEqual(columns, ['product__category__name'])
         self.assertEqual(qs[0]['product__category__name'], "Stationery")
 
+        # 3-4 Table Traversal 1: OrderItem -> Order -> Customer -> LegacyDebt
+        from customers.models import LegacyDebt, Wallet
+        LegacyDebt.objects.create(customer=self.customer, principal_amount=Decimal('1000.00'), recovered_amount=Decimal('200.00'))
+        query = "SELECT order__customer__legacy_debt__principal_amount FROM OrderItem"
+        qs, columns = AZQLCompiler.compile(query)
+        self.assertEqual(columns, ['order__customer__legacy_debt__principal_amount'])
+        self.assertEqual(qs.count(), 1)
+        self.assertEqual(qs[0]['order__customer__legacy_debt__principal_amount'], Decimal('1000.00'))
+
+        # 3-4 Table Traversal 2: Payment -> Order -> Customer -> Wallet
+        from orders.models import Payment
+        # Make sure wallet exists
+        wallet, _ = Wallet.objects.get_or_create(customer=self.customer, defaults={'balance': Decimal('150.00')})
+        payment = Payment.objects.create(order=self.order, amount=Decimal('250.00'), method='cash')
+        query = "SELECT amount, order__customer__wallet__balance FROM Payment"
+        qs, columns = AZQLCompiler.compile(query)
+        self.assertEqual(columns, ['amount', 'order__customer__wallet__balance'])
+        self.assertEqual(qs.count(), 1)
+        self.assertEqual(qs[0]['order__customer__wallet__balance'], Decimal('150.00'))
+
         # Invalid lookup step: OrderItem -> non-relation text field -> non-existent step
         query = "SELECT quantity__non_relation__field FROM OrderItem"
         with self.assertRaises(ValidationError):

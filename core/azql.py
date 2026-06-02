@@ -16,55 +16,190 @@ SCHEMA_WHITELIST = {
     'order': {
         'model': 'orders.Order',
         'fields': {
-            'display_id', 'created_at', 'order_status', 'payment_status', 
-            'delivery_status', 'total', 'customer__first_name', 
-            'customer__last_name', 'customer__full_name'
+            'display_id', 'provisional_id', 'is_guest', 'guest_name', 'guest_phone', 
+            'guest_email', 'payment_status', 'delivery_status', 'order_status', 
+            'return_status', 'refund_status', 'cancellation_status', 'overall_status', 
+            'subtotal', 'discount_type', 'discount_value', 'discount_amount', 'total', 
+            'notes', 'delivered_at', 'created_at', 'updated_at'
         }
     },
     'orderitem': {
         'model': 'orders.OrderItem',
         'fields': {
-            'order__display_id', 'product__name', 'quantity', 'confirmed_quantity', 
-            'delivered_quantity', 'remaining_quantity', 'returned_quantity',
-            'order__customer__addresses__region__name', 'order__delivery_status',
-            'order__order_status'
+            'quantity', 'confirmed_quantity', 'unit_price', 'cost_price', 
+            'discount_type', 'discount_value', 'discount_amount', 'line_total',
+            'order__display_id', 'product__name', 'delivered_quantity', 'remaining_quantity',
+            'returned_quantity', 'order__customer__addresses__region__name',
+            'order__delivery_status', 'order__order_status'
         }
     },
-    'outlet': {
-        'model': 'outlets.Outlet',
+    'payment': {
+        'model': 'orders.Payment',
         'fields': {
-            'display_id', 'name', 'status', 'location'
+            'method', 'amount', 'upi_reference', 'created_at'
         }
     },
-    'outletstock': {
-        'model': 'outlets.OutletStock',
+    'delivery': {
+        'model': 'orders.Delivery',
         'fields': {
-            'outlet__name', 'product__name', 'available_quantity'
-        }
-    },
-    'product': {
-        'model': 'inventory.Product',
-        'fields': {
-            'name', 'category__name', 'vendor__name', 'physical_stock', 
-            'stock_quantity', 'cost_price', 'selling_price'
-        }
-    },
-    'purchaseorder': {
-        'model': 'procurement.PurchaseOrder',
-        'fields': {
-            'display_id', 'vendor__name', 'status', 'total_amount', 'created_at'
-        }
-    },
-    'customer': {
-        'model': 'customers.Customer',
-        'fields': {
-            'first_name', 'last_name', 'addresses__region__name', 'wallet__balance'
+            'notes', 'created_at'
         }
     },
     'deliveryitem': {
         'model': 'orders.DeliveryItem',
         'fields': {
-            'order_item__order__order_status', 'delivery__created_at', 'quantity'
+            'quantity', 'created_at',
+            'order_item__order__order_status', 'delivery__created_at'
+        }
+    },
+    'refund': {
+        'model': 'orders.Refund',
+        'fields': {
+            'amount', 'method', 'transaction_id', 'note', 'status', 'created_at'
+        }
+    },
+    'return': {
+        'model': 'orders.Return',
+        'fields': {
+            'display_id', 'provisional_id', 'status', 'notes', 'created_at', 'updated_at'
+        }
+    },
+    'returnitem': {
+        'model': 'orders.ReturnItem',
+        'fields': {
+            'quantity', 'stock_action', 'stock_restored', 'created_at'
+        }
+    },
+    'creditnote': {
+        'model': 'orders.CreditNote',
+        'fields': {
+            'display_id', 'provisional_id', 'created_at'
+        }
+    },
+    'product': {
+        'model': 'inventory.Product',
+        'fields': {
+            'display_id', 'provisional_id', 'name', 'description', 'is_additional', 
+            'is_pack', 'pack_size', 'cost_price', 'selling_price', 'stock_quantity', 
+            'physical_stock', 'low_stock_threshold', 'default_commission_type', 
+            'default_commission_value', 'created_at', 'category__name', 'vendor__name'
+        }
+    },
+    'category': {
+        'model': 'inventory.Category',
+        'fields': {
+            'display_id', 'provisional_id', 'name', 'description'
+        }
+    },
+    'vendor': {
+        'model': 'inventory.Vendor',
+        'fields': {
+            'name', 'description', 'contact_name', 'contact_email', 'contact_phone', 
+            'address', 'notes'
+        }
+    },
+    'stockadjustment': {
+        'model': 'inventory.StockAdjustment',
+        'fields': {
+            'adjustment_type', 'quantity', 'unit_cost', 'reason', 'notes', 'created_at'
+        }
+    },
+    'stockhistory': {
+        'model': 'inventory.StockHistory',
+        'fields': {
+            'quantity_change', 'quantity_after', 'cost_at_time', 'reason', 'notes', 'created_at'
+        }
+    },
+    'customer': {
+        'model': 'customers.Customer',
+        'fields': {
+            'display_id', 'provisional_id', 'first_name', 'middle_name', 'last_name', 
+            'full_name', 'phone', 'email', 'notes', 'contact_preference', 
+            'preferred_language', 'show_balance_in_messages', 'created_at', 'updated_at',
+            'addresses__region__name', 'wallet__balance'
+        }
+    },
+    'address': {
+        'model': 'customers.Address',
+        'fields': {
+            'faliya', 'address_line', 'landmark', 'pincode', 'is_primary'
+        }
+    },
+    'geographicregion': {
+        'model': 'customers.GeographicRegion',
+        'fields': {
+            'name', 'layer', 'pincode', 'color'
+        }
+    },
+    'legacydebt': {
+        'model': 'customers.LegacyDebt',
+        'fields': {
+            'principal_amount', 'recovered_amount'
+        }
+    },
+    'wallet': {
+        'model': 'customers.Wallet',
+        'fields': {
+            'balance'
+        }
+    },
+    'wallettransaction': {
+        'model': 'customers.WalletTransaction',
+        'fields': {
+            'amount', 'transaction_type', 'reason', 'created_at'
+        }
+    },
+    'purchaseorder': {
+        'model': 'procurement.PurchaseOrder',
+        'fields': {
+            'display_id', 'provisional_id', 'status', 'total_amount', 'notes', 'created_at', 'updated_at',
+            'vendor__name'
+        }
+    },
+    'purchasepayment': {
+        'model': 'procurement.PurchasePayment',
+        'fields': {
+            'amount', 'payment_method', 'reference', 'notes', 'payment_date', 'created_at'
+        }
+    },
+    'outlet': {
+        'model': 'outlets.Outlet',
+        'fields': {
+            'display_id', 'provisional_id', 'name', 'contact_person', 'phone', 'email', 
+            'address', 'is_active', 'created_at', 'status', 'location'
+        }
+    },
+    'outletstock': {
+        'model': 'outlets.OutletStock',
+        'fields': {
+            'available_quantity', 'created_at', 'updated_at', 'outlet__name', 'product__name'
+        }
+    },
+    'bankaccount': {
+        'model': 'finance.BankAccount',
+        'fields': {
+            'name', 'account_type', 'bank_name', 'account_number', 'ifsc_code', 
+            'branch', 'opening_balance', 'current_balance', 'is_active', 'is_default', 'created_at'
+        }
+    },
+    'cashwallet': {
+        'model': 'finance.CashWallet',
+        'fields': {
+            'name', 'is_system', 'balance', 'is_active', 'created_at'
+        }
+    },
+    'expense': {
+        'model': 'finance.Expense',
+        'fields': {
+            'date', 'payee_type', 'payee_name', 'payee_id', 'description', 'amount', 
+            'tax_amount', 'total_amount', 'payment_status', 'approval_status', 'approved_at', 
+            'paid_amount', 'notes', 'created_at'
+        }
+    },
+    'expensepayment': {
+        'model': 'finance.ExpensePayment',
+        'fields': {
+            'payment_date', 'amount', 'payment_method', 'reference', 'notes', 'created_at'
         }
     }
 }
