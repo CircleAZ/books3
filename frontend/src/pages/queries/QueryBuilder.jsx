@@ -81,6 +81,183 @@ export default function QueryBuilderPage() {
         entityRef.current = entity;
     }, [entity]);
 
+    const handleEditorBeforeMount = useCallback((monaco) => {
+        // Register a new language
+        monaco.languages.register({ id: 'azql' });
+
+        // Register a tokens provider for the language
+        monaco.languages.setMonarchTokensProvider('azql', {
+            ignoreCase: true,
+            keywords: [
+                'SELECT', 'FROM', 'WHERE', 'ORDER', 'BY', 'ASOF', 'WAS', 'EVER', 'AND', 'OR', 'ASC', 'DESC'
+            ],
+            functions: [
+                'SUM_OWED', 'SUM_DELIVERED', 'SUM_ORDERED'
+            ],
+            operators: [
+                '=', '!=', '<', '<=', '>', '>=', 'LIKE', 'IN', 'CONTAINS'
+            ],
+            tokenizer: {
+                root: [
+                    // identifiers and keywords
+                    [/[a-zA-Z_]\w*/, {
+                        cases: {
+                            '@keywords': 'keyword',
+                            '@functions': 'function',
+                            '@default': 'identifier'
+                        }
+                    }],
+                    // bracketed fields
+                    [/\[[a-zA-Z0-9_.]+\]/, 'type.identifier'],
+                    // macros
+                    [/@[a-zA-Z_]+(?:\s*[-\+]\s*\d+)?/, 'variable.predefined'],
+                    // operators
+                    [/[=><!]+|LIKE|IN|CONTAINS/, {
+                        cases: {
+                            '@operators': 'operator',
+                            '@default': ''
+                        }
+                    }],
+                    // strings
+                    [/'([^'\\]|\\.)*'/, 'string'],
+                    // numbers
+                    [/\d+(?:\.\d+)?/, 'number'],
+                    // whitespace
+                    { include: '@whitespace' }
+                ],
+                whitespace: [
+                    [/[ \t\r\n]+/, 'white']
+                ]
+            }
+        });
+    }, []);
+
+    const handleEditorMount = useCallback((editor, monaco) => {
+        editorRef.current = editor;
+        monacoRef.current = monaco;
+
+        // Register completion item provider for 'azql'
+        monaco.languages.registerCompletionItemProvider('azql', {
+            triggerCharacters: [' ', '[', '@', '=', '.'],
+            provideCompletionItems: (model, position) => {
+                const textUntilPosition = model.getValueInRange({
+                    startLineNumber: 1,
+                    startColumn: 1,
+                    endLineNumber: position.lineNumber,
+                    endColumn: position.column
+                });
+
+                let currentEntity = entityRef.current;
+                const fromMatch = textUntilPosition.match(/\bFROM\s+([a-zA-Z0-9_]+)/i);
+                if (fromMatch) {
+                    currentEntity = fromMatch[1].toLowerCase();
+                }
+
+                const suggestions = [];
+                const word = model.getWordUntilPosition(position);
+                const range = {
+                    startLineNumber: position.lineNumber,
+                    endLineNumber: position.lineNumber,
+                    startColumn: word.startColumn,
+                    endColumn: word.endColumn
+                };
+
+                const lastChar = textUntilPosition.slice(-1);
+
+                if (lastChar === '[') {
+                    if (schemaRef.current?.entities?.[currentEntity]) {
+                        const fields = schemaRef.current.entities[currentEntity].fields;
+                        fields.forEach(f => {
+                            suggestions.push({
+                                label: f.name,
+                                kind: monaco.languages.CompletionItemKind.Field,
+                                documentation: f.label,
+                                insertText: `${f.name}]`,
+                                range: range
+                            });
+                        });
+                    }
+                } else if (lastChar === '@') {
+                    suggestions.push({
+                        label: 'Me',
+                        kind: monaco.languages.CompletionItemKind.Keyword,
+                        insertText: 'Me',
+                        range: range
+                    }, {
+                        label: 'Today',
+                        kind: monaco.languages.CompletionItemKind.Keyword,
+                        insertText: 'Today',
+                        range: range
+                    });
+                } else if (lastChar === '=') {
+                    const fieldMatch = textUntilPosition.match(/\[([a-zA-Z0-9_.]+)\]\s*=\s*$/i);
+                    if (fieldMatch && schemaRef.current?.entities?.[currentEntity]) {
+                        const fieldName = fieldMatch[1];
+                        const fieldObj = schemaRef.current.entities[currentEntity].fields.find(f => f.name === fieldName);
+                        if (fieldObj?.choices) {
+                            fieldObj.choices.forEach(choice => {
+                                suggestions.push({
+                                    label: choice.label,
+                                    kind: monaco.languages.CompletionItemKind.EnumMember,
+                                    insertText: `'${choice.value}'`,
+                                    range: range
+                                });
+                            });
+                        }
+                    }
+                } else {
+                    const isAfterFrom = /\bFROM\s+[a-zA-Z_0-9]*$/i.test(textUntilPosition);
+                    if (isAfterFrom) {
+                        if (schemaRef.current?.entities) {
+                            Object.keys(schemaRef.current.entities).forEach(ent => {
+                                const capitalized = ent.charAt(0).toUpperCase() + ent.slice(1);
+                                suggestions.push({
+                                    label: capitalized,
+                                    kind: monaco.languages.CompletionItemKind.Class,
+                                    insertText: capitalized,
+                                    range: range
+                                });
+                            });
+                        }
+                    } else {
+                        const keywords = ['SELECT', 'FROM', 'WHERE', 'ORDER BY', 'ASOF', 'WAS EVER', 'AND', 'OR'];
+                        keywords.forEach(kw => {
+                            suggestions.push({
+                                label: kw,
+                                kind: monaco.languages.CompletionItemKind.Keyword,
+                                insertText: kw,
+                                range: range
+                            });
+                        });
+                        const functions = ['SUM_OWED', 'SUM_DELIVERED', 'SUM_ORDERED'];
+                        functions.forEach(fn => {
+                            suggestions.push({
+                                label: fn,
+                                kind: monaco.languages.CompletionItemKind.Function,
+                                insertText: `${fn}(`,
+                                range: range
+                            });
+                        });
+                        if (schemaRef.current?.entities?.[currentEntity]) {
+                            const fields = schemaRef.current.entities[currentEntity].fields;
+                            fields.forEach(f => {
+                                suggestions.push({
+                                    label: `[${f.name}]`,
+                                    kind: monaco.languages.CompletionItemKind.Field,
+                                    documentation: f.label,
+                                    insertText: `[${f.name}]`,
+                                    range: range
+                                });
+                            });
+                        }
+                    }
+                }
+
+                return { suggestions };
+            }
+        });
+    }, []);
+
     const isSystemAdmin = useMemo(() => {
         return rbac?.is_superuser || rbac?.role === 'Admin' || rbac?.roles?.includes('Admin');
     }, [rbac]);
@@ -95,7 +272,19 @@ export default function QueryBuilderPage() {
                 
                 // Initialize default columns for the active entity
                 if (data.entities && data.entities[entity]) {
-                    setColumns(data.entities[entity].fields.slice(0, 4).map(f => f.name));
+                    const defaultCols = data.entities[entity].fields.slice(0, 4).map(f => f.name);
+                    setColumns(defaultCols);
+                    
+                    const entityLabel = entity.charAt(0).toUpperCase() + entity.slice(1);
+                    const defaultAzql = `SELECT ${defaultCols.map(c => `[${c}]`).join(', ')} FROM ${entityLabel}`;
+                    
+                    lastSavedStateRef.current = JSON.stringify({
+                        entity,
+                        queryType: 'visual',
+                        rules: { combinator: 'and', rules: [] },
+                        azqlText: defaultAzql,
+                        columns: defaultCols
+                    });
                 }
             } else {
                 showToast('Failed to fetch schema definitions', 'error');
@@ -160,6 +349,14 @@ export default function QueryBuilderPage() {
 
             if (response.ok) {
                 fetchHistoryQueries();
+                // Update lastSavedStateRef to prevent debounced autosave immediately after backup
+                lastSavedStateRef.current = JSON.stringify({
+                    entity,
+                    queryType,
+                    rules,
+                    azqlText,
+                    columns
+                });
             }
         } catch (error) {
             console.error('Failed to log query state history:', error);
@@ -169,6 +366,33 @@ export default function QueryBuilderPage() {
     // Debounced autosave effect
     useEffect(() => {
         if (!schema) return;
+        
+        // Bypass autosave if current state matches the default/empty state for the current entity
+        const isDefault = (() => {
+            if (!schema?.entities?.[entity]) return true;
+            const defaultCols = schema.entities[entity].fields.slice(0, 4).map(f => f.name);
+            const entityLabel = entity.charAt(0).toUpperCase() + entity.slice(1);
+            const defaultAzql = `SELECT ${defaultCols.map(c => `[${c}]`).join(', ')} FROM ${entityLabel}`;
+            
+            // Check visual default
+            if (queryType === 'visual') {
+                const hasNoRules = !rules.rules || rules.rules.length === 0;
+                const matchesDefaultCols = JSON.stringify(columns) === JSON.stringify(defaultCols);
+                return hasNoRules && matchesDefaultCols;
+            }
+            
+            // Check azql default (ignoring extra whitespaces / case)
+            if (queryType === 'azql') {
+                const cleanText = azqlText.trim().replace(/\s+/g, ' ').toLowerCase();
+                const cleanDefault = defaultAzql.trim().replace(/\s+/g, ' ').toLowerCase();
+                if (cleanText === cleanDefault || !cleanText) {
+                    return true;
+                }
+            }
+            return false;
+        })();
+
+        if (isDefault) return;
         
         const currentStateString = JSON.stringify({
             entity,
@@ -355,12 +579,22 @@ export default function QueryBuilderPage() {
         setEntity(hist.entity);
         setQueryType(hist.query_type);
         setColumns(hist.columns || []);
+        const targetRules = hist.rules || { combinator: 'and', rules: [] };
         if (hist.query_type === 'visual') {
-            setRules(hist.rules || { combinator: 'and', rules: [] });
+            setRules(targetRules);
         }
         setAzqlText(hist.azql_text || '');
         setResults([]);
         setSelectedColumns([]);
+        
+        // Update lastSavedStateRef to match the restored history query so it doesn't auto-save it immediately!
+        lastSavedStateRef.current = JSON.stringify({
+            entity: hist.entity,
+            queryType: hist.query_type,
+            rules: targetRules,
+            azqlText: hist.azql_text || '',
+            columns: hist.columns || []
+        });
         showToast('Playground state restored from history', 'success');
     };
 
@@ -368,17 +602,29 @@ export default function QueryBuilderPage() {
     // Reset columns when active entity changes
     const handleEntityChange = (newEntity) => {
         setEntity(newEntity);
+        let defaultCols = [];
         if (schema?.entities && schema.entities[newEntity]) {
             // Take first 4 fields as default display columns
-            const defaultCols = schema.entities[newEntity].fields.slice(0, 4).map(f => f.name);
+            defaultCols = schema.entities[newEntity].fields.slice(0, 4).map(f => f.name);
             setColumns(defaultCols);
         } else {
             setColumns([]);
         }
-        setRules({ combinator: 'and', rules: [] });
-        setAzqlText(`SELECT FROM ${newEntity.charAt(0).toUpperCase() + newEntity.slice(1)}`);
+        const newRules = { combinator: 'and', rules: [] };
+        setRules(newRules);
+        const entityLabel = newEntity.charAt(0).toUpperCase() + newEntity.slice(1);
+        const newAzqlText = `SELECT ${defaultCols.map(c => `[${c}]`).join(', ')} FROM ${entityLabel}`;
+        setAzqlText(newAzqlText);
         setResults([]);
         setSelectedColumns([]);
+
+        lastSavedStateRef.current = JSON.stringify({
+            entity: newEntity,
+            queryType,
+            rules: newRules,
+            azqlText: newAzqlText,
+            columns: defaultCols
+        });
     };
 
     // Client-side rule group to AZQL WHERE string compiler
@@ -512,6 +758,15 @@ export default function QueryBuilderPage() {
                 showToast(`Successfully returned ${data.results?.length || 0} rows.`, 'success');
                 // Log safe query state backup
                 saveQueryStateToHistory('Executed Query', true);
+                
+                // Update lastSavedStateRef to prevent debounced autosave immediately after execution
+                lastSavedStateRef.current = JSON.stringify({
+                    entity,
+                    queryType,
+                    rules,
+                    azqlText,
+                    columns
+                });
             } else {
                 showToast(data.error || 'Failed to execute query', 'error');
             }
@@ -571,6 +826,15 @@ export default function QueryBuilderPage() {
                 setIsSaveModalOpen(false);
                 fetchSavedQueries();
                 setActiveQuery(savedObj);
+                
+                // Update lastSavedStateRef to prevent debounced autosave immediately after save
+                lastSavedStateRef.current = JSON.stringify({
+                    entity,
+                    queryType,
+                    rules,
+                    azqlText,
+                    columns
+                });
             } else {
                 const data = await response.json();
                 showToast(data.error || 'Failed to save query', 'error');
@@ -589,13 +853,23 @@ export default function QueryBuilderPage() {
         setQueryType(query.query_type);
         setColumns(query.columns || []);
         
+        const targetRules = query.rules || { combinator: 'and', rules: [] };
         if (query.query_type === 'visual') {
-            setRules(query.rules || { combinator: 'and', rules: [] });
+            setRules(targetRules);
         }
         setAzqlText(query.azql_text || '');
         setResults([]);
         setSelectedColumns([]);
         setIsSidebarOpen(false);
+        
+        // Update lastSavedStateRef to match the selected query so it doesn't auto-save it immediately!
+        lastSavedStateRef.current = JSON.stringify({
+            entity: query.entity,
+            queryType: query.query_type,
+            rules: targetRules,
+            azqlText: query.azql_text || '',
+            columns: query.columns || []
+        });
     };
 
     // Delete query
@@ -627,13 +901,25 @@ export default function QueryBuilderPage() {
         setActiveQuery(null);
         setEntity('order');
         setQueryType('visual');
-        setRules({ combinator: 'and', rules: [] });
-        setAzqlText('SELECT FROM Order');
+        const defaultRules = { combinator: 'and', rules: [] };
+        setRules(defaultRules);
+        let defaultCols = [];
         if (schema?.entities && schema.entities['order']) {
-            setColumns(schema.entities['order'].fields.slice(0, 4).map(f => f.name));
+            defaultCols = schema.entities['order'].fields.slice(0, 4).map(f => f.name);
+            setColumns(defaultCols);
         }
+        const defaultAzql = `SELECT ${defaultCols.map(c => `[${c}]`).join(', ')} FROM Order`;
+        setAzqlText(defaultAzql);
         setResults([]);
         setSelectedColumns([]);
+        
+        lastSavedStateRef.current = JSON.stringify({
+            entity: 'order',
+            queryType: 'visual',
+            rules: defaultRules,
+            azqlText: defaultAzql,
+            columns: defaultCols
+        });
     };
 
     // Column customizer helpers

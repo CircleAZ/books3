@@ -99,6 +99,66 @@ RELATION_MAP = {
     }
 }
 
+def validate_relation_path(base_entity, field_path):
+    """
+    Recursively validates if field_path is a whitelisted relation traversal.
+    """
+    def get_entity_key(model):
+        for k, config in SCHEMA_WHITELIST.items():
+            try:
+                if apps.get_model(config['model']) == model:
+                    return k
+            except Exception:
+                pass
+        return None
+
+    current_entity = base_entity.lower()
+    if current_entity not in SCHEMA_WHITELIST:
+        return False
+        
+    try:
+        current_model = apps.get_model(SCHEMA_WHITELIST[current_entity]['model'])
+    except Exception:
+        return False
+        
+    parts = field_path.split('__')
+    
+    for i in range(1, len(parts) + 1):
+        prefix = '__'.join(parts[:i])
+        suffix = '__'.join(parts[i:])
+        
+        if not suffix:
+            if prefix in SCHEMA_WHITELIST[current_entity]['fields']:
+                return True
+            break
+            
+        temp_model = current_model
+        relation_valid = True
+        
+        prefix_parts = parts[:i]
+        for step in prefix_parts:
+            try:
+                field = temp_model._meta.get_field(step)
+                if not field.is_relation:
+                    relation_valid = False
+                    break
+                temp_model = field.related_model
+            except Exception:
+                relation_valid = False
+                break
+                
+        if not relation_valid or not temp_model:
+            continue
+            
+        relation_target_entity = get_entity_key(temp_model)
+        if not relation_target_entity:
+            continue
+            
+        if validate_relation_path(relation_target_entity, suffix):
+            return True
+            
+    return False
+
 # Token specifications for the Lexer
 TOKEN_SPECIFICATION = [
     ('LPAREN',    r'\('),
@@ -221,26 +281,13 @@ class AZQLParser:
             return self.compile_lookup(field_path, op, val)
 
     def validate_field(self, field_path):
-        # Strip relation prefixes for nested validates
-        clean_field = field_path
-        target_entity = self.base_entity
-        
-        # Handle relation prefixing (e.g. order_items__order__display_id)
-        if target_entity == 'product':
-            if field_path.startswith('order_items__'):
-                clean_field = field_path[len('order_items__'):]
-                target_entity = 'orderitem'
-            elif field_path.startswith('order_items__delivery_items__'):
-                clean_field = field_path[len('order_items__delivery_items__'):]
-                # DeliveryItem properties: we map it directly or let it pass
+        # Allow special property checks for Rich Conditional Aggregates
+        if self.base_entity == 'product':
+            if field_path.startswith('order_items__delivery_items__'):
                 return
                 
-        if target_entity not in SCHEMA_WHITELIST:
-            raise ValidationError(f"Unauthorized entity lookup: '{target_entity}'")
-            
-        allowed_fields = SCHEMA_WHITELIST[target_entity]['fields']
-        if clean_field not in allowed_fields:
-            raise ValidationError(f"Field '{clean_field}' is not queryable on '{target_entity}' schema")
+        if not validate_relation_path(self.base_entity, field_path):
+            raise ValidationError(f"Field '{field_path}' is not queryable on '{self.base_entity}' schema")
 
     def parse_value(self, token):
         kind, value = token
@@ -416,7 +463,7 @@ class AZQLCompiler:
             columns = [c.strip() for c in clean_select.split(',') if c.strip()]
             for col in columns:
                 clean_col = col.strip('[]')
-                if clean_col not in SCHEMA_WHITELIST[entity]['fields']:
+                if not validate_relation_path(entity, clean_col):
                     raise ValidationError(f"Field '{clean_col}' is not whitelisted in SELECT clause")
                 selected_columns.append(clean_col)
                 
@@ -476,7 +523,7 @@ class AZQLCompiler:
                 elif col_name.upper().endswith(' ASC'):
                     col_name = col_name[:-4].strip()
                 col_name = col_name.strip('[]')
-                if col_name not in selected_columns and col_name not in SCHEMA_WHITELIST[entity]['fields']:
+                if col_name not in selected_columns and not validate_relation_path(entity, col_name):
                     raise ValidationError(f"Cannot order by un-selected field '{col_name}'")
                 clean_order.append(f"{direction}{col_name}")
             qs = qs.order_by(*clean_order)
@@ -508,7 +555,7 @@ class VisualCompiler:
         selected_columns = []
         for col in columns:
             clean_col = col.strip('[]')
-            if clean_col not in SCHEMA_WHITELIST[entity]['fields']:
+            if not validate_relation_path(entity, clean_col):
                 raise ValidationError(f"Field '{clean_col}' is not whitelisted")
             selected_columns.append(clean_col)
             
@@ -540,7 +587,7 @@ class VisualCompiler:
                 
                 # Basic security validation
                 clean_field = field.strip('[]')
-                if clean_field not in SCHEMA_WHITELIST[entity]['fields']:
+                if not validate_relation_path(entity, clean_field):
                     raise ValidationError(f"Field '{clean_field}' is not queryable on '{entity}' schema")
                     
                 # Compile lookup

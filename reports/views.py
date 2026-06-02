@@ -842,6 +842,67 @@ def get_field_label(model_class, field_path):
     return field_path.replace('__', ' ').title()
 
 
+def get_reachable_fields(entity_key, current_prefix="", current_model=None, depth=0, visited_models=None):
+    if visited_models is None:
+        visited_models = set()
+        
+    if depth > 2:  # Limit relation nesting depth
+        return []
+        
+    config = SCHEMA_WHITELIST.get(entity_key)
+    if not config:
+        return []
+        
+    if not current_model:
+        try:
+            current_model = apps.get_model(config['model'])
+        except Exception:
+            return []
+            
+    visited_models.add(current_model)
+    reachable = []
+    
+    # 1. Add whitelisted fields for this model
+    for f in config['fields']:
+        name = f"{current_prefix}{f}" if current_prefix else f
+        reachable.append((name, current_model, f))
+        
+    # 2. Traverse relations to other whitelisted models
+    try:
+        fields = current_model._meta.get_fields()
+    except Exception:
+        fields = []
+        
+    for field in fields:
+        if field.is_relation and field.related_model and not field.many_to_many and not field.one_to_many:
+            rel_model = field.related_model
+            if rel_model in visited_models:
+                continue
+                
+            # Check if rel_model is whitelisted
+            rel_key = None
+            for k, cfg in SCHEMA_WHITELIST.items():
+                try:
+                    if apps.get_model(cfg['model']) == rel_model:
+                        rel_key = k
+                        break
+                except Exception:
+                    pass
+                    
+            if rel_key:
+                prefix = f"{current_prefix}{field.name}__" if current_prefix else f"{field.name}__"
+                sub_fields = get_reachable_fields(
+                    rel_key,
+                    current_prefix=prefix,
+                    current_model=rel_model,
+                    depth=depth+1,
+                    visited_models=visited_models.copy()
+                )
+                reachable.extend(sub_fields)
+                
+    return reachable
+
+
 class QueryViewSet(viewsets.ModelViewSet):
     queryset = SavedQuery.objects.all()
     serializer_class = SavedQuerySerializer
@@ -946,7 +1007,6 @@ class QueryViewSet(viewsets.ModelViewSet):
         schema_data = {}
         for entity_key, config in SCHEMA_WHITELIST.items():
             model_path = config['model']
-            fields_list = config['fields']
             try:
                 model_class = apps.get_model(model_path)
                 entity_label = model_class._meta.verbose_name.title()
@@ -954,19 +1014,35 @@ class QueryViewSet(viewsets.ModelViewSet):
                 entity_label = entity_key.title()
                 model_class = None
                 
+            reachable_fields = get_reachable_fields(entity_key)
+            unique_fields = []
+            seen_names = set()
+            for name, m_class, f_path in reachable_fields:
+                if name not in seen_names:
+                    seen_names.add(name)
+                    unique_fields.append((name, m_class, f_path))
+            
+            # Sort unique fields by name
+            unique_fields.sort(key=lambda x: x[0])
+            
             fields_data = []
-            for field_path in sorted(fields_list):
+            for name, m_class, f_path in unique_fields:
                 choices = None
                 field_type = "string"
-                field_label = field_path.replace('__', ' ').title()
+                field_label = name.replace('__', ' ').title()
                 
-                if model_class:
-                    choices = get_field_choices(model_class, field_path)
-                    field_type = get_field_type(model_class, field_path)
-                    field_label = get_field_label(model_class, field_path)
+                if m_class:
+                    choices = get_field_choices(m_class, f_path)
+                    field_type = get_field_type(m_class, f_path)
+                    field_label = get_field_label(m_class, f_path)
+                    
+                # If name has relation prefix, prefix the label nicely
+                if '__' in name:
+                    prefix_label = " → ".join([p.replace('_', ' ').title() for p in name.split('__')[:-1]])
+                    field_label = f"{prefix_label} : {field_label}"
                     
                 fields_data.append({
-                    'name': field_path,
+                    'name': name,
                     'label': field_label,
                     'type': field_type,
                     'choices': choices

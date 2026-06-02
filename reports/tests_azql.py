@@ -193,6 +193,34 @@ class AZQLCompilerTestCase(TestCase):
         self.assertEqual(qs[0]['name'], "A4 Paper")
 
 
+    def test_dynamic_relation_traversal(self):
+        """Verify dynamic traversal of whitelisted relation paths works and unauthorized relations fail."""
+        # Valid traversal 1: OrderItem -> Order -> Customer -> First Name
+        query = "SELECT order__customer__first_name, product__name FROM OrderItem"
+        qs, columns = AZQLCompiler.compile(query)
+        self.assertEqual(columns, ['order__customer__first_name', 'product__name'])
+        self.assertEqual(qs.count(), 1)
+        self.assertEqual(qs[0]['order__customer__first_name'], "Alpesh")
+        self.assertEqual(qs[0]['product__name'], "A4 Paper")
+
+        # Valid traversal 2: Product -> Category -> Name
+        query = "SELECT product__category__name FROM OrderItem"
+        qs, columns = AZQLCompiler.compile(query)
+        self.assertEqual(columns, ['product__category__name'])
+        self.assertEqual(qs[0]['product__category__name'], "Stationery")
+
+        # Invalid lookup step: OrderItem -> non-relation text field -> non-existent step
+        query = "SELECT quantity__non_relation__field FROM OrderItem"
+        with self.assertRaises(ValidationError):
+            AZQLCompiler.compile(query)
+
+        # Unauthorized related model (User is not whitelisted in SCHEMA_WHITELIST for normal joins)
+        # Order -> User (created_by is not whitelisted for Order joins)
+        query = "SELECT customer__first_name, order__created_by__username FROM OrderItem"
+        with self.assertRaises(ValidationError):
+            AZQLCompiler.compile(query)
+
+
 from rest_framework.test import APITestCase
 from settings_app.models import Role, Permission, RolePermission, UserRole
 from reports.models import SavedQuery
@@ -387,4 +415,27 @@ class AZQLAPIViewSetTestCase(APITestCase):
         response = self.client.get('/api/reports/queries-history/')
         self.assertEqual(response.status_code, 200)
         self.assertEqual(len(response.data['results'] if 'results' in response.data else response.data), 0)
+
+    def test_dynamic_schema_endpoint(self):
+        """Verify that the schema metadata endpoint returns dynamic relation traversals."""
+        self.client.force_authenticate(user=self.manager_user)
+        response = self.client.get('/api/reports/queries/schema/')
+        self.assertEqual(response.status_code, 200)
+        
+        data = response.data
+        self.assertIn('entities', data)
+        self.assertIn('order', data['entities'])
+        
+        # Verify customer relation fields are included in order entity schema
+        fields = data['entities']['order']['fields']
+        field_names = [f['name'] for f in fields]
+        
+        self.assertIn('customer__first_name', field_names)
+        self.assertIn('customer__last_name', field_names)
+        self.assertIn('customer__wallet__balance', field_names)
+        
+        # Find customer__first_name and check label
+        fn_field = next(f for f in fields if f['name'] == 'customer__first_name')
+        self.assertEqual(fn_field['label'], "Customer : First Name")
+
 
