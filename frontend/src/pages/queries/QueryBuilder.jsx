@@ -810,7 +810,17 @@ export default function QueryBuilderPage() {
     // Format fields for react-querybuilder
     const queryBuilderFields = useMemo(() => {
         if (!schema?.entities || !schema.entities[entity]) return [];
-        const fields = schema.entities[entity].fields.map(f => {
+        
+        const mapField = (f) => {
+            if (f.type === 'relation_subquery') {
+                return {
+                    name: f.name,
+                    label: f.label,
+                    type: 'text',
+                    subproperties: f.subproperties ? f.subproperties.map(mapField) : [],
+                    matchModes: f.matchModes || ['some', 'all', 'none']
+                };
+            }
             const hasChoices = f.choices && f.choices.length > 0;
             let type = 'text';
             if (f.type === 'integer' || f.type === 'decimal') type = 'number';
@@ -824,31 +834,14 @@ export default function QueryBuilderPage() {
                 valueEditorType: hasChoices ? 'select' : f.type === 'boolean' ? 'checkbox' : 'text',
                 values: hasChoices ? f.choices.map(c => ({ name: c.value, label: c.label })) : undefined
             };
-        });
+        };
+
+        const fields = schema.entities[entity].fields.map(mapField);
         
         const entityDef = schema.entities[entity];
         if (entityDef.relation_fields) {
             entityDef.relation_fields.forEach(rf => {
-                fields.push({
-                    name: rf.name,
-                    label: rf.label,
-                    type: 'text',
-                    subproperties: rf.subproperties.map(sp => {
-                        const hasChoices = sp.choices && sp.choices.length > 0;
-                        let spType = 'text';
-                        if (sp.type === 'integer' || sp.type === 'decimal') spType = 'number';
-                        if (sp.type === 'datetime') spType = 'date';
-                        if (sp.type === 'boolean') spType = 'boolean';
-                        return {
-                            name: sp.name,
-                            label: sp.label,
-                            type: spType,
-                            valueEditorType: hasChoices ? 'select' : spType === 'boolean' ? 'checkbox' : 'text',
-                            values: hasChoices ? sp.choices.map(c => ({ name: c.value, label: c.label })) : undefined
-                        };
-                    }),
-                    matchModes: rf.matchModes || ['some', 'all', 'none']
-                });
+                fields.push(mapField({ ...rf, type: 'relation_subquery' }));
             });
         }
         return fields;
