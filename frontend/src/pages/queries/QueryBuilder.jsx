@@ -27,6 +27,7 @@ import {
 } from 'lucide-react';
 import 'react-querybuilder/dist/query-builder.css';
 import './QueryBuilder.css';
+import AggregateColumnModal from './AggregateColumnModal';
 
 const resolvePath = (schema, baseEntity, path) => {
     if (!schema || !schema.entities || !baseEntity || !path) return null;
@@ -74,6 +75,7 @@ export default function QueryBuilderPage() {
     const [rules, setRules] = useState({ combinator: 'and', rules: [] });
     const [azqlText, setAzqlText] = useState('');
     const [columns, setColumns] = useState([]);
+    const [aggregates, setAggregates] = useState([]);
     
     // History & backups state
     const [historyQueries, setHistoryQueries] = useState([]);
@@ -92,6 +94,7 @@ export default function QueryBuilderPage() {
     // Modal states
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
     const [isSaveModalOpen, setIsSaveModalOpen] = useState(false);
+    const [isAggregateModalOpen, setIsAggregateModalOpen] = useState(false);
     
     // Modal fields
     const [saveName, setSaveName] = useState('');
@@ -447,6 +450,7 @@ export default function QueryBuilderPage() {
                 rules: rules,
                 azql_text: azqlText,
                 columns: columns,
+                aggregates: aggregates,
                 is_safe: isSafe
             };
 
@@ -508,7 +512,8 @@ export default function QueryBuilderPage() {
             queryType,
             rules,
             azqlText,
-            columns
+            columns,
+            aggregates
         });
         
         // Skip if nothing changed since last save
@@ -704,6 +709,7 @@ export default function QueryBuilderPage() {
         setEntity(hist.entity);
         setQueryType(hist.query_type);
         setColumns(hist.columns || []);
+        setAggregates(hist.aggregates || []);
         const targetRules = hist.rules || { combinator: 'and', rules: [] };
         if (hist.query_type === 'visual') {
             setRules(targetRules);
@@ -718,7 +724,8 @@ export default function QueryBuilderPage() {
             queryType: hist.query_type,
             rules: targetRules,
             azqlText: hist.azql_text || '',
-            columns: hist.columns || []
+            columns: hist.columns || [],
+            aggregates: hist.aggregates || []
         });
         showToast('Playground state restored from history', 'success');
     };
@@ -740,6 +747,7 @@ export default function QueryBuilderPage() {
         const entityLabel = newEntity.charAt(0).toUpperCase() + newEntity.slice(1);
         const newAzqlText = `SELECT ${defaultCols.map(c => `[${c}]`).join(', ')} FROM ${entityLabel}`;
         setAzqlText(newAzqlText);
+        setAggregates([]);
         setResults([]);
         setSelectedColumns([]);
 
@@ -748,7 +756,8 @@ export default function QueryBuilderPage() {
             queryType,
             rules: newRules,
             azqlText: newAzqlText,
-            columns: defaultCols
+            columns: defaultCols,
+            aggregates: []
         });
     };
 
@@ -940,6 +949,7 @@ export default function QueryBuilderPage() {
             } else {
                 payload.rules = rules;
                 payload.columns = columns;
+                payload.aggregates = aggregates;
             }
 
             const response = await fetchWithAuth(ENDPOINTS.QUERIES_RUN, {
@@ -962,7 +972,8 @@ export default function QueryBuilderPage() {
                     queryType,
                     rules,
                     azqlText,
-                    columns
+                    columns,
+                    aggregates
                 });
             } else {
                 showToast(data.error || 'Failed to execute query', 'error');
@@ -1049,6 +1060,7 @@ export default function QueryBuilderPage() {
         setEntity(query.entity);
         setQueryType(query.query_type);
         setColumns(query.columns || []);
+        setAggregates(query.aggregates || []);
         
         const targetRules = query.rules || { combinator: 'and', rules: [] };
         if (query.query_type === 'visual') {
@@ -1065,7 +1077,8 @@ export default function QueryBuilderPage() {
             queryType: query.query_type,
             rules: targetRules,
             azqlText: query.azql_text || '',
-            columns: query.columns || []
+            columns: query.columns || [],
+            aggregates: query.aggregates || []
         });
     };
 
@@ -1107,6 +1120,7 @@ export default function QueryBuilderPage() {
         }
         const defaultAzql = `SELECT ${defaultCols.map(c => `[${c}]`).join(', ')} FROM Order`;
         setAzqlText(defaultAzql);
+        setAggregates([]);
         setResults([]);
         setSelectedColumns([]);
         
@@ -1115,7 +1129,8 @@ export default function QueryBuilderPage() {
             queryType: 'visual',
             rules: defaultRules,
             azqlText: defaultAzql,
-            columns: defaultCols
+            columns: defaultCols,
+            aggregates: []
         });
     };
 
@@ -1482,6 +1497,26 @@ export default function QueryBuilderPage() {
                                                 </div>
                                             ))}
                                             
+                                            {aggregates.map((agg, idx) => (
+                                                <div key={`agg-${idx}`} className="column-pill aggregate-pill" style={{ borderColor: 'var(--primary-color)', backgroundColor: 'rgba(59, 130, 246, 0.1)' }}>
+                                                    <span className="column-pill-label" title={agg.alias}>
+                                                        {agg.alias} <span className="text-xs text-muted">({agg.function})</span>
+                                                    </span>
+                                                    <span className="column-pill-path">
+                                                        {agg.field}
+                                                    </span>
+                                                    <div className="column-pill-actions">
+                                                        <button 
+                                                            className="pill-action-btn remove-btn"
+                                                            onClick={() => setAggregates(aggregates.filter((_, i) => i !== idx))}
+                                                            title="Remove aggregate"
+                                                        >
+                                                            ✕
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                            
                                             {/* Add Column Search / Autocomplete Box */}
                                             <div className="add-column-wrapper" ref={colSearchRef}>
                                                 <div className="search-input-container">
@@ -1528,9 +1563,18 @@ export default function QueryBuilderPage() {
                                             </div>
                                         </div>
                                         
-                                        <button className="btn btn-sm btn-ghost reset-columns-btn" onClick={handleResetColumns}>
-                                            Reset Defaults
-                                        </button>
+                                        <div style={{ display: 'flex', gap: '0.5rem', marginTop: '1rem' }}>
+                                            <button className="btn btn-sm btn-ghost reset-columns-btn" onClick={handleResetColumns}>
+                                                Reset Defaults
+                                            </button>
+                                            <button 
+                                                className="btn btn-sm btn-outline-primary"
+                                                onClick={() => setIsAggregateModalOpen(true)}
+                                                style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}
+                                            >
+                                                <Database size={14} /> Add Aggregate
+                                            </button>
+                                        </div>
                                     </div>
                                     
                                     <QueryBuilder
@@ -1614,7 +1658,19 @@ export default function QueryBuilderPage() {
                 </div>
             </div>
 
-            {/* Column Options Modal Removed - managed inline */}
+            {/* Delete Confirmation Modal handles natively via prompt */}
+
+            <AggregateColumnModal
+                isOpen={isAggregateModalOpen}
+                onClose={() => setIsAggregateModalOpen(false)}
+                onSave={(agg) => {
+                    setAggregates([...aggregates, agg]);
+                    setIsAggregateModalOpen(false);
+                }}
+                entity={entity}
+                schema={schema}
+                queryBuilderFields={queryBuilderFields}
+            />
 
             {/* Save Query Modal */}
             {isSaveModalOpen && (

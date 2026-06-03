@@ -907,10 +907,11 @@ class QueryViewSet(viewsets.ModelViewSet):
                     return Response({'error': 'Missing entity for visual query'}, status=status.HTTP_400_BAD_REQUEST)
                 rules = request.data.get('rules', {})
                 columns = request.data.get('columns', [])
+                aggregates = request.data.get('aggregates', [])
                 if not columns:
                     # Default to all whitelisted fields for this entity if columns not specified
                     columns = list(SCHEMA_WHITELIST.get(entity, {}).get('fields', []))
-                qs, selected_columns = VisualCompiler.compile(entity, rules, columns, active_user=request.user)
+                qs, selected_columns = VisualCompiler.compile(entity, rules, columns, aggregates, active_user=request.user)
             else:
                 return Response({'error': f'Unsupported query_type: {query_type}'}, status=status.HTTP_400_BAD_REQUEST)
                 

@@ -791,7 +791,10 @@ class VisualCompiler:
     """Compiles React-QueryBuilder JSON AST payloads into querysets."""
     
     @classmethod
-    def compile(cls, entity, rule_group, columns, active_user=None):
+    def compile(cls, entity, rule_group, columns, aggregates=None, active_user=None):
+        if aggregates is None:
+            aggregates = []
+            
         entity = entity.lower()
         if entity not in SCHEMA_WHITELIST:
             raise ValidationError(f"Entity '{entity}' is not queryable")
@@ -804,13 +807,72 @@ class VisualCompiler:
         if q_object:
             qs = qs.filter(q_object)
             
-        # Column selections
+        # Process Aggregates
+        rich_annotations = {}
         selected_columns = []
+        
+        for agg in aggregates:
+            alias = agg.get('alias')
+            func = agg.get('function', 'SUM').upper()
+            relation = agg.get('relation', '').lstrip('~')
+            field = agg.get('field')
+            filter_rules = agg.get('filter_rules', {})
+            
+            if not all([alias, func, relation, field]):
+                raise ValidationError("Aggregate definition missing required fields")
+                
+            if entity not in RELATION_MAP or relation not in RELATION_MAP[entity]:
+                raise ValidationError(f"Aggregate relation '{relation}' not supported on entity '{entity}'")
+                
+            rel_config = RELATION_MAP[entity][relation]
+            TargetModel = apps.get_model(rel_config['model'])
+            target_key = rel_config['model'].split('.')[-1].lower()
+            
+            # Subquery AST filter parsing
+            inline_q = cls.parse_group(filter_rules, target_key, active_user)
+            
+            # Validate field exists on target model
+            if not validate_relation_path(target_key, field):
+                raise ValidationError(f"Field '{field}' is not queryable on '{target_key}' schema for aggregation")
+                
+            sub_q = TargetModel.objects.filter(**{rel_config['outer_ref']: OuterRef('pk')})
+            if inline_q:
+                sub_q = sub_q.filter(inline_q)
+                
+            from django.db.models import Sum, Count, Avg, Max, Min, IntegerField, DecimalField, FloatField, BooleanField, DateTimeField, DateField
+            func_map = {'SUM': Sum, 'COUNT': Count, 'AVG': Avg, 'MAX': Max, 'MIN': Min}
+            if func not in func_map:
+                raise ValidationError(f"Unsupported aggregate function '{func}'")
+                
+            # Get field internal type to determine output_field
+            target_field = TargetModel._meta.get_field(field)
+            internal_type = target_field.get_internal_type()
+            
+            if func == 'COUNT':
+                out_field = IntegerField()
+            elif internal_type in ('DecimalField', 'FloatField'):
+                out_field = DecimalField() if internal_type == 'DecimalField' else FloatField()
+            else:
+                out_field = IntegerField()
+                
+            sub_q = sub_q.values(rel_config['outer_ref']).annotate(total=func_map[func](field, output_field=out_field)).values('total')
+            
+            from django.db.models import Value
+            default_val = Value(0, output_field=out_field)
+            
+            rich_annotations[alias] = Coalesce(Subquery(sub_q, output_field=out_field), default_val, output_field=out_field)
+            selected_columns.append(alias)
+            
+        if rich_annotations:
+            qs = qs.annotate(**rich_annotations)
+            
+        # Column selections
         for col in columns:
             clean_col = col.strip('[]')
             if not validate_relation_path(entity, clean_col):
                 raise ValidationError(f"Field '{clean_col}' is not whitelisted")
-            selected_columns.append(clean_col)
+            if clean_col not in selected_columns:
+                selected_columns.append(clean_col)
             
         if selected_columns:
             qs = qs.values(*selected_columns)
