@@ -29,7 +29,7 @@ const defineBlocks = () => {
                     "check": ["Condition", "LogicalGroup"]
                 }
             ],
-            "colour": 230,
+            "colour": "#2E5BFF",
             "tooltip": "The root SQL query block.",
             "helpUrl": ""
         },
@@ -60,7 +60,7 @@ const defineBlocks = () => {
             ],
             "inputsInline": true,
             "output": "LogicalGroup",
-            "colour": 210,
+            "colour": "#FF9F1C",
             "tooltip": "Connect multiple conditions.",
             "helpUrl": ""
         },
@@ -94,7 +94,7 @@ const defineBlocks = () => {
             ],
             "inputsInline": true,
             "output": "Condition",
-            "colour": 120,
+            "colour": "#2EC4B6",
             "tooltip": "A basic filter condition.",
             "helpUrl": ""
         },
@@ -111,7 +111,7 @@ const defineBlocks = () => {
                 }
             ],
             "output": "String",
-            "colour": 160,
+            "colour": "#E71D36",
             "tooltip": "A literal value.",
             "helpUrl": ""
         },
@@ -150,7 +150,7 @@ const defineBlocks = () => {
             ],
             "previousStatement": ["Column", "Aggregate"],
             "nextStatement": ["Column", "Aggregate"],
-            "colour": 290,
+            "colour": "#9D4EDD",
             "tooltip": "An aggregate column derived from a relation.",
             "helpUrl": ""
         },
@@ -168,7 +168,7 @@ const defineBlocks = () => {
             ],
             "previousStatement": ["Column", "Aggregate"],
             "nextStatement": ["Column", "Aggregate"],
-            "colour": 290,
+            "colour": "#9D4EDD",
             "tooltip": "Select a specific column.",
             "helpUrl": ""
         },
@@ -199,7 +199,7 @@ const defineBlocks = () => {
                 }
             ],
             "output": "Condition",
-            "colour": 120,
+            "colour": "#2EC4B6",
             "tooltip": "Filter based on a related entity.",
             "helpUrl": ""
         }
