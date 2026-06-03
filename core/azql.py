@@ -694,59 +694,14 @@ class AZQLCompiler:
         
         if select_match:
             select_text = select_match.group('select').strip()
-            # Match rich aggregates first
-            rich_expr = r'(?i)\b(?P<func>SUM_OWED|SUM_DELIVERED|SUM_ORDERED)\((?P<relation>[a-zA-Z0-9_]+)\s+WHERE\s+(?P<where>.*?)\)\s+AS\s+(?P<alias>[a-zA-Z0-9_]+)'
-            rich_matches = list(re.finditer(rich_expr, select_text))
             
-            # Clean select text to extract normal columns
-            clean_select = select_text
-            for match in rich_matches:
-                clean_select = clean_select.replace(match.group(0), "")
-                
-            columns = [c.strip() for c in clean_select.split(',') if c.strip()]
+            # Standard columns parsing without legacy regex
+            columns = [c.strip() for c in select_text.split(',') if c.strip()]
             for col in columns:
                 clean_col = col.strip('[]')
                 if not validate_relation_path(entity, clean_col):
                     raise ValidationError(f"Field '{clean_col}' is not whitelisted in SELECT clause")
                 selected_columns.append(clean_col)
-                
-            # Process rich aggregates
-            for match in rich_matches:
-                func = match.group('func').upper()
-                relation = match.group('relation')
-                where_cond = match.group('where')
-                alias = match.group('alias')
-                
-                # Check relation configurations
-                if entity not in RELATION_MAP or relation not in RELATION_MAP[entity]:
-                    raise ValidationError(f"Aggregate relation '{relation}' not supported on entity '{entity}'")
-                    
-                rel_config = RELATION_MAP[entity][relation]
-                TargetModel = apps.get_model(rel_config['model'])
-                
-                # Parse inline conditions
-                lexer = AZQLLexer()
-                tokens = lexer.tokenize(where_cond)
-                # Map target model name back to key
-                target_key = rel_config['model'].split('.')[-1].lower()
-                parser = AZQLParser(tokens, target_key, active_user)
-                inline_q = parser.parse()
-                
-                # Build isolated subquery
-                sub_q = TargetModel.objects.filter(**{rel_config['outer_ref']: OuterRef('pk')})
-                if inline_q:
-                    sub_q = sub_q.filter(inline_q)
-                    
-                if func == 'SUM_OWED':
-                    expr = Coalesce(F('confirmed_quantity'), F('quantity')) - Coalesce(F('delivery_items__quantity'), 0)
-                elif func == 'SUM_DELIVERED':
-                    expr = F('quantity')
-                else: # SUM_ORDERED
-                    expr = F('quantity')
-                    
-                sub_q = sub_q.values(rel_config['outer_ref']).annotate(total=Sum(expr)).values('total')
-                rich_annotations[alias] = Coalesce(Subquery(sub_q), 0)
-                selected_columns.append(alias)
                 
         # Apply Annotations and Column Options values slice
         if rich_annotations:
@@ -820,21 +775,28 @@ class VisualCompiler:
             if not all([alias, func, relation, field]):
                 raise ValidationError("Aggregate definition missing required fields")
                 
-            if entity not in RELATION_MAP or relation not in RELATION_MAP[entity]:
+            # Resolve target model dynamically using schema whitelist / ORM instead of RELATION_MAP
+            try:
+                relation_field = ModelClass._meta.get_field(relation)
+                TargetModel = relation_field.related_model
+                if not TargetModel:
+                    raise ValidationError(f"Relation '{relation}' is not a valid relational field on '{entity}'")
+            except Exception:
                 raise ValidationError(f"Aggregate relation '{relation}' not supported on entity '{entity}'")
-                
-            rel_config = RELATION_MAP[entity][relation]
-            TargetModel = apps.get_model(rel_config['model'])
-            target_key = rel_config['model'].split('.')[-1].lower()
+
+            target_key = _get_entity_key(TargetModel)
             
             # Subquery AST filter parsing
-            inline_q = cls.parse_group(filter_rules, target_key, active_user)
+            inline_q = cls.parse_group(filter_rules, target_key, active_user) if filter_rules else None
             
             # Validate field exists on target model
             if not validate_relation_path(target_key, field):
                 raise ValidationError(f"Field '{field}' is not queryable on '{target_key}' schema for aggregation")
                 
-            sub_q = TargetModel.objects.filter(**{rel_config['outer_ref']: OuterRef('pk')})
+            # The outer_ref for the subquery will be the reverse name of the relation on the target model.
+            outer_ref = relation_field.remote_field.name if relation_field.remote_field else relation_field.name
+            
+            sub_q = TargetModel.objects.filter(**{outer_ref: OuterRef('pk')})
             if inline_q:
                 sub_q = sub_q.filter(inline_q)
                 
@@ -853,8 +815,7 @@ class VisualCompiler:
                 out_field = DecimalField() if internal_type == 'DecimalField' else FloatField()
             else:
                 out_field = IntegerField()
-                
-            sub_q = sub_q.values(rel_config['outer_ref']).annotate(total=func_map[func](field, output_field=out_field)).values('total')
+            sub_q = sub_q.values(outer_ref).annotate(total=func_map[func](field, output_field=out_field)).values('total')
             
             from django.db.models import Value
             default_val = Value(0, output_field=out_field)

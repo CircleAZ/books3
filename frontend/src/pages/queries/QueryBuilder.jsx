@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { QueryBuilder } from 'react-querybuilder';
+import BlocklyEditor from './BlocklyEditor';
 import Editor from '@monaco-editor/react';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
@@ -23,9 +23,8 @@ import {
     CheckCircle,
     AlertCircle,
     Info,
-    FileText
-} from 'lucide-react';
-import 'react-querybuilder/dist/query-builder.css';
+import { FileText } from 'lucide-react';
+// import 'react-querybuilder/dist/query-builder.css'; // Removed old UI css
 import './QueryBuilder.css';
 import AggregateColumnModal from './AggregateColumnModal';
 
@@ -1447,134 +1446,16 @@ export default function QueryBuilderPage() {
                         {/* Editor Panels */}
                         <div className="tab-content">
                             {queryType === 'visual' ? (
-                                <div className="visual-builder-panel">
-                                    {/* Inline Columns Manager */}
-                                    <div className="inline-columns-manager">
-                                        <div className="columns-label">
-                                            <span>Selected Columns:</span>
-                                        </div>
-                                        <div className="columns-pills-list">
-                                            {columns.map((col, idx) => (
-                                                <div key={col} className="column-pill">
-                                                    <span className="column-pill-label" title={col}>
-                                                        {getHeaderLabel(col)}
-                                                    </span>
-                                                    <span className="column-pill-path">
-                                                        {col}
-                                                    </span>
-                                                    <div className="column-pill-actions">
-                                                        <button 
-                                                            className="pill-action-btn"
-                                                            disabled={idx === 0}
-                                                            onClick={() => handleMoveColumn(idx, -1)}
-                                                            title="Move left"
-                                                        >
-                                                            ←
-                                                        </button>
-                                                        <button 
-                                                            className="pill-action-btn"
-                                                            disabled={idx === columns.length - 1}
-                                                            onClick={() => handleMoveColumn(idx, 1)}
-                                                            title="Move right"
-                                                        >
-                                                            →
-                                                        </button>
-                                                        <button 
-                                                            className="pill-action-btn remove-btn"
-                                                            onClick={() => handleRemoveColumn(col)}
-                                                            title="Remove column"
-                                                        >
-                                                            ✕
-                                                        </button>
-                                                    </div>
-                                                </div>
-                                            ))}
-                                            
-                                            {aggregates.map((agg, idx) => (
-                                                <div key={`agg-${idx}`} className="column-pill aggregate-pill" style={{ borderColor: 'var(--primary-color)', backgroundColor: 'rgba(59, 130, 246, 0.1)' }}>
-                                                    <span className="column-pill-label" title={agg.alias}>
-                                                        {agg.alias} <span className="text-xs text-muted">({agg.function})</span>
-                                                    </span>
-                                                    <span className="column-pill-path">
-                                                        {agg.field}
-                                                    </span>
-                                                    <div className="column-pill-actions">
-                                                        <button 
-                                                            className="pill-action-btn remove-btn"
-                                                            onClick={() => setAggregates(aggregates.filter((_, i) => i !== idx))}
-                                                            title="Remove aggregate"
-                                                        >
-                                                            ✕
-                                                        </button>
-                                                    </div>
-                                                </div>
-                                            ))}
-                                            
-                                            {/* Add Column Search / Autocomplete Box */}
-                                            <div className="add-column-wrapper" ref={colSearchRef}>
-                                                <div className="search-input-container">
-                                                    <Plus size={14} className="add-icon" />
-                                                    <input
-                                                        type="text"
-                                                        placeholder="Add column (e.g. customer__first_name)..."
-                                                        value={colSearchValue}
-                                                        onChange={(e) => {
-                                                            setColSearchValue(e.target.value);
-                                                            setIsColSuggestOpen(true);
-                                                        }}
-                                                        onFocus={() => setIsColSuggestOpen(true)}
-                                                        className="add-column-input"
-                                                    />
-                                                    {colSearchValue && (
-                                                        <button 
-                                                            className="clear-search-btn"
-                                                            onClick={() => {
-                                                                setColSearchValue('');
-                                                                setIsColSuggestOpen(false);
-                                                            }}
-                                                        >
-                                                            ✕
-                                                        </button>
-                                                    )}
-                                                </div>
-                                                
-                                                {isColSuggestOpen && colSuggestions.length > 0 && (
-                                                    <ul className="column-suggestions-dropdown">
-                                                        {colSuggestions.map((sug, sIdx) => (
-                                                            <li 
-                                                                key={sIdx} 
-                                                                className={`suggestion-item ${sug.type}`}
-                                                                onClick={() => handleSelectSuggestion(sug)}
-                                                            >
-                                                                <span className="suggestion-name">{sug.displayName}</span>
-                                                                <span className="suggestion-type-badge">{sug.type}</span>
-                                                                {sug.type === 'relation' && <span className="arrow-indicator">→</span>}
-                                                            </li>
-                                                        ))}
-                                                    </ul>
-                                                )}
-                                            </div>
-                                        </div>
-                                        
-                                        <div style={{ display: 'flex', gap: '0.5rem', marginTop: '1rem' }}>
-                                            <button className="btn btn-sm btn-ghost reset-columns-btn" onClick={handleResetColumns}>
-                                                Reset Defaults
-                                            </button>
-                                            <button 
-                                                className="btn btn-sm btn-outline-primary"
-                                                onClick={() => setIsAggregateModalOpen(true)}
-                                                style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}
-                                            >
-                                                <Database size={14} /> Add Aggregate
-                                            </button>
-                                        </div>
-                                    </div>
-                                    
-                                    <QueryBuilder
-                                        fields={queryBuilderFields}
-                                        query={rules}
-                                        onQueryChange={setRules}
-                                        getSubQueryBuilderProps={getSubQueryBuilderProps}
+                                <div className="visual-builder-panel" style={{ padding: '0' }}>
+                                    <BlocklyEditor 
+                                        onWorkspaceChange={(ast) => {
+                                            if (ast) {
+                                                if (ast.entity) setEntity(ast.entity);
+                                                if (ast.rules) setRules(ast.rules);
+                                                if (ast.columns) setColumns(ast.columns);
+                                                if (ast.aggregates) setAggregates(ast.aggregates);
+                                            }
+                                        }}
                                     />
                                 </div>
                             ) : (
