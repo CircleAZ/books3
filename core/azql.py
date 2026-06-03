@@ -502,22 +502,21 @@ class AZQLParser:
             match_mode = {'HAS_ANY': 'some', 'HAS_ALL': 'all', 'HAS_NONE': 'none'}[op_token[0]]
             
             if getattr(field_obj, 'one_to_many', False):
-                link_field = field_obj.remote_field.name
+                sub_qs = target_model.objects.filter(**{field_obj.remote_field.name: OuterRef('pk')})
             elif getattr(field_obj, 'many_to_many', False):
-                link_field = field_obj.related_query_name()
+                sub_qs = target_model.objects.filter(**{field_obj.related_query_name(): OuterRef('pk')})
             elif field_obj.many_to_one or getattr(field_obj, 'one_to_one', False):
-                link_field = field_obj.name
+                sub_qs = target_model.objects.filter(pk=OuterRef(field_obj.name))
             else:
                 raise ValidationError(f"Unsupported relation type for subquery: '{relation_name}'")
                 
-            sub_qs = target_model.objects.filter(**{link_field: OuterRef('pk')}).filter(inner_q)
             if match_mode == 'none':
-                return ~Exists(sub_qs)
+                return ~Exists(sub_qs.filter(inner_q))
             elif match_mode == 'all':
-                anti_qs = target_model.objects.filter(**{link_field: OuterRef('pk')}).exclude(inner_q)
+                anti_qs = sub_qs.exclude(inner_q)
                 return ~Exists(anti_qs)
             else:
-                return Exists(sub_qs)
+                return Exists(sub_qs.filter(inner_q))
             
         elif op_token[0] == 'WAS_EVER':
             self.consume('WAS_EVER')
@@ -941,23 +940,21 @@ class VisualCompiler:
         inner_q = cls.parse_group(sub_rules, target_entity, active_user)
         
         if getattr(field, 'one_to_many', False):
-            link_field = field.remote_field.name
+            sub_qs = target_model.objects.filter(**{field.remote_field.name: OuterRef('pk')})
         elif getattr(field, 'many_to_many', False):
-            link_field = field.related_query_name()
+            sub_qs = target_model.objects.filter(**{field.related_query_name(): OuterRef('pk')})
         elif field.many_to_one or getattr(field, 'one_to_one', False):
-            link_field = field.name
+            sub_qs = target_model.objects.filter(pk=OuterRef(field.name))
         else:
             raise ValidationError(f"Unsupported relation type for subquery: '{relation_name}'")
             
-        sub_qs = target_model.objects.filter(**{link_field: OuterRef('pk')}).filter(inner_q)
-        
         if match_mode == 'none':
-            return ~Exists(sub_qs)
+            return ~Exists(sub_qs.filter(inner_q))
         elif match_mode == 'all':
-            anti_qs = target_model.objects.filter(**{link_field: OuterRef('pk')}).exclude(inner_q)
+            anti_qs = sub_qs.exclude(inner_q)
             return ~Exists(anti_qs)
         else:
-            return Exists(sub_qs)
+            return Exists(sub_qs.filter(inner_q))
 
     @classmethod
     def compile_rule(cls, field, operator, value, entity, active_user):
