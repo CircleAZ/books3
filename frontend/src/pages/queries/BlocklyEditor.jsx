@@ -10,9 +10,14 @@ import azqlGenerator from './azql_generator';
 Blockly.setLocale(En);
 defineBlocks();
 
-const BlocklyEditor = ({ initialXml, onWorkspaceChange }) => {
+const BlocklyEditor = ({ initialXml, schema, entity, onWorkspaceChange }) => {
     const blocklyDiv = useRef(null);
     const workspaceRef = useRef(null);
+
+    useEffect(() => {
+        window.azqlSchema = schema;
+        window.azqlActiveEntity = entity;
+    }, [schema, entity]);
 
     useEffect(() => {
         if (!blocklyDiv.current) return;

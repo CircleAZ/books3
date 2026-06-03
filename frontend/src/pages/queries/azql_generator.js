@@ -95,7 +95,8 @@ azqlGenerator.forBlock['azql_column'] = function(block) {
 };
 
 // Aggregate Selection
-azqlGenerator.forBlock['azql_aggregate'] = function(block) {
+azqlGenerator.forBlock['azql_aggregate'] = function(block, generator) {
+    const filterRules = generator.valueToCode(block, 'WHERE', 0);
     return {
         type: 'aggregate',
         payload: {
@@ -103,7 +104,7 @@ azqlGenerator.forBlock['azql_aggregate'] = function(block) {
             relation: block.getFieldValue('RELATION'),
             field: block.getFieldValue('FIELD'),
             alias: block.getFieldValue('ALIAS'),
-            filter_rules: {} // For phase 1, we omit nested filtering inside aggregates
+            filter_rules: filterRules || { combinator: 'and', rules: [] }
         }
     };
 };

@@ -1449,6 +1449,8 @@ export default function QueryBuilderPage() {
                             {queryType === 'visual' ? (
                                 <div className="visual-builder-panel" style={{ padding: '0' }}>
                                     <BlocklyEditor 
+                                        schema={schema}
+                                        entity={entity}
                                         onWorkspaceChange={(ast) => {
                                             if (ast) {
                                                 if (ast.entity) setEntity(ast.entity);
