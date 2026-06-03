@@ -28,6 +28,39 @@ import {
 import 'react-querybuilder/dist/query-builder.css';
 import './QueryBuilder.css';
 
+const resolvePath = (schema, baseEntity, path) => {
+    if (!schema || !schema.entities || !baseEntity || !path) return null;
+    const parts = path.split('__');
+    let currentEntity = baseEntity;
+
+    for (let i = 0; i < parts.length; i++) {
+        const part = parts[i];
+        const entityDef = schema.entities[currentEntity];
+        if (!entityDef) return null;
+
+        // Is it the last part of the path?
+        if (i === parts.length - 1) {
+            // Check relations first, as we traverse relations
+            const relation = entityDef.relations?.find(r => r.name === part);
+            if (relation) {
+                return { type: 'relation', targetEntity: relation.target, label: relation.label };
+            }
+            // Check fields
+            const field = entityDef.fields?.find(f => f.name === part);
+            if (field) {
+                return { type: 'field', field };
+            }
+            return null;
+        } else {
+            // Must be a relation to step through
+            const relation = entityDef.relations?.find(r => r.name === part);
+            if (!relation) return null;
+            currentEntity = relation.target;
+        }
+    }
+    return null;
+};
+
 export default function QueryBuilderPage() {
     const { fetchWithAuth, rbac } = useAuth();
     const { showToast } = useToast();
@@ -58,13 +91,16 @@ export default function QueryBuilderPage() {
     
     // Modal states
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-    const [isColModalOpen, setIsColModalOpen] = useState(false);
     const [isSaveModalOpen, setIsSaveModalOpen] = useState(false);
     
     // Modal fields
-    const [colSearch, setColSearch] = useState('');
     const [saveName, setSaveName] = useState('');
     const [saveIsShared, setSaveIsShared] = useState(false);
+
+    // Inline columns search state
+    const [colSearchValue, setColSearchValue] = useState('');
+    const [isColSuggestOpen, setIsColSuggestOpen] = useState(false);
+    const colSearchRef = useRef(null);
 
     // Refs to bypass Monaco closure trap and handle auto-save debounce
     const schemaRef = useRef(schema);
@@ -80,6 +116,16 @@ export default function QueryBuilderPage() {
     useEffect(() => {
         entityRef.current = entity;
     }, [entity]);
+
+    useEffect(() => {
+        const handleClickOutside = (event) => {
+            if (colSearchRef.current && !colSearchRef.current.contains(event.target)) {
+                setIsColSuggestOpen(false);
+            }
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, []);
 
     const handleEditorBeforeMount = useCallback((monaco) => {
         // Register a new language
@@ -138,7 +184,7 @@ export default function QueryBuilderPage() {
 
         // Register completion item provider for 'azql'
         monaco.languages.registerCompletionItemProvider('azql', {
-            triggerCharacters: [' ', '[', '@', '=', '.'],
+            triggerCharacters: [' ', '[', '@', '=', '.', '_'],
             provideCompletionItems: (model, position) => {
                 const textUntilPosition = model.getValueInRange({
                     startLineNumber: 1,
@@ -164,18 +210,55 @@ export default function QueryBuilderPage() {
 
                 const lastChar = textUntilPosition.slice(-1);
 
-                if (lastChar === '[') {
-                    if (schemaRef.current?.entities?.[currentEntity]) {
-                        const fields = schemaRef.current.entities[currentEntity].fields;
-                        fields.forEach(f => {
-                            suggestions.push({
-                                label: f.name,
-                                kind: monaco.languages.CompletionItemKind.Field,
-                                documentation: f.label,
-                                insertText: `${f.name}]`,
-                                range: range
+                const lastOpenBracketIdx = textUntilPosition.lastIndexOf('[');
+                const lastCloseBracketIdx = textUntilPosition.lastIndexOf(']');
+                const isInsideBracket = lastOpenBracketIdx > lastCloseBracketIdx;
+
+                if (isInsideBracket) {
+                    const bracketContent = textUntilPosition.substring(lastOpenBracketIdx + 1);
+                    const lastUnderscoresIdx = bracketContent.lastIndexOf('__');
+                    
+                    let targetEntity = currentEntity;
+                    let prefixPath = "";
+                    
+                    if (lastUnderscoresIdx !== -1) {
+                        prefixPath = bracketContent.substring(0, lastUnderscoresIdx);
+                        const resolved = resolvePath(schemaRef.current, currentEntity, prefixPath);
+                        if (resolved && resolved.type === 'relation') {
+                            targetEntity = resolved.targetEntity;
+                        } else {
+                            return { suggestions: [] };
+                        }
+                    }
+
+                    if (schemaRef.current?.entities?.[targetEntity]) {
+                        const entityDef = schemaRef.current.entities[targetEntity];
+                        
+                        // Suggest fields
+                        if (entityDef.fields) {
+                            entityDef.fields.forEach(f => {
+                                suggestions.push({
+                                    label: f.name,
+                                    kind: monaco.languages.CompletionItemKind.Field,
+                                    documentation: f.label,
+                                    insertText: `${f.name}]`,
+                                    range: range
+                                });
                             });
-                        });
+                        }
+                        
+                        // Suggest relations
+                        if (entityDef.relations) {
+                            entityDef.relations.forEach(r => {
+                                suggestions.push({
+                                    label: `${r.name}__`,
+                                    kind: monaco.languages.CompletionItemKind.Folder,
+                                    documentation: `Relation to ${r.label}`,
+                                    insertText: `${r.name}__`,
+                                    range: range
+                                });
+                            });
+                        }
                     }
                 } else if (lastChar === '@') {
                     suggestions.push({
@@ -191,18 +274,33 @@ export default function QueryBuilderPage() {
                     });
                 } else if (lastChar === '=') {
                     const fieldMatch = textUntilPosition.match(/\[([a-zA-Z0-9_.]+)\]\s*=\s*$/i);
-                    if (fieldMatch && schemaRef.current?.entities?.[currentEntity]) {
-                        const fieldName = fieldMatch[1];
-                        const fieldObj = schemaRef.current.entities[currentEntity].fields.find(f => f.name === fieldName);
-                        if (fieldObj?.choices) {
-                            fieldObj.choices.forEach(choice => {
-                                suggestions.push({
-                                    label: choice.label,
-                                    kind: monaco.languages.CompletionItemKind.EnumMember,
-                                    insertText: `'${choice.value}'`,
-                                    range: range
+                    if (fieldMatch) {
+                        const fullFieldName = fieldMatch[1];
+                        const lastUnderscores = fullFieldName.lastIndexOf('__');
+                        let targetEntity = currentEntity;
+                        let fieldName = fullFieldName;
+                        
+                        if (lastUnderscores !== -1) {
+                            const prefixPath = fullFieldName.substring(0, lastUnderscores);
+                            fieldName = fullFieldName.substring(lastUnderscores + 2);
+                            const resolved = resolvePath(schemaRef.current, currentEntity, prefixPath);
+                            if (resolved && resolved.type === 'relation') {
+                                targetEntity = resolved.targetEntity;
+                            }
+                        }
+                        
+                        if (schemaRef.current?.entities?.[targetEntity]) {
+                            const fieldObj = schemaRef.current.entities[targetEntity].fields.find(f => f.name === fieldName);
+                            if (fieldObj?.choices) {
+                                fieldObj.choices.forEach(choice => {
+                                    suggestions.push({
+                                        label: choice.label,
+                                        kind: monaco.languages.CompletionItemKind.EnumMember,
+                                        insertText: `'${choice.value}'`,
+                                        range: range
+                                    });
                                 });
-                            });
+                            }
                         }
                     }
                 } else {
@@ -239,8 +337,8 @@ export default function QueryBuilderPage() {
                             });
                         });
                         if (schemaRef.current?.entities?.[currentEntity]) {
-                            const fields = schemaRef.current.entities[currentEntity].fields;
-                            fields.forEach(f => {
+                            const entityDef = schemaRef.current.entities[currentEntity];
+                            entityDef.fields.forEach(f => {
                                 suggestions.push({
                                     label: `[${f.name}]`,
                                     kind: monaco.languages.CompletionItemKind.Field,
@@ -249,6 +347,17 @@ export default function QueryBuilderPage() {
                                     range: range
                                 });
                             });
+                            if (entityDef.relations) {
+                                entityDef.relations.forEach(r => {
+                                    suggestions.push({
+                                        label: `[${r.name}__]`,
+                                        kind: monaco.languages.CompletionItemKind.Folder,
+                                        documentation: `Relation to ${r.label}`,
+                                        insertText: `[${r.name}__`,
+                                        range: range
+                                    });
+                                });
+                            }
                         }
                     }
                 }
@@ -432,18 +541,8 @@ export default function QueryBuilderPage() {
         const entityRaw = selectFromMatch[2].trim().toLowerCase();
         const whereRaw = selectFromMatch[3] ? selectFromMatch[3].trim() : '';
         
-        const entityMapping = {
-            'order': 'order',
-            'orderitem': 'orderitem',
-            'outlet': 'outlet',
-            'outletstock': 'outletstock',
-            'product': 'product',
-            'purchaseorder': 'purchaseorder',
-            'customer': 'customer',
-            'deliveryitem': 'deliveryitem'
-        };
-        const entityKey = entityMapping[entityRaw];
-        if (!entityKey) {
+        const entityKey = entityRaw;
+        if (!schemaRef.current?.entities?.[entityKey]) {
             throw new Error(`Unsupported entity: "${entityRaw}"`);
         }
         
@@ -474,76 +573,102 @@ export default function QueryBuilderPage() {
                 throw new Error("Visual rules builder does not support ASOF, WAS EVER, or aggregates. You can run this in Text Editor mode.");
             }
             
-            // Stateful tokenization to split logical condition segments by AND/OR outside single quotes
-            const tokens = [];
-            let currentToken = '';
-            let inQuotes = false;
-            
-            for (let i = 0; i < whereRaw.length; i++) {
-                const char = whereRaw[i];
-                if (char === "'") {
-                    inQuotes = !inQuotes;
-                    currentToken += char;
-                } else {
-                    if (!inQuotes && (whereRaw.slice(i, i + 5).toUpperCase() === ' AND ' || whereRaw.slice(i, i + 4).toUpperCase() === ' OR ')) {
-                        if (currentToken.trim()) {
-                            tokens.push({ type: 'condition', text: currentToken.trim() });
-                        }
-                        const isAnd = whereRaw.slice(i, i + 5).toUpperCase() === ' AND ';
-                        tokens.push({ type: 'combinator', text: isAnd ? 'AND' : 'OR' });
-                        currentToken = '';
-                        i += isAnd ? 4 : 3;
-                    } else {
+            const parseWhereClause = (whereStr) => {
+                const tokens = [];
+                let currentToken = '';
+                let inQuotes = false;
+                let parensDepth = 0;
+                
+                for (let i = 0; i < whereStr.length; i++) {
+                    const char = whereStr[i];
+                    if (char === "'") {
+                        inQuotes = !inQuotes;
                         currentToken += char;
+                    } else if (!inQuotes && char === '(') {
+                        parensDepth++;
+                        currentToken += char;
+                    } else if (!inQuotes && char === ')') {
+                        parensDepth--;
+                        currentToken += char;
+                    } else {
+                        if (!inQuotes && parensDepth === 0 && (whereStr.slice(i, i + 5).toUpperCase() === ' AND ' || whereStr.slice(i, i + 4).toUpperCase() === ' OR ')) {
+                            if (currentToken.trim()) tokens.push({ type: 'condition', text: currentToken.trim() });
+                            const isAnd = whereStr.slice(i, i + 5).toUpperCase() === ' AND ';
+                            tokens.push({ type: 'combinator', text: isAnd ? 'AND' : 'OR' });
+                            currentToken = '';
+                            i += isAnd ? 4 : 3;
+                        } else {
+                            currentToken += char;
+                        }
                     }
                 }
-            }
-            if (currentToken.trim()) {
-                tokens.push({ type: 'condition', text: currentToken.trim() });
-            }
-            
-            // Check for mixed combinators
-            const combinators = tokens.filter(t => t.type === 'combinator').map(t => t.text);
-            const uniqueCombinators = [...new Set(combinators)];
-            if (uniqueCombinators.length > 1) {
-                throw new Error("Mixed AND & OR logic without grouping cannot be synced to Visual Rules.");
-            }
-            
-            const finalCombinator = uniqueCombinators[0]?.toLowerCase() || 'and';
-            const parsedRulesArray = [];
-            
-            for (const token of tokens) {
-                if (token.type !== 'condition') continue;
+                if (currentToken.trim()) tokens.push({ type: 'condition', text: currentToken.trim() });
                 
-                const conditionMatch = token.text.match(/^\[([a-zA-Z0-9_.]+)\]\s*(=|!=|<=|>=|<|>|LIKE|CONTAINS|IN)\s*([\s\S]*)$/i);
-                if (!conditionMatch) {
-                    throw new Error(`Failed to parse condition: "${token.text}". Format: [field] = value`);
+                const combinators = tokens.filter(t => t.type === 'combinator').map(t => t.text);
+                const uniqueCombinators = [...new Set(combinators)];
+                if (uniqueCombinators.length > 1) {
+                    throw new Error("Mixed AND & OR logic without grouping cannot be synced to Visual Rules.");
+                }
+                const finalCombinator = uniqueCombinators[0]?.toLowerCase() || 'and';
+                const parsedRulesArray = [];
+                
+                for (const token of tokens) {
+                    if (token.type !== 'condition') continue;
+                    
+                    let condText = token.text;
+                    // Check if it's a grouped normal rule
+                    if (condText.startsWith('(') && condText.endsWith(')')) {
+                        condText = condText.slice(1, -1).trim();
+                        parsedRulesArray.push(parseWhereClause(condText));
+                        continue;
+                    }
+                    
+                    // Check if it's a relation subquery
+                    const subqueryMatch = condText.match(/^\[(~[a-zA-Z0-9_.]+)\]\s+(HAS_ANY|HAS_ALL|HAS_NONE)\s*\(([\s\S]*)\)$/i);
+                    if (subqueryMatch) {
+                        const field = subqueryMatch[1];
+                        const modeRaw = subqueryMatch[2].toUpperCase();
+                        const innerWhereRaw = subqueryMatch[3].trim();
+                        const modeMap = { 'HAS_ANY': 'some', 'HAS_ALL': 'all', 'HAS_NONE': 'none' };
+                        parsedRulesArray.push({
+                            field: field,
+                            matchMode: modeMap[modeRaw],
+                            value: parseWhereClause(innerWhereRaw)
+                        });
+                        continue;
+                    }
+                    
+                    const conditionMatch = condText.match(/^\[([a-zA-Z0-9_.]+)\]\s*(=|!=|<=|>=|<|>|LIKE|CONTAINS|IN)\s*([\s\S]*)$/i);
+                    if (!conditionMatch) {
+                        throw new Error(`Failed to parse condition: "${condText}". Format: [field] = value`);
+                    }
+                    
+                    const field = conditionMatch[1];
+                    const operator = conditionMatch[2].toUpperCase();
+                    let valueRaw = conditionMatch[3].trim();
+                    let value = valueRaw;
+                    if (valueRaw.startsWith("'") && valueRaw.endsWith("'")) {
+                        value = valueRaw.slice(1, -1).replace(/''/g, "'");
+                    } else if (valueRaw.toUpperCase() === 'TRUE') {
+                        value = true;
+                    } else if (valueRaw.toUpperCase() === 'FALSE') {
+                        value = false;
+                    } else if (valueRaw.toUpperCase() === 'NULL') {
+                        value = '';
+                    } else if (!isNaN(Number(valueRaw)) && valueRaw !== '') {
+                        value = Number(valueRaw);
+                    }
+                    
+                    parsedRulesArray.push({ field, operator, value });
                 }
                 
-                const field = conditionMatch[1];
-                const operator = conditionMatch[2].toUpperCase();
-                let valueRaw = conditionMatch[3].trim();
-                
-                let value = valueRaw;
-                if (valueRaw.startsWith("'") && valueRaw.endsWith("'")) {
-                    value = valueRaw.slice(1, -1).replace(/''/g, "'");
-                } else if (valueRaw.toUpperCase() === 'TRUE') {
-                    value = true;
-                } else if (valueRaw.toUpperCase() === 'FALSE') {
-                    value = false;
-                } else if (valueRaw.toUpperCase() === 'NULL') {
-                    value = '';
-                } else if (!isNaN(Number(valueRaw)) && valueRaw !== '') {
-                    value = Number(valueRaw);
-                }
-                
-                parsedRulesArray.push({ field, operator, value });
-            }
-            
-            rulesResult = {
-                combinator: finalCombinator,
-                rules: parsedRulesArray
+                return {
+                    combinator: finalCombinator,
+                    rules: parsedRulesArray
+                };
             };
+            
+            rulesResult = parseWhereClause(whereRaw);
         }
         
         return {
@@ -635,6 +760,11 @@ export default function QueryBuilderPage() {
             if (rule.rules) {
                 const sub = compileRulesToWhere(rule);
                 return sub ? `(${sub})` : '';
+            } else if (rule.field?.startsWith('~') && rule.value && typeof rule.value === 'object' && rule.value.rules) {
+                const modeMap = { 'some': 'HAS_ANY', 'all': 'HAS_ALL', 'none': 'HAS_NONE' };
+                const matchModeText = modeMap[rule.matchMode || 'some'];
+                const innerWhere = compileRulesToWhere(rule.value);
+                return innerWhere ? `[${rule.field}] ${matchModeText} (${innerWhere})` : '';
             } else {
                 const field = rule.field;
                 const op = rule.operator;
@@ -671,7 +801,7 @@ export default function QueryBuilderPage() {
     // Format fields for react-querybuilder
     const queryBuilderFields = useMemo(() => {
         if (!schema?.entities || !schema.entities[entity]) return [];
-        return schema.entities[entity].fields.map(f => {
+        const fields = schema.entities[entity].fields.map(f => {
             const hasChoices = f.choices && f.choices.length > 0;
             let type = 'text';
             if (f.type === 'integer' || f.type === 'decimal') type = 'number';
@@ -686,13 +816,80 @@ export default function QueryBuilderPage() {
                 values: hasChoices ? f.choices.map(c => ({ name: c.value, label: c.label })) : undefined
             };
         });
+        
+        const entityDef = schema.entities[entity];
+        if (entityDef.relation_fields) {
+            entityDef.relation_fields.forEach(rf => {
+                fields.push({
+                    name: rf.name,
+                    label: rf.label,
+                    type: 'text',
+                    subproperties: rf.subproperties.map(sp => {
+                        const hasChoices = sp.choices && sp.choices.length > 0;
+                        let spType = 'text';
+                        if (sp.type === 'integer' || sp.type === 'decimal') spType = 'number';
+                        if (sp.type === 'datetime') spType = 'date';
+                        if (sp.type === 'boolean') spType = 'boolean';
+                        return {
+                            name: sp.name,
+                            label: sp.label,
+                            type: spType,
+                            valueEditorType: hasChoices ? 'select' : spType === 'boolean' ? 'checkbox' : 'text',
+                            values: hasChoices ? sp.choices.map(c => ({ name: c.value, label: c.label })) : undefined
+                        };
+                    }),
+                    matchModes: rf.matchModes || ['some', 'all', 'none']
+                });
+            });
+        }
+        return fields;
     }, [schema, entity]);
+
+    const getSubQueryBuilderProps = useCallback((field, { fieldData }) => {
+        return {
+            fields: fieldData?.subproperties || [],
+            showNotToggle: false,
+        };
+    }, []);
 
     // Format header label from field name
     const getHeaderLabel = (colName) => {
         if (!schema?.entities || !schema.entities[entity]) return colName;
+        
+        // Try direct field first
         const fieldObj = schema.entities[entity].fields.find(f => f.name === colName);
-        return fieldObj ? fieldObj.label : colName.replace('__', ' ').title || colName;
+        if (fieldObj) return fieldObj.label;
+        
+        // Try resolving path
+        const resolved = resolvePath(schema, entity, colName);
+        if (resolved && resolved.field) {
+            // For customer__first_name, construct a label like "Customer : First Name"
+            const parts = colName.split('__');
+            const labelParts = [];
+            let currentEnt = entity;
+            for (let i = 0; i < parts.length; i++) {
+                const part = parts[i];
+                const entDef = schema.entities[currentEnt];
+                if (!entDef) break;
+                
+                if (i === parts.length - 1) {
+                    const f = entDef.fields?.find(x => x.name === part);
+                    if (f) labelParts.push(f.label);
+                } else {
+                    const r = entDef.relations?.find(x => x.name === part);
+                    if (r) {
+                        labelParts.push(r.label);
+                        currentEnt = r.target;
+                    }
+                }
+            }
+            if (labelParts.length > 0) {
+                return labelParts.join(' : ');
+            }
+        }
+        
+        // Fallback
+        return colName.replace(/__/g, ' : ').replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
     };
 
     // Render cells nicely
@@ -922,13 +1119,88 @@ export default function QueryBuilderPage() {
         });
     };
 
-    // Column customizer helpers
-    const availableFields = useMemo(() => {
+    // Inline column manager suggestions
+    const colSuggestions = useMemo(() => {
         if (!schema?.entities || !schema.entities[entity]) return [];
-        return schema.entities[entity].fields.filter(
-            f => !columns.includes(f.name) && f.label.toLowerCase().includes(colSearch.toLowerCase())
-        );
-    }, [schema, entity, columns, colSearch]);
+        
+        const lastUnderscoresIdx = colSearchValue.lastIndexOf('__');
+        let targetEntity = entity;
+        let prefixPath = "";
+        let typedAfter = colSearchValue;
+        
+        if (lastUnderscoresIdx !== -1) {
+            prefixPath = colSearchValue.substring(0, lastUnderscoresIdx);
+            typedAfter = colSearchValue.substring(lastUnderscoresIdx + 2);
+            
+            const resolved = resolvePath(schema, entity, prefixPath);
+            if (resolved && resolved.type === 'relation') {
+                targetEntity = resolved.targetEntity;
+            } else {
+                return [];
+            }
+        }
+        
+        const entityDef = schema.entities[targetEntity];
+        if (!entityDef) return [];
+        
+        const list = [];
+        const queryTerm = typedAfter.toLowerCase();
+        
+        if (entityDef.fields) {
+            entityDef.fields.forEach(f => {
+                const fullFieldName = prefixPath ? `${prefixPath}__${f.name}` : f.name;
+                if (columns.includes(fullFieldName)) return;
+                
+                if (f.name.toLowerCase().includes(queryTerm) || f.label.toLowerCase().includes(queryTerm)) {
+                    list.push({
+                        type: 'field',
+                        name: f.name,
+                        fullName: fullFieldName,
+                        displayName: f.label,
+                        rawObj: f
+                    });
+                }
+            });
+        }
+        
+        if (entityDef.relations) {
+            entityDef.relations.forEach(r => {
+                const fullRelName = prefixPath ? `${prefixPath}__${r.name}__` : `${r.name}__`;
+                if (r.name.toLowerCase().includes(queryTerm) || r.label.toLowerCase().includes(queryTerm)) {
+                    list.push({
+                        type: 'relation',
+                        name: r.name,
+                        fullName: fullRelName,
+                        displayName: `${r.label} (Relation)`,
+                        rawObj: r
+                    });
+                }
+            });
+        }
+        
+        list.sort((a, b) => {
+            if (a.type !== b.type) return a.type === 'field' ? -1 : 1;
+            return a.displayName.localeCompare(b.displayName);
+        });
+        
+        return list;
+    }, [schema, entity, columns, colSearchValue]);
+
+    const handleSelectSuggestion = (sug) => {
+        if (sug.type === 'field') {
+            setColumns([...columns, sug.fullName]);
+            setColSearchValue('');
+            setIsColSuggestOpen(false);
+            showToast(`Added column: ${sug.displayName}`, 'success');
+        } else if (sug.type === 'relation') {
+            setColSearchValue(sug.fullName);
+            setIsColSuggestOpen(true);
+            const inputEl = colSearchRef.current?.querySelector('input');
+            if (inputEl) {
+                inputEl.focus();
+            }
+        }
+    };
 
     const handleAddColumn = (colName) => {
         setColumns([...columns, colName]);
@@ -980,10 +1252,7 @@ export default function QueryBuilderPage() {
                     <button className="btn btn-ghost" onClick={handleResetQuery}>
                         + New
                     </button>
-                    <button className="btn btn-ghost" onClick={() => setIsColModalOpen(true)}>
-                        <Columns size={18} />
-                        Columns ({columns.length})
-                    </button>
+                    {/* Columns modal button removed - columns are now managed inline in visual mode */}
                     <GuardedAction permission="reports.manage_queries">
                         <button className="btn btn-ghost" onClick={handleOpenSave}>
                             <Save size={18} />
@@ -1170,11 +1439,107 @@ export default function QueryBuilderPage() {
                         {/* Editor Panels */}
                         <div className="tab-content">
                             {queryType === 'visual' ? (
-                                <QueryBuilder
-                                    fields={queryBuilderFields}
-                                    query={rules}
-                                    onQueryChange={setRules}
-                                />
+                                <div className="visual-builder-panel">
+                                    {/* Inline Columns Manager */}
+                                    <div className="inline-columns-manager">
+                                        <div className="columns-label">
+                                            <span>Selected Columns:</span>
+                                        </div>
+                                        <div className="columns-pills-list">
+                                            {columns.map((col, idx) => (
+                                                <div key={col} className="column-pill">
+                                                    <span className="column-pill-label" title={col}>
+                                                        {getHeaderLabel(col)}
+                                                    </span>
+                                                    <span className="column-pill-path">
+                                                        {col}
+                                                    </span>
+                                                    <div className="column-pill-actions">
+                                                        <button 
+                                                            className="pill-action-btn"
+                                                            disabled={idx === 0}
+                                                            onClick={() => handleMoveColumn(idx, -1)}
+                                                            title="Move left"
+                                                        >
+                                                            ←
+                                                        </button>
+                                                        <button 
+                                                            className="pill-action-btn"
+                                                            disabled={idx === columns.length - 1}
+                                                            onClick={() => handleMoveColumn(idx, 1)}
+                                                            title="Move right"
+                                                        >
+                                                            →
+                                                        </button>
+                                                        <button 
+                                                            className="pill-action-btn remove-btn"
+                                                            onClick={() => handleRemoveColumn(col)}
+                                                            title="Remove column"
+                                                        >
+                                                            ✕
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                            
+                                            {/* Add Column Search / Autocomplete Box */}
+                                            <div className="add-column-wrapper" ref={colSearchRef}>
+                                                <div className="search-input-container">
+                                                    <Plus size={14} className="add-icon" />
+                                                    <input
+                                                        type="text"
+                                                        placeholder="Add column (e.g. customer__first_name)..."
+                                                        value={colSearchValue}
+                                                        onChange={(e) => {
+                                                            setColSearchValue(e.target.value);
+                                                            setIsColSuggestOpen(true);
+                                                        }}
+                                                        onFocus={() => setIsColSuggestOpen(true)}
+                                                        className="add-column-input"
+                                                    />
+                                                    {colSearchValue && (
+                                                        <button 
+                                                            className="clear-search-btn"
+                                                            onClick={() => {
+                                                                setColSearchValue('');
+                                                                setIsColSuggestOpen(false);
+                                                            }}
+                                                        >
+                                                            ✕
+                                                        </button>
+                                                    )}
+                                                </div>
+                                                
+                                                {isColSuggestOpen && colSuggestions.length > 0 && (
+                                                    <ul className="column-suggestions-dropdown">
+                                                        {colSuggestions.map((sug, sIdx) => (
+                                                            <li 
+                                                                key={sIdx} 
+                                                                className={`suggestion-item ${sug.type}`}
+                                                                onClick={() => handleSelectSuggestion(sug)}
+                                                            >
+                                                                <span className="suggestion-name">{sug.displayName}</span>
+                                                                <span className="suggestion-type-badge">{sug.type}</span>
+                                                                {sug.type === 'relation' && <span className="arrow-indicator">→</span>}
+                                                            </li>
+                                                        ))}
+                                                    </ul>
+                                                )}
+                                            </div>
+                                        </div>
+                                        
+                                        <button className="btn btn-sm btn-ghost reset-columns-btn" onClick={handleResetColumns}>
+                                            Reset Defaults
+                                        </button>
+                                    </div>
+                                    
+                                    <QueryBuilder
+                                        fields={queryBuilderFields}
+                                        query={rules}
+                                        onQueryChange={setRules}
+                                        getSubQueryBuilderProps={getSubQueryBuilderProps}
+                                    />
+                                </div>
                             ) : (
                                 <div className="monaco-editor-container">
                                     <Editor
@@ -1249,92 +1614,7 @@ export default function QueryBuilderPage() {
                 </div>
             </div>
 
-            {/* Column Options Modal */}
-            {isColModalOpen && (
-                <div className="modal-overlay">
-                    <div className="modal-content" style={{ maxWidth: '750px', width: '100%' }}>
-                        <h2>Select Display Columns</h2>
-                        <p>Configure which fields are selected in the visual query results.</p>
-                        
-                        <div className="column-options-modal-grid">
-                            {/* Available Fields */}
-                            <div className="column-options-list-box">
-                                <div className="column-options-list-header">
-                                    Available Fields
-                                </div>
-                                <div className="sidebar-search">
-                                    <input 
-                                        type="text" 
-                                        placeholder="Search available fields..." 
-                                        value={colSearch}
-                                        onChange={(e) => setColSearch(e.target.value)}
-                                        className="form-control"
-                                    />
-                                </div>
-                                <div className="column-options-list-items">
-                                    {availableFields.map(field => (
-                                        <div 
-                                            key={field.name} 
-                                            className="column-option-list-item"
-                                            onClick={() => handleAddColumn(field.name)}
-                                        >
-                                            <span>{field.label} <small className="text-muted">({field.name})</small></span>
-                                            <button className="column-option-btn">+</button>
-                                        </div>
-                                    ))}
-                                    {availableFields.length === 0 && (
-                                        <div className="text-muted text-xs text-center py-4">No fields match filter.</div>
-                                    )}
-                                </div>
-                            </div>
-
-                            {/* Selected Columns */}
-                            <div className="column-options-list-box">
-                                <div className="column-options-list-header">
-                                    Selected Columns ({columns.length})
-                                </div>
-                                <div className="column-options-list-items">
-                                    {columns.map((col, idx) => (
-                                        <div key={col} className="column-option-list-item">
-                                            <span>{getHeaderLabel(col)} <small className="text-muted">({col})</small></span>
-                                            <div className="column-option-item-actions">
-                                                <button 
-                                                    className="column-option-btn"
-                                                    disabled={idx === 0}
-                                                    onClick={() => handleMoveColumn(idx, -1)}
-                                                >
-                                                    ↑
-                                                </button>
-                                                <button 
-                                                    className="column-option-btn"
-                                                    disabled={idx === columns.length - 1}
-                                                    onClick={() => handleMoveColumn(idx, 1)}
-                                                >
-                                                    ↓
-                                                </button>
-                                                <button 
-                                                    className="column-option-btn text-danger"
-                                                    onClick={() => handleRemoveColumn(col)}
-                                                >
-                                                    ✕
-                                                </button>
-                                            </div>
-                                        </div>
-                                    ))}
-                                    {columns.length === 0 && (
-                                        <div className="text-muted text-xs text-center py-4">Select at least 1 column.</div>
-                                    )}
-                                </div>
-                            </div>
-                        </div>
-
-                        <div className="modal-actions" style={{ marginTop: '1.5rem' }}>
-                            <button className="btn btn-ghost" onClick={handleResetColumns}>Reset Defaults</button>
-                            <button className="btn btn-primary" onClick={() => setIsColModalOpen(false)}>Apply</button>
-                        </div>
-                    </div>
-                </div>
-            )}
+            {/* Column Options Modal Removed - managed inline */}
 
             {/* Save Query Modal */}
             {isSaveModalOpen && (

@@ -9,7 +9,7 @@ from django.db.models import Q, F, Sum, Subquery, OuterRef, Exists
 from django.db.models.functions import Coalesce
 from django.apps import apps
 from django.utils import timezone
-from django.core.exceptions import ValidationError
+from django.core.exceptions import ValidationError, FieldDoesNotExist
 
 # Whitelisted models and their allowed query fields
 SCHEMA_WHITELIST = {
@@ -368,12 +368,15 @@ TOKEN_SPECIFICATION = [
     ('AND',       r'\bAND\b'),
     ('OR',        r'\bOR\b'),
     ('WAS_EVER',  r'\bWAS\s+EVER\b|\bEVER\b'),
+    ('HAS_ANY',   r'\bHAS_ANY\b|\bHAS\s+ANY\b'),
+    ('HAS_ALL',   r'\bHAS_ALL\b|\bHAS\s+ALL\b'),
+    ('HAS_NONE',  r'\bHAS_NONE\b|\bHAS\s+NONE\b'),
     ('OPERATOR',  r'!=|<=|>=|=|<|>|\bLIKE\b|\bIN\b|\bCONTAINS\b'),
     ('MACRO',     r'@[a-zA-Z_]+(?:\s*[-\+]\s*\d+)?'),
     ('STRING',    r"'[^']*'"),
     ('NUMBER',    r'\d+(?:\.\d+)?'),
     ('BOOLEAN',   r'\bTRUE\b|\bFALSE\b'),
-    ('FIELD',     r'\[[a-zA-Z_0-9\.]+\]|[a-zA-Z_0-9\_\.]+'),
+    ('FIELD',     r'\[~?[a-zA-Z_0-9\.]+\]|~?[a-zA-Z_0-9\_\.]+'),
     ('COMMA',     r','),
     ('SKIP',      r'\s+'),
     ('MISMATCH',  r'.'),
@@ -470,7 +473,53 @@ class AZQLParser:
         if not op_token:
             raise ValidationError(f"Syntax Error: Expected operator after field '{field_path}'")
             
-        if op_token[0] == 'WAS_EVER':
+        if op_token[0] in ('HAS_ANY', 'HAS_ALL', 'HAS_NONE'):
+            if not field_path.startswith('~'):
+                raise ValidationError(f"Syntax Error: Operator {op_token[0]} can only be used with relation subquery fields (e.g., [~orders])")
+            
+            self.consume(op_token[0]) # consume HAS_*
+            self.consume('LPAREN')
+            
+            relation_name = field_path.lstrip('~')
+            ModelClass = apps.get_model(SCHEMA_WHITELIST[self.base_entity]['model'])
+            try:
+                field_obj = ModelClass._meta.get_field(relation_name)
+                target_model = field_obj.related_model
+                target_entity = _get_entity_key(target_model)
+                if not target_entity:
+                    raise ValidationError("Target entity not whitelisted")
+            except Exception:
+                raise ValidationError(f"Invalid relation for subquery: {relation_name}")
+
+            old_entity = self.base_entity
+            self.base_entity = target_entity
+            
+            inner_q = self.parse_or()
+            self.consume('RPAREN')
+            
+            self.base_entity = old_entity
+            
+            match_mode = {'HAS_ANY': 'some', 'HAS_ALL': 'all', 'HAS_NONE': 'none'}[op_token[0]]
+            
+            if getattr(field_obj, 'one_to_many', False):
+                link_field = field_obj.remote_field.name
+            elif getattr(field_obj, 'many_to_many', False):
+                link_field = field_obj.related_query_name()
+            elif field_obj.many_to_one or getattr(field_obj, 'one_to_one', False):
+                link_field = field_obj.name
+            else:
+                raise ValidationError(f"Unsupported relation type for subquery: '{relation_name}'")
+                
+            sub_qs = target_model.objects.filter(**{link_field: OuterRef('pk')}).filter(inner_q)
+            if match_mode == 'none':
+                return ~Exists(sub_qs)
+            elif match_mode == 'all':
+                anti_qs = target_model.objects.filter(**{link_field: OuterRef('pk')}).exclude(inner_q)
+                return ~Exists(anti_qs)
+            else:
+                return Exists(sub_qs)
+            
+        elif op_token[0] == 'WAS_EVER':
             self.consume('WAS_EVER')
             val_token = self.consume()
             val = self.parse_value(val_token)
@@ -487,6 +536,15 @@ class AZQLParser:
         if self.base_entity == 'product':
             if field_path.startswith('order_items__delivery_items__'):
                 return
+                
+        if field_path.startswith('~'):
+            relation_name = field_path.lstrip('~')
+            try:
+                ModelClass = apps.get_model(SCHEMA_WHITELIST[self.base_entity]['model'])
+                ModelClass._meta.get_field(relation_name)
+                return
+            except Exception:
+                raise ValidationError(f"Relation '{relation_name}' is not queryable on '{self.base_entity}' schema")
                 
         if not validate_relation_path(self.base_entity, field_path):
             raise ValidationError(f"Field '{field_path}' is not queryable on '{self.base_entity}' schema")
@@ -719,6 +777,15 @@ class AZQLCompiler:
             
         return qs, selected_columns
 
+def _get_entity_key(model):
+    """Reverse-lookup: given a Django model class, find its SCHEMA_WHITELIST key."""
+    for k, config in SCHEMA_WHITELIST.items():
+        try:
+            if apps.get_model(config['model']) == model:
+                return k
+        except Exception:
+            pass
+    return None
 
 class VisualCompiler:
     """Compiles React-QueryBuilder JSON AST payloads into querysets."""
@@ -767,23 +834,68 @@ class VisualCompiler:
                 else:
                     q_obj = q_obj & sub_q
             else:
-                field = rule['field']
-                operator = rule['operator']
-                value = rule['value']
-                
-                # Basic security validation
-                clean_field = field.strip('[]')
-                if not validate_relation_path(entity, clean_field):
-                    raise ValidationError(f"Field '{clean_field}' is not queryable on '{entity}' schema")
-                    
-                # Compile lookup
-                rule_q = cls.compile_rule(clean_field, operator, value, entity, active_user)
-                if combinator == 'or':
-                    q_obj = q_obj | rule_q
+                field = rule.get('field', '')
+                if field.startswith('~'):
+                    rule_q = cls.compile_relation_filter(rule, entity, active_user)
+                    if combinator == 'or':
+                        q_obj = q_obj | rule_q
+                    else:
+                        q_obj = q_obj & rule_q
                 else:
-                    q_obj = q_obj & rule_q
+                    operator = rule['operator']
+                    value = rule['value']
+                    
+                    # Basic security validation
+                    clean_field = field.strip('[]')
+                    if not validate_relation_path(entity, clean_field):
+                        raise ValidationError(f"Field '{clean_field}' is not queryable on '{entity}' schema")
+                        
+                    # Compile lookup
+                    rule_q = cls.compile_rule(clean_field, operator, value, entity, active_user)
+                    if combinator == 'or':
+                        q_obj = q_obj | rule_q
+                    else:
+                        q_obj = q_obj & rule_q
                     
         return q_obj
+
+    @classmethod
+    def compile_relation_filter(cls, rule, entity, active_user):
+        relation_name = rule['field'].lstrip('~')
+        match_mode = rule.get('matchMode', 'some')
+        sub_rules = rule.get('value', {})
+        
+        ModelClass = apps.get_model(SCHEMA_WHITELIST[entity]['model'])
+        try:
+            field = ModelClass._meta.get_field(relation_name)
+        except Exception:
+            raise ValidationError(f"Relation '{relation_name}' not found on '{entity}'")
+        
+        target_model = field.related_model
+        target_entity = _get_entity_key(target_model)
+        if not target_entity:
+            raise ValidationError(f"Relation target for '{relation_name}' is not whitelisted")
+            
+        inner_q = cls.parse_group(sub_rules, target_entity, active_user)
+        
+        if getattr(field, 'one_to_many', False):
+            link_field = field.remote_field.name
+        elif getattr(field, 'many_to_many', False):
+            link_field = field.related_query_name()
+        elif field.many_to_one or getattr(field, 'one_to_one', False):
+            link_field = field.name
+        else:
+            raise ValidationError(f"Unsupported relation type for subquery: '{relation_name}'")
+            
+        sub_qs = target_model.objects.filter(**{link_field: OuterRef('pk')}).filter(inner_q)
+        
+        if match_mode == 'none':
+            return ~Exists(sub_qs)
+        elif match_mode == 'all':
+            anti_qs = target_model.objects.filter(**{link_field: OuterRef('pk')}).exclude(inner_q)
+            return ~Exists(anti_qs)
+        else:
+            return Exists(sub_qs)
 
     @classmethod
     def compile_rule(cls, field, operator, value, entity, active_user):

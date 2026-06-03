@@ -437,7 +437,7 @@ class AZQLAPIViewSetTestCase(APITestCase):
         self.assertEqual(len(response.data['results'] if 'results' in response.data else response.data), 0)
 
     def test_dynamic_schema_endpoint(self):
-        """Verify that the schema metadata endpoint returns dynamic relation traversals."""
+        """Verify that the schema metadata endpoint returns direct fields and relations."""
         self.client.force_authenticate(user=self.manager_user)
         response = self.client.get('/api/reports/queries/schema/')
         self.assertEqual(response.status_code, 200)
@@ -446,17 +446,31 @@ class AZQLAPIViewSetTestCase(APITestCase):
         self.assertIn('entities', data)
         self.assertIn('order', data['entities'])
         
-        # Verify customer relation fields are included in order entity schema
-        fields = data['entities']['order']['fields']
-        field_names = [f['name'] for f in fields]
+        # Verify order has direct fields and customer relation
+        order_entity = data['entities']['order']
+        field_names = [f['name'] for f in order_entity['fields']]
+        relation_names = [r['name'] for r in order_entity['relations']]
         
-        self.assertIn('customer__first_name', field_names)
-        self.assertIn('customer__last_name', field_names)
-        self.assertIn('customer__wallet__balance', field_names)
+        # Direct fields should be present, not nested paths
+        self.assertNotIn('customer__first_name', field_names)
+        self.assertIn('customer', relation_names)
         
-        # Find customer__first_name and check label
-        fn_field = next(f for f in fields if f['name'] == 'customer__first_name')
-        self.assertEqual(fn_field['label'], "Customer : First Name")
+        # Find customer relation target
+        cust_rel = next(r for r in order_entity['relations'] if r['name'] == 'customer')
+        self.assertEqual(cust_rel['target'], 'customer')
+        
+        # Verify customer entity has first_name field and wallet relation
+        customer_entity = data['entities']['customer']
+        cust_fields = [f['name'] for f in customer_entity['fields']]
+        cust_relations = [r['name'] for r in customer_entity['relations']]
+        
+        self.assertIn('first_name', cust_fields)
+        self.assertIn('wallet', cust_relations)
+        
+        # Verify wallet entity has balance field
+        wallet_entity = data['entities']['wallet']
+        wallet_fields = [f['name'] for f in wallet_entity['fields']]
+        self.assertIn('balance', wallet_fields)
 
     def test_reverse_relation_query_deduplication(self):
         """Verify that reverse relation queries compile successfully and distinct() prevents duplication."""
@@ -499,15 +513,27 @@ class AZQLAPIViewSetTestCase(APITestCase):
         self.assertEqual(results[0]['first_name'], 'Alpesh')
 
     def test_schema_endpoint_includes_reverse_relations(self):
-        """Verify that the schema metadata endpoint includes reverse one-to-many relationships at depth 3."""
+        """Verify that the schema metadata endpoint includes reverse one-to-many relationships."""
         self.client.force_authenticate(user=self.manager_user)
         response = self.client.get('/api/reports/queries/schema/')
         self.assertEqual(response.status_code, 200)
         
-        # Verify that customer entity fields list includes deep reverse relation
-        customer_fields = response.data['entities']['customer']['fields']
-        field_names = [f['name'] for f in customer_fields]
-        self.assertIn('orders__items__product__name', field_names)
+        data = response.data
+        # Verify that customer entity relations include orders
+        customer_relations = [r['name'] for r in data['entities']['customer']['relations']]
+        self.assertIn('orders', customer_relations)
+        
+        # Verify orders target order
+        orders_rel = next(r for r in data['entities']['customer']['relations'] if r['name'] == 'orders')
+        self.assertEqual(orders_rel['target'], 'order')
+        
+        # Verify order relations include items (orderitem)
+        order_relations = [r['name'] for r in data['entities']['order']['relations']]
+        self.assertIn('items', order_relations)
+        
+        # Verify orderitem relations include product
+        item_relations = [r['name'] for r in data['entities']['orderitem']['relations']]
+        self.assertIn('product', item_relations)
 
     def test_reverse_relation_sibling_and_conditions(self):
         """Verify that multiple logical AND conditions on a reverse relation are compiled into independent Exists subqueries."""

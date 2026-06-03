@@ -842,65 +842,7 @@ def get_field_label(model_class, field_path):
     return field_path.replace('__', ' ').title()
 
 
-def get_reachable_fields(entity_key, current_prefix="", current_model=None, depth=0, visited_models=None):
-    if visited_models is None:
-        visited_models = set()
-        
-    if depth > 3:  # Limit relation nesting depth to allow 3-hop joins (4 tables)
-        return []
-        
-    config = SCHEMA_WHITELIST.get(entity_key)
-    if not config:
-        return []
-        
-    if not current_model:
-        try:
-            current_model = apps.get_model(config['model'])
-        except Exception:
-            return []
-            
-    visited_models.add(current_model)
-    reachable = []
-    
-    # 1. Add whitelisted fields for this model
-    for f in config['fields']:
-        name = f"{current_prefix}{f}" if current_prefix else f
-        reachable.append((name, current_model, f))
-        
-    # 2. Traverse relations to other whitelisted models
-    try:
-        fields = current_model._meta.get_fields()
-    except Exception:
-        fields = []
-        
-    for field in fields:
-        if field.is_relation and field.related_model:
-            rel_model = field.related_model
-            if rel_model in visited_models:
-                continue
-                
-            # Check if rel_model is whitelisted
-            rel_key = None
-            for k, cfg in SCHEMA_WHITELIST.items():
-                try:
-                    if apps.get_model(cfg['model']) == rel_model:
-                        rel_key = k
-                        break
-                except Exception:
-                    pass
-                    
-            if rel_key:
-                prefix = f"{current_prefix}{field.name}__" if current_prefix else f"{field.name}__"
-                sub_fields = get_reachable_fields(
-                    rel_key,
-                    current_prefix=prefix,
-                    current_model=rel_model,
-                    depth=depth+1,
-                    visited_models=visited_models.copy()
-                )
-                reachable.extend(sub_fields)
-                
-    return reachable
+# get_reachable_fields has been deprecated in favor of dynamic client-side path crawling.
 
 
 class QueryViewSet(viewsets.ModelViewSet):
@@ -982,12 +924,12 @@ class QueryViewSet(viewsets.ModelViewSet):
                 with transaction.atomic(using=db_alias):
                     if connections[db_alias].vendor == 'postgresql':
                         with connections[db_alias].cursor() as cursor:
-                            cursor.execute("SET LOCAL statement_timeout = 5000")
+                            cursor.execute("SET LOCAL statement_timeout = 7500")
                     results = list(qs.distinct()[:100])
             except utils.OperationalError as e:
                 if "timeout" in str(e).lower() or "cancel" in str(e).lower():
                     return Response(
-                        {"error": "Query execution timed out. Maximum limit is 5000ms."},
+                        {"error": "Query execution timed out. Maximum limit is 7500ms."},
                         status=status.HTTP_400_BAD_REQUEST
                     )
                 raise
@@ -1015,44 +957,117 @@ class QueryViewSet(viewsets.ModelViewSet):
                 entity_label = entity_key.title()
                 model_class = None
                 
-            reachable_fields = get_reachable_fields(entity_key)
-            unique_fields = []
-            seen_names = set()
-            for name, m_class, f_path in reachable_fields:
-                if name not in seen_names:
-                    seen_names.add(name)
-                    unique_fields.append((name, m_class, f_path))
-            
-            # Sort unique fields by name
-            unique_fields.sort(key=lambda x: x[0])
-            
             fields_data = []
-            for name, m_class, f_path in unique_fields:
-                choices = None
-                field_type = "string"
-                field_label = name.replace('__', ' ').title()
+            relations_data = []
+            
+            if model_class:
+                # 1. Direct fields
+                for f_name in config['fields']:
+                    # We whitelist these fields. If a field contains '__', it is a nested path.
+                    if '__' in f_name:
+                        continue
+                    
+                    try:
+                        field = model_class._meta.get_field(f_name)
+                        choices = None
+                        if field.choices:
+                            choices = [{'value': val, 'label': label} for val, label in field.choices]
+                            
+                        # Determine field type
+                        internal_type = field.get_internal_type()
+                        field_type = "string"
+                        if internal_type in ('IntegerField', 'PositiveIntegerField', 'PositiveSmallIntegerField', 'SmallIntegerField', 'BigIntegerField'):
+                            field_type = "integer"
+                        elif internal_type in ('DecimalField', 'FloatField'):
+                            field_type = "decimal"
+                        elif internal_type in ('DateTimeField', 'DateField'):
+                            field_type = "datetime"
+                        elif internal_type == 'BooleanField':
+                            field_type = "boolean"
+                            
+                        fields_data.append({
+                            'name': f_name,
+                            'label': str(field.verbose_name).title(),
+                            'type': field_type,
+                            'choices': choices
+                        })
+                    except Exception:
+                        # Fallback for custom whitelisted properties
+                        fields_data.append({
+                            'name': f_name,
+                            'label': f_name.replace('_', ' ').title(),
+                            'type': "string",
+                            'choices': None
+                        })
                 
-                if m_class:
-                    choices = get_field_choices(m_class, f_path)
-                    field_type = get_field_type(m_class, f_path)
-                    field_label = get_field_label(m_class, f_path)
+                # Sort fields by label
+                fields_data.sort(key=lambda x: x['label'])
+                
+                # 2. Direct relations to whitelisted models
+                try:
+                    all_fields = model_class._meta.get_fields()
+                except Exception:
+                    all_fields = []
                     
-                # If name has relation prefix, prefix the label nicely
-                if '__' in name:
-                    prefix_label = " → ".join([p.replace('_', ' ').title() for p in name.split('__')[:-1]])
-                    field_label = f"{prefix_label} : {field_label}"
-                    
-                fields_data.append({
-                    'name': name,
-                    'label': field_label,
-                    'type': field_type,
-                    'choices': choices
-                })
+                for field in all_fields:
+                    if field.is_relation and field.related_model:
+                        rel_model = field.related_model
+                        # Find whitelisted key for rel_model
+                        rel_key = None
+                        for k, cfg in SCHEMA_WHITELIST.items():
+                            try:
+                                if apps.get_model(cfg['model']) == rel_model:
+                                    rel_key = k
+                                    break
+                            except Exception:
+                                pass
+                        if rel_key:
+                            is_forward_fk = field.many_to_one or getattr(field, 'one_to_one', False)
+                            relations_data.append({
+                                'name': field.name,
+                                'target': rel_key,
+                                'label': field.name.replace('_', ' ').title(),
+                                'is_forward_fk': bool(is_forward_fk)
+                            })
+                            
+                # Sort relations by name
+                relations_data.sort(key=lambda x: x['name'])
                 
             schema_data[entity_key] = {
                 'label': entity_label,
-                'fields': fields_data
+                'fields': fields_data,
+                'relations': relations_data
             }
+            
+        def build_relation_fields(e_key, visited):
+            if len(visited) > 2:
+                return []
+            rel_fields = []
+            for rel in schema_data[e_key]['relations']:
+                target = rel['target']
+                if target in visited:
+                    continue
+                
+                subprops = list(schema_data[target]['fields'])
+                target_rel_fields = build_relation_fields(target, visited | {target})
+                if target_rel_fields:
+                    subprops.extend(target_rel_fields)
+                
+                match_modes = ['some', 'none'] if rel.get('is_forward_fk') else ['some', 'all', 'none']
+                
+                rel_fields.append({
+                    'name': f"~{rel['name']}",
+                    'label': f"📦 {rel['label']} (has any/all/none matching...)",
+                    'type': 'relation_subquery',
+                    'target_entity': target,
+                    'relation_name': rel['name'],
+                    'subproperties': subprops,
+                    'matchModes': match_modes
+                })
+            return rel_fields
+            
+        for entity_key in schema_data:
+            schema_data[entity_key]['relation_fields'] = build_relation_fields(entity_key, {entity_key})
             
         operators = [
             {'value': '=', 'label': '='},
@@ -1064,7 +1079,10 @@ class QueryViewSet(viewsets.ModelViewSet):
             {'value': 'LIKE', 'label': 'LIKE'},
             {'value': 'CONTAINS', 'label': 'CONTAINS'},
             {'value': 'IN', 'label': 'IN'},
-            {'value': 'WAS EVER', 'label': 'WAS EVER'}
+            {'value': 'WAS EVER', 'label': 'WAS EVER'},
+            {'value': 'HAS_ANY', 'label': 'HAS ANY'},
+            {'value': 'HAS_ALL', 'label': 'HAS ALL'},
+            {'value': 'HAS_NONE', 'label': 'HAS NONE'}
         ]
         
         return Response({
