@@ -23,7 +23,8 @@ import {
     CheckCircle,
     AlertCircle,
     Info,
-import { FileText } from 'lucide-react';
+    FileText
+} from 'lucide-react';
 // import 'react-querybuilder/dist/query-builder.css'; // Removed old UI css
 import './QueryBuilder.css';
 import AggregateColumnModal from './AggregateColumnModal';
