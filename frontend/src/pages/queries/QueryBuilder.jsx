@@ -63,7 +63,7 @@ const resolvePath = (schema, baseEntity, path) => {
 };
 
 export default function QueryBuilderPage() {
-    const { fetchWithAuth, rbac } = useAuth();
+    const { fetchWithAuth, rbac, user } = useAuth();
     const { showToast } = useToast();
     const { currency } = useCurrency();
 
@@ -1294,7 +1294,7 @@ export default function QueryBuilderPage() {
                                 {/* Personal section */}
                                 <div className="queries-section">
                                     <h4>My Queries</h4>
-                                    {savedQueries.filter(q => q.created_by === rbac?.user_id || (!q.is_shared && q.created_by_name === rbac?.username)).map(query => (
+                                    {savedQueries.filter(q => q.created_by === user?.id || (!q.is_shared && q.created_by_name === user?.username)).map(query => (
                                         <div 
                                             key={query.id} 
                                             className={`query-item ${activeQuery?.id === query.id ? 'active' : ''}`}
@@ -1302,14 +1302,14 @@ export default function QueryBuilderPage() {
                                         >
                                             <div className="query-item-name">{query.name}</div>
                                             <div className="query-item-entity">{query.entity}</div>
-                                            {((query.created_by === rbac?.user_id) || isSystemAdmin) && (
+                                            {((query.created_by === user?.id) || isSystemAdmin) && (
                                                 <button className="icon-btn btn-sm text-danger" onClick={(e) => handleDeleteQuery(query, e)}>
                                                     <Trash2 size={14} />
                                                 </button>
                                             )}
                                         </div>
                                     ))}
-                                    {savedQueries.filter(q => q.created_by === rbac?.user_id || (!q.is_shared && q.created_by_name === rbac?.username)).length === 0 && (
+                                    {savedQueries.filter(q => q.created_by === user?.id || (!q.is_shared && q.created_by_name === user?.username)).length === 0 && (
                                         <div className="text-muted text-xs px-4 py-2">No personal queries saved.</div>
                                     )}
                                 </div>
