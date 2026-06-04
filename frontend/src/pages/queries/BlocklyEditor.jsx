@@ -19,6 +19,10 @@ const BlocklyEditor = ({ initialXml, schema, entity, onWorkspaceChange }) => {
         window.azqlActiveEntity = entity;
     }, [schema, entity]);
 
+    const [toolboxVisible, setToolboxVisible] = React.useState(true);
+    const [canUndo, setCanUndo] = React.useState(false);
+    const [canRedo, setCanRedo] = React.useState(false);
+
     useEffect(() => {
         if (!blocklyDiv.current) return;
 
@@ -62,6 +66,15 @@ const BlocklyEditor = ({ initialXml, schema, entity, onWorkspaceChange }) => {
             theme: DarkTheme,
             scrollbars: true,
             trashcan: true,
+            zoom: {
+                controls: true,
+                wheel: true,
+                startScale: 1.0,
+                maxScale: 3,
+                minScale: 0.3,
+                scaleSpeed: 1.2,
+                pinch: true
+            },
             grid: {
                 spacing: 20,
                 length: 3,
@@ -73,6 +86,11 @@ const BlocklyEditor = ({ initialXml, schema, entity, onWorkspaceChange }) => {
         workspaceRef.current = workspace;
 
         const handleChange = (e) => {
+            if (e.type === Blockly.Events.BLOCK_CREATE || e.type === Blockly.Events.BLOCK_DELETE || e.type === Blockly.Events.BLOCK_CHANGE || e.type === Blockly.Events.BLOCK_MOVE) {
+                setCanUndo(workspace.undoStack_.length > 0);
+                setCanRedo(workspace.redoStack_.length > 0);
+            }
+            
             if (e.isUiEvent) return;
             
             try {
@@ -101,12 +119,71 @@ const BlocklyEditor = ({ initialXml, schema, entity, onWorkspaceChange }) => {
         };
     }, []);
 
+    // Effect to toggle toolbox class and trigger resize
+    useEffect(() => {
+        if (blocklyDiv.current && workspaceRef.current) {
+            if (toolboxVisible) {
+                blocklyDiv.current.classList.remove('toolbox-hidden');
+            } else {
+                blocklyDiv.current.classList.add('toolbox-hidden');
+            }
+            // Trigger a resize to fill the space
+            setTimeout(() => {
+                Blockly.svgResize(workspaceRef.current);
+            }, 50);
+        }
+    }, [toolboxVisible]);
+
+    const handleUndo = () => {
+        if (workspaceRef.current) workspaceRef.current.undo(false);
+    };
+
+    const handleRedo = () => {
+        if (workspaceRef.current) workspaceRef.current.undo(true);
+    };
+
     return (
-        <div 
-            className="blockly-editor-container"
-            ref={blocklyDiv} 
-            style={{ height: '600px', width: '100%', borderRadius: 'var(--radius-lg)', overflow: 'hidden' }}
-        />
+        <div style={{ position: 'relative', height: '600px', width: '100%', borderRadius: 'var(--radius-lg)', overflow: 'hidden' }}>
+            <div className="blockly-editor-controls" style={{ position: 'absolute', top: '10px', right: '10px', zIndex: 100, display: 'flex', gap: '8px' }}>
+                <button 
+                    className="btn btn-sm btn-ghost" 
+                    onClick={handleUndo} 
+                    disabled={!canUndo}
+                    style={{ background: 'var(--color-bg-elevated)', border: '1px solid var(--color-border)', color: canUndo ? 'var(--color-text-primary)' : 'var(--color-text-muted)' }}
+                    title="Undo"
+                >
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 7v6h6"/><path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13"/></svg>
+                </button>
+                <button 
+                    className="btn btn-sm btn-ghost" 
+                    onClick={handleRedo} 
+                    disabled={!canRedo}
+                    style={{ background: 'var(--color-bg-elevated)', border: '1px solid var(--color-border)', color: canRedo ? 'var(--color-text-primary)' : 'var(--color-text-muted)' }}
+                    title="Redo"
+                >
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 7v6h-6"/><path d="M3 17a9 9 0 0 1 9-9 9 9 0 0 1 6 2.3l3 2.7"/></svg>
+                </button>
+                <button 
+                    className="btn btn-sm btn-ghost" 
+                    onClick={() => setToolboxVisible(!toolboxVisible)}
+                    style={{ background: 'var(--color-bg-elevated)', border: '1px solid var(--color-border)' }}
+                    title={toolboxVisible ? "Hide Toolbox" : "Show Toolbox"}
+                >
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        {toolboxVisible ? (
+                            <><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="9" y1="3" x2="9" y2="21"/></>
+                        ) : (
+                            <><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="15" y1="3" x2="15" y2="21"/></>
+                        )}
+                    </svg>
+                </button>
+            </div>
+            <div 
+                className={`blockly-editor-container ${!toolboxVisible ? 'toolbox-hidden' : ''}`}
+                ref={blocklyDiv} 
+                style={{ height: '100%', width: '100%' }}
+            />
+        </div>
     );
 };
 
