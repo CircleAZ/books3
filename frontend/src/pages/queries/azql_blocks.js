@@ -70,10 +70,9 @@ const defineBlocks = () => {
         init: function() {
             this.appendValueInput("LEFT")
                 .setCheck(["Condition", "LogicalGroup"]);
-            this.appendDummyInput()
-                .appendField(new Blockly.FieldDropdown([["AND", "and"], ["OR", "or"]]), "OPERATOR");
             this.appendValueInput("RIGHT")
-                .setCheck(["Condition", "LogicalGroup"]);
+                .setCheck(["Condition", "LogicalGroup"])
+                .appendField(new Blockly.FieldDropdown([["AND", "and"], ["OR", "or"]]), "OPERATOR");
             this.setInputsInline(true);
             this.setOutput(true, "LogicalGroup");
             this.setColour("#FF9F1C");
@@ -85,12 +84,11 @@ const defineBlocks = () => {
     Blockly.Blocks['azql_condition'] = {
         init: function() {
             // Using dynamic dropdown for FIELD
-            this.appendDummyInput()
+            this.appendValueInput("VALUE")
                 .appendField(new Blockly.FieldDropdown(() => getFieldOptions(this)), "FIELD")
                 .appendField(new Blockly.FieldDropdown([
                     ["=", "="], ["!=", "!="], [">", ">"], ["<", "<"], ["LIKE", "LIKE"], ["IN", "IN"]
                 ]), "OPERATOR");
-            this.appendValueInput("VALUE");
             this.setInputsInline(true);
             this.setOutput(true, "Condition");
             this.setColour("#2EC4B6");
@@ -164,14 +162,15 @@ const defineBlocks = () => {
     // 7. Relation Subquery (HAS_ANY)
     Blockly.Blocks['azql_relation_filter'] = {
         init: function() {
-            this.appendDummyInput()
+            this.appendValueInput("CONDITIONS")
+                .setCheck(["Condition", "LogicalGroup"])
                 .appendField("Relation")
                 .appendField(new Blockly.FieldDropdown(() => getRelationOptions(this)), "RELATION")
                 .appendField(new Blockly.FieldDropdown([
                     ["HAS ANY", "HAS_ANY"], ["HAS ALL", "HAS_ALL"], ["HAS NONE", "HAS_NONE"]
-                ]), "OPERATOR");
-            this.appendValueInput("CONDITIONS")
-                .setCheck(["Condition", "LogicalGroup"]);
+                ]), "OPERATOR")
+                .appendField("WHERE");
+            this.setInputsInline(true);
             this.setOutput(true, "Condition");
             this.setColour("#2EC4B6");
         }
