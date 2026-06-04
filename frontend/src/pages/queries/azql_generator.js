@@ -12,6 +12,14 @@ azqlGenerator.valueToCode = function(block, name, order) {
     return this.blockToCode(targetBlock);
 };
 
+azqlGenerator.blockToCode = function(block) {
+    if (!block) return null;
+    if (this.forBlock[block.type]) {
+        return this.forBlock[block.type](block, this);
+    }
+    return null;
+};
+
 // Root Query Block
 azqlGenerator.forBlock['azql_query'] = function(block, generator) {
     const entity = block.getFieldValue('ENTITY');
@@ -42,7 +50,7 @@ azqlGenerator.forBlock['azql_query'] = function(block, generator) {
     const ast = {
         query_type: 'visual',
         entity: entity,
-        columns: columns.length > 0 ? columns : null,
+        columns: columns,
         aggregates: aggregates,
         rules: whereTree || { combinator: 'and', rules: [] }
     };
