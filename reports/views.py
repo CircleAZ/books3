@@ -824,22 +824,8 @@ def get_field_type(model_class, field_path):
 
 
 def get_field_label(model_class, field_path):
-    parts = field_path.split('__')
-    current_model = model_class
-    for part in parts[:-1]:
-        try:
-            field = current_model._meta.get_field(part)
-            current_model = field.related_model
-            if not current_model:
-                return field_path.replace('__', ' ').title()
-        except Exception:
-            return field_path.replace('__', ' ').title()
-    try:
-        final_field = current_model._meta.get_field(parts[-1])
-        return str(final_field.verbose_name).title()
-    except Exception:
-        pass
-    return field_path.replace('__', ' ').title()
+    # Format the full path to preserve relationship context (e.g., 'product__name' -> 'Product Name')
+    return field_path.replace('__', ' ').replace('_', ' ').title()
 
 
 # get_reachable_fields has been deprecated in favor of dynamic client-side path crawling.

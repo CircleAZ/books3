@@ -22,7 +22,10 @@ azqlGenerator.forBlock['azql_query'] = function(block, generator) {
     
     let selectBlock = block.getInputTargetBlock('SELECT');
     while (selectBlock) {
-        const item = generator.blockToCode(selectBlock);
+        let item = null;
+        if (generator.forBlock[selectBlock.type]) {
+            item = generator.forBlock[selectBlock.type](selectBlock, generator);
+        }
         if (item) {
             if (item.type === 'column') {
                 columns.push(item.field);
