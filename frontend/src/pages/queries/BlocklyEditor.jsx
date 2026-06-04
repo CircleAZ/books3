@@ -23,46 +23,45 @@ const BlocklyEditor = ({ initialXml, schema, entity, onWorkspaceChange }) => {
     const [canUndo, setCanUndo] = React.useState(false);
     const [canRedo, setCanRedo] = React.useState(false);
 
+    const toolboxDefinition = {
+        kind: 'categoryToolbox',
+        contents: [
+            {
+                kind: 'category',
+                name: 'Root',
+                colour: '#2E5BFF',
+                contents: [
+                    { kind: 'block', type: 'azql_query' }
+                ]
+            },
+            {
+                kind: 'category',
+                name: 'Columns & Aggregates',
+                colour: '#9D4EDD',
+                contents: [
+                    { kind: 'block', type: 'azql_column' },
+                    { kind: 'block', type: 'azql_aggregate' }
+                ]
+            },
+            {
+                kind: 'category',
+                name: 'Filters & Logic',
+                colour: '#2EC4B6',
+                contents: [
+                    { kind: 'block', type: 'azql_condition' },
+                    { kind: 'block', type: 'azql_relation_filter' },
+                    { kind: 'block', type: 'azql_logical' },
+                    { kind: 'block', type: 'azql_value' }
+                ]
+            }
+        ]
+    };
+
     useEffect(() => {
         if (!blocklyDiv.current) return;
 
-        // Toolbox defines what blocks are available
-        const toolbox = {
-            kind: 'categoryToolbox',
-            contents: [
-                {
-                    kind: 'category',
-                    name: 'Root',
-                    colour: '#2E5BFF',
-                    contents: [
-                        { kind: 'block', type: 'azql_query' }
-                    ]
-                },
-                {
-                    kind: 'category',
-                    name: 'Columns & Aggregates',
-                    colour: '#9D4EDD',
-                    contents: [
-                        { kind: 'block', type: 'azql_column' },
-                        { kind: 'block', type: 'azql_aggregate' }
-                    ]
-                },
-                {
-                    kind: 'category',
-                    name: 'Filters & Logic',
-                    colour: '#2EC4B6',
-                    contents: [
-                        { kind: 'block', type: 'azql_condition' },
-                        { kind: 'block', type: 'azql_relation_filter' },
-                        { kind: 'block', type: 'azql_logical' },
-                        { kind: 'block', type: 'azql_value' }
-                    ]
-                }
-            ]
-        };
-
         const workspace = Blockly.inject(blocklyDiv.current, {
-            toolbox: toolbox,
+            toolbox: toolboxDefinition,
             theme: DarkTheme,
             scrollbars: true,
             trashcan: true,
