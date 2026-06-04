@@ -1039,7 +1039,13 @@ export default function QueryBuilderPage() {
                 });
             } else {
                 const data = await response.json();
-                showToast(data.error || 'Failed to save query', 'error');
+                let errMsg = data.error || 'Failed to save query';
+                if (data.name && Array.isArray(data.name)) errMsg = data.name[0];
+                else if (typeof data === 'object' && Object.keys(data).length > 0 && !data.error) {
+                    const firstKey = Object.keys(data)[0];
+                    if (Array.isArray(data[firstKey])) errMsg = `${firstKey}: ${data[firstKey][0]}`;
+                }
+                showToast(errMsg, 'error');
             }
         } catch (error) {
             showToast('Error saving query', 'error');

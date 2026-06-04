@@ -37,6 +37,20 @@ class SavedQuerySerializer(serializers.ModelSerializer):
             return obj.created_by.get_full_name() or obj.created_by.username
         return ""
         
+    def validate_name(self, value):
+        request = self.context.get('request')
+        if not request or not request.user.is_authenticated:
+            return value
+            
+        qs = SavedQuery.objects.filter(name=value, created_by=request.user, is_deleted=False)
+        if self.instance:
+            qs = qs.exclude(id=self.instance.id)
+            
+        for query in qs:
+            if query.name == value:
+                raise serializers.ValidationError("A query with this exact name already exists.")
+        return value
+        
     def create(self, validated_data):
         validated_data['created_by'] = self.context['request'].user
         return super().create(validated_data)
