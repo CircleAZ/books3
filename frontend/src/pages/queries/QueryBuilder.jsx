@@ -1007,6 +1007,7 @@ export default function QueryBuilderPage() {
                 rules: rules,
                 azql_text: azqlText,
                 columns: columns,
+                aggregates: aggregates,
                 is_shared: saveIsShared
             };
 

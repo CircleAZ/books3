@@ -27,7 +27,7 @@ class SavedQuerySerializer(serializers.ModelSerializer):
         model = SavedQuery
         fields = [
             'id', 'name', 'entity', 'query_type', 'rules', 'azql_text', 
-            'columns', 'is_shared', 'created_by', 'created_by_name', 
+            'columns', 'aggregates', 'is_shared', 'created_by', 'created_by_name', 
             'created_at', 'updated_at'
         ]
         read_only_fields = ['id', 'created_by', 'created_at', 'updated_at']
@@ -47,7 +47,7 @@ class QueryStateHistorySerializer(serializers.ModelSerializer):
         model = QueryStateHistory
         fields = [
             'id', 'saved_query', 'name', 'entity', 'query_type', 
-            'rules', 'azql_text', 'columns', 'is_safe', 'created_at'
+            'rules', 'azql_text', 'columns', 'aggregates', 'is_safe', 'created_at'
         ]
         read_only_fields = ['id', 'created_at']
         

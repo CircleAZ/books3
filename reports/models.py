@@ -88,6 +88,7 @@ class SavedQuery(SoftDeleteModel):
     rules = models.JSONField(null=True, blank=True, help_text="JSON AST tree representation for visual query builder")
     azql_text = models.TextField(null=True, blank=True, help_text="Raw text representation of AZQL query")
     columns = models.JSONField(default=list, help_text="Ordered list of display columns")
+    aggregates = models.JSONField(default=list, help_text="Array of aggregate definitions")
     is_shared = models.BooleanField(default=False, help_text="Whether this query is shared team-wide")
     created_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
@@ -132,6 +133,7 @@ class QueryStateHistory(models.Model):
     rules = models.JSONField(null=True, blank=True)
     azql_text = models.TextField(null=True, blank=True)
     columns = models.JSONField(default=list)
+    aggregates = models.JSONField(default=list)
     is_safe = models.BooleanField(default=False, help_text="Set to True when query executed successfully")
     created_at = models.DateTimeField(auto_now_add=True)
     
