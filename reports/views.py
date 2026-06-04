@@ -966,6 +966,12 @@ class QueryViewSet(viewsets.ModelViewSet):
                 for f_name in config['fields']:
                     # We whitelist these fields. If a field contains '__', it is a nested path.
                     if '__' in f_name:
+                        fields_data.append({
+                            'name': f_name,
+                            'label': get_field_label(model_class, f_name),
+                            'type': get_field_type(model_class, f_name),
+                            'choices': get_field_choices(model_class, f_name)
+                        })
                         continue
                     
                     try:
