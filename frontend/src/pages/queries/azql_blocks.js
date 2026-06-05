@@ -4,7 +4,7 @@ import * as Blockly from 'blockly/core';
 function resolveContextEntity(block) {
     let current = block.getSurroundParent();
     while (current) {
-        if (current.type === 'azql_relation_filter') {
+        if (current.type === 'azql_relation_filter' || current.type === 'azql_aggregate') {
             let relName = current.getFieldValue('RELATION');
             let parentEntity = resolveContextEntity(current);
             if (parentEntity && window.azqlSchema && window.azqlSchema.entities && window.azqlSchema.entities[parentEntity]) {

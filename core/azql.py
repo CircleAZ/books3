@@ -777,8 +777,19 @@ class VisualCompiler:
                 
             # Resolve target model dynamically using schema whitelist / ORM instead of RELATION_MAP
             try:
-                relation_field = ModelClass._meta.get_field(relation)
-                TargetModel = relation_field.related_model
+                current_model = ModelClass
+                parts = relation.split('__')
+                backward_steps = []
+                for part in parts:
+                    field_obj = current_model._meta.get_field(part)
+                    if field_obj.one_to_many:
+                        link_field = field_obj.remote_field.name
+                    else:
+                        link_field = field_obj.related_query_name()
+                    backward_steps.insert(0, link_field)
+                    current_model = field_obj.related_model
+                TargetModel = current_model
+                outer_ref = '__'.join(backward_steps)
                 if not TargetModel:
                     raise ValidationError(f"Relation '{relation}' is not a valid relational field on '{entity}'")
             except Exception:
@@ -793,9 +804,6 @@ class VisualCompiler:
             if not validate_relation_path(target_key, field):
                 raise ValidationError(f"Field '{field}' is not queryable on '{target_key}' schema for aggregation")
                 
-            # The outer_ref for the subquery will be the reverse name of the relation on the target model.
-            outer_ref = relation_field.remote_field.name if relation_field.remote_field else relation_field.name
-            
             sub_q = TargetModel.objects.filter(**{outer_ref: OuterRef('pk')})
             if inline_q:
                 sub_q = sub_q.filter(inline_q)

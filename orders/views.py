@@ -98,7 +98,7 @@ class OrderViewSet(viewsets.ModelViewSet):
         if self.action in ('list', 'drafts'):
             qs = Order.objects.select_related('customer').annotate(
                 **self._shared_annotations
-            )
+            ).order_by('-created_at')
         else:
             # ── Fat path: retrieve, create, update, custom actions ──
             qs = Order.objects.select_related(
@@ -111,7 +111,7 @@ class OrderViewSet(viewsets.ModelViewSet):
                 'deliveries__delivered_by',
                 'status_history',
                 'refunds'
-            ).annotate(**self._shared_annotations)
+            ).annotate(**self._shared_annotations).order_by('-created_at')
 
         # ── Access control ──
         user = self.request.user

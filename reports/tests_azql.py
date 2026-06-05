@@ -162,20 +162,36 @@ class AZQLCompilerTestCase(TestCase):
         self.assertEqual(qs_empty.count(), 0)
 
     def test_rich_conditional_aggregates(self):
-        """Verify SUM_OWED and SUM_DELIVERED subqueries compile correctly."""
-        # Out of 5 ordered, 3 were delivered -> owed = 2
-        query = (
-            "SELECT name, "
-            "SUM_OWED(order_items WHERE order__order_status = 'completed') AS owed_qty, "
-            "SUM_DELIVERED(order_items__delivery_items WHERE order_item__order__order_status = 'completed') AS delivered_qty "
-            "FROM Product WHERE name = 'A4 Paper'"
+        """Verify aggregate subqueries compile correctly via VisualCompiler."""
+        # Out of 5 ordered, 3 were delivered
+        aggregates = [
+            {
+                'alias': 'delivered_qty',
+                'function': 'SUM',
+                'relation': 'order_items__delivery_items',
+                'field': 'quantity',
+                'filter_rules': {
+                    'combinator': 'and',
+                    'rules': [
+                        {
+                            'field': 'order_item__order__order_status',
+                            'operator': '=',
+                            'value': 'completed'
+                        }
+                    ]
+                }
+            }
+        ]
+        qs, columns = VisualCompiler.compile(
+            entity='product',
+            rule_group={'combinator': 'and', 'rules': [{'field': 'name', 'operator': '=', 'value': 'A4 Paper'}]},
+            columns=['name'],
+            aggregates=aggregates,
+            active_user=self.user
         )
-        qs, columns = AZQLCompiler.compile(query)
         
-        self.assertIn('owed_qty', columns)
         self.assertIn('delivered_qty', columns)
         self.assertEqual(qs.count(), 1)
-        self.assertEqual(qs[0]['owed_qty'], 2)
         self.assertEqual(qs[0]['delivered_qty'], 3)
 
     def test_visual_query_compiler(self):

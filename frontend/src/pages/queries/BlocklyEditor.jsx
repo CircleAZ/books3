@@ -118,17 +118,18 @@ const BlocklyEditor = ({ initialXml, schema, entity, onWorkspaceChange }) => {
         };
     }, []);
 
-    // Effect to toggle toolbox class and trigger resize
+    // Effect to toggle toolbox visibility natively
     useEffect(() => {
         if (blocklyDiv.current && workspaceRef.current) {
-            if (toolboxVisible) {
-                blocklyDiv.current.classList.remove('toolbox-hidden');
-            } else {
-                blocklyDiv.current.classList.add('toolbox-hidden');
+            const toolbox = workspaceRef.current.getToolbox();
+            if (toolbox && typeof toolbox.setVisible === 'function') {
+                toolbox.setVisible(toolboxVisible);
             }
             // Trigger a resize to fill the space
             setTimeout(() => {
-                Blockly.svgResize(workspaceRef.current);
+                if (workspaceRef.current) {
+                    Blockly.svgResize(workspaceRef.current);
+                }
             }, 50);
         }
     }, [toolboxVisible]);
