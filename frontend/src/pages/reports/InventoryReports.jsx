@@ -146,7 +146,7 @@ export default function InventoryReports() {
 
             {/* Tab Content */}
             <div className="tab-content">
-// fallow-ignore-next-line code-duplication
+{/* fallow-ignore-next-line code-duplication */}
                 {activeTab === 'valuation' && (
                     <div className="table-card">
 // fallow-ignore-next-line code-duplication
@@ -182,7 +182,7 @@ export default function InventoryReports() {
                     </div>
                 )}
 
-// fallow-ignore-next-line code-duplication
+{/* fallow-ignore-next-line code-duplication */}
                 {activeTab === 'lowstock' && (
                     <div className="table-card">
                         <h3>Low Stock Items</h3>
@@ -218,7 +218,7 @@ export default function InventoryReports() {
                     </div>
                 )}
 
-// fallow-ignore-next-line code-duplication
+{/* fallow-ignore-next-line code-duplication */}
                 {activeTab === 'deadstock' && (
                     <div className="table-card">
                         <h3>Dead Stock (No sales in 30+ days)</h3>

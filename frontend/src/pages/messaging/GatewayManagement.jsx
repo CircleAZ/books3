@@ -41,11 +41,11 @@ const GatewayManagement = () => {
     return (
         <div className="gateway-management">
             <header>
-// fallow-ignore-next-line code-duplication
+{/* fallow-ignore-next-line code-duplication */}
                 <button className="btn btn-primary">+ Add Gateway</button>
-// fallow-ignore-next-line code-duplication
+{/* fallow-ignore-next-line code-duplication */}
             </header>
-// fallow-ignore-next-line code-duplication
+{/* fallow-ignore-next-line code-duplication */}
             <table className="data-table">
                 <thead>
                     <tr>

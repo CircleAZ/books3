@@ -121,13 +121,13 @@ export default function IncomeCategories() {
                         <div className="category-actions">
                             <button className="btn-icon edit" title="Edit" onClick={() => openModal(cat)}>✏️</button>
                             <button className="btn-icon delete" title="Delete"
-// fallow-ignore-next-line code-duplication
+/* fallow-ignore-next-line code-duplication */
                                 onClick={() => { setCurrentItem(cat); setIsDeleteModalOpen(true); }}>🗑️</button>
                         </div>
                     </div>
                 ))}
 
-// fallow-ignore-next-line code-duplication
+{/* fallow-ignore-next-line code-duplication */}
                 {categories.length === 0 && !loading && (
                     <div className="empty-state glass-card">
                         <span className="empty-icon">💰</span>
@@ -155,7 +155,7 @@ export default function IncomeCategories() {
                                 <label>Description</label>
 // fallow-ignore-next-line code-duplication
                                 <textarea rows="3" placeholder="Optional description"
-// fallow-ignore-next-line code-duplication
+/* fallow-ignore-next-line code-duplication */
                                     value={formData.description} onChange={e => setFormData({ ...formData, description: e.target.value })} />
                             </div>
                             <div className="form-group checkbox-group">

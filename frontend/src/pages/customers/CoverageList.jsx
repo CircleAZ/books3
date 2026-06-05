@@ -147,7 +147,7 @@ export default function CoverageList() {
                 </div>
 
                 <div className="coverage-filters">
-// fallow-ignore-next-line code-duplication
+{/* fallow-ignore-next-line code-duplication */}
                     <select value={season} onChange={(e) => handleSeasonChange(e.target.value)}>
                         <option value="">Current Season</option>
                         {(filterOptions.seasons || []).map(s => (

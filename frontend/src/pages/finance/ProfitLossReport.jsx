@@ -60,7 +60,7 @@ const ProfitLossReport = () => {
         return (
             <div className="report-error">
                 <p>Error: {error}</p>
-// fallow-ignore-next-line code-duplication
+{/* fallow-ignore-next-line code-duplication */}
                 <button onClick={fetchReportData}>Retry</button>
             </div>
         );

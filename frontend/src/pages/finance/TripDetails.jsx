@@ -237,7 +237,7 @@ export default function TripDetails() {
             {/* Line Items Table */}
             <div className="glass-card" style={{ padding: 24, marginBottom: 24 }}>
                 <h3 style={{ margin: '0 0 16px', color: '#818cf8' }}>Line Items</h3>
-// fallow-ignore-next-line code-duplication
+{/* fallow-ignore-next-line code-duplication */}
                 <div style={{ overflowX: 'auto' }}>
                     <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14, color: '#f1f5f9' }}>
                         <thead>

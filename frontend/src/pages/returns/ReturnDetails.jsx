@@ -190,9 +190,9 @@ export default function ReturnDetails() {
                     {/* Items Table */}
                     <div className="card glass items-card">
                         <h3>Returned Items</h3>
-// fallow-ignore-next-line code-duplication
+{/* fallow-ignore-next-line code-duplication */}
                         <div className="table-container">
-// fallow-ignore-next-line code-duplication
+{/* fallow-ignore-next-line code-duplication */}
                             <table className="details-table">
                                 <thead>
                                     <tr>

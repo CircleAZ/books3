@@ -177,7 +177,7 @@ export default function RecurringExpenses() {
                     </div>
                 ))}
 
-// fallow-ignore-next-line code-duplication
+{/* fallow-ignore-next-line code-duplication */}
                 {items.length === 0 && !loading && (
                     <div className="empty-state glass-card">
                         <span className="empty-icon">🔄</span>
@@ -251,7 +251,7 @@ export default function RecurringExpenses() {
                                 <label>Description</label>
 // fallow-ignore-next-line code-duplication
                                 <textarea rows="2" placeholder="Optional details"
-// fallow-ignore-next-line code-duplication
+/* fallow-ignore-next-line code-duplication */
                                     value={formData.description} onChange={e => setFormData({ ...formData, description: e.target.value })} />
                             </div>
                             <div className="form-group checkbox-group">

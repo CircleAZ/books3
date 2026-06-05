@@ -377,7 +377,7 @@ export default function ExpenseCategories() {
                                     rows="3"
                                     value={formData.description}
                                     onChange={e => setFormData({ ...formData, description: e.target.value })}
-// fallow-ignore-next-line code-duplication
+/* fallow-ignore-next-line code-duplication */
                                 ></textarea>
                             </div>
 

@@ -161,7 +161,7 @@ export default function CategoryBudgets() {
                     );
                 })}
 
-// fallow-ignore-next-line code-duplication
+{/* fallow-ignore-next-line code-duplication */}
                 {budgets.length === 0 && !loading && (
                     <div className="empty-state glass-card">
                         <span className="empty-icon">📊</span>

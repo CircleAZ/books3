@@ -358,7 +358,7 @@ export default function SchoolStructureTree({
                                                                             value={inlineAddValue}
                                                                             onChange={e => setInlineAddValue(e.target.value)}
                                                                             placeholder="New subdivision name..."
-// fallow-ignore-next-line code-duplication
+/* fallow-ignore-next-line code-duplication */
                                                                             onKeyDown={e => e.key === 'Enter' && handleInlineAdd()}
                                                                             autoFocus
                                                                         />
@@ -394,7 +394,7 @@ export default function SchoolStructureTree({
                                                     value={inlineAddValue}
                                                     onChange={e => setInlineAddValue(e.target.value)}
                                                     placeholder="New division name..."
-// fallow-ignore-next-line code-duplication
+/* fallow-ignore-next-line code-duplication */
                                                     onKeyDown={e => e.key === 'Enter' && handleInlineAdd()}
                                                     autoFocus
                                                 />
@@ -428,7 +428,7 @@ export default function SchoolStructureTree({
                                 value={inlineAddValue}
                                 onChange={e => setInlineAddValue(e.target.value)}
                                 placeholder="New class name..."
-// fallow-ignore-next-line code-duplication
+/* fallow-ignore-next-line code-duplication */
                                 onKeyDown={e => e.key === 'Enter' && handleInlineAdd()}
                                 autoFocus
                             />

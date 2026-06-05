@@ -139,7 +139,7 @@ const BalanceSheet = () => {
                 <div className="report-section final">
                     <div className="report-row summary">
                         <span>Equity (Net Assets)</span>
-// fallow-ignore-next-line code-duplication
+{/* fallow-ignore-next-line code-duplication */}
                         <span className="amount positive">{formatCurrency(data.equity)}</span>
                     </div>
                 </div>

@@ -819,9 +819,9 @@ export default function OrderDetails() {
                 <div className="main-column">
                     {/* Items Table */}
                     <div className="card order-items-card">
-// fallow-ignore-next-line code-duplication
+{/* fallow-ignore-next-line code-duplication */}
                         <h3>Order Items</h3>
-// fallow-ignore-next-line code-duplication
+{/* fallow-ignore-next-line code-duplication */}
                         <table className="details-table">
                             <thead>
                                 <tr>
@@ -1088,7 +1088,7 @@ export default function OrderDetails() {
                     {/* Notes Section */}
                     <div className="card notes-card">
                         <div className="card-header-with-action" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-md)' }}>
-// fallow-ignore-next-line code-duplication
+{/* fallow-ignore-next-line code-duplication */}
                             <h3 style={{ margin: 0 }}>Internal Notes</h3>
                             {!isEditingNotes ? (
                                 <button className="btn btn-sm btn-outline" onClick={() => setIsEditingNotes(true)}>Edit</button>
@@ -1495,5 +1495,3 @@ function StatusCard({ label, value, className, onUpdate, hideIfNA }) {
         </div>
     );
 }
-
-

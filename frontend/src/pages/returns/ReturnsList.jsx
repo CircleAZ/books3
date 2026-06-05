@@ -154,7 +154,7 @@ export default function ReturnsList() {
                             <option value="items_received">Items Received</option>
                             <option value="completed">Completed</option>
                             <option value="cancelled">Cancelled</option>
-// fallow-ignore-next-line code-duplication
+{/* fallow-ignore-next-line code-duplication */}
                         </select>
                     </div>
 

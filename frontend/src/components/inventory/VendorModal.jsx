@@ -74,7 +74,7 @@ export default function VendorModal({ isOpen, onClose, vendor, onSuccess }) {
     return (
         <div className="modal-overlay">
             <div className="modal-content" style={{ margin: '16px', padding: '20px', width: '100%', maxWidth: '450px' }}>
-// fallow-ignore-next-line code-duplication
+{/* fallow-ignore-next-line code-duplication */}
                 <h2>{vendor ? 'Edit Vendor' : 'Add Vendor'}</h2>
                 {error && <div className="error-message">{error}</div>}
                 <form onSubmit={handleSubmit}>

@@ -29,14 +29,14 @@ export default function SaleDetailsModal({ isOpen, onClose, sale }) {
                     </div>
                     <div>
                         <strong className="text-muted" style={{ display: 'block', fontSize: '0.85rem' }}>NET TOTAL</strong>
-// fallow-ignore-next-line code-duplication
+{/* fallow-ignore-next-line code-duplication */}
                         <span style={{ color: 'var(--color-success)', fontWeight: 'bold' }}>₹{sale.net_total}</span>
                     </div>
                 </div>
 
-// fallow-ignore-next-line code-duplication
+{/* fallow-ignore-next-line code-duplication */}
                 <div style={{ maxHeight: '400px', overflowY: 'auto', marginBottom: '1.5rem' }}>
-// fallow-ignore-next-line code-duplication
+{/* fallow-ignore-next-line code-duplication */}
                     <table className="data-table">
                         <thead>
                             <tr>
@@ -94,7 +94,7 @@ export default function SaleDetailsModal({ isOpen, onClose, sale }) {
                         }}
                     >
                         Void Sale
-// fallow-ignore-next-line code-duplication
+{/* fallow-ignore-next-line code-duplication */}
                     </button>
                     <button type="button" className="btn btn-secondary" onClick={onClose}>Close</button>
                 </div>

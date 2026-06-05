@@ -306,7 +306,7 @@ export default function StockControl() {
             </div>
 
             <div className="inventory-table-container">
-// fallow-ignore-next-line code-duplication
+{/* fallow-ignore-next-line code-duplication */}
                 {activeTab === 'low-stock' && (
                     loading ? (
                         <div className="loading-container"><div className="spinner-large"></div></div>
@@ -350,7 +350,7 @@ export default function StockControl() {
                     )
                 )}
 
-// fallow-ignore-next-line code-duplication
+{/* fallow-ignore-next-line code-duplication */}
                 {activeTab === 'negative-stock' && (
 // fallow-ignore-next-line code-duplication
                     loading ? (

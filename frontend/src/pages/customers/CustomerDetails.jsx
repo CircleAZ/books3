@@ -385,7 +385,7 @@ const CustomerDetails = () => {
                 {/* Notes Section */}
                 <div className="customer-section">
                     <div className="customer-section-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-// fallow-ignore-next-line code-duplication
+{/* fallow-ignore-next-line code-duplication */}
                         <h3>Notes</h3>
                         {!isEditingNotes ? (
                             <button className="btn btn-sm btn-outline" onClick={() => setIsEditingNotes(true)}>Edit</button>

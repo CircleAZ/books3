@@ -231,7 +231,7 @@ export default function ReturnModal({ isOpen, onClose, outletId, onReturnComplet
                                                 className="form-input"
                                                 min="1"
                                                 max={item.maxQty}
-// fallow-ignore-next-line code-duplication
+/* fallow-ignore-next-line code-duplication */
                                                 value={item.quantity}
                                                 onChange={(e) => handleUpdateQuantity(item.productId, e.target.value)}
                                             />
@@ -252,7 +252,7 @@ export default function ReturnModal({ isOpen, onClose, outletId, onReturnComplet
                         <button type="button" className="btn btn-secondary" onClick={onClose}>Cancel</button>
                         <button type="submit" className="btn btn-warning" disabled={loading || selectedItems.length === 0}>
                             {loading ? 'Creating...' : 'Create Draft Return'}
-// fallow-ignore-next-line code-duplication
+{/* fallow-ignore-next-line code-duplication */}
                         </button>
                     </div>
                 </form>

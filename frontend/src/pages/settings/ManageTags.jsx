@@ -249,7 +249,7 @@ export default function ManageTags() {
                     <input
                         type="text"
                         placeholder="Filter tags..."
-// fallow-ignore-next-line code-duplication
+/* fallow-ignore-next-line code-duplication */
                         value={search}
                         onChange={e => setSearch(e.target.value)}
                     />

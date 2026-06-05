@@ -104,7 +104,7 @@ const TaxReport = () => {
                 </div>
                 <div className="header-actions">
                     <div className="period-selector">
-// fallow-ignore-next-line code-duplication
+{/* fallow-ignore-next-line code-duplication */}
                         <select value={period} onChange={(e) => setPeriod(e.target.value)}>
                             <option value="month">This Month</option>
                             <option value="quarter">This Quarter</option>
@@ -142,7 +142,7 @@ const TaxReport = () => {
                 <div className="report-section final">
                     <div className="report-row summary">
                         <span>Net Tax Payable</span>
-// fallow-ignore-next-line code-duplication
+{/* fallow-ignore-next-line code-duplication */}
                         <span className="amount">{formatCurrency(data.net_tax_payable)}</span>
                     </div>
                 </div>

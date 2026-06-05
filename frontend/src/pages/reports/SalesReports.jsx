@@ -182,7 +182,7 @@ export default function SalesReports() {
             </div>
 
             {/* Tables Row */}
-// fallow-ignore-next-line code-duplication
+{/* fallow-ignore-next-line code-duplication */}
             <div className="tables-row">
                 <div className="table-card">
                     <h3>Top Selling Products</h3>
@@ -207,7 +207,7 @@ export default function SalesReports() {
                             )}
                         </tbody>
                     </table>
-// fallow-ignore-next-line code-duplication
+{/* fallow-ignore-next-line code-duplication */}
                 </div>
 
                 <div className="table-card">

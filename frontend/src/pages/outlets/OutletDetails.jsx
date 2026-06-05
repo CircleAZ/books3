@@ -492,7 +492,7 @@ export default function OutletDetails() {
                     </div>
                 )}
                 
-// fallow-ignore-next-line code-duplication
+{/* fallow-ignore-next-line code-duplication */}
                 {activeTab === 'sales' && (
 // fallow-ignore-next-line code-duplication
                     <div className="table-card">
@@ -527,7 +527,7 @@ export default function OutletDetails() {
                     </div>
                 )}
 
-// fallow-ignore-next-line code-duplication
+{/* fallow-ignore-next-line code-duplication */}
                 {activeTab === 'payments' && (
                     <div className="table-card">
                         <table className="data-table">
@@ -556,7 +556,7 @@ export default function OutletDetails() {
                     </div>
                 )}
 
-// fallow-ignore-next-line code-duplication
+{/* fallow-ignore-next-line code-duplication */}
                 {activeTab === 'transfers' && (
                     <div className="table-card">
                         <table className="data-table">
@@ -836,7 +836,7 @@ export default function OutletDetails() {
                                                             type="number"
                                                             className={`form-input ${isCustom && currentType === 'percent' ? 'is-custom' : ''}`}
                                                             value={displayPercent}
-// fallow-ignore-next-line code-duplication
+/* fallow-ignore-next-line code-duplication */
                                                             onChange={(e) => handleOverrideChange(product.id, 'percent', e.target.value)}
                                                             onBlur={(e) => {
                                                                 let val = parseFloat(e.target.value);
@@ -860,7 +860,7 @@ export default function OutletDetails() {
                                                             type="number"
                                                             className={`form-input ${isCustom && currentType === 'fixed' ? 'is-custom' : ''}`}
                                                             value={displayFixed}
-// fallow-ignore-next-line code-duplication
+/* fallow-ignore-next-line code-duplication */
                                                             onChange={(e) => handleOverrideChange(product.id, 'fixed', e.target.value)}
                                                             onBlur={(e) => {
                                                                 let val = parseFloat(e.target.value);

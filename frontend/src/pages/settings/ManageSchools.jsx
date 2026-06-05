@@ -421,7 +421,7 @@ export default function ManageSchools() {
                     <input
                         type="text"
                         placeholder="Filter schools..."
-// fallow-ignore-next-line code-duplication
+/* fallow-ignore-next-line code-duplication */
                         value={search}
                         onChange={e => setSearch(e.target.value)}
                     />

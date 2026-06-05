@@ -183,7 +183,7 @@ export default function ManageGroups() {
                     <input
                         type="text"
                         placeholder="Filter groups..."
-// fallow-ignore-next-line code-duplication
+/* fallow-ignore-next-line code-duplication */
                         value={search}
                         onChange={e => setSearch(e.target.value)}
                     />

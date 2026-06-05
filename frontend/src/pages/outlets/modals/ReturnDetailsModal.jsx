@@ -35,7 +35,7 @@ export default function ReturnDetailsModal({ isOpen, onClose, returnRecord }) {
                     </div>
                     <div>
                         <strong className="text-muted" style={{ display: 'block', fontSize: '0.85rem' }}>ITEMS</strong>
-// fallow-ignore-next-line code-duplication
+{/* fallow-ignore-next-line code-duplication */}
                         <span>{returnRecord.items ? returnRecord.items.length : 0}</span>
                     </div>
                 </div>
@@ -80,7 +80,7 @@ export default function ReturnDetailsModal({ isOpen, onClose, returnRecord }) {
                     </div>
                 )}
 
-// fallow-ignore-next-line code-duplication
+{/* fallow-ignore-next-line code-duplication */}
                 <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
                     <button type="button" className="btn btn-secondary" onClick={onClose}>Close</button>
                 </div>

@@ -200,7 +200,7 @@ export default function TransferModal({ isOpen, onClose, outletId, onTransferCom
                                                 className="form-input" 
                                                 min="1" 
                                                 max={item.physical_stock + 30}
-// fallow-ignore-next-line code-duplication
+/* fallow-ignore-next-line code-duplication */
                                                 value={item.quantity}
                                                 onChange={(e) => handleUpdateQuantity(item.productId, e.target.value)}
                                             />
@@ -221,7 +221,7 @@ export default function TransferModal({ isOpen, onClose, outletId, onTransferCom
                         <button type="button" className="btn btn-secondary" onClick={onClose}>Cancel</button>
                         <button type="submit" className="btn btn-primary" disabled={loading || selectedItems.length === 0}>
                             {loading ? 'Saving...' : (initialData ? 'Save Changes' : 'Create Draft Transfer')}
-// fallow-ignore-next-line code-duplication
+{/* fallow-ignore-next-line code-duplication */}
                         </button>
                     </div>
                 </form>

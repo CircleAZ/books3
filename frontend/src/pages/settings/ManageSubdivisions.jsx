@@ -207,7 +207,7 @@ export default function ManageSubdivisions() {
                     <input
                         type="text"
                         placeholder="Filter subdivisions..."
-// fallow-ignore-next-line code-duplication
+/* fallow-ignore-next-line code-duplication */
                         value={search}
                         onChange={e => setSearch(e.target.value)}
                     />
@@ -217,7 +217,7 @@ export default function ManageSubdivisions() {
             <table className="manager-table">
                 <thead>
                     <tr>
-// fallow-ignore-next-line code-duplication
+{/* fallow-ignore-next-line code-duplication */}
                         <th>Subdivision Name</th>
                         <th>Applicable Divisions</th>
                         <th>Actions</th>

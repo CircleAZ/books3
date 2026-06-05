@@ -120,7 +120,7 @@ export default function PaymentModal({ isOpen, onClose, outletId, outstandingBal
                         <button type="button" className="btn btn-secondary" onClick={onClose}>Cancel</button>
                         <button type="submit" className="btn btn-success" disabled={loading || !paymentPayload}>
                             {loading ? 'Processing...' : 'Record Payment'}
-// fallow-ignore-next-line code-duplication
+{/* fallow-ignore-next-line code-duplication */}
                         </button>
                     </div>
                 </form>

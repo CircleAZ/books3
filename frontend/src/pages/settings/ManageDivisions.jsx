@@ -207,7 +207,7 @@ export default function ManageDivisions() {
                     <input
                         type="text"
                         placeholder="Filter divisions..."
-// fallow-ignore-next-line code-duplication
+/* fallow-ignore-next-line code-duplication */
                         value={search}
                         onChange={e => setSearch(e.target.value)}
                     />
@@ -217,7 +217,7 @@ export default function ManageDivisions() {
             <table className="manager-table">
                 <thead>
                     <tr>
-// fallow-ignore-next-line code-duplication
+{/* fallow-ignore-next-line code-duplication */}
                         <th>Division Name</th>
                         <th>Applicable Classes</th>
                         <th>Actions</th>

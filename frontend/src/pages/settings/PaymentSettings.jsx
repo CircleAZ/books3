@@ -222,7 +222,7 @@ const PaymentSettings = () => {
                 <section className="settings-card">
                     <div className="card-header">
                         <h2>Payment Methods</h2>
-// fallow-ignore-next-line code-duplication
+{/* fallow-ignore-next-line code-duplication */}
                         <button className="btn btn-sm btn-primary" onClick={() => setShowMethodModal(true)}>+ Add Method</button>
                     </div>
                     <div className="card-body">
@@ -270,7 +270,7 @@ const PaymentSettings = () => {
                 <section className="settings-card">
                     <div className="card-header">
                         <h2>UPI Accounts</h2>
-// fallow-ignore-next-line code-duplication
+{/* fallow-ignore-next-line code-duplication */}
                         <button className="btn btn-sm btn-primary" onClick={() => setShowUpiModal(true)}>+ Add UPI ID</button>
                     </div>
                     <div className="card-body">

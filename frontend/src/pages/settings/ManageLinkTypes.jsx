@@ -171,7 +171,7 @@ export default function ManageLinkTypes() {
                     <input
                         type="text"
                         placeholder="Filter relationship types..."
-// fallow-ignore-next-line code-duplication
+/* fallow-ignore-next-line code-duplication */
                         value={search}
                         onChange={e => setSearch(e.target.value)}
                     />

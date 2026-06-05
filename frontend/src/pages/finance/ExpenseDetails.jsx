@@ -284,7 +284,7 @@ export default function ExpenseDetails() {
                     </div>
                 </div>
                 <div className="header-right">
-// fallow-ignore-next-line code-duplication
+{/* fallow-ignore-next-line code-duplication */}
                     <button className="btn btn-outline" onClick={() => navigate(`/finance/expenses/${id}/edit`)}>
                         ✏️ Edit Expense
                     </button>
@@ -346,7 +346,7 @@ export default function ExpenseDetails() {
                             <h3>Payment History</h3>
                         </div>
                         <div className="table-responsive">
-// fallow-ignore-next-line code-duplication
+{/* fallow-ignore-next-line code-duplication */}
                             <table className="payment-table">
                                 <thead>
                                     <tr>

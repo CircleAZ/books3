@@ -166,7 +166,7 @@ export default function SaleModal({ isOpen, onClose, outletId, onSaleComplete })
                                                 type="number" 
                                                 className="form-input" 
                                                 min="1" 
-// fallow-ignore-next-line code-duplication
+/* fallow-ignore-next-line code-duplication */
                                                 value={item.quantity}
                                                 onChange={(e) => handleUpdateQuantity(item.productId, e.target.value)}
                                             />
@@ -187,7 +187,7 @@ export default function SaleModal({ isOpen, onClose, outletId, onSaleComplete })
                         <button type="button" className="btn btn-secondary" onClick={onClose}>Cancel</button>
                         <button type="submit" className="btn btn-primary" disabled={loading || selectedItems.length === 0}>
                             {loading ? 'Processing...' : 'Record Sale'}
-// fallow-ignore-next-line code-duplication
+{/* fallow-ignore-next-line code-duplication */}
                         </button>
                     </div>
                 </form>

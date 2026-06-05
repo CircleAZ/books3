@@ -160,7 +160,7 @@ export default function ManageClasses() {
 
             <table className="manager-table">
                 <thead>
-// fallow-ignore-next-line code-duplication
+{/* fallow-ignore-next-line code-duplication */}
                     <tr>
                         <th>Class Name</th>
                         <th>Actions</th>
