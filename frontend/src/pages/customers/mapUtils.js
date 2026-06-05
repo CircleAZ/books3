@@ -54,13 +54,13 @@ export function loadCoverageCache() {
 
 // ── Season helpers ──
 
-export function getCurrentSeasonYear() {
+function getCurrentSeasonYear() {
     const now = new Date();
     // Season = Dec → Nov. If Dec+, current season started this year.
     return now.getMonth() >= 11 ? now.getFullYear() : now.getFullYear() - 1;
 }
 
-export function getSeasonLabel(year) {
+function getSeasonLabel(year) {
     return `Dec ${year} – Nov ${year + 1}`;
 }
 

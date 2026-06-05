@@ -186,7 +186,7 @@ const extraTitles = {
     '/account/profile': 'My Profile',
 };
 
-export function buildRouteTitles() {
+function buildRouteTitles() {
     const titles = { ...extraTitles };
     for (const section of menuSections) {
         if (section.type === 'separator') continue;
@@ -200,12 +200,12 @@ export function buildRouteTitles() {
     return titles;
 }
 
-export const routeTitles = buildRouteTitles();
+const routeTitles = buildRouteTitles();
 
 
 // ============ Derived: Dynamic Route Patterns ============
 // ORDER MATTERS: more specific patterns (with /edit, /receipt) must come FIRST
-export const dynamicPatterns = [
+const dynamicPatterns = [
     { pattern: /^\/customers\/\d+\/edit/, title: 'Edit Customer' },
     { pattern: /^\/customers\/\d+/, title: 'Customer Details' },
     { pattern: /^\/orders\/\d+\/edit/, title: 'Edit Order' },
@@ -294,7 +294,7 @@ export function getBreadcrumbs(pathname) {
 
 
 // ============ Derived: Searchable Items for OmniSearch ============
-export function getSearchableItems() {
+function getSearchableItems() {
     const items = [];
     for (const section of menuSections) {
         if (section.type === 'separator') continue;

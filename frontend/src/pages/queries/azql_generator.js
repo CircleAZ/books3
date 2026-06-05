@@ -1,7 +1,7 @@
 import * as Blockly from 'blockly/core';
 
 // Create a new generator
-export const azqlGenerator = new Blockly.Generator('AZQL');
+const azqlGenerator = new Blockly.Generator('AZQL');
 
 // Define how to extract values from inputs
 azqlGenerator.valueToCode = function(block, name, order) {

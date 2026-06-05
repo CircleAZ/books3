@@ -49,7 +49,7 @@ function AccessDenied() {
     );
 }
 
-export function PermissionRoute({ children, permission }) {
+function PermissionRoute({ children, permission }) {
     const { isAuthenticated, loading } = useAuth();
     const { hasPermission } = usePermissions();
     const location = useLocation();

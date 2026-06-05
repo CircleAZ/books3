@@ -12,7 +12,7 @@ import { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { API_BASE } from '../config/api';
 
-export function ManagerOverrideModal({ permission, actionDescription, onClose, onSuccess }) {
+function ManagerOverrideModal({ permission, actionDescription, onClose, onSuccess }) {
     const { fetchWithAuth } = useAuth();
     const [username, setUsername] = useState('');
     const [password, setPassword] = useState('');

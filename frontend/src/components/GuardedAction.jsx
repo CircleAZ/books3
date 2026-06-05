@@ -15,7 +15,7 @@
 import React, { cloneElement } from 'react';
 import usePermissions from '../utils/usePermissions';
 
-export function GuardedAction({ 
+function GuardedAction({ 
     permission, 
     children, 
     tooltipText 

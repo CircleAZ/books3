@@ -71,5 +71,3 @@ export const CurrencyProvider = ({ children }) => {
         </CurrencyContext.Provider>
     );
 };
-
-export default CurrencyContext;

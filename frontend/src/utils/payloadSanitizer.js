@@ -39,7 +39,7 @@ export function sanitizeFKFields(obj, fields) {
  * @param {string[]} fields - Array of field names to check
  * @returns {Object} The same object (mutated in place)
  */
-export function sanitizeNumericFields(obj, fields) {
+function sanitizeNumericFields(obj, fields) {
     if (!obj || typeof obj !== 'object') return obj;
     for (const field of fields) {
         if (field in obj) {

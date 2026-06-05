@@ -141,5 +141,3 @@ export const ENDPOINTS = {
     QUERIES_SCHEMA: `${API_BASE}/reports/queries/schema/`,
     QUERIES_HISTORY: `${API_BASE}/reports/queries-history/`,
 };
-
-export default API_BASE;
