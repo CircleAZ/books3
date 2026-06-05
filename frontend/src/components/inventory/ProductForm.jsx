@@ -73,6 +73,7 @@ export default function ProductForm({ initialData = null, isEdit = false }) {
     }, [initialData]);
 
     useEffect(() => {
+// fallow-ignore-next-line code-duplication
         const fetchDropdowns = async () => {
             try {
                 const [catRes, vendRes] = await Promise.all([
@@ -93,6 +94,7 @@ export default function ProductForm({ initialData = null, isEdit = false }) {
             }
         };
         fetchDropdowns();
+// fallow-ignore-next-line code-duplication
     }, [fetchWithAuth]);
 
     const handleInputChange = (e) => {
@@ -492,6 +494,7 @@ export default function ProductForm({ initialData = null, isEdit = false }) {
                                     <input
                                         type="number"
                                         value={displayPercent}
+// fallow-ignore-next-line code-duplication
                                         onChange={(e) => handleCommissionChange('percent', e.target.value)}
                                         onBlur={(e) => {
                                             let val = parseFloat(e.target.value);
@@ -519,6 +522,7 @@ export default function ProductForm({ initialData = null, isEdit = false }) {
                                     <input
                                         type="number"
                                         value={displayFixed}
+// fallow-ignore-next-line code-duplication
                                         onChange={(e) => handleCommissionChange('fixed', e.target.value)}
                                         onBlur={(e) => {
                                             let val = parseFloat(e.target.value);

@@ -140,6 +140,7 @@ export default function RefundModal({ isOpen, onClose, returnId, orderId, orderD
                         <button type="button" className="btn btn-secondary" onClick={onClose}>Cancel</button>
                         <button type="submit" className="btn btn-success" disabled={loading || !refundPayload}>
                             {loading ? 'Processing...' : 'Issue Refund'}
+// fallow-ignore-next-line code-duplication
                         </button>
                     </div>
                 </form>

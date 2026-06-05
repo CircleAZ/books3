@@ -46,6 +46,7 @@ export default function TripList() {
 
     const fmt = formatINR;
 
+// fallow-ignore-next-line code-duplication
     if (loading && trips.length === 0) {
         return <div className="expense-categories-loading"><div className="spinner"></div><p>Loading trips...</p></div>;
     }

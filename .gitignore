@@ -160,3 +160,5 @@ scripts/reconcile_historical_po_stock.py
 # Securecoder cache
 .securecoder/
 
+# Node dependencies (including root junction)
+node_modules/

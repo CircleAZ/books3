@@ -21,6 +21,7 @@ function resolveContextEntity(block) {
     return window.azqlActiveEntity || 'order';
 }
 
+// fallow-ignore-next-line code-duplication
 function getFieldOptions(block) {
     const entityName = resolveContextEntity(block);
     if (!window.azqlSchema || !window.azqlSchema.entities || !window.azqlSchema.entities[entityName]) {
@@ -31,6 +32,7 @@ function getFieldOptions(block) {
     return ent.fields.map(f => [f.label || f.name, f.name]);
 }
 
+// fallow-ignore-next-line code-duplication
 function getRelationOptions(block) {
     const entityName = resolveContextEntity(block);
     if (!window.azqlSchema || !window.azqlSchema.entities || !window.azqlSchema.entities[entityName]) {

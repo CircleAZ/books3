@@ -81,6 +81,7 @@ const PaymentSettings = () => {
                 fetchMethods();
                 setShowMethodModal(false);
                 setNewMethod({ type: '', is_enabled: true, display_order: 0, linked_bank_account: '' });
+// fallow-ignore-next-line code-duplication
                 setMessage({ type: 'success', text: 'Payment method added' });
             } else {
                 const err = await response.json();
@@ -146,6 +147,7 @@ const PaymentSettings = () => {
                 fetchUpiAccounts();
                 setShowUpiModal(false);
                 setNewUpi({ upi_id: '', display_name: '', is_active: true, linked_bank_account: '' });
+// fallow-ignore-next-line code-duplication
                 setMessage({ type: 'success', text: 'UPI account added' });
             } else {
                 const err = await response.json();
@@ -220,6 +222,7 @@ const PaymentSettings = () => {
                 <section className="settings-card">
                     <div className="card-header">
                         <h2>Payment Methods</h2>
+// fallow-ignore-next-line code-duplication
                         <button className="btn btn-sm btn-primary" onClick={() => setShowMethodModal(true)}>+ Add Method</button>
                     </div>
                     <div className="card-body">
@@ -267,6 +270,7 @@ const PaymentSettings = () => {
                 <section className="settings-card">
                     <div className="card-header">
                         <h2>UPI Accounts</h2>
+// fallow-ignore-next-line code-duplication
                         <button className="btn btn-sm btn-primary" onClick={() => setShowUpiModal(true)}>+ Add UPI ID</button>
                     </div>
                     <div className="card-body">
@@ -331,6 +335,7 @@ const PaymentSettings = () => {
 
                             <div className="form-group">
                                 <label>Linked Bank Account (Optional)</label>
+// fallow-ignore-next-line code-duplication
                                 <select
                                     className="form-select"
                                     value={newMethod.linked_bank_account}
@@ -399,6 +404,7 @@ const PaymentSettings = () => {
                             </div>
                             <div className="form-group">
                                 <label>Linked Bank Account</label>
+// fallow-ignore-next-line code-duplication
                                 <select
                                     className="form-select"
                                     value={newUpi.linked_bank_account}

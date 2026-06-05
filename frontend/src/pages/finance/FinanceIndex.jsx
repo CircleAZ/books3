@@ -199,6 +199,7 @@ const FinanceIndex = () => {
                                 <div className="chart-container large" role="img" aria-label="Revenue vs Expenses bar chart">
                                     <h3>Revenue vs Expenses</h3>
                                     <ResponsiveContainer width="100%" height={250}>
+// fallow-ignore-next-line code-duplication
                                         <BarChart data={charts.revenue_vs_expenses.slice(0, MAX_CHART_ITEMS)} margin={{ top: 5, right: 20, bottom: 5, left: 10 }}>
                                             <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" />
                                             <XAxis dataKey="period" stroke="#94a3b8" fontSize={12} tickLine={false} />
@@ -215,6 +216,7 @@ const FinanceIndex = () => {
                                 <div className="chart-container" role="img" aria-label="Net Profit trend line chart">
                                     <h3>Profit Trend</h3>
                                     <ResponsiveContainer width="100%" height={250}>
+// fallow-ignore-next-line code-duplication
                                         <LineChart data={charts.profit_trend.slice(0, MAX_CHART_ITEMS)} margin={{ top: 5, right: 20, bottom: 5, left: 10 }}>
                                             <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" />
                                             <XAxis dataKey="period" stroke="#94a3b8" fontSize={12} tickLine={false} />

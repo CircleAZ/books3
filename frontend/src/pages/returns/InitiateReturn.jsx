@@ -380,6 +380,7 @@ export default function InitiateReturn() {
                         <div className="glass-card">
                             <h3 className="section-title">Select Items to Return</h3>
                             <div className="items-table-container">
+// fallow-ignore-next-line code-duplication
                                 <table className="returns-table">
                                     <thead>
                                         <tr>

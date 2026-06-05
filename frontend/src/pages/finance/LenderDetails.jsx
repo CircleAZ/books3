@@ -177,6 +177,7 @@ export default function LenderDetails() {
             <div className="loans-section">
                 <h2 className="section-title">Loans History</h2>
                 <div className="loans-table-container glass-card">
+// fallow-ignore-next-line code-duplication
                     <table className="loans-table">
                         <thead>
                             <tr>

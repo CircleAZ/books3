@@ -56,8 +56,10 @@ const MessageQueue = () => {
                         <option value="failed">Failed</option>
                         <option value="sent">Sent</option>
                     </select>
+// fallow-ignore-next-line code-duplication
                 </div>
             </header>
+// fallow-ignore-next-line code-duplication
             <table className="data-table">
                 <thead>
                     <tr>

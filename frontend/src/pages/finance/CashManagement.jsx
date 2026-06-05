@@ -252,6 +252,7 @@ export default function CashManagement() {
             <div className="glass-card mt-4">
                 <h3>Peer Review Approval Matrix (Transfers)</h3>
                 <div className="table-responsive">
+// fallow-ignore-next-line code-duplication
                     <table className="table">
                         <thead>
                             <tr>

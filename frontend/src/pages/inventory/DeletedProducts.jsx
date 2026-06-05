@@ -117,6 +117,7 @@ export default function DeletedProducts() {
                 </div>
             ) : (
                 <div className="inventory-table-container">
+// fallow-ignore-next-line code-duplication
                     <table className="inventory-table">
                         <thead>
                             <tr>

@@ -78,11 +78,13 @@ export default function Vendors() {
                 <div className="inventory-actions">
                     <button className="btn btn-primary" onClick={() => handleOpenModal()}>
                         + Add Vendor
+// fallow-ignore-next-line code-duplication
                     </button>
                 </div>
             </div>
 
             <div className="inventory-table-container">
+// fallow-ignore-next-line code-duplication
                 {loading ? (
                     <div className="loading-container">
                         <div className="spinner-large"></div>

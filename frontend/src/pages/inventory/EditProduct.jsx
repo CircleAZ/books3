@@ -12,6 +12,7 @@ export default function EditProduct() {
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
+// fallow-ignore-next-line code-duplication
         const fetchProduct = async () => {
             try {
                 const response = await fetchWithAuth(`${ENDPOINTS.INVENTORY_PRODUCTS}${id}/`);

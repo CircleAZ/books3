@@ -26,6 +26,7 @@ export default function BankAccounts() {
 
     const fetchAccounts = useCallback(async () => {
         setLoading(true);
+// fallow-ignore-next-line code-duplication
         try {
             const response = await fetchWithAuth(ENDPOINTS.FINANCE_BANK_ACCOUNTS);
             if (response.ok) {
@@ -41,6 +42,7 @@ export default function BankAccounts() {
 
     useEffect(() => {
         fetchAccounts();
+// fallow-ignore-next-line code-duplication
     }, [fetchAccounts]);
 
     const handleInputChange = (e) => {

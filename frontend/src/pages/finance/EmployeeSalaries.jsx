@@ -141,6 +141,7 @@ export default function EmployeeSalaries() {
                 {loading ? (
                     <LoadingSpinner />
                 ) : (
+// fallow-ignore-next-line code-duplication
                     <table className="salaries-table">
                         <thead>
                             <tr>

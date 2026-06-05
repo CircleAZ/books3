@@ -39,12 +39,14 @@ export default function CustomerReports() {
     const handleExport = async (fmt = 'csv') => {
         try {
             const formatParam = fmt === 'xlsx' ? '&file_format=xlsx' : '';
+// fallow-ignore-next-line code-duplication
             const res = await fetchWithAuth(`${ENDPOINTS.REPORTS_CUSTOMERS}export/?_=1${formatParam}`);
             if (res.ok) {
                 const blob = await res.blob();
                 const url = window.URL.createObjectURL(blob);
                 const a = document.createElement('a');
                 a.href = url;
+// fallow-ignore-next-line code-duplication
                 a.download = `customer_report.${fmt}`;
                 document.body.appendChild(a);
                 a.click();

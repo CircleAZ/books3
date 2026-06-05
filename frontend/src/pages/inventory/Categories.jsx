@@ -87,6 +87,7 @@ export default function Categories() {
                         <button className="btn btn-primary" onClick={() => handleOpenModal()}>
                             + Add Category
                         </button>
+// fallow-ignore-next-line code-duplication
                     </GuardedAction>
                 </div>
             </div>

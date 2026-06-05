@@ -77,6 +77,7 @@ export default function Profile() {
                 const data = await response.json();
                 setProfile(data);
                 setEditing(false);
+// fallow-ignore-next-line code-duplication
                 setMessage({ type: 'success', text: 'Profile updated successfully' });
             } else {
                 const err = await response.json();

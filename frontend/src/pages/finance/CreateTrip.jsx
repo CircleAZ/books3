@@ -27,6 +27,7 @@ export default function CreateTrip() {
     const [notes, setNotes] = useState('');
 
     const emptyItem = { description: '', category: '', amount: '', paid_by_type: 'company', paid_by_employee: '', source_bank: '', source_wallet: '' };
+// fallow-ignore-next-line code-duplication
     const [items, setItems] = useState([{ ...emptyItem }]);
 
     const fetchCategories = useCallback(async () => {

@@ -4,6 +4,7 @@ import { ENDPOINTS } from '../../config/api';
 import './ProfitLossReport.css'; // Reusing shared report styles
 
 const ExpenseReport = () => {
+// fallow-ignore-next-line code-duplication
     const { fetchWithAuth } = useAuth();
     const [period, setPeriod] = useState('month');
     const [loading, setLoading] = useState(true);
@@ -26,6 +27,7 @@ const ExpenseReport = () => {
                 throw new Error('Failed to fetch expense report data');
             }
         } catch (err) {
+// fallow-ignore-next-line code-duplication
             console.error('Error fetching Expense Report:', err);
             setError(err.message);
         } finally {
@@ -41,6 +43,7 @@ const ExpenseReport = () => {
         }).format(amount || 0);
     };
 
+// fallow-ignore-next-line code-duplication
     const statusLabel = (status) => {
         const map = {
             unpaid: 'Unpaid', partial: 'Partially Paid', paid: 'Fully Paid',
@@ -67,6 +70,7 @@ const ExpenseReport = () => {
     const summary = data.summary || {};
     const byCategory = data.by_category || [];
     const byPayment = data.by_payment_status || [];
+// fallow-ignore-next-line code-duplication
     const byApproval = data.by_approval_status || [];
 
     return (

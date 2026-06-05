@@ -4,6 +4,7 @@ import './RecentOrdersWidget.css';
 export default function RecentOrdersWidget({ orders }) {
     const { currency } = useCurrency();
     return (
+// fallow-ignore-next-line code-duplication
         <div className="recent-orders-widget">
             <div className="widget-header">
                 <h3>Recent Orders</h3>

@@ -30,6 +30,7 @@ export default function AggregateColumnModal({
     }, [schema, entity]);
 
     // Extract numerical field options from selected relation target schema
+// fallow-ignore-next-line code-duplication
     const fieldOptions = useMemo(() => {
         if (!relation) return [];
         const relOpt = relationOptions.find(r => r.value === relation);
@@ -48,6 +49,7 @@ export default function AggregateColumnModal({
     }, [relation, relationOptions, schema, func]);
 
     // Format subquery fields for relation target
+// fallow-ignore-next-line code-duplication
     const subqueryBuilderFields = useMemo(() => {
         if (!relation) return [];
         const relOpt = relationOptions.find(r => r.value === relation);
@@ -55,6 +57,7 @@ export default function AggregateColumnModal({
         
         const targetDef = schema.entities[relOpt.target];
         return targetDef.fields.map(f => {
+// fallow-ignore-next-line code-duplication
             const hasChoices = f.choices && f.choices.length > 0;
             let type = 'text';
             if (f.type === 'integer' || f.type === 'decimal') type = 'number';

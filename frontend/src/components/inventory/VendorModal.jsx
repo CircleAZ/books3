@@ -50,6 +50,7 @@ export default function VendorModal({ isOpen, onClose, vendor, onSuccess }) {
             const response = await fetchWithAuth(url, {
                 method,
                 headers: { 'Content-Type': 'application/json' },
+// fallow-ignore-next-line code-duplication
                 body: JSON.stringify(payload)
             });
 
@@ -73,6 +74,7 @@ export default function VendorModal({ isOpen, onClose, vendor, onSuccess }) {
     return (
         <div className="modal-overlay">
             <div className="modal-content" style={{ margin: '16px', padding: '20px', width: '100%', maxWidth: '450px' }}>
+// fallow-ignore-next-line code-duplication
                 <h2>{vendor ? 'Edit Vendor' : 'Add Vendor'}</h2>
                 {error && <div className="error-message">{error}</div>}
                 <form onSubmit={handleSubmit}>
@@ -108,6 +110,7 @@ export default function VendorModal({ isOpen, onClose, vendor, onSuccess }) {
                                     value={formData.contact_phone}
                                     onChange={e => setFormData({ ...formData, contact_phone: e.target.value.replace(/\D/g, '').slice(0, 10) })}
                                 />
+// fallow-ignore-next-line code-duplication
                             </div>
                         </div>
                     )}

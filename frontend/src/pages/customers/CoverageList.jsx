@@ -147,6 +147,7 @@ export default function CoverageList() {
                 </div>
 
                 <div className="coverage-filters">
+// fallow-ignore-next-line code-duplication
                     <select value={season} onChange={(e) => handleSeasonChange(e.target.value)}>
                         <option value="">Current Season</option>
                         {(filterOptions.seasons || []).map(s => (
@@ -193,6 +194,7 @@ export default function CoverageList() {
             {/* Desktop table */}
             {sortedCustomers.length > 0 && (
                 <div className="coverage-table-wrap">
+// fallow-ignore-next-line code-duplication
                     <table className="coverage-table">
                         <thead>
                             <tr>

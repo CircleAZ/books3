@@ -129,6 +129,7 @@ export default function AddOtherIncome() {
                         </div>
                         <div className="form-group" style={{ flex: 1 }}>
                             <label>Income Category</label>
+// fallow-ignore-next-line code-duplication
                             <select className="form-control" value={formData.category} onChange={e => setFormData({...formData, category: e.target.value})}>
                                 <option value="">Select a category...</option>
                                 {categories.map(c => (

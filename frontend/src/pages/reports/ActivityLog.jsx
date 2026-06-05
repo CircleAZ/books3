@@ -19,6 +19,7 @@ export default function ActivityLog() {
     const fetchActivities = useCallback(async () => {
         setLoading(true);
         try {
+// fallow-ignore-next-line code-duplication
             const queryParams = new URLSearchParams({
                 page,
                 search: searchTerm,

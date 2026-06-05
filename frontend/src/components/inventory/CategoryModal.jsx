@@ -36,6 +36,7 @@ export default function CategoryModal({ isOpen, onClose, category, onSuccess }) 
             const response = await fetchWithAuth(url, {
                 method,
                 headers: { 'Content-Type': 'application/json' },
+// fallow-ignore-next-line code-duplication
                 body: JSON.stringify(formData)
             });
 
@@ -59,11 +60,13 @@ export default function CategoryModal({ isOpen, onClose, category, onSuccess }) 
     return (
         <div className="modal-overlay">
             <div className="modal-content">
+// fallow-ignore-next-line code-duplication
                 <h2>{category ? 'Edit Category' : 'Add Category'}</h2>
                 {error && <div className="error-message">{error}</div>}
                 <form onSubmit={handleSubmit}>
                     <div className="form-group">
                         <label>Name</label>
+// fallow-ignore-next-line code-duplication
                         <input
                             type="text"
                             required

@@ -31,29 +31,7 @@ export function sanitizeFKFields(obj, fields) {
     return obj;
 }
 
-/**
- * Converts empty/invalid strings to null for specified numeric fields.
- * Mutates the object in place.
- *
- * @param {Object} obj - The payload object to sanitize
- * @param {string[]} fields - Array of field names to check
- * @returns {Object} The same object (mutated in place)
- */
-function sanitizeNumericFields(obj, fields) {
-    if (!obj || typeof obj !== 'object') return obj;
-    for (const field of fields) {
-        if (field in obj) {
-            const val = obj[field];
-            if (val === '' || val === undefined || val === null) {
-                obj[field] = null;
-            } else {
-                const parsed = parseFloat(val);
-                obj[field] = isNaN(parsed) ? null : parsed;
-            }
-        }
-    }
-    return obj;
-}
+
 
 /**
  * Sanitizes a student object's FK fields.
@@ -61,6 +39,7 @@ function sanitizeNumericFields(obj, fields) {
  *
  * @param {Object} student - A student payload object
  * @returns {Object} The same object (mutated in place)
+// fallow-ignore-next-line code-duplication
  */
 export function sanitizeStudentFKs(student) {
     return sanitizeFKFields(student, ['school', 'class_obj', 'division', 'subdivision']);

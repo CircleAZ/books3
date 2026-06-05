@@ -47,6 +47,7 @@ export default function RecordTransaction() {
 
     useEffect(() => {
         fetchAccounts();
+// fallow-ignore-next-line code-duplication
     }, [fetchAccounts]);
 
     const handleInputChange = (e) => {

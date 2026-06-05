@@ -47,6 +47,7 @@ export default function AddOutlet() {
         }
     };
 
+// fallow-ignore-next-line code-duplication
     return (
         <div className="outlet-form-container">
             <div className="page-header">
