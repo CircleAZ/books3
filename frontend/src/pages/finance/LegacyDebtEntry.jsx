@@ -72,7 +72,7 @@ export default function LegacyDebtEntry() {
 
     const handleCustomerSelect = (customer) => {
         setSelectedCustomer(customer);
-        setSearchQuery(`${customer.name} - ${customer.phone || 'No Phone'}`);
+        setSearchQuery(`${customer.full_name} - ${customer.phone || 'No Phone'}`);
         setShowDropdown(false);
         setActiveIndex(-1);
         
@@ -145,7 +145,7 @@ export default function LegacyDebtEntry() {
                 setSessionLogs(prev => [{
                     id: Date.now(),
                     status: 'success',
-                    customerName: selectedCustomer.name,
+                    customerName: selectedCustomer.full_name,
                     amount: numericAmount,
                     message: 'Saved successfully'
                 }, ...prev]);
@@ -163,7 +163,7 @@ export default function LegacyDebtEntry() {
                 setSessionLogs(prev => [{
                     id: Date.now(),
                     status: 'error',
-                    customerName: selectedCustomer.name,
+                    customerName: selectedCustomer.full_name,
                     amount: numericAmount,
                     message: result ? result.reason : (data.detail || 'Failed to save')
                 }, ...prev]);
@@ -172,7 +172,7 @@ export default function LegacyDebtEntry() {
             setSessionLogs(prev => [{
                 id: Date.now(),
                 status: 'error',
-                customerName: selectedCustomer.name,
+                customerName: selectedCustomer.full_name,
                 amount: numericAmount,
                 message: err.message || 'Network error'
             }, ...prev]);
@@ -211,7 +211,7 @@ export default function LegacyDebtEntry() {
                                         onClick={() => handleCustomerSelect(cust)}
                                         onMouseEnter={() => setActiveIndex(idx)}
                                     >
-                                        <span className="customer-name">{cust.name}</span>
+                                        <span className="customer-name">{cust.full_name}</span>
                                         <span className="customer-phone">{cust.phone || 'No phone'}</span>
                                     </li>
                                 ))}
