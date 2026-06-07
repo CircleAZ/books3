@@ -79,7 +79,6 @@ export default function IncomeCategories() {
         } catch (_) { }
     };
 
-// fallow-ignore-next-line code-duplication
     if (loading && categories.length === 0) {
         return <LoadingSpinner />;
     }
@@ -121,7 +120,6 @@ export default function IncomeCategories() {
                         <div className="category-actions">
                             <button className="btn-icon edit" title="Edit" onClick={() => openModal(cat)}>✏️</button>
                             <button className="btn-icon delete" title="Delete"
-/* fallow-ignore-next-line code-duplication */
                                 onClick={() => { setCurrentItem(cat); setIsDeleteModalOpen(true); }}>🗑️</button>
                         </div>
                     </div>
@@ -153,9 +151,7 @@ export default function IncomeCategories() {
                             </div>
                             <div className="form-group">
                                 <label>Description</label>
-// fallow-ignore-next-line code-duplication
                                 <textarea rows="3" placeholder="Optional description"
-/* fallow-ignore-next-line code-duplication */
                                     value={formData.description} onChange={e => setFormData({ ...formData, description: e.target.value })} />
                             </div>
                             <div className="form-group checkbox-group">
@@ -167,7 +163,6 @@ export default function IncomeCategories() {
                             </div>
                             <div className="modal-actions">
                                 <button type="button" className="btn btn-ghost" onClick={() => setIsModalOpen(false)}>Cancel</button>
-// fallow-ignore-next-line code-duplication
                                 <button type="submit" className="btn btn-primary">{currentItem ? 'Update' : 'Create'}</button>
                             </div>
                         </form>
@@ -179,7 +174,6 @@ export default function IncomeCategories() {
                 <div className="modal-overlay" onClick={() => setIsDeleteModalOpen(false)}>
                     <div className="modal-content glass-card delete-modal" onClick={e => e.stopPropagation()}>
                         <h2>Confirm Delete</h2>
-// fallow-ignore-next-line code-duplication
                         <p>Delete income category <strong>{currentItem?.name}</strong>?</p>
                         <p className="warning">This cannot be undone.</p>
                         <div className="modal-actions">

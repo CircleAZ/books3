@@ -104,7 +104,6 @@ const CustomerList = () => {
             {loading ? (
                 <LoadingSpinner />
             ) : (
-// fallow-ignore-next-line code-duplication
                 <div className="table-responsive">
                     <table className="data-table">
                         <thead>

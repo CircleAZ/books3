@@ -273,11 +273,9 @@ export default function PODetail() {
             {/* Items */}
             <div className="card" style={{ padding: '1.25rem', marginBottom: '1rem' }}>
                 <h3 style={{ margin: '0 0 0.75rem', fontSize: '1rem', fontWeight: 600 }}>Items</h3>
-// fallow-ignore-next-line code-duplication
                 <div style={{ overflowX: 'auto' }}>
                     <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem' }}>
                         <thead><tr style={{ borderBottom: '1px solid var(--color-border)' }}>
-// fallow-ignore-next-line code-duplication
                             <th style={{ textAlign: 'left', padding: '8px 6px', color: 'var(--color-text-secondary)', fontWeight: 500 }}>Product</th>
                             <th style={{ textAlign: 'center', padding: '8px 6px', color: 'var(--color-text-secondary)', fontWeight: 500 }}>Ordered</th>
                             <th style={{ textAlign: 'center', padding: '8px 6px', color: 'var(--color-text-secondary)', fontWeight: 500 }}>Received</th>
@@ -351,7 +349,6 @@ export default function PODetail() {
                 <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }} onClick={closeReceiveModal}>
                     <div style={{ background: 'var(--color-bg-primary)', borderRadius: '12px', padding: '1.5rem', maxWidth: '500px', width: '100%', maxHeight: '80vh', overflowY: 'auto' }} onClick={e => e.stopPropagation()}>
                         <h3 style={{ margin: '0 0 1rem' }}>Receive Items</h3>
-// fallow-ignore-next-line code-duplication
                         {receiveItems.map((ri, idx) => (
                             <div key={ri.item_id} style={{ marginBottom: '12px', padding: '10px', background: 'var(--color-bg-secondary)', borderRadius: '8px' }}>
                                 <div style={{ fontWeight: 600, marginBottom: '4px', fontSize: '0.9rem' }}>{ri.product_name}</div>
@@ -416,7 +413,6 @@ export default function PODetail() {
                         <p style={{ fontSize: '0.85rem', color: 'var(--color-text-secondary)', marginBottom: '1rem' }}>
                             Specify how many received packs you want to reverse from stock. This will reduce inventory quantity at the original landed cost.
                         </p>
-// fallow-ignore-next-line code-duplication
                         {reverseItems.map((ri, idx) => (
                             <div key={ri.item_id} style={{ marginBottom: '12px', padding: '10px', background: 'var(--color-bg-secondary)', borderRadius: '8px' }}>
                                 <div style={{ fontWeight: 600, marginBottom: '4px', fontSize: '0.9rem' }}>{ri.product_name}</div>

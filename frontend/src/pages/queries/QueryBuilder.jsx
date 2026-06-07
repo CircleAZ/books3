@@ -821,7 +821,6 @@ export default function QueryBuilderPage() {
                     matchModes: f.matchModes || ['some', 'all', 'none']
                 };
             }
-// fallow-ignore-next-line code-duplication
             const hasChoices = f.choices && f.choices.length > 0;
             let type = 'text';
             if (f.type === 'integer' || f.type === 'decimal') type = 'number';
@@ -1301,7 +1300,6 @@ export default function QueryBuilderPage() {
                                 {/* Personal section */}
                                 <div className="queries-section">
                                     <h4>My Queries</h4>
-// fallow-ignore-next-line code-duplication
                                     {savedQueries.filter(q => q.created_by === user?.id || (!q.is_shared && q.created_by_name === user?.username)).map(query => (
                                         <div 
                                             key={query.id} 
@@ -1325,7 +1323,6 @@ export default function QueryBuilderPage() {
                                 {/* Shared section */}
                                 <div className="queries-section">
                                     <h4>Shared Queries</h4>
-// fallow-ignore-next-line code-duplication
                                     {savedQueries.filter(q => q.is_shared).map(query => (
                                         <div 
                                             key={query.id} 

@@ -94,7 +94,6 @@ export default function EmployeeExpenseDetail() {
         }
     };
 
-// fallow-ignore-next-line code-duplication
     const handleReject = async () => {
         setProcessing(true);
         try {
@@ -127,7 +126,6 @@ export default function EmployeeExpenseDetail() {
         });
     };
 
-// fallow-ignore-next-line code-duplication
     const handleReimburse = async (e) => {
         e.preventDefault();
         if (!reimburseForm.method) {
@@ -233,7 +231,6 @@ export default function EmployeeExpenseDetail() {
                     </div>
                 </div>
                 <div className="header-right">
-// fallow-ignore-next-line code-duplication
                     <button className="btn btn-outline" onClick={() => navigate('/finance/employee-expenses')}>
                         ← Back to List
                     </button>
@@ -318,7 +315,6 @@ export default function EmployeeExpenseDetail() {
                 {/* Sidebar — Actions */}
                 <div className="details-sidebar">
                     {expense.status === 'pending' && (
-// fallow-ignore-next-line code-duplication
                         <div className="glass-card approval-card" id="approval-section">
                             <div className="card-header"><h3>⚖️ Approval Required</h3></div>
                             <p className="approval-notice">
@@ -340,7 +336,6 @@ export default function EmployeeExpenseDetail() {
                     )}
 
                     {expense.status === 'approved' && (
-// fallow-ignore-next-line code-duplication
                         <div className="glass-card approval-card">
                             <div className="card-header"><h3>💰 Ready for Reimbursement</h3></div>
                             <p className="approval-notice">
@@ -388,7 +383,6 @@ export default function EmployeeExpenseDetail() {
                                     {expense.status === 'reimbursed' ? `${currency}0` : `${currency}${Number(expense.amount).toLocaleString()}`}
                                 </span>
                             </div>
-// fallow-ignore-next-line code-duplication
                         </div>
                     </div>
                 </div>
@@ -416,9 +410,7 @@ export default function EmployeeExpenseDetail() {
                             <button className="btn btn-danger" onClick={handleReject} disabled={processing}>
                                 {processing ? 'Rejecting...' : 'Confirm Rejection'}
                             </button>
-// fallow-ignore-next-line code-duplication
                         </div>
-// fallow-ignore-next-line code-duplication
                     </div>
                 </div>
             )}
@@ -434,7 +426,6 @@ export default function EmployeeExpenseDetail() {
                         <p style={{ color: 'var(--color-text-secondary)', marginBottom: 16, fontSize: '0.9rem' }}>
                             Reimburse <strong>{currency}{Number(expense.amount).toLocaleString()}</strong> to <strong>{expense.employee_name}</strong>.
                         </p>
-// fallow-ignore-next-line code-duplication
                         <form onSubmit={handleReimburse}>
                             <div className="form-group">
                                 <label>Payment Method</label>
@@ -452,7 +443,6 @@ export default function EmployeeExpenseDetail() {
                                 </select>
                             </div>
                             {reimburseForm.method && (
-// fallow-ignore-next-line code-duplication
                                 <div className="form-group">
                                     <label>Source Ledger</label>
                                     <select className="form-control"

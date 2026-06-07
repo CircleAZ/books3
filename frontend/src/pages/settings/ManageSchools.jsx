@@ -142,7 +142,6 @@ export default function ManageSchools() {
 
     // --- Wizard: Step 2 — Structure Assignment ---
     const handleAssignStructure = async () => {
-// fallow-ignore-next-line code-duplication
         if (assigningStructure || !currentSchool) return;
 
         // Build payload from selection
@@ -203,7 +202,6 @@ export default function ManageSchools() {
     };
 
     const handleAssignEditedStructure = async () => {
-// fallow-ignore-next-line code-duplication
         if (!editingStructure) return;
 
         const structure = [];
@@ -421,7 +419,6 @@ export default function ManageSchools() {
                     <input
                         type="text"
                         placeholder="Filter schools..."
-/* fallow-ignore-next-line code-duplication */
                         value={search}
                         onChange={e => setSearch(e.target.value)}
                     />

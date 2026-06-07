@@ -261,7 +261,6 @@ export default function ExpenseCategories() {
                             <button className="btn-icon edit" title="Edit" onClick={() => handleOpenEditModal(category)}>
                                 ✏️
                             </button>
-// fallow-ignore-next-line code-duplication
                             <button className="btn-icon delete" title="Delete" onClick={() => handleDeleteClick(category)}>
                                 🗑️
                             </button>
@@ -377,7 +376,6 @@ export default function ExpenseCategories() {
                                     rows="3"
                                     value={formData.description}
                                     onChange={e => setFormData({ ...formData, description: e.target.value })}
-/* fallow-ignore-next-line code-duplication */
                                 ></textarea>
                             </div>
 
@@ -396,7 +394,6 @@ export default function ExpenseCategories() {
                                 <button type="button" className="btn btn-ghost" onClick={handleCloseEditModal}>Cancel</button>
                                 <button type="submit" className="btn btn-primary">
                                     {currentCategory ? 'Update Category' : 'Create Category'}
-// fallow-ignore-next-line code-duplication
                                 </button>
                             </div>
                         </form>

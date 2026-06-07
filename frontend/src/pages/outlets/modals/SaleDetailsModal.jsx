@@ -50,7 +50,6 @@ export default function SaleDetailsModal({ isOpen, onClose, sale }) {
                         </thead>
                         <tbody>
                             {sale.items && sale.items.length > 0 ? (
-// fallow-ignore-next-line code-duplication
                                 sale.items.map(item => (
                                     <tr key={item.id}>
                                         <td>

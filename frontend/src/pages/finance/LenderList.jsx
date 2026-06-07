@@ -44,7 +44,6 @@ export default function LenderList() {
 
     useEffect(() => {
         fetchLenders();
-// fallow-ignore-next-line code-duplication
     }, [fetchLenders]);
 
     const handleInputChange = (e) => {
@@ -105,7 +104,6 @@ export default function LenderList() {
                         <div className="spinner-large"></div>
                     </div>
                 ) : (
-// fallow-ignore-next-line code-duplication
                     <table className="lender-table">
                         <thead>
                             <tr>

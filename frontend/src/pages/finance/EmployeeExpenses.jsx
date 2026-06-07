@@ -70,7 +70,6 @@ export default function EmployeeExpenses() {
 // fallow-ignore-next-line code-duplication
     }, [fetchWithAuth, filterStatus]);
 
-// fallow-ignore-next-line code-duplication
     const fetchCategories = useCallback(async () => {
         try {
             const response = await fetchWithAuth(ENDPOINTS.FINANCE_EXPENSE_CATEGORIES);
@@ -85,7 +84,6 @@ export default function EmployeeExpenses() {
 
     const fetchLedgers = useCallback(async () => {
         try {
-// fallow-ignore-next-line code-duplication
             const bankRes = await fetchWithAuth(ENDPOINTS.FINANCE_BANK_ACCOUNTS + '?active_only=true');
             if (bankRes.ok) {
                 const bankData = await bankRes.json();
@@ -260,10 +258,8 @@ export default function EmployeeExpenses() {
                 {loading ? (
                     <LoadingSpinner />
                 ) : (
-// fallow-ignore-next-line code-duplication
                     <table className="expenses-table">
                         <thead>
-// fallow-ignore-next-line code-duplication
                             <tr>
                                 <th>Date</th>
                                 <th>Employee</th>
@@ -415,7 +411,6 @@ export default function EmployeeExpenses() {
                                     {submitting ? 'Submitting...' : 'Submit Claim'}
                                 </button>
                             </div>
-// fallow-ignore-next-line code-duplication
                         </form>
                     </div>
                 </div>
@@ -450,7 +445,6 @@ export default function EmployeeExpenses() {
                                     )}
                                 </select>
                             </div>
-// fallow-ignore-next-line code-duplication
                             <div className="form-group">
                                 <label>Source Ledger</label>
                                 <select
@@ -464,7 +458,6 @@ export default function EmployeeExpenses() {
                                     {isCashMethod(reimburseForm.method) ? (
                                         availableCashWallets.map(w => <option key={w.id} value={w.id}>{w.name}</option>)
                                     ) : (
-// fallow-ignore-next-line code-duplication
                                         availableBankAccounts.map(b => <option key={b.id} value={b.id}>{b.name}</option>)
                                     )}
                                 </select>

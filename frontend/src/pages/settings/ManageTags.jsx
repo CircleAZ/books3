@@ -146,7 +146,6 @@ export default function ManageTags() {
         t.name?.toLowerCase().includes(search.toLowerCase())
     );
 
-// fallow-ignore-next-line code-duplication
     if (loading && !isEditing && tags.length === 0) {
         return <LoadingSpinner />;
     }
@@ -173,7 +172,6 @@ export default function ManageTags() {
 
             {isEditing && (
                 <div className="card manager-form-card">
-// fallow-ignore-next-line code-duplication
                     <h3>{currentItem ? 'Edit Tag' : 'New Tag'}</h3>
                     <form onSubmit={handleSubmit}>
                         <div className="manager-form-group">
@@ -187,7 +185,6 @@ export default function ManageTags() {
                         </div>
                         <div className="manager-form-group">
                             <label>Color</label>
-// fallow-ignore-next-line code-duplication
                             <input
                                 type="color"
                                 value={formData.color}
@@ -249,7 +246,6 @@ export default function ManageTags() {
                     <input
                         type="text"
                         placeholder="Filter tags..."
-/* fallow-ignore-next-line code-duplication */
                         value={search}
                         onChange={e => setSearch(e.target.value)}
                     />

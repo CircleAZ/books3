@@ -194,7 +194,6 @@ export default function CoverageList() {
             {/* Desktop table */}
             {sortedCustomers.length > 0 && (
                 <div className="coverage-table-wrap">
-// fallow-ignore-next-line code-duplication
                     <table className="coverage-table">
                         <thead>
                             <tr>

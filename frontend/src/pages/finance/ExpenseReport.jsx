@@ -4,7 +4,6 @@ import { ENDPOINTS } from '../../config/api';
 import './ProfitLossReport.css'; // Reusing shared report styles
 
 const ExpenseReport = () => {
-// fallow-ignore-next-line code-duplication
     const { fetchWithAuth } = useAuth();
     const [period, setPeriod] = useState('month');
     const [loading, setLoading] = useState(true);
@@ -43,7 +42,6 @@ const ExpenseReport = () => {
         }).format(amount || 0);
     };
 
-// fallow-ignore-next-line code-duplication
     const statusLabel = (status) => {
         const map = {
             unpaid: 'Unpaid', partial: 'Partially Paid', paid: 'Fully Paid',

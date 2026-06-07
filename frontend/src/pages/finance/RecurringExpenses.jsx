@@ -123,7 +123,6 @@ export default function RecurringExpenses() {
 
     const fmt = formatINR;
 
-// fallow-ignore-next-line code-duplication
     if (loading && items.length === 0) {
         return <LoadingSpinner />;
     }
@@ -200,11 +199,9 @@ export default function RecurringExpenses() {
                                 <label>Name *</label>
                                 <input type="text" required placeholder="e.g. Monthly Rent"
                                     value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })} />
-// fallow-ignore-next-line code-duplication
                             </div>
                             <div className="form-group">
                                 <label>Category *</label>
-// fallow-ignore-next-line code-duplication
                                 <select required value={formData.category}
                                     onChange={e => setFormData({ ...formData, category: e.target.value })}>
                                     <option value="">Select Category</option>
@@ -249,9 +246,7 @@ export default function RecurringExpenses() {
                             </div>
                             <div className="form-group">
                                 <label>Description</label>
-// fallow-ignore-next-line code-duplication
                                 <textarea rows="2" placeholder="Optional details"
-/* fallow-ignore-next-line code-duplication */
                                     value={formData.description} onChange={e => setFormData({ ...formData, description: e.target.value })} />
                             </div>
                             <div className="form-group checkbox-group">
@@ -264,9 +259,7 @@ export default function RecurringExpenses() {
                             <div className="modal-actions">
                                 <button type="button" className="btn btn-ghost" onClick={() => setIsModalOpen(false)}>Cancel</button>
                                 <button type="submit" className="btn btn-primary">
-// fallow-ignore-next-line code-duplication
                                     {currentItem ? 'Update' : 'Create'}
-// fallow-ignore-next-line code-duplication
                                 </button>
                             </div>
                         </form>

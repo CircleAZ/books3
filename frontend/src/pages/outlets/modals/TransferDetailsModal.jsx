@@ -44,7 +44,6 @@ export default function TransferDetailsModal({ isOpen, onClose, transfer }) {
                         </thead>
                         <tbody>
                             {transfer.items && transfer.items.length > 0 ? (
-// fallow-ignore-next-line code-duplication
                                 transfer.items.map(item => (
                                     <tr key={item.id}>
                                         <td>
@@ -74,7 +73,6 @@ export default function TransferDetailsModal({ isOpen, onClose, transfer }) {
                     <div style={{ marginBottom: '1.5rem' }}>
                         <strong className="text-muted" style={{ display: 'block', fontSize: '0.85rem', marginBottom: '0.5rem' }}>NOTES</strong>
                         <div style={{ padding: '1rem', backgroundColor: 'var(--color-bg-secondary)', borderRadius: 'var(--radius-md)' }}>
-// fallow-ignore-next-line code-duplication
                             {transfer.notes}
                         </div>
                     </div>

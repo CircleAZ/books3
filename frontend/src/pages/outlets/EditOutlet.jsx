@@ -80,7 +80,6 @@ export default function EditOutlet() {
         return <div className="page-loading">Loading Outlet...</div>;
     }
 
-// fallow-ignore-next-line code-duplication
     return (
         <div className="outlet-form-container">
             <div className="page-header">

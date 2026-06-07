@@ -106,7 +106,6 @@ export default function ManageGroups() {
         g.description?.toLowerCase().includes(search.toLowerCase())
     );
 
-// fallow-ignore-next-line code-duplication
     if (loading && !isEditing && groups.length === 0) {
         return <LoadingSpinner />;
     }
@@ -132,7 +131,6 @@ export default function ManageGroups() {
 
             {isEditing && (
                 <div className="card manager-form-card">
-// fallow-ignore-next-line code-duplication
                     <h3>{currentItem ? 'Edit Group' : 'New Group'}</h3>
                     <form onSubmit={handleSubmit}>
                         <div className="manager-form-group">
@@ -157,7 +155,6 @@ export default function ManageGroups() {
                         </div>
                         <div className="manager-form-group">
                             <label>Description</label>
-// fallow-ignore-next-line code-duplication
                             <textarea
                                 value={formData.description}
                                 onChange={e => setFormData({ ...formData, description: e.target.value })}
@@ -183,7 +180,6 @@ export default function ManageGroups() {
                     <input
                         type="text"
                         placeholder="Filter groups..."
-/* fallow-ignore-next-line code-duplication */
                         value={search}
                         onChange={e => setSearch(e.target.value)}
                     />

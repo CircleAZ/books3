@@ -98,7 +98,6 @@ export default function OrderDetails() {
                 const response = await fetchWithAuth(ENDPOINTS.SETTINGS_PAYMENT_METHODS);
                 if (response.ok) {
                     const data = await response.json();
-// fallow-ignore-next-line code-duplication
                     setAvailablePaymentMethods((data.results || data).filter(m => m.is_enabled));
                 }
 
@@ -159,7 +158,6 @@ export default function OrderDetails() {
 
     const confirmCancelOrder = async () => {
         setShowCancelConfirm(false);
-// fallow-ignore-next-line code-duplication
         try {
             const response = await fetchWithAuth(`${ENDPOINTS.ORDERS}${id}/cancel/`, {
                 method: 'POST'
@@ -175,9 +173,7 @@ export default function OrderDetails() {
         }
     };
 
-// fallow-ignore-next-line code-duplication
     const handleApproveCancellation = async () => {
-// fallow-ignore-next-line code-duplication
         try {
             const response = await fetchWithAuth(`${ENDPOINTS.ORDERS}${id}/approve_cancellation/`, {
                 method: 'POST'
@@ -193,9 +189,7 @@ export default function OrderDetails() {
         }
     };
 
-// fallow-ignore-next-line code-duplication
     const handleRejectCancellation = async () => {
-// fallow-ignore-next-line code-duplication
         try {
             const response = await fetchWithAuth(`${ENDPOINTS.ORDERS}${id}/reject_cancellation/`, {
                 method: 'POST'

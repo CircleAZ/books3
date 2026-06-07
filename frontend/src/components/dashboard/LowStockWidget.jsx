@@ -3,7 +3,6 @@ import './LowStockWidget.css';
 
 export default function LowStockWidget({ items }) {
     return (
-// fallow-ignore-next-line code-duplication
         <div className="low-stock-widget">
             <div className="widget-header">
                 <h3>Low Stock Alerts</h3>

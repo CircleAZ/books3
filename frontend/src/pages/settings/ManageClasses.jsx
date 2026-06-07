@@ -79,7 +79,6 @@ export default function ManageClasses() {
         setFormData({ name: item.name });
     };
 
-// fallow-ignore-next-line code-duplication
     const handleDelete = async (id) => {
         if (!window.confirm('Delete this class template? Schools using this name will not be affected.')) return;
         try {
@@ -99,7 +98,6 @@ export default function ManageClasses() {
         .filter(t => t.name?.toLowerCase().includes(search.toLowerCase()))
         .sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' }));
 
-// fallow-ignore-next-line code-duplication
     if (loading && !isEditing && templates.length === 0) {
         return <LoadingSpinner />;
     }
@@ -125,12 +123,10 @@ export default function ManageClasses() {
 
             {isEditing && (
                 <div className="card manager-form-card">
-// fallow-ignore-next-line code-duplication
                     <h3>{currentItem ? 'Edit Class' : 'New Class'}</h3>
                     <form onSubmit={handleSubmit}>
                         <div className="manager-form-group">
                             <label>Class Name</label>
-// fallow-ignore-next-line code-duplication
                             <input
                                 type="text"
                                 value={formData.name}
@@ -169,7 +165,6 @@ export default function ManageClasses() {
                 <tbody>
                     {filtered.map(item => (
                         <tr key={item.id}>
-// fallow-ignore-next-line code-duplication
                             <td>{item.name}</td>
                             <td className="actions-cell">
                                 <button className="btn btn-ghost" onClick={() => handleEdit(item)}>Edit</button>

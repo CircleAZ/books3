@@ -589,4 +589,45 @@ class OrderEditTestCase(TestCase):
         # Overall status must instantly transition to 'Order Complete'
         self.assertEqual(order.overall_status, 'Order Complete')
 
+    def test_direct_item_mutation_triggers_signals(self):
+        """Test that direct database saving/deleting of OrderItem triggers signals to update order totals and status."""
+        order = Order.objects.create(
+            customer=self.customer,
+            order_status='confirmed',
+            created_by=self.user
+        )
+        item_a = OrderItem.objects.create(
+            order=order,
+            product=self.product_a,
+            quantity=1,
+            unit_price=Decimal('100.00')
+        )
+        # 1. Check initial totals
+        order.refresh_from_db()
+        self.assertEqual(order.subtotal, Decimal('100.00'))
+        
+        # 2. Mutate OrderItem quantity directly and save
+        item_a.quantity = 3
+        item_a.save()
+        
+        # Order should automatically have totals recalculated via signal
+        order.refresh_from_db()
+        self.assertEqual(order.subtotal, Decimal('300.00'))
+        
+        # 3. Create another item
+        item_b = OrderItem.objects.create(
+            order=order,
+            product=self.product_b,
+            quantity=2,
+            unit_price=Decimal('60.00')
+        )
+        order.refresh_from_db()
+        self.assertEqual(order.subtotal, Decimal('420.00')) # 300 + 120
+        
+        # 4. Delete item_b directly
+        item_b.delete()
+        order.refresh_from_db()
+        self.assertEqual(order.subtotal, Decimal('300.00'))
+
+
 

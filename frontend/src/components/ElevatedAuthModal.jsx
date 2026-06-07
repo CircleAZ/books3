@@ -20,7 +20,6 @@ export default function ElevatedAuthModal() {
         }
     }, [elevatedAuthRequest]);
 
-// fallow-ignore-next-line code-duplication
     const requestElevatedOtp = async () => {
         setLoading(true);
         setError('');
@@ -55,7 +54,6 @@ export default function ElevatedAuthModal() {
             inputRefs.current[index + 1]?.focus();
         }
         if (value && index === 5 && newOtp.every(d => d !== '')) {
-// fallow-ignore-next-line code-duplication
             verifyElevatedOtp(newOtp.join(''));
         }
     };
@@ -141,7 +139,6 @@ export default function ElevatedAuthModal() {
                         </div>
                     ) : (
                         <>
-// fallow-ignore-next-line code-duplication
                             <p className="helper-text">Enter the 6-digit code sent to your email to unlock elevated permissions for 1 hour.</p>
                             <div className="otp-inputs" onPaste={handlePaste}>
                                 {otp.map((digit, index) => (

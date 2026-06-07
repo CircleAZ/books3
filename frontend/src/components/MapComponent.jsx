@@ -172,7 +172,6 @@ const MapComponent = ({ position, onLocationSelect, height = '300px', readonly =
                 setUserLocation([latitude, longitude]);
                 setAccuracy(accuracy);
                 setLocationError(null);
-// fallow-ignore-next-line code-duplication
             },
             (err) => {
                 console.warn('GPS Error:', err.message);

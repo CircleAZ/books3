@@ -5,7 +5,6 @@ import { ENDPOINTS } from '../../config/api';
 import { FileSpreadsheet } from 'lucide-react';
 import './ProfitLossReport.css'; // Reusing similar styles for now
 
-// fallow-ignore-next-line code-duplication
 const TaxReport = () => {
     const { fetchWithAuth } = useAuth();
     const { showToast } = useToast();
@@ -90,7 +89,6 @@ const TaxReport = () => {
     };
 
     if (loading && !reportData) {
-// fallow-ignore-next-line code-duplication
         return <div className="report-loading">Generating Tax Report...</div>;
     }
 

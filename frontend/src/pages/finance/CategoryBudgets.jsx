@@ -94,7 +94,6 @@ export default function CategoryBudgets() {
         return '#10b981';
     };
 
-// fallow-ignore-next-line code-duplication
     if (loading && budgets.length === 0) {
         return <LoadingSpinner />;
     }
@@ -179,11 +178,9 @@ export default function CategoryBudgets() {
                             <h2>{currentBudget ? 'Edit Budget' : 'New Budget'}</h2>
                             <button className="close-btn" onClick={() => setIsModalOpen(false)}>&times;</button>
                         </header>
-// fallow-ignore-next-line code-duplication
                         <form onSubmit={handleSave}>
                             <div className="form-group">
                                 <label>Category *</label>
-// fallow-ignore-next-line code-duplication
                                 <select required value={formData.category}
                                     onChange={e => setFormData({ ...formData, category: e.target.value })}>
                                     <option value="">Select Category</option>
@@ -210,7 +207,6 @@ export default function CategoryBudgets() {
                             </div>
                             <div className="modal-actions">
                                 <button type="button" className="btn btn-ghost" onClick={() => setIsModalOpen(false)}>Cancel</button>
-// fallow-ignore-next-line code-duplication
                                 <button type="submit" className="btn btn-primary">{currentBudget ? 'Update' : 'Create'}</button>
                             </div>
                         </form>
@@ -222,7 +218,6 @@ export default function CategoryBudgets() {
                 <div className="modal-overlay" onClick={() => setIsDeleteModalOpen(false)}>
                     <div className="modal-content glass-card delete-modal" onClick={e => e.stopPropagation()}>
                         <h2>Confirm Delete</h2>
-// fallow-ignore-next-line code-duplication
                         <p>Delete budget for <strong>{currentBudget?.category_name}</strong>?</p>
                         <p className="warning">This will not affect existing expenses.</p>
                         <div className="modal-actions">

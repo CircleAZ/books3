@@ -110,7 +110,6 @@ export default function VendorModal({ isOpen, onClose, vendor, onSuccess }) {
                                     value={formData.contact_phone}
                                     onChange={e => setFormData({ ...formData, contact_phone: e.target.value.replace(/\D/g, '').slice(0, 10) })}
                                 />
-// fallow-ignore-next-line code-duplication
                             </div>
                         </div>
                     )}

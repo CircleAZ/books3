@@ -25,7 +25,6 @@ export default function StudentEducationBlock({
         }
         const fetchClasses = async () => {
             try {
-// fallow-ignore-next-line code-duplication
                 const res = await fetchWithAuth(`${ENDPOINTS.CLASSES}?school=${student.school}`);
                 if (res.ok) {
                     const data = await res.json();
@@ -47,7 +46,6 @@ export default function StudentEducationBlock({
         }
         const fetchDivisions = async () => {
             try {
-// fallow-ignore-next-line code-duplication
                 const res = await fetchWithAuth(`${ENDPOINTS.CUSTOMERS_DIVISIONS}?class_obj=${student.class_obj}`);
                 if (res.ok) {
                     const data = await res.json();
@@ -69,7 +67,6 @@ export default function StudentEducationBlock({
         }
         const fetchSubs = async () => {
             try {
-// fallow-ignore-next-line code-duplication
                 const res = await fetchWithAuth(`${ENDPOINTS.CUSTOMERS_SUBDIVISIONS}?division=${student.division}`);
                 if (res.ok) {
                     const data = await res.json();
@@ -133,7 +130,6 @@ export default function StudentEducationBlock({
                         <label>Class</label>
                         <select name="class_name" value={student.class_name} onChange={handleChange} className="form-control">
                             <option value="">Select Class</option>
-// fallow-ignore-next-line code-duplication
                             {classTemplates.map(ct => <option key={ct.id} value={ct.name}>{ct.name}</option>)}
                         </select>
                     </div>
@@ -141,7 +137,6 @@ export default function StudentEducationBlock({
                         <label>Division</label>
                         <select name="division_name" value={student.division_name} onChange={handleChange} disabled={!student.class_name} className="form-control">
                             <option value="">Select Division</option>
-// fallow-ignore-next-line code-duplication
                             {divisionTemplates.map(dt => <option key={dt.id} value={dt.name}>{dt.name}</option>)}
                         </select>
                     </div>
@@ -157,7 +152,6 @@ export default function StudentEducationBlock({
                 <div className="form-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem' }}>
                     <div className="form-group">
                         <label>School</label>
-// fallow-ignore-next-line code-duplication
                         <select name="school" value={student.school} onChange={(e) => {
                             onChange(index, 'school', e.target.value);
                             onChange(index, 'class_obj', '');
@@ -170,7 +164,6 @@ export default function StudentEducationBlock({
                     </div>
                     <div className="form-group">
                         <label>Class</label>
-// fallow-ignore-next-line code-duplication
                         <select name="class_obj" value={student.class_obj} onChange={(e) => {
                             onChange(index, 'class_obj', e.target.value);
                             onChange(index, 'division', '');
@@ -182,7 +175,6 @@ export default function StudentEducationBlock({
                     </div>
                     <div className="form-group">
                         <label>Division</label>
-// fallow-ignore-next-line code-duplication
                         <select name="division" value={student.division} onChange={(e) => {
                             onChange(index, 'division', e.target.value);
                             onChange(index, 'subdivision', '');

@@ -57,7 +57,6 @@ export default function SaleModal({ isOpen, onClose, outletId, onSaleComplete })
 
     const handleUpdateQuantity = (productId, qty) => {
         setSelectedItems(selectedItems.map(item => 
-// fallow-ignore-next-line code-duplication
             item.productId === productId ? { ...item, quantity: parseInt(qty) || 1 } : item
         ));
     };
@@ -138,9 +137,7 @@ export default function SaleModal({ isOpen, onClose, outletId, onSaleComplete })
                                     <span className="text-muted">Available: {s.quantity}</span>
                                 </div>
                             ))}
-// fallow-ignore-next-line code-duplication
                             {filteredStock.length === 0 && <div style={{padding: '0.5rem'}} className="text-muted">No stock matches found.</div>}
-// fallow-ignore-next-line code-duplication
                         </div>
                     )}
                 </div>
@@ -166,7 +163,6 @@ export default function SaleModal({ isOpen, onClose, outletId, onSaleComplete })
                                                 type="number" 
                                                 className="form-input" 
                                                 min="1" 
-/* fallow-ignore-next-line code-duplication */
                                                 value={item.quantity}
                                                 onChange={(e) => handleUpdateQuantity(item.productId, e.target.value)}
                                             />

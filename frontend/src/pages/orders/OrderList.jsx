@@ -90,7 +90,6 @@ export default function OrderList() {
     // Unified fetch execution: fires precisely when filters/pages or location.key changes
     useEffect(() => {
         fetchOrders();
-// fallow-ignore-next-line code-duplication
     }, [fetchOrders, location.key]);
 
     const handleSearchChange = (e) => {
@@ -257,7 +256,6 @@ export default function OrderList() {
                                 {STATUS_OPTIONS.cancellation_status.map(opt => (
                                     <option key={opt.value} value={opt.value}>{opt.label}</option>
                                 ))}
-// fallow-ignore-next-line code-duplication
                             </select>
                         </div>
 
@@ -348,7 +346,6 @@ export default function OrderList() {
                                                 <button className="btn btn-primary btn-sm" onClick={() => navigate('/orders/new')}>
                                                     + Create New Order
                                                 </button>
-// fallow-ignore-next-line code-duplication
                                             </div>
                                         </td>
                                     </tr>

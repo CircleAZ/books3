@@ -45,7 +45,6 @@ const BalanceSheet = () => {
         }).format(amount || 0);
     };
 
-// fallow-ignore-next-line code-duplication
     const handleExport = async (fmt = 'csv') => {
         try {
             const formatParam = fmt === 'xlsx' ? '&file_format=xlsx' : '';

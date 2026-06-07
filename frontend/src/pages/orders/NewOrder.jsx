@@ -141,7 +141,6 @@ export default function NewOrder() {
     // Unified back-button handler: drawer close > unsaved work guard > allow navigation
     useEffect(() => {
         // Push a guard state whenever drawer opens OR there's unsaved work
-// fallow-ignore-next-line code-duplication
         const needsGuard = isDrawerOpen || cartItems.length > 0 || showAddCustomer;
         if (!needsGuard) return;
 
@@ -510,7 +509,6 @@ export default function NewOrder() {
     };
 
     const removeFromCart = (id) => {
-// fallow-ignore-next-line code-duplication
         const removed = cartItems.find(item => item.id === id);
         setCartItems(prev => prev.filter(item => item.id !== id));
         if (removed) {
@@ -848,7 +846,6 @@ export default function NewOrder() {
                                 <button type="button" className="btn btn-primary btn-sm" onClick={() => setShowAddCustomer(prev => !prev)}>
                                     {showAddCustomer ? 'Close' : 'New Customer'}
                                 </button>
-// fallow-ignore-next-line code-duplication
                             </div>
                         )}
                     </div>
@@ -868,7 +865,6 @@ export default function NewOrder() {
                         {selectedCustomer.has_legacy_debt && parseFloat(selectedCustomer.legacy_debt_remaining) > 0 && (
                             <div style={{ background: 'var(--danger-color, #dc3545)', color: 'white', padding: '0.5rem', borderRadius: '4px', marginTop: '0.5rem', fontWeight: 'bold', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                 <span>⚠️ LEGACY DEBT ALERT</span>
-// fallow-ignore-next-line code-duplication
                                 <span>{currency}{parseFloat(selectedCustomer.legacy_debt_remaining).toFixed(2)}</span>
                             </div>
                         )}
@@ -915,7 +911,6 @@ export default function NewOrder() {
                     {/* Collapsible Add Customer Form (P4 3.3.1.1.2: "Form is collapsible") */}
                     <div className={`add-customer-collapsible ${showAddCustomer ? 'open' : ''}`}>
                         {showAddCustomer && (
-// fallow-ignore-next-line code-duplication
                             <AddCustomer
                                 isEmbedded={true}
                                 onSuccess={handleCustomerSuccess}
@@ -1002,7 +997,6 @@ export default function NewOrder() {
                                                 </div>
                                             )}
                                             <div className="product-card-name">{p.name}</div>
-// fallow-ignore-next-line code-duplication
                                         </div>
                                         <div className="product-card-info">
                                             <span className="product-card-price">{currency}{Number(p.selling_price).toFixed(2)}</span>
@@ -1012,7 +1006,6 @@ export default function NewOrder() {
                                         </div>
                                         {inCart ? (
                                             <div className="product-card-qty" onClick={e => e.stopPropagation()}>
-// fallow-ignore-next-line code-duplication
                                                 <button
                                                     className="qty-btn"
                                                     onClick={() => {
@@ -1038,7 +1031,6 @@ export default function NewOrder() {
                                                         }
                                                     }}
                                                     min="1"
-// fallow-ignore-next-line code-duplication
                                                     onClick={e => e.target.select()}
                                                 />
                                                 <button className="qty-btn" onClick={() => updateQuantity(p.id, 1)}>+</button>
@@ -1127,13 +1119,11 @@ export default function NewOrder() {
                                         />
                                         <button className="qty-btn" onClick={() => updateQuantity(item.id, 1)}>+</button>
                                     </div>
-// fallow-ignore-next-line code-duplication
                                     <button className="btn btn-ghost btn-sm text-danger" onClick={() => removeFromCart(item.id)}>×</button>
                                 </div>
                             </div>
                             <div className="item-discount-row">
                                 <span>Disc:</span>
-// fallow-ignore-next-line code-duplication
                                 <select
                                     className="form-control form-control-sm"
                                     style={{ width: '60px' }}
@@ -1184,7 +1174,6 @@ export default function NewOrder() {
                     }}>▼</span>
                 </div>
 
-// fallow-ignore-next-line code-duplication
                 <div style={{
                     maxHeight: checkoutExpanded ? '2000px' : '0',
                     overflow: 'hidden',
@@ -1345,7 +1334,6 @@ export default function NewOrder() {
                         {isLoading ? 'Processing...' :
                             cartItems.length === 0 ? '+ Add items to confirm' :
                                 'Confirm Order ✓'}
-// fallow-ignore-next-line code-duplication
                     </button>
                 </div>
             </div >

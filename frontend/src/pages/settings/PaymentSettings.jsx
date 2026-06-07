@@ -335,7 +335,6 @@ const PaymentSettings = () => {
 
                             <div className="form-group">
                                 <label>Linked Bank Account (Optional)</label>
-// fallow-ignore-next-line code-duplication
                                 <select
                                     className="form-select"
                                     value={newMethod.linked_bank_account}
@@ -404,7 +403,6 @@ const PaymentSettings = () => {
                             </div>
                             <div className="form-group">
                                 <label>Linked Bank Account</label>
-// fallow-ignore-next-line code-duplication
                                 <select
                                     className="form-select"
                                     value={newUpi.linked_bank_account}

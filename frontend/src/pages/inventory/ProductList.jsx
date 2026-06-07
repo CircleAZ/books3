@@ -71,7 +71,6 @@ export default function ProductList() {
         }
     }, [fetchWithAuth, page, debouncedSearch, category, vendor, ordering]);
 
-// fallow-ignore-next-line code-duplication
     const fetchFilters = useCallback(async () => {
         try {
             const [catRes, vendRes] = await Promise.all([

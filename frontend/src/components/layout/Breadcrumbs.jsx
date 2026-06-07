@@ -52,7 +52,6 @@ export default function Breadcrumbs({ items }) {
                                             aria-haspopup="true"
                                         >
                                             {crumb.label}
-// fallow-ignore-next-line code-duplication
                                             <svg className={`breadcrumb-chevron ${isOpen ? 'open' : ''}`} width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" aria-hidden="true">
                                                 <polyline points="6 9 12 15 18 9" />
                                             </svg>
@@ -82,7 +81,6 @@ export default function Breadcrumbs({ items }) {
                                     {hasChildren ? (
                                         /* Non-last crumb WITH children: link + dropdown trigger */
                                         <span className="breadcrumb-with-dropdown">
-// fallow-ignore-next-line code-duplication
                                             <Link to={crumb.path} className="breadcrumb-link" aria-label={i === 0 ? "Home" : undefined}>
                                                 {i === 0 ? (
                                                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -96,7 +94,6 @@ export default function Breadcrumbs({ items }) {
                                                 aria-label={`Navigate ${crumb.label} sections`}
                                                 aria-expanded={isOpen}
                                             >
-// fallow-ignore-next-line code-duplication
                                                 <svg className={`breadcrumb-chevron ${isOpen ? 'open' : ''}`} width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" aria-hidden="true">
                                                     <polyline points="6 9 12 15 18 9" />
                                                 </svg>
@@ -117,7 +114,6 @@ export default function Breadcrumbs({ items }) {
                                             )}
                                         </span>
                                     ) : (
-// fallow-ignore-next-line code-duplication
                                         <Link to={crumb.path} className="breadcrumb-link" aria-label={i === 0 ? "Home" : undefined}>
                                             {i === 0 ? (
                                                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">

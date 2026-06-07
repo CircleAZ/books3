@@ -31,7 +31,6 @@ export default function AddExpense() {
     const [errors, setErrors] = useState({});
 
     useEffect(() => {
-// fallow-ignore-next-line code-duplication
         const fetchCategories = async () => {
             try {
                 const response = await fetchWithAuth(ENDPOINTS.FINANCE_EXPENSE_CATEGORIES);

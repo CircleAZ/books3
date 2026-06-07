@@ -68,7 +68,6 @@ export default function Transporters() {
         setIsModalOpen(true);
     };
 
-// fallow-ignore-next-line code-duplication
     const handleSubmit = async (e) => {
         e.preventDefault();
         try {
@@ -115,7 +114,6 @@ export default function Transporters() {
                     <input 
                         type="text" 
                         placeholder="Search transporters by name, phone..." 
-/* fallow-ignore-next-line code-duplication */
                         value={search}
                         onChange={(e) => setSearch(e.target.value)}
                         style={{ width: '100%', padding: '0.75rem 1rem 0.75rem 2.5rem', borderRadius: '8px', border: '1px solid var(--color-border)', background: 'var(--color-surface)' }}

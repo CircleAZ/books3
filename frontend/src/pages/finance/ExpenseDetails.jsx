@@ -556,7 +556,6 @@ export default function ExpenseDetails() {
                         <div className="glass-card paid-confirmation-card">
                             <div className="success-icon">✅</div>
                             <h3>Fully Paid</h3>
-// fallow-ignore-next-line code-duplication
                             <p>This expense has been completely settled. No further payments are due.</p>
                         </div>
                     )}

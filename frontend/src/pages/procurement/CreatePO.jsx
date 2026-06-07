@@ -393,13 +393,11 @@ export default function CreatePO() {
                     </div>
                 ) : (
                     <>
-// fallow-ignore-next-line code-duplication
                         <div style={{ overflowX: 'auto' }}>
                             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem' }}>
                                 <thead>
                                     <tr style={{ borderBottom: '1px solid var(--color-border)' }}>
                                         <th style={{ textAlign: 'left', padding: '8px 6px', color: 'var(--color-text-secondary)', fontWeight: 500 }}>Product</th>
-// fallow-ignore-next-line code-duplication
                                         <th style={{ textAlign: 'center', padding: '8px 6px', color: 'var(--color-text-secondary)', fontWeight: 500 }}>Pack Size</th>
                                         <th style={{ textAlign: 'center', padding: '8px 6px', color: 'var(--color-text-secondary)', fontWeight: 500 }}>Packs</th>
                                         <th style={{ textAlign: 'center', padding: '8px 6px', color: 'var(--color-text-secondary)', fontWeight: 500 }}>Units</th>

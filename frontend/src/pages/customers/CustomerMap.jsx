@@ -849,7 +849,6 @@ export default function CustomerMap() {
                     });
                     userMarkerRef.current = L.marker(latlng, { icon, interactive: false, zIndexOffset: 1000 }).addTo(map);
                 }
-// fallow-ignore-next-line code-duplication
             },
             (err) => {
                 console.warn('GPS Error:', err.message);
@@ -1267,7 +1266,6 @@ export default function CustomerMap() {
 
     // ── Phase 5: Drop Pin handlers ──
     const handleStartDropPin = () => {
-// fallow-ignore-next-line code-duplication
         setPlacingPotentialPin(true);
         const map = mapInstanceRef.current;
         if (!map) return;
@@ -1573,7 +1571,6 @@ export default function CustomerMap() {
                                 <label>Season</label>
                                 <select
                                     value={pendingFilters.season}
-// fallow-ignore-next-line code-duplication
                                     onChange={(e) => setPendingFilters(p => ({ ...p, season: e.target.value }))}
                                 >
                                     <option value="">Current Season</option>
@@ -1885,7 +1882,6 @@ export default function CustomerMap() {
                                 <label>Target Season</label>
                                 <select
                                     value={targetForm.target_season}
-// fallow-ignore-next-line code-duplication
                                     onChange={(e) => setTargetForm(p => ({ ...p, target_season: e.target.value }))}
                                 >
                                     <option value="">Select season...</option>
@@ -2009,7 +2005,6 @@ export default function CustomerMap() {
                                         className="btn-replace"
                                         onClick={() => {
                                             setPotentialEditOpen(false);
-// fallow-ignore-next-line code-duplication
                                             setPlacingPotentialPin(true);
                                             const map = mapInstanceRef.current;
                                             if (!map) return;

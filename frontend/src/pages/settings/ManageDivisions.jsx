@@ -118,7 +118,6 @@ export default function ManageDivisions() {
         });
     };
 
-// fallow-ignore-next-line code-duplication
     const sortedClasses = [...classTemplates].sort((a, b) =>
         a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' })
     );
@@ -127,7 +126,6 @@ export default function ManageDivisions() {
         .filter(t => t.name?.toLowerCase().includes(search.toLowerCase()))
         .sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' }));
 
-// fallow-ignore-next-line code-duplication
     if (loading && !isEditing && templates.length === 0) {
         return <LoadingSpinner />;
     }
@@ -153,7 +151,6 @@ export default function ManageDivisions() {
 
             {isEditing && (
                 <div className="card manager-form-card">
-// fallow-ignore-next-line code-duplication
                     <h3>{currentItem ? 'Edit Division' : 'New Division'}</h3>
                     <form onSubmit={handleSubmit}>
                         <div className="manager-form-group">
@@ -185,13 +182,11 @@ export default function ManageDivisions() {
                                         </button>
                                     );
                                 })}
-// fallow-ignore-next-line code-duplication
                                 {sortedClasses.length === 0 && (
                                     <span style={{ color: 'var(--text-secondary)', fontSize: '0.8rem' }}>
                                         No class templates yet. Add classes first.
                                     </span>
                                 )}
-// fallow-ignore-next-line code-duplication
                             </div>
                         </div>
                         <div className="flex gap-sm">
@@ -207,7 +202,6 @@ export default function ManageDivisions() {
                     <input
                         type="text"
                         placeholder="Filter divisions..."
-/* fallow-ignore-next-line code-duplication */
                         value={search}
                         onChange={e => setSearch(e.target.value)}
                     />
@@ -230,7 +224,6 @@ export default function ManageDivisions() {
                             <td>
                                 {item.applicable_class_names?.length > 0 ? (
                                     <span style={{ display: 'flex', gap: '0.25rem', flexWrap: 'wrap' }}>
-// fallow-ignore-next-line code-duplication
                                         {item.applicable_class_names
                                             .sort((a, b) => a.localeCompare(b, undefined, { numeric: true }))
                                             .map(n => <span key={n} className="manager-badge">{n}</span>)}
@@ -238,7 +231,6 @@ export default function ManageDivisions() {
                                 ) : (
                                     <span style={{ color: 'var(--text-secondary)', fontSize: '0.8rem' }}>All classes</span>
                                 )}
-// fallow-ignore-next-line code-duplication
                             </td>
                             <td className="actions-cell">
                                 <button className="btn btn-ghost" onClick={() => handleEdit(item)}>Edit</button>

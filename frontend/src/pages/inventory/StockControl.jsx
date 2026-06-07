@@ -311,7 +311,6 @@ export default function StockControl() {
                     loading ? (
                         <div className="loading-container"><div className="spinner-large"></div></div>
                     ) : (
-// fallow-ignore-next-line code-duplication
                         <table className="inventory-table">
                             <thead>
                                 <tr>
@@ -352,11 +351,9 @@ export default function StockControl() {
 
 {/* fallow-ignore-next-line code-duplication */}
                 {activeTab === 'negative-stock' && (
-// fallow-ignore-next-line code-duplication
                     loading ? (
                         <div className="loading-container"><div className="spinner-large"></div></div>
                     ) : (
-// fallow-ignore-next-line code-duplication
                         <table className="inventory-table">
                             <thead>
                                 <tr>
@@ -491,7 +488,6 @@ export default function StockControl() {
                             <div className="loading-container"><div className="spinner-large"></div></div>
                         ) : (
                             <div className={`history-table-wrapper${isFiltering ? ' is-filtering' : ''}`}>
-// fallow-ignore-next-line code-duplication
                                 <table className="inventory-table">
                                     <thead>
                                         <tr>
@@ -612,7 +608,6 @@ export default function StockControl() {
                                             <div className="product-dropdown-empty">No products found</div>
                                         )}
                                     </div>
-// fallow-ignore-next-line code-duplication
                                 </div>
                             )}
 
@@ -645,7 +640,6 @@ export default function StockControl() {
 
                             <div className="form-group">
                                 <label>Quantity</label>
-// fallow-ignore-next-line code-duplication
                                 <input
                                     type="number"
                                     min={adjustmentType === 'set' ? '0' : '1'}

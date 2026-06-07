@@ -78,7 +78,6 @@ export default function ReturnModal({ isOpen, onClose, outletId, onReturnComplet
         const parsed = parseInt(qty) || 0;
         setSelectedItems(selectedItems.map(item =>
             item.productId === productId
-// fallow-ignore-next-line code-duplication
                 ? { ...item, quantity: Math.min(Math.max(1, parsed), item.maxQty) }
                 : item
         ));
@@ -201,10 +200,8 @@ export default function ReturnModal({ isOpen, onClose, outletId, onReturnComplet
                         </div>
                     )}
                     {searchTerm && filteredStock.length === 0 && (
-// fallow-ignore-next-line code-duplication
                         <div style={{ padding: '0.5rem', color: 'var(--color-text-muted)', fontSize: '0.85rem' }}>
                             No matching stock found at this outlet.
-// fallow-ignore-next-line code-duplication
                         </div>
                     )}
                 </div>
@@ -231,7 +228,6 @@ export default function ReturnModal({ isOpen, onClose, outletId, onReturnComplet
                                                 className="form-input"
                                                 min="1"
                                                 max={item.maxQty}
-/* fallow-ignore-next-line code-duplication */
                                                 value={item.quantity}
                                                 onChange={(e) => handleUpdateQuantity(item.productId, e.target.value)}
                                             />

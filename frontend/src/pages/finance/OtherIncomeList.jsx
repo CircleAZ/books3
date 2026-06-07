@@ -34,7 +34,6 @@ export default function OtherIncomeList() {
         }
     }, [fetchWithAuth, page, search]);
 
-// fallow-ignore-next-line code-duplication
     useEffect(() => {
         fetchIncome();
     }, [fetchIncome]);
@@ -58,7 +57,6 @@ export default function OtherIncomeList() {
                     <input 
                         type="text" 
                         placeholder="Search by source or description..." 
-/* fallow-ignore-next-line code-duplication */
                         value={search}
                         onChange={(e) => setSearch(e.target.value)}
                         style={{ width: '100%', padding: '0.75rem 1rem 0.75rem 2.5rem', borderRadius: '8px', border: '1px solid var(--color-border)', background: 'var(--color-surface)' }}
@@ -100,7 +98,6 @@ export default function OtherIncomeList() {
                                     </tr>
                                 )}
                             </tbody>
-// fallow-ignore-next-line code-duplication
                         </table>
                         <div className="pagination-controls" style={{ padding: '1.5rem', borderTop: '1px solid var(--color-border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                             <span className="page-info" style={{ fontWeight: 500, color: 'var(--color-text-muted)' }}>

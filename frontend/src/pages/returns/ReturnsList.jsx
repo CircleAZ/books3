@@ -77,7 +77,6 @@ export default function ReturnsList() {
     // Unified fetch execution: fires precisely when filters/pages or location.key changes
     useEffect(() => {
         fetchReturns();
-// fallow-ignore-next-line code-duplication
     }, [fetchReturns, location.key]);
 
     const handleSearchChange = (e) => {
@@ -227,7 +226,6 @@ export default function ReturnsList() {
                                     ))
                                 ) : (
                                     <tr>
-// fallow-ignore-next-line code-duplication
                                         <td colSpan="8" className="empty-state">
                                             No returns found matching your criteria.
                                         </td>
