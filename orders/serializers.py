@@ -824,6 +824,7 @@ class ReturnCreateSerializer(serializers.ModelSerializer):
         # Update order return status
         return_request.order.return_status = 'pending'
         return_request.order.save(update_fields=['return_status'])
+        return_request.order.calculate_totals()
         
         return return_request
 

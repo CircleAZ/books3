@@ -630,4 +630,91 @@ class OrderEditTestCase(TestCase):
         self.assertEqual(order.subtotal, Decimal('300.00'))
 
 
+class OrderReturnTestCase(TestCase):
+    def setUp(self):
+        User = get_user_model()
+        self.user = User.objects.create_user(username='testuser', email='test@example.com', password='password')
+        self.customer = Customer.objects.create(first_name='John', phone='1234567890', created_by=self.user)
+        self.product = Product.objects.create(
+            name='Product A',
+            cost_price=Decimal('50.00'),
+            selling_price=Decimal('100.00'),
+            stock_quantity=50
+        )
+
+    def test_complete_return_updates_order_payment_and_overall_status(self):
+        """Test that completing a return for all items on an unpaid order updates payment_status to 'paid' and overall_status to 'Order Complete'."""
+        from orders.models import Return, ReturnItem, ReturnReason
+        from rest_framework.test import APIClient
+        
+        self.user.is_superuser = True
+        self.user.save()
+        
+        # 1. Create and confirm order
+        order = Order.objects.create(
+            customer=self.customer,
+            order_status='confirmed',
+            delivery_status='pending',
+            created_by=self.user
+        )
+        item = OrderItem.objects.create(
+            order=order,
+            product=self.product,
+            quantity=5,
+            unit_price=Decimal('10.00')
+        )
+        order.calculate_totals()
+        self.assertEqual(order.total, Decimal('50.00'))
+        
+        # 2. Deliver all items
+        delivery = Delivery.objects.create(order=order, delivered_by=self.user)
+        DeliveryItem.objects.create(delivery=delivery, order_item=item, quantity=5)
+        delivery.save() # Auto-updates delivery status to delivered
+        
+        order.refresh_from_db()
+        self.assertEqual(order.delivery_status, 'delivered')
+        self.assertEqual(order.payment_status, 'pending')
+        self.assertEqual(order.overall_status, 'Delivered - Awaiting Payment')
+        
+        # 3. Create Return Request via API
+        client = APIClient()
+        client.force_authenticate(user=self.user)
+        reason = ReturnReason.objects.create(name="Wrong item")
+        
+        return_payload = {
+            'order': str(order.id),
+            'notes': 'Returning everything',
+            'items': [
+                {
+                    'order_item': str(item.id),
+                    'quantity': 5,
+                    'reason': str(reason.id),
+                    'stock_action': 'return_to_stock'
+                }
+            ]
+        }
+        res = client.post('/api/orders/returns/', return_payload, format='json')
+        self.assertEqual(res.status_code, 201)
+        return_id = res.data['id']
+        
+        # Verify order return status is pending
+        order.refresh_from_db()
+        self.assertEqual(order.return_status, 'pending')
+        self.assertEqual(order.overall_status, 'Delivered - Awaiting Payment')
+        
+        # 4. Complete Return Request via API
+        res = client.post(f'/api/orders/returns/{return_id}/complete/')
+        self.assertEqual(res.status_code, 200)
+        
+        # 5. Assert that order statuses are fully updated and synchronized
+        order.refresh_from_db()
+        self.assertEqual(order.return_status, 'completed')
+        self.assertEqual(order.effective_total, Decimal('0.00'))
+        # No balance is due anymore, so payment status must automatically recalculate to 'paid'
+        self.assertEqual(order.payment_status, 'paid')
+        # Overall status must transition to 'Order Complete'
+        self.assertEqual(order.overall_status, 'Order Complete')
+
+
+
 

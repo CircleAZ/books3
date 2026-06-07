@@ -1442,6 +1442,7 @@ class ReturnViewSet(viewsets.ModelViewSet):
             # Update order return status
             return_request.order.return_status = 'received'
             return_request.order.save(update_fields=['return_status'])
+            return_request.order.calculate_totals()
         
         return Response({
             'status': 'Items received and stock restored',
@@ -1474,6 +1475,7 @@ class ReturnViewSet(viewsets.ModelViewSet):
             
             order.return_status = 'completed'
             order.save(update_fields=['return_status'])
+            order.calculate_totals()
         
         return Response({
             'status': 'Return completed. Awaiting manual refund record.',
@@ -1499,6 +1501,8 @@ class ReturnViewSet(viewsets.ModelViewSet):
         if not other_returns.exists():
             return_request.order.return_status = 'na'
             return_request.order.save(update_fields=['return_status'])
+        
+        return_request.order.calculate_totals()
         
         return Response({'status': 'Return cancelled'})
     
