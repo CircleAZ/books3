@@ -1057,14 +1057,17 @@ class Refund(UUIDPrimaryKeyModel):
         super().save(*args, **kwargs)
         
         # Handle Reversal if Cancelled
-        if not is_new and orig_status != 'cancelled' and self.status == 'cancelled':
-            self._reverse_ledgers()
+        if not is_new and orig_status == 'completed' and self.status == 'cancelled':
+            self._reverse_ledgers(force=True)
             
         # Update order refund status
         self._update_order_refund_status()
         
-    def _reverse_ledgers(self):
+    def _reverse_ledgers(self, force=False):
         """Reverse any linked financial transactions due to refund cancellation."""
+        if not force and self.status != 'completed':
+            return
+            
         from finance.services import LedgerService
         if self.bank_transaction:
             LedgerService.process_deposit(

@@ -1542,3 +1542,11 @@ class RefundViewSet(viewsets.ModelViewSet):
             refund = serializer.save(created_by=self.request.user)
             # Auto-create credit note
             CreditNote.objects.create(refund=refund)
+
+    def perform_destroy(self, instance):
+        with transaction.atomic():
+            # Concurrency row lock
+            locked_refund = Refund.objects.select_for_update().get(pk=instance.pk)
+            # Reversing ledger entries
+            locked_refund._reverse_ledgers()
+            locked_refund.delete()

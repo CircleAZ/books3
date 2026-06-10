@@ -854,6 +854,9 @@ class RefundSerializer(serializers.ModelSerializer):
         """Additional validations."""
         order = data.get('order')
         amount = data.get('amount', Decimal('0'))
+        method = data.get('method')
+        source_bank = data.get('source_bank')
+        source_wallet = data.get('source_wallet')
         
         if order:
             # Check total refunds don't exceed order's max_refundable limit
@@ -863,6 +866,35 @@ class RefundSerializer(serializers.ModelSerializer):
             if existing_refunds + amount > order.max_refundable:
                 raise serializers.ValidationError({
                     'amount': f'Total refunds ({existing_refunds + amount}) would exceed the maximum refundable limit ({order.max_refundable}).'
+                })
+                
+        # Validate payment source based on method
+        if method == 'cash':
+            if not source_wallet:
+                raise serializers.ValidationError({
+                    'source_wallet': 'A cash wallet payment source is required for cash refunds.'
+                })
+            if source_bank:
+                raise serializers.ValidationError({
+                    'source_bank': 'Cannot specify a bank account payment source for cash refunds.'
+                })
+        elif method in ['bank', 'upi', 'cheque']:
+            if not source_bank:
+                raise serializers.ValidationError({
+                    'source_bank': f'A bank account payment source is required for {method} refunds.'
+                })
+            if source_wallet:
+                raise serializers.ValidationError({
+                    'source_wallet': f'Cannot specify a cash wallet payment source for {method} refunds.'
+                })
+        elif method == 'customer_wallet':
+            if source_bank:
+                raise serializers.ValidationError({
+                    'source_bank': 'Cannot specify a bank account payment source for customer wallet (store credit) refunds.'
+                })
+            if source_wallet:
+                raise serializers.ValidationError({
+                    'source_wallet': 'Cannot specify a cash wallet payment source for customer wallet (store credit) refunds.'
                 })
         
         return data

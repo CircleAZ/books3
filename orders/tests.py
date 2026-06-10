@@ -715,6 +715,187 @@ class OrderReturnTestCase(TestCase):
         # Overall status must transition to 'Order Complete'
         self.assertEqual(order.overall_status, 'Order Complete')
 
+    def test_refund_validation_constraints(self):
+        """Test that RefundSerializer validation rejects mismatched/missing ledger sources."""
+        from orders.models import Return, ReturnReason, ReturnItem, Payment
+        from finance.models import CashWallet, BankAccount
+        from rest_framework.test import APIClient
+        
+        self.user.is_superuser = True
+        self.user.save()
+        
+        # Setup wallets/banks
+        wallet = CashWallet.objects.create(name="POS Till", balance=Decimal("500.00"))
+        bank = BankAccount.objects.create(name="HDFC Main", current_balance=Decimal("1000.00"))
+        
+        order = Order.objects.create(customer=self.customer, order_status='confirmed', created_by=self.user)
+        item = OrderItem.objects.create(order=order, product=self.product, quantity=2, unit_price=Decimal('100.00'))
+        order.calculate_totals()
+        
+        # Add actual payment
+        Payment.objects.create(
+            order=order,
+            amount=Decimal('200.00'),
+            method='cash',
+            created_by=self.user
+        )
+        
+        # Mark as paid and delivered to allow refunds
+        order.payment_status = 'paid'
+        order.delivery_status = 'delivered'
+        order.save()
+        
+        reason = ReturnReason.objects.create(name="Messed Up")
+        ret = Return.objects.create(order=order, status='completed', created_by=self.user)
+        ReturnItem.objects.create(
+            return_request=ret,
+            order_item=item,
+            quantity=2,
+            reason=reason,
+            stock_action='return_to_stock'
+        )
+        order.calculate_totals()
+        
+        client = APIClient()
+        client.force_authenticate(user=self.user)
+        
+        # 1. Cash method missing source_wallet
+        payload = {
+            'order': str(order.id),
+            'return_request': str(ret.id),
+            'amount': '100.00',
+            'method': 'cash',
+        }
+        res = client.post('/api/orders/refunds/', payload, format='json')
+        self.assertEqual(res.status_code, 400)
+        self.assertIn('source_wallet', res.data)
+        
+        # 2. Cash method with source_bank
+        payload = {
+            'order': str(order.id),
+            'return_request': str(ret.id),
+            'amount': '100.00',
+            'method': 'cash',
+            'source_bank': str(bank.id)
+        }
+        res = client.post('/api/orders/refunds/', payload, format='json')
+        self.assertEqual(res.status_code, 400)
+        
+        # 3. Bank method missing source_bank
+        payload = {
+            'order': str(order.id),
+            'return_request': str(ret.id),
+            'amount': '100.00',
+            'method': 'bank',
+        }
+        res = client.post('/api/orders/refunds/', payload, format='json')
+        self.assertEqual(res.status_code, 400)
+        self.assertIn('source_bank', res.data)
+        
+        # 4. Bank method with source_wallet
+        payload = {
+            'order': str(order.id),
+            'return_request': str(ret.id),
+            'amount': '100.00',
+            'method': 'bank',
+            'source_wallet': str(wallet.id)
+        }
+        res = client.post('/api/orders/refunds/', payload, format='json')
+        self.assertEqual(res.status_code, 400)
+        
+        # 5. Customer wallet with source_wallet or bank
+        payload = {
+            'order': str(order.id),
+            'return_request': str(ret.id),
+            'amount': '100.00',
+            'method': 'customer_wallet',
+            'source_wallet': str(wallet.id)
+        }
+        res = client.post('/api/orders/refunds/', payload, format='json')
+        self.assertEqual(res.status_code, 400)
+
+    def test_refund_creation_and_deletion_reversal(self):
+        """Test that recording a refund deducts ledger balance and deleting it reverses the ledger deposit."""
+        from orders.models import Return, ReturnReason, ReturnItem, Payment, Refund
+        from finance.models import CashWallet, CashWalletTransaction
+        from rest_framework.test import APIClient
+        
+        self.user.is_superuser = True
+        self.user.save()
+        
+        wallet = CashWallet.objects.create(name="POS Till", balance=Decimal("500.00"))
+        
+        order = Order.objects.create(customer=self.customer, order_status='confirmed', created_by=self.user)
+        item = OrderItem.objects.create(order=order, product=self.product, quantity=2, unit_price=Decimal('100.00'))
+        order.calculate_totals()
+        
+        # Add actual payment
+        Payment.objects.create(
+            order=order,
+            amount=Decimal('200.00'),
+            method='cash',
+            created_by=self.user
+        )
+        
+        # Mark paid/delivered
+        order.payment_status = 'paid'
+        order.delivery_status = 'delivered'
+        order.save()
+        
+        reason = ReturnReason.objects.create(name="Messed Up")
+        ret = Return.objects.create(order=order, status='completed', created_by=self.user)
+        ReturnItem.objects.create(
+            return_request=ret,
+            order_item=item,
+            quantity=2,
+            reason=reason,
+            stock_action='return_to_stock'
+        )
+        order.calculate_totals()
+        
+        client = APIClient()
+        client.force_authenticate(user=self.user)
+        
+        # Create refund
+        payload = {
+            'order': str(order.id),
+            'return_request': str(ret.id),
+            'amount': '100.00',
+            'method': 'cash',
+            'source_wallet': str(wallet.id)
+        }
+        res = client.post('/api/orders/refunds/', payload, format='json')
+        self.assertEqual(res.status_code, 201)
+        refund_id = res.data['id']
+        
+        # Assert wallet balance decreased to 400.00
+        wallet.refresh_from_db()
+        self.assertEqual(wallet.balance, Decimal('400.00'))
+        
+        # Verify CashWalletTransaction was created with correct audit trail
+        tx = CashWalletTransaction.objects.filter(wallet=wallet).first()
+        self.assertIsNotNone(tx)
+        self.assertEqual(tx.transaction_type, 'withdrawal')
+        self.assertEqual(tx.amount, Decimal('100.00'))
+        self.assertEqual(tx.created_by, self.user)
+        
+        # Now delete refund via API
+        res = client.delete(f'/api/orders/refunds/{refund_id}/')
+        self.assertEqual(res.status_code, 204)
+        
+        # Assert wallet balance is restored to 500.00
+        wallet.refresh_from_db()
+        self.assertEqual(wallet.balance, Decimal('500.00'))
+        
+        # Verify reversing deposit transaction was created
+        txs = CashWalletTransaction.objects.filter(wallet=wallet).order_by('created_at')
+        self.assertEqual(txs.count(), 2)
+        rev_tx = txs.last()
+        self.assertEqual(rev_tx.transaction_type, 'deposit')
+        self.assertEqual(rev_tx.amount, Decimal('100.00'))
+        self.assertEqual(rev_tx.created_by, self.user)
+
+
 
 
 

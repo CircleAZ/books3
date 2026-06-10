@@ -64,13 +64,25 @@ class LedgerService:
                 )
 
     @staticmethod
-    def process_withdrawal(amount, source_bank=None, source_wallet=None, reference="", description="", user=None, date=None, allow_overdraft=False):
+    def process_withdrawal(amount, source_bank=None, source_wallet=None, reference="", description="", user=None, date=None, allow_overdraft=False, **kwargs):
         if not source_bank and not source_wallet:
-            return
+            return None
+            
+        # Strict validation of kwargs (Option A)
+        allowed_keys = {'related_loan', 'related_expense', 'recorded_by', 'created_by'}
+        invalid_keys = set(kwargs.keys()) - allowed_keys
+        if invalid_keys:
+            raise ValidationError(f"Invalid keyword arguments passed to process_withdrawal: {', '.join(invalid_keys)}")
             
         tx_date = date or timezone.now().date()
         with transaction.atomic():
             if source_bank:
+                # Precedence Constraint (Option B): pop attribution if present, override positional user
+                bank_user = kwargs.pop('recorded_by', user)
+                
+                # Partition kwargs to prevent ORM crash
+                bank_kwargs = {k: v for k, v in kwargs.items() if k in {'related_loan', 'related_expense'}}
+                
                 bank = BankAccount.objects.select_for_update().get(id=source_bank.id)
                 if not allow_overdraft and (bank.current_balance - Decimal(str(amount)) < 0):
                     raise ValidationError(f"Insufficient funds in bank account: {bank.name}")
@@ -82,9 +94,17 @@ class LedgerService:
                     amount=amount,
                     reference=reference,
                     description=description,
-                    is_reconciled=False
+                    is_reconciled=False,
+                    recorded_by=bank_user,
+                    **bank_kwargs
                 )
             elif source_wallet:
+                # Precedence Constraint (Option B): pop attribution if present, override positional user
+                wallet_user = kwargs.pop('created_by', user)
+                
+                # Partition kwargs to prevent ORM crash (CashWalletTransaction only supports related_loan)
+                wallet_kwargs = {k: v for k, v in kwargs.items() if k in {'related_loan'}}
+                
                 wallet = CashWallet.objects.select_for_update().get(id=source_wallet.id)
                 wallet.balance -= Decimal(str(amount))
                 if not allow_overdraft and wallet.balance < 0:
@@ -98,6 +118,7 @@ class LedgerService:
                     description=description,
                     balance_after=wallet.balance,
                     date=tx_date,
-                    created_by=user
+                    created_by=wallet_user,
+                    **wallet_kwargs
                 )
             return None
