@@ -51,6 +51,11 @@ export default function OrderDetails() {
     const [editPaymentSubmitting, setEditPaymentSubmitting] = useState(false);
     const [editPaymentError, setEditPaymentError] = useState('');
 
+    // Price Resync State
+    const [resyncingItemId, setResyncingItemId] = useState(null);
+    const [showResyncConfirmModal, setShowResyncConfirmModal] = useState(false);
+    const [resyncTargetItem, setResyncTargetItem] = useState(null);
+
     // RBAC for edit payment time restrictions
     const isPrivilegedRole = rbac.role === 'owner' || rbac.role === 'manager' || rbac.is_superuser;
 
@@ -423,8 +428,17 @@ export default function OrderDetails() {
         }
     };
 
-    const handleResyncPrice = async (item) => {
-        if (!window.confirm(`Are you sure you want to resync the price for ${item.product_name}?\n\nThis will update the line item to use the current market price of the product and immediately recalculate the entire order total.`)) return;
+    const handleResyncPrice = (item) => {
+        setResyncTargetItem(item);
+        setShowResyncConfirmModal(true);
+    };
+
+    const confirmResyncPrice = async () => {
+        if (!resyncTargetItem) return;
+        const item = resyncTargetItem;
+        setShowResyncConfirmModal(false);
+        setResyncTargetItem(null);
+        setResyncingItemId(item.id);
 
         try {
             const response = await fetchWithAuth(`${ENDPOINTS.ORDERS}${id}/resync_item_price/`, {
@@ -441,7 +455,9 @@ export default function OrderDetails() {
                         `Price resynced from ${currency}${Number(data.old_price).toFixed(2)} to ${currency}${Number(data.new_price).toFixed(2)}`,
                         'success'
                     );
-                    fetchOrderDetails();
+                    if (data.order) {
+                        setOrder(data.order);
+                    }
                 }
             } else {
                 const err = await response.json();
@@ -450,6 +466,8 @@ export default function OrderDetails() {
         } catch (error) {
             console.error("Error resyncing price:", error);
             showToast("Failed to resync price", 'error');
+        } finally {
+            setResyncingItemId(null);
         }
     };
 
@@ -848,8 +866,11 @@ export default function OrderDetails() {
                                                             onClick={(e) => { e.stopPropagation(); handleResyncPrice(item); }}
                                                             title="Resync to current market price"
                                                             style={{ padding: '2px 4px', fontSize: '1rem', lineHeight: 1 }}
+                                                            disabled={resyncingItemId !== null}
                                                         >
-                                                            🔄
+                                                            <span className={resyncingItemId === item.id ? "resync-spin" : ""} style={{ display: 'inline-block' }}>
+                                                                🔄
+                                                            </span>
                                                         </button>
                                                     </GuardedAction>
                                                 )}
@@ -1414,6 +1435,28 @@ export default function OrderDetails() {
                             </button>
                             <button type="button" className="btn" style={{ background: 'var(--color-danger, #dc3545)', color: 'white' }} onClick={confirmCancelOrder}>
                                 Yes, Request Cancellation
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Resync Price Confirmation Modal */}
+            {showResyncConfirmModal && resyncTargetItem && (
+                <div className="modal-overlay" onClick={() => { setShowResyncConfirmModal(false); setResyncTargetItem(null); }}>
+                    <div className="modal-content animate-slide-in-up" onClick={e => e.stopPropagation()} style={{ maxWidth: '450px' }}>
+                        <h2>Confirm Price Resync</h2>
+                        <p style={{ margin: '1rem 0', lineHeight: 1.6 }}>
+                            Are you sure you want to resync the price for <strong>{resyncTargetItem.product_name}</strong>?
+                            <br /><br />
+                            This will update the line item to use the current market price of the product and immediately recalculate the entire order total (subtotal, tax, discount, balance due, and payment status).
+                        </p>
+                        <div className="modal-actions">
+                            <button type="button" className="btn btn-ghost" onClick={() => { setShowResyncConfirmModal(false); setResyncTargetItem(null); }}>
+                                Cancel
+                            </button>
+                            <button type="button" className="btn btn-primary" onClick={confirmResyncPrice}>
+                                Yes, Resync Price
                             </button>
                         </div>
                     </div>

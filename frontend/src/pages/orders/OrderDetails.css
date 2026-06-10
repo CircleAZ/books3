@@ -638,3 +638,18 @@
         grid-template-columns: 1fr;
     }
 }
+
+/* Price Resync Spin Animation */
+.resync-spin {
+    display: inline-block;
+    animation: spin-clockwise 1s linear infinite;
+}
+
+@keyframes spin-clockwise {
+    from {
+        transform: rotate(0deg);
+    }
+    to {
+        transform: rotate(360deg);
+    }
+}

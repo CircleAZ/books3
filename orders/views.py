@@ -461,10 +461,13 @@ class OrderViewSet(viewsets.ModelViewSet):
             logger.exception("Error resyncing price")
             return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
             
+        # Serialize the updated order details using OrderDetailSerializer
+        serializer = OrderDetailSerializer(order, context=self.get_serializer_context())
         return Response({
             'status': 'Price resynced successfully',
             'old_price': old_price,
-            'new_price': new_price
+            'new_price': new_price,
+            'order': serializer.data
         })
 
     def get_serializer_class(self):

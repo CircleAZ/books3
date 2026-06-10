@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { ENDPOINTS } from '../config/api';
-import API_BASE from '../config/api';
 import './Profile.css';
 
 import '../styles/components/form-layout.css';
