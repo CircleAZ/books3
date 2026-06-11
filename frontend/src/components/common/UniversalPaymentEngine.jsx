@@ -33,28 +33,36 @@ export default function UniversalPaymentEngine({
     const [selectedWallet, setSelectedWallet] = useState('');
     const [selectedEmployee, setSelectedEmployee] = useState('');
 
+    // Sync initialAmount to amount state when it changes
+    useEffect(() => {
+        setAmount(initialAmount);
+    }, [initialAmount]);
+
     // Ledger Data
     const [banks, setBanks] = useState([]);
     const [wallets, setWallets] = useState([]);
     const [employees, setEmployees] = useState([]);
     const [loadingData, setLoadingData] = useState(false);
 
+    const allowedMethodsKey = allowedMethods.join(',');
+
     // Fetch required dependencies
     useEffect(() => {
         let mounted = true;
+        const methods = allowedMethodsKey.split(',');
         const fetchDependencies = async () => {
             setLoadingData(true);
             const promises = [];
             
-            if (allowedMethods.includes('cash') && wallets.length === 0) {
+            if (methods.includes('cash') && wallets.length === 0) {
                 promises.push(fetchWithAuth(ENDPOINTS.FINANCE_CASH_WALLETS + '?active_only=true')
                     .then(r => r.ok ? r.json() : []).then(d => d.results || d).then(w => mounted && setWallets(w)));
             }
-            if ((allowedMethods.includes('bank') || allowedMethods.includes('upi') || allowedMethods.includes('cheque')) && banks.length === 0) {
+            if ((methods.includes('bank') || methods.includes('upi') || methods.includes('cheque')) && banks.length === 0) {
                 promises.push(fetchWithAuth(ENDPOINTS.FINANCE_BANK_ACCOUNTS + '?active_only=true')
                     .then(r => r.ok ? r.json() : []).then(d => d.results || d).then(b => mounted && setBanks(b)));
             }
-            if (allowedMethods.includes('employee_expense') && employees.length === 0) {
+            if (methods.includes('employee_expense') && employees.length === 0) {
                 promises.push(fetchWithAuth(ENDPOINTS.SETTINGS_USERS)
                     .then(r => r.ok ? r.json() : []).then(d => d.results || d).then(e => mounted && setEmployees(e.filter(u => u.is_active))));
             }
@@ -67,7 +75,7 @@ export default function UniversalPaymentEngine({
 
         fetchDependencies();
         return () => { mounted = false; };
-    }, [allowedMethods, fetchWithAuth]); // Run only when allowedMethods changes
+    }, [allowedMethodsKey, fetchWithAuth]); // Run only when allowedMethods changes
 
     // Update parent when state becomes valid/invalid
     useEffect(() => {

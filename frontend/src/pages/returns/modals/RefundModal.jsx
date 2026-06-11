@@ -9,6 +9,8 @@ import '../../../styles/components/form-layout.css';
 import '../../../styles/components/modal-system.css';
 import UniversalPaymentEngine from '../../../components/common/UniversalPaymentEngine';
 
+const ALLOWED_REFUND_METHODS = ['store_credit', 'cash', 'bank', 'cheque', 'upi'];
+
 export default function RefundModal({ isOpen, onClose, returnId, orderId, orderDisplayId, outstandingBalance, maxRefundable, onRefundComplete }) {
     const { fetchWithAuth } = useAuth();
     const { showToast } = useToast();
@@ -25,7 +27,7 @@ export default function RefundModal({ isOpen, onClose, returnId, orderId, orderD
     });
 
     useEffect(() => {
-        if (isOpen) {
+        if (!isOpen) {
             setFormData({
                 return_request: returnId,
                 order: orderId,
@@ -108,7 +110,7 @@ export default function RefundModal({ isOpen, onClose, returnId, orderId, orderD
                     <div className="form-group" style={{ marginBottom: '1.5rem' }}>
                         <UniversalPaymentEngine
                             transactionType="outflow"
-                            allowedMethods={['store_credit', 'cash', 'bank', 'cheque', 'upi']}
+                            allowedMethods={ALLOWED_REFUND_METHODS}
                             maxAmount={maxRefundAllowed}
                             initialAmount={maxRefundAllowed}
                             onValidPayload={setRefundPayload}
