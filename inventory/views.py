@@ -5,8 +5,8 @@ logger = logging.getLogger(__name__)
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
-from django.db.models import Count, F, Sum, Q
-from django.db.models.functions import Coalesce
+from django.db.models import Count, F, Sum, Q, Subquery, OuterRef, IntegerField
+from django.db.models.functions import Coalesce, Greatest
 from django.core.exceptions import ValidationError
 import django_filters
 from django_filters.rest_framework import DjangoFilterBackend
@@ -191,6 +191,43 @@ class ProductViewSet(viewsets.ModelViewSet):
         if 'order_count' in ordering:
             qs = qs.annotate(order_count=Count('order_items', distinct=True))
             
+        from orders.models import OrderItem, DeliveryItem
+        
+        # Subquery for delivered quantity of each OrderItem
+        delivered_subquery = DeliveryItem.objects.filter(
+            order_item=OuterRef('pk')
+        ).values('order_item').annotate(
+            total=Sum('quantity')
+        ).values('total')
+        
+        # Subquery for total owed quantity of a product (sum of remaining quantities of active order items)
+        owed_subquery = OrderItem.objects.filter(
+            product=OuterRef('pk'),
+            order__order_status__in=VALID_SALE_STATUSES,
+            order__cancellation_status__in=['na', 'pending'],
+            order__is_deleted=False
+        ).annotate(
+            delivered_qty=Coalesce(Subquery(delivered_subquery), 0),
+            remaining=Greatest(0, Coalesce(F('confirmed_quantity'), F('quantity')) - F('delivered_qty'))
+        ).values('product').annotate(
+            total_owed=Sum('remaining')
+        ).values('total_owed')
+        
+        # Subquery for total pack variants' owed quantity (remaining quantities * pack_size)
+        pack_owed_subquery = OrderItem.objects.filter(
+            product__base_product=OuterRef('pk'),
+            product__is_pack=True,
+            order__order_status__in=VALID_SALE_STATUSES,
+            order__cancellation_status__in=['na', 'pending'],
+            order__is_deleted=False
+        ).annotate(
+            delivered_qty=Coalesce(Subquery(delivered_subquery), 0),
+            remaining=Greatest(0, Coalesce(F('confirmed_quantity'), F('quantity')) - F('delivered_qty')),
+            pack_remaining=F('remaining') * F('product__pack_size')
+        ).values('product__base_product').annotate(
+            total_pack_owed=Sum('pack_remaining')
+        ).values('total_pack_owed')
+
         # Annotate delivered_quantity and owed_quantity for frontend columns
         qs = qs.annotate(
             delivered_quantity=Coalesce(
@@ -203,7 +240,8 @@ class ProductViewSet(viewsets.ModelViewSet):
                     )
                 ), 0
             ),
-            owed_quantity=F('physical_stock') - F('stock_quantity')
+            owed_quantity=Coalesce(Subquery(owed_subquery, output_field=IntegerField()), 0) +
+                          Coalesce(Subquery(pack_owed_subquery, output_field=IntegerField()), 0)
         )
             
         exclude_prefix = self.request.query_params.get('exclude_category_prefix')
