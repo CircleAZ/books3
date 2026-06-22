@@ -2,6 +2,8 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { PROCUREMENT_ENDPOINTS } from '../../services/procurementService';
+import { ENDPOINTS } from '../../config/api';
+import Pagination from '../../components/common/Pagination';
 
 const DATE_PRESETS = [
     { label: 'This Week', value: 'week' },
@@ -24,22 +26,105 @@ export default function ProcurementList() {
     const navigate = useNavigate();
     const location = useLocation();
 
-    useEffect(() => { fetchOrders(); }, [location.key]);
-    useEffect(() => { if (activeTab === 'analytics') fetchAnalytics(); }, [activeTab, period, startDate, endDate]);
+    // Filters and Pagination State
+    const [search, setSearch] = useState('');
+    const [debouncedSearch, setDebouncedSearch] = useState('');
+    const [selectedStatus, setSelectedStatus] = useState('');
+    const [selectedPaymentStatus, setSelectedPaymentStatus] = useState('');
+    const [selectedVendor, setSelectedVendor] = useState('');
+    const [vendors, setVendors] = useState([]);
+    const [currentPage, setCurrentPage] = useState(1);
+    const [totalPages, setTotalPages] = useState(1);
+    const [totalCount, setTotalCount] = useState(0);
 
-    const fetchOrders = async () => {
+    // Debounced search logic
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            setDebouncedSearch(search);
+        }, 400);
+        return () => clearTimeout(timer);
+    }, [search]);
+
+    // Fetch vendors on mount
+    useEffect(() => {
+        const fetchVendorsList = async () => {
+            try {
+                const res = await fetchWithAuth(ENDPOINTS.INVENTORY_VENDORS);
+                if (res.ok) {
+                    const data = await res.json();
+                    setVendors(data.results || data || []);
+                }
+            } catch (e) {
+                console.error("Failed to fetch vendors", e);
+            }
+        };
+        fetchVendorsList();
+    }, [fetchWithAuth]);
+
+    const fetchOrders = useCallback(async (pageVal = currentPage) => {
+        setLoading(true);
         try {
-            const response = await fetchWithAuth(PROCUREMENT_ENDPOINTS.PURCHASE_ORDERS);
+            let url = `${PROCUREMENT_ENDPOINTS.PURCHASE_ORDERS}?page=${pageVal}`;
+            if (debouncedSearch) {
+                url += `&search=${encodeURIComponent(debouncedSearch)}`;
+            }
+            if (selectedStatus) {
+                url += `&status=${encodeURIComponent(selectedStatus)}`;
+            }
+            if (selectedPaymentStatus) {
+                url += `&payment_status=${encodeURIComponent(selectedPaymentStatus)}`;
+            }
+            if (selectedVendor) {
+                url += `&vendor=${encodeURIComponent(selectedVendor)}`;
+            }
+            const response = await fetchWithAuth(url);
             if (response.ok) {
                 const data = await response.json();
-                setOrders(Array.isArray(data) ? data : data.results || []);
+                setOrders(data.results || []);
+                setTotalPages(Math.ceil((data.count || 0) / 20));
+                setTotalCount(data.count || 0);
             }
         } catch (error) {
             console.error("Failed to load purchase orders", error);
         } finally {
             setLoading(false);
         }
+    }, [fetchWithAuth, debouncedSearch, selectedStatus, selectedPaymentStatus, selectedVendor]);
+
+    // Fetch orders when page or filters/dependencies change
+    useEffect(() => {
+        fetchOrders(currentPage);
+    }, [fetchOrders, currentPage, location.key]);
+
+    const handleSearchChange = (e) => {
+        setSearch(e.target.value);
+        setCurrentPage(1);
     };
+
+    const handleStatusChange = (e) => {
+        setSelectedStatus(e.target.value);
+        setCurrentPage(1);
+    };
+
+    const handlePaymentStatusChange = (e) => {
+        setSelectedPaymentStatus(e.target.value);
+        setCurrentPage(1);
+    };
+
+    const handleVendorChange = (e) => {
+        setSelectedVendor(e.target.value);
+        setCurrentPage(1);
+    };
+
+    const clearFilters = () => {
+        setSearch('');
+        setSelectedStatus('');
+        setSelectedPaymentStatus('');
+        setSelectedVendor('');
+        setCurrentPage(1);
+    };
+
+    const isFilterActive = search !== '' || selectedStatus !== '' || selectedPaymentStatus !== '' || selectedVendor !== '';
 
     const fetchAnalytics = useCallback(async () => {
         setAnalyticsLoading(true);
@@ -101,39 +186,130 @@ export default function ProcurementList() {
             {/* Orders Tab */}
             {activeTab === 'orders' && (
                 <div className="content-area">
+                    {/* Filters bar */}
+                    <div style={{
+                        display: 'flex',
+                        flexWrap: 'wrap',
+                        gap: '0.75rem',
+                        alignItems: 'center',
+                        marginBottom: '1.5rem',
+                        padding: '1rem',
+                        background: 'var(--color-surface-raised, var(--color-surface, #1e1e2e))',
+                        borderRadius: '12px',
+                        border: '1px solid var(--color-border-light, #313244)',
+                    }}>
+                        <div style={{ flex: 1, minWidth: '200px' }}>
+                            <input
+                                type="text"
+                                className="form-control"
+                                placeholder="Search display ID, vendor, product..."
+                                value={search}
+                                onChange={handleSearchChange}
+                                style={{ width: '100%' }}
+                            />
+                        </div>
+                        <div style={{ minWidth: '130px' }}>
+                            <select
+                                className="form-control"
+                                value={selectedStatus}
+                                onChange={handleStatusChange}
+                                style={{ width: '100%' }}
+                            >
+                                <option value="">All Statuses</option>
+                                <option value="draft">Draft</option>
+                                <option value="ordered">Ordered</option>
+                                <option value="partially_received">Partially Received</option>
+                                <option value="received">Received</option>
+                                <option value="cancelled">Cancelled</option>
+                            </select>
+                        </div>
+                        <div style={{ minWidth: '150px' }}>
+                            <select
+                                className="form-control"
+                                value={selectedPaymentStatus}
+                                onChange={handlePaymentStatusChange}
+                                style={{ width: '100%' }}
+                            >
+                                <option value="">All Payments</option>
+                                <option value="pending">Pending</option>
+                                <option value="partial">Partial</option>
+                                <option value="paid">Paid</option>
+                            </select>
+                        </div>
+                        <div style={{ minWidth: '150px' }}>
+                            <select
+                                className="form-control"
+                                value={selectedVendor}
+                                onChange={handleVendorChange}
+                                style={{ width: '100%' }}
+                            >
+                                <option value="">All Vendors</option>
+                                {vendors.map(v => (
+                                    <option key={v.id} value={v.id}>{v.name}</option>
+                                ))}
+                            </select>
+                        </div>
+                        {isFilterActive && (
+                            <button
+                                className="btn btn-ghost btn-sm"
+                                onClick={clearFilters}
+                                style={{ color: 'var(--color-warning, #f59e0b)', borderColor: 'var(--color-warning, #f59e0b)' }}
+                            >
+                                Clear
+                            </button>
+                        )}
+                    </div>
+
                     {loading ? (
                         <p style={{ color: 'var(--color-text-secondary)', textAlign: 'center', padding: '3rem 0' }}>Loading purchase orders...</p>
                     ) : orders.length === 0 ? (
-                        <div style={{ textAlign: 'center', padding: '4rem 2rem', color: 'var(--color-text-secondary)' }}>
-                            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" style={{ opacity: 0.4, marginBottom: '1rem' }}>
-                                <rect x="1" y="3" width="15" height="13"></rect>
-                                <polygon points="16 8 20 8 23 11 23 16 16 16 16 8"></polygon>
-                                <circle cx="5.5" cy="18.5" r="2.5"></circle>
-                                <circle cx="18.5" cy="18.5" r="2.5"></circle>
-                            </svg>
-                            <h3 style={{ margin: '0 0 8px', color: 'var(--color-text-primary)' }}>No Purchase Orders</h3>
-                            <p style={{ margin: 0 }}>Create your first purchase order to start tracking procurement.</p>
-                        </div>
+                        isFilterActive ? (
+                            <div style={{ textAlign: 'center', padding: '4rem 2rem', color: 'var(--color-text-secondary)' }}>
+                                <h3 style={{ margin: '0 0 8px', color: 'var(--color-text-primary)' }}>No Matching Purchase Orders</h3>
+                                <p style={{ margin: '0 0 1rem' }}>Adjust your filters or search terms and try again.</p>
+                                <button className="btn btn-ghost" onClick={clearFilters}>Clear Filters</button>
+                            </div>
+                        ) : (
+                            <div style={{ textAlign: 'center', padding: '4rem 2rem', color: 'var(--color-text-secondary)' }}>
+                                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" style={{ opacity: 0.4, marginBottom: '1rem' }}>
+                                    <rect x="1" y="3" width="15" height="13"></rect>
+                                    <polygon points="16 8 20 8 23 11 23 16 16 16 16 8"></polygon>
+                                    <circle cx="5.5" cy="18.5" r="2.5"></circle>
+                                    <circle cx="18.5" cy="18.5" r="2.5"></circle>
+                                </svg>
+                                <h3 style={{ margin: '0 0 8px', color: 'var(--color-text-primary)' }}>No Purchase Orders</h3>
+                                <p style={{ margin: 0 }}>Create your first purchase order to start tracking procurement.</p>
+                            </div>
+                        )
                     ) : (
-                        <div style={{ display: 'grid', gap: '1rem' }}>
-                            {orders.map(order => (
-                                <div key={order.id} onClick={() => navigate(`/procurement/${order.id}`)} className="card"
-                                    style={{ cursor: 'pointer', padding: '1rem 1.25rem' }}>
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
-                                        <h4 style={{ margin: 0, fontSize: '1rem' }}>{order.display_id || `PO #${order.id}`}</h4>
-                                        <span style={{
-                                            fontSize: '0.75rem', fontWeight: 600, padding: '2px 10px', borderRadius: '12px',
-                                            background: getStatusColor(order.status) + '22', color: getStatusColor(order.status),
-                                        }}>{order.status?.replace(/_/g, ' ')}</span>
+                        <>
+                            <div style={{ display: 'grid', gap: '1rem' }}>
+                                {orders.map(order => (
+                                    <div key={order.id} onClick={() => navigate(`/procurement/${order.id}`)} className="card"
+                                        style={{ cursor: 'pointer', padding: '1rem 1.25rem' }}>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+                                            <h4 style={{ margin: 0, fontSize: '1rem' }}>{order.display_id || `PO #${order.id}`}</h4>
+                                            <span style={{
+                                                fontSize: '0.75rem', fontWeight: 600, padding: '2px 10px', borderRadius: '12px',
+                                                background: getStatusColor(order.status) + '22', color: getStatusColor(order.status),
+                                            }}>{order.status?.replace(/_/g, ' ')}</span>
+                                        </div>
+                                        <div style={{ fontSize: '0.85rem', color: 'var(--color-text-secondary)' }}>
+                                            <p style={{ margin: '2px 0' }}><strong>Vendor:</strong> {order.vendor_name || '—'}</p>
+                                            <p style={{ margin: '2px 0' }}><strong>Total:</strong> {fmt(order.total_amount)}</p>
+                                            <p style={{ margin: '2px 0' }}><strong>Payment:</strong> {order.payment_status}</p>
+                                        </div>
                                     </div>
-                                    <div style={{ fontSize: '0.85rem', color: 'var(--color-text-secondary)' }}>
-                                        <p style={{ margin: '2px 0' }}><strong>Vendor:</strong> {order.vendor_name || '—'}</p>
-                                        <p style={{ margin: '2px 0' }}><strong>Total:</strong> {fmt(order.total_amount)}</p>
-                                        <p style={{ margin: '2px 0' }}><strong>Payment:</strong> {order.payment_status}</p>
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
+                                ))}
+                            </div>
+                            <div style={{ marginTop: '1.5rem', display: 'flex', justifyContent: 'center' }}>
+                                <Pagination
+                                    currentPage={currentPage}
+                                    totalPages={totalPages}
+                                    onPageChange={setCurrentPage}
+                                />
+                            </div>
+                        </>
                     )}
                 </div>
             )}

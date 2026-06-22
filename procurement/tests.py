@@ -969,3 +969,143 @@ class POPaymentExpenseSynchronizationTestCase(TestCase):
         self.assertEqual(expense.payment_status, Expense.PaymentStatus.PAID)
 
 
+class POListFiltersTestCase(TestCase):
+    """Assert filters, search, and pagination on `/api/procurement/purchase-orders/`."""
+
+    def setUp(self):
+        self.user = User.objects.create(username="procurement_test_user", is_active=True)
+        self.user.is_superuser = True
+        self.user.save()
+
+        from rest_framework.test import APIRequestFactory
+        self.factory = APIRequestFactory()
+
+        # Setup standard category & vendor
+        self.category = Category.objects.create(name="Procurement Test Category")
+        self.vendor_a = Vendor.objects.create(name="Vendor Alpha")
+        self.vendor_b = Vendor.objects.create(name="Vendor Beta")
+
+        # Setup products
+        self.product_1 = Product.objects.create(
+            name="Alpha Product 1", category=self.category,
+            cost_price=Decimal("10.00"), selling_price=Decimal("15.00"),
+            stock_quantity=10, physical_stock=10
+        )
+        self.product_2 = Product.objects.create(
+            name="Beta Product 2", category=self.category,
+            cost_price=Decimal("20.00"), selling_price=Decimal("30.00"),
+            stock_quantity=5, physical_stock=5
+        )
+
+        # Create many POs to test pagination (need at least 21 to exceed page size of 20)
+        self.pos = []
+        for i in range(15):
+            po = PurchaseOrder.objects.create(
+                vendor=self.vendor_a,
+                created_by=self.user,
+                status=PurchaseOrder.Status.RECEIVED if i < 10 else PurchaseOrder.Status.DRAFT,
+                payment_status=PurchaseOrder.PaymentStatus.PENDING,
+                display_id=1000 + i,
+                notes=f"Alpha Notes {i}"
+            )
+            PurchaseOrderItem.objects.create(
+                purchase_order=po,
+                product=self.product_1,
+                vendor_pack_size=1,
+                purchased_packs=5,
+                unit_cost_price=Decimal("10.00")
+            )
+            self.pos.append(po)
+
+        for i in range(10):
+            po = PurchaseOrder.objects.create(
+                vendor=self.vendor_b,
+                created_by=self.user,
+                status=PurchaseOrder.Status.ORDERED,
+                payment_status=PurchaseOrder.PaymentStatus.PAID,
+                display_id=1100 + i,
+                notes=f"Beta Notes {i}"
+            )
+            PurchaseOrderItem.objects.create(
+                purchase_order=po,
+                product=self.product_2,
+                vendor_pack_size=1,
+                purchased_packs=2,
+                unit_cost_price=Decimal("20.00")
+            )
+            self.pos.append(po)
+
+    def test_list_pagination(self):
+        """Test that PO listing is paginated and page size defaults to 20."""
+        from rest_framework.test import force_authenticate
+        from rest_framework import status
+        from procurement.views import PurchaseOrderViewSet
+
+        request = self.factory.get('/api/procurement/purchase-orders/')
+        force_authenticate(request, user=self.user)
+        view = PurchaseOrderViewSet.as_view({'get': 'list'})
+        response = view(request)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertIn('count', response.data)
+        self.assertIn('results', response.data)
+        self.assertEqual(response.data['count'], 25)
+        self.assertEqual(len(response.data['results']), 20)
+        self.assertIsNotNone(response.data['next'])
+        self.assertIsNone(response.data['previous'])
+
+    def test_list_filter_by_status(self):
+        """Test filtering POs by status."""
+        from rest_framework.test import force_authenticate
+        from rest_framework import status
+        from procurement.views import PurchaseOrderViewSet
+
+        request = self.factory.get('/api/procurement/purchase-orders/', {'status': 'draft'})
+        force_authenticate(request, user=self.user)
+        view = PurchaseOrderViewSet.as_view({'get': 'list'})
+        response = view(request)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['count'], 5)
+        for item in response.data['results']:
+            self.assertEqual(item['status'], 'draft')
+
+    def test_list_filter_by_vendor(self):
+        """Test filtering POs by vendor."""
+        from rest_framework.test import force_authenticate
+        from rest_framework import status
+        from procurement.views import PurchaseOrderViewSet
+
+        request = self.factory.get('/api/procurement/purchase-orders/', {'vendor': str(self.vendor_b.id)})
+        force_authenticate(request, user=self.user)
+        view = PurchaseOrderViewSet.as_view({'get': 'list'})
+        response = view(request)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['count'], 10)
+
+    def test_list_search(self):
+        """Test searching POs by vendor name, display ID, and product name."""
+        from rest_framework.test import force_authenticate
+        from rest_framework import status
+        from procurement.views import PurchaseOrderViewSet
+
+        # Search by display_id (exact match: '=display_id')
+        request = self.factory.get('/api/procurement/purchase-orders/', {'search': '1105'})
+        force_authenticate(request, user=self.user)
+        view = PurchaseOrderViewSet.as_view({'get': 'list'})
+        response = view(request)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['count'], 1)
+        self.assertEqual(response.data['results'][0]['display_id'], 1105)
+
+        # Search by product name
+        request = self.factory.get('/api/procurement/purchase-orders/', {'search': 'Alpha Product 1'})
+        force_authenticate(request, user=self.user)
+        response = view(request)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['count'], 15)
+
+
+

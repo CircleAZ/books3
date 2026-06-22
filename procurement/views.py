@@ -10,6 +10,10 @@ from decimal import Decimal
 from datetime import timedelta
 from django.utils import timezone
 
+from django_filters.rest_framework import DjangoFilterBackend
+import django_filters
+from rest_framework import filters
+
 from .models import Transporter, PurchaseOrder, PurchaseOrderItem, PurchaseCharge, PurchasePayment
 from .serializers import (
     TransporterSerializer, PurchaseOrderListSerializer, PurchaseOrderDetailSerializer,
@@ -23,10 +27,26 @@ class TransporterViewSet(viewsets.ModelViewSet):
     permission_classes = [HasRequiredPermission]
     required_permission = 'inventory.manage_stock'
 
+class PurchaseOrderFilter(django_filters.FilterSet):
+    order_date_after = django_filters.DateFilter(field_name='order_date', lookup_expr='gte')
+    order_date_before = django_filters.DateFilter(field_name='order_date', lookup_expr='lte')
+    
+    class Meta:
+        model = PurchaseOrder
+        fields = {
+            'status': ['exact', 'in'],
+            'payment_status': ['exact', 'in'],
+            'vendor': ['exact'],
+        }
+
 class PurchaseOrderViewSet(viewsets.ModelViewSet):
     queryset = PurchaseOrder.objects.select_related('vendor', 'created_by').prefetch_related('items', 'charges', 'payments').all().order_by('-created_at')
     permission_classes = [HasRequiredPermission]
     required_permission = 'inventory.manage_stock'
+    filter_backends = [filters.SearchFilter, filters.OrderingFilter, DjangoFilterBackend]
+    search_fields = ['=display_id', 'vendor__name', 'items__product__name', 'notes']
+    ordering_fields = ['display_id', 'order_date', 'expected_delivery_date', 'total_amount', 'amount_paid', 'created_at']
+    filterset_class = PurchaseOrderFilter
 
     def get_serializer_class(self):
         if self.action in ['list']:
