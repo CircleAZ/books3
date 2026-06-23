@@ -5,6 +5,8 @@ import { useCurrency } from '../../context/CurrencyContext';
 import { useToast } from '../../context/ToastContext';
 import { ENDPOINTS } from '../../config/api';
 import { secureStorage } from '../../utils/secureStorage';
+import Pagination from '../../components/common/Pagination';
+import useServerList from '../../hooks/useServerList';
 import './EmployeeExpenses.css';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
 import GuardedAction from '../../components/GuardedAction';
@@ -14,9 +16,22 @@ export default function EmployeeExpenses() {
     const { currency } = useCurrency();
     const navigate = useNavigate();
     const { showToast } = useToast();
-    const [expenses, setExpenses] = useState([]);
-    const [loading, setLoading] = useState(true);
-    const [filterStatus, setFilterStatus] = useState('');
+
+    const {
+        data: expenses,
+        loading,
+        page,
+        setPage,
+        totalPages,
+        totalCount,
+        filters,
+        setFilter,
+        refresh: fetchExpenses,
+    } = useServerList(ENDPOINTS.FINANCE_EMPLOYEE_EXPENSES, {
+        filterConfig: { status: '' },
+        pageSize: 20
+    });
+
     const [showSubmitModal, setShowSubmitModal] = useState(false);
     const [categories, setCategories] = useState([]);
     const [submitting, setSubmitting] = useState(false);
@@ -48,28 +63,6 @@ export default function EmployeeExpenses() {
     const profileData = secureStorage.getItem('profile');
     const profile = profileData ? JSON.parse(profileData) : null;
 
-    const fetchExpenses = useCallback(async () => {
-        setLoading(true);
-        try {
-            const url = filterStatus
-                ? `${ENDPOINTS.FINANCE_EMPLOYEE_EXPENSES}?status=${filterStatus}`
-                : ENDPOINTS.FINANCE_EMPLOYEE_EXPENSES;
-
-            const response = await fetchWithAuth(url);
-            if (response.ok) {
-                const data = await response.json();
-                setExpenses(data.results || data || []);
-            } else {
-                console.error('Failed to fetch employee expenses');
-            }
-        } catch (error) {
-            console.error('Error fetching employee expenses:', error);
-        } finally {
-            setLoading(false);
-        }
-// fallow-ignore-next-line code-duplication
-    }, [fetchWithAuth, filterStatus]);
-
     const fetchCategories = useCallback(async () => {
         try {
             const response = await fetchWithAuth(ENDPOINTS.FINANCE_EXPENSE_CATEGORIES);
@@ -92,7 +85,6 @@ export default function EmployeeExpenses() {
             const walletRes = await fetchWithAuth(ENDPOINTS.FINANCE_CASH_WALLETS + '?active_only=true');
             if (walletRes.ok) {
                 const walletData = await walletRes.json();
-// fallow-ignore-next-line code-duplication
                 setAvailableCashWallets(walletData.results || walletData);
             }
             const methodRes = await fetchWithAuth(ENDPOINTS.SETTINGS_PAYMENT_METHODS);
@@ -106,9 +98,8 @@ export default function EmployeeExpenses() {
     }, [fetchWithAuth]);
 
     useEffect(() => {
-        fetchExpenses();
         fetchLedgers();
-    }, [fetchExpenses, fetchLedgers]);
+    }, [fetchLedgers]);
 
     const handleAction = async (id, action) => {
         if (action === 'reimburse') {
@@ -236,13 +227,12 @@ export default function EmployeeExpenses() {
                     </button>
                 </div>
             </div>
-
             <div className="expenses-controls glass-card">
                 <div className="filter-group">
                     <label>Filter by Status</label>
                     <select
-                        value={filterStatus}
-                        onChange={(e) => setFilterStatus(e.target.value)}
+                        value={filters.status}
+                        onChange={(e) => setFilter('status', e.target.value)}
                         className="filter-select"
                     >
                         <option value="">All Statuses</option>
@@ -258,89 +248,101 @@ export default function EmployeeExpenses() {
                 {loading ? (
                     <LoadingSpinner />
                 ) : (
-                    <table className="expenses-table">
-                        <thead>
-                            <tr>
-                                <th>Date</th>
-                                <th>Employee</th>
-                                <th>Category</th>
-                                <th>Amount</th>
-                                <th>Status</th>
-                                <th>Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {expenses.length > 0 ? (
-                                expenses.map(expense => (
-                                    <tr key={expense.id}>
-                                        <td>{new Date(expense.date).toLocaleDateString()}</td>
-                                        <td>{expense.employee_name}</td>
-                                        <td>
-                                            {expense.category_name}
-                                            {expense.description?.startsWith('Trip:') && (
-                                                <span style={{
-                                                    marginLeft: 8, padding: '2px 8px', borderRadius: 10,
-                                                    fontSize: 11, fontWeight: 600,
-                                                    background: '#0ea5e922', color: '#0ea5e9'
-                                                }}>🧳 Trip</span>
-                                            )}
-                                        </td>
-                                        <td className="amount">{currency}{Number(expense.amount).toLocaleString()}</td>
-                                        <td>
-                                            <span className={`status-badge ${getStatusClass(expense.status)}`}>
-                                                {expense.status}
-                                            </span>
-                                        </td>
-                                        <td>
-                                            <div className="action-buttons">
-                                                {expense.status === 'pending' && !expense.description?.startsWith('Trip:') && (
-                                                    <>
-                                                        <GuardedAction permission="finance.manage_expenses">
-                                                            <button
-                                                                className="btn-icon approve"
-                                                                onClick={() => handleAction(expense.id, 'approve')}
-                                                                title="Approve"
-                                                            >
-                                                                ✅
-                                                            </button>
-                                                        </GuardedAction>
-                                                        <GuardedAction permission="finance.manage_expenses">
-                                                            <button
-                                                                className="btn-icon reject"
-                                                                onClick={() => handleAction(expense.id, 'reject')}
-                                                                title="Reject"
-                                                            >
-                                                                ❌
-                                                            </button>
-                                                        </GuardedAction>
-                                                    </>
-                                                )}
-                                                {expense.status === 'approved' && (
-                                                    <GuardedAction permission="finance.manage_expenses">
-                                                        <button
-                                                            className="btn btn-sm btn-success"
-                                                            onClick={() => handleAction(expense.id, 'reimburse')}
-                                                        >
-                                                            Reimburse
-                                                        </button>
-                                                    </GuardedAction>
-                                                )}
-                                                <button 
-                                                    className="btn-icon" 
-                                                    title="View Details"
-                                                    onClick={() => navigate(`/finance/employee-expenses/${expense.id}`)}
-                                                >👁️</button>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                ))
-                            ) : (
+                    <>
+                        <table className="expenses-table">
+                            <thead>
                                 <tr>
-                                    <td colSpan="6" className="no-data">No expense claims found</td>
+                                    <th>Date</th>
+                                    <th>Employee</th>
+                                    <th>Category</th>
+                                    <th>Amount</th>
+                                    <th>Status</th>
+                                    <th>Actions</th>
                                 </tr>
-                            )}
-                        </tbody>
-                    </table>
+                            </thead>
+                            <tbody>
+                                {expenses.length > 0 ? (
+                                    expenses.map(expense => (
+                                        <tr key={expense.id}>
+                                            <td>{new Date(expense.date).toLocaleDateString()}</td>
+                                            <td>{expense.employee_name}</td>
+                                            <td>
+                                                {expense.category_name}
+                                                {expense.description?.startsWith('Trip:') && (
+                                                    <span style={{
+                                                        marginLeft: 8, padding: '2px 8px', borderRadius: 10,
+                                                        fontSize: 11, fontWeight: 600,
+                                                        background: '#0ea5e922', color: '#0ea5e9'
+                                                    }}>🧳 Trip</span>
+                                                )}
+                                            </td>
+                                            <td className="amount">{currency}{Number(expense.amount).toLocaleString()}</td>
+                                            <td>
+                                                <span className={`status-badge ${getStatusClass(expense.status)}`}>
+                                                    {expense.status}
+                                                </span>
+                                            </td>
+                                            <td>
+                                                <div className="action-buttons">
+                                                    {expense.status === 'pending' && !expense.description?.startsWith('Trip:') && (
+                                                        <>
+                                                            <GuardedAction permission="finance.manage_expenses">
+                                                                <button
+                                                                    className="btn-icon approve"
+                                                                    onClick={() => handleAction(expense.id, 'approve')}
+                                                                    title="Approve"
+                                                                >
+                                                                    ✅
+                                                                </button>
+                                                            </GuardedAction>
+                                                            <GuardedAction permission="finance.manage_expenses">
+                                                                <button
+                                                                    className="btn-icon reject"
+                                                                    onClick={() => handleAction(expense.id, 'reject')}
+                                                                    title="Reject"
+                                                                >
+                                                                    ❌
+                                                                </button>
+                                                            </GuardedAction>
+                                                        </>
+                                                    )}
+                                                    {expense.status === 'approved' && (
+                                                        <GuardedAction permission="finance.manage_expenses">
+                                                            <button
+                                                                className="btn btn-sm btn-success"
+                                                                onClick={() => handleAction(expense.id, 'reimburse')}
+                                                            >
+                                                                Reimburse
+                                                            </button>
+                                                        </GuardedAction>
+                                                    )}
+                                                    <button 
+                                                        className="btn-icon" 
+                                                        title="View Details"
+                                                        onClick={() => navigate(`/finance/employee-expenses/${expense.id}`)}
+                                                    >👁️</button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    ))
+                                ) : (
+                                    <tr>
+                                        <td colSpan="6" className="no-data">No expense claims found</td>
+                                    </tr>
+                                )}
+                            </tbody>
+                        </table>
+                        <div className="pagination-bar">
+                            <span className="total-count">Total: {totalCount} claims</span>
+                            <div className="pagination-controls-wrapper" style={{ flexGrow: 1, display: 'flex', justifyContent: 'center' }}>
+                                <Pagination 
+                                    currentPage={page} 
+                                    totalPages={totalPages} 
+                                    onPageChange={setPage} 
+                                />
+                            </div>
+                        </div>
+                    </>
                 )}
             </div>
 

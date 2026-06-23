@@ -1,64 +1,25 @@
-import { useState, useEffect, useCallback } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
-import { useAuth } from '../../context/AuthContext';
-import { ENDPOINTS } from '../../config/api';
+import { useNavigate } from 'react-router-dom';
 import { useCurrency } from '../../context/CurrencyContext';
-import { useToast } from '../../context/ToastContext';
+import { ENDPOINTS } from '../../config/api';
 import Pagination from '../../components/common/Pagination';
+import useServerList from '../../hooks/useServerList';
 import './OutletsList.css';
 
 export default function OutletsList() {
-    const [outlets, setOutlets] = useState([]);
-    const [loading, setLoading] = useState(true);
-    const { fetchWithAuth } = useAuth();
     const { formatCurrency } = useCurrency();
-    const { showToast } = useToast();
     const navigate = useNavigate();
-    const location = useLocation();
 
-    const [page, setPage] = useState(1);
-    const [totalPages, setTotalPages] = useState(1);
-    const [searchTerm, setSearchTerm] = useState('');
-    const [debouncedSearch, setDebouncedSearch] = useState('');
-
-    useEffect(() => {
-        const timer = setTimeout(() => {
-            setDebouncedSearch(searchTerm);
-            setPage(1);
-        }, 300);
-        return () => clearTimeout(timer);
-    }, [searchTerm]);
-
-    const fetchOutlets = useCallback(async () => {
-        try {
-            setLoading(true);
-            let url = `${ENDPOINTS.OUTLETS}?page=${page}`;
-            if (debouncedSearch) {
-                url += `&search=${encodeURIComponent(debouncedSearch)}`;
-            }
-            const response = await fetchWithAuth(url);
-            if (response.ok) {
-                const data = await response.json();
-                setOutlets(data.results || data);
-                if (data.count) {
-                    setTotalPages(Math.ceil(data.count / 25)); // assuming default 25
-                } else {
-                    setTotalPages(1);
-                }
-            } else {
-                showToast("Failed to load outlets", "error");
-            }
-        } catch (error) {
-            console.error("Failed to fetch outlets:", error);
-            showToast("Failed to load outlets", "error");
-        } finally {
-            setLoading(false);
-        }
-    }, [fetchWithAuth, showToast, page, debouncedSearch]);
-
-    useEffect(() => {
-        fetchOutlets();
-    }, [fetchOutlets, location.key]);
+    const {
+        data: outlets,
+        loading,
+        page,
+        setPage,
+        totalPages,
+        search: searchTerm,
+        setSearch: setSearchTerm,
+    } = useServerList(ENDPOINTS.OUTLETS, {
+        pageSize: 20
+    });
 
     if (loading && outlets.length === 0) return <div className="page-loading">Loading Outlets...</div>;
 

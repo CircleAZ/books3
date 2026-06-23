@@ -1,10 +1,11 @@
 import { useState, useEffect, useCallback } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useCurrency } from '../../context/CurrencyContext';
 import { ENDPOINTS, API_BASE } from '../../config/api';
 import Pagination from '../../components/common/Pagination';
 import GuardedAction from '../../components/GuardedAction';
+import useServerList from '../../hooks/useServerList';
 import './ProductList.css';
 
 const MEDIA_BASE = API_BASE.replace(/\/api\/?$/, '');
@@ -13,63 +14,39 @@ export default function ProductList() {
     const { fetchWithAuth } = useAuth();
     const { currency } = useCurrency();
     const navigate = useNavigate();
-    const location = useLocation();
 
-    const [products, setProducts] = useState([]);
-    const [loading, setLoading] = useState(true);
-    const [search, setSearch] = useState('');
-    // LENS-03: Search loading indicator
+    const {
+        data: products,
+        loading,
+        page,
+        setPage,
+        totalPages,
+        totalCount: count,
+        search,
+        setSearch,
+        filters,
+        setFilter,
+        clearFilters,
+        isFilterActive,
+    } = useServerList(ENDPOINTS.INVENTORY_PRODUCTS, {
+        filterConfig: { category: '', vendor: '', ordering: 'display_id' },
+        pageSize: 20
+    });
+
+    // LENS-03: Search loading indicator wrapper
     const [isSearching, setIsSearching] = useState(false);
-    const [category, setCategory] = useState('');
-    const [vendor, setVendor] = useState('');
-    const [page, setPage] = useState(1);
-    const [totalPages, setTotalPages] = useState(1);
-    const [count, setCount] = useState(0);
-    const [ordering, setOrdering] = useState('display_id');
-
-    // Filter options
-    const [categories, setCategories] = useState([]);
-    const [vendors, setVendors] = useState([]);
-
-    // Debounced search state
-    const [debouncedSearch, setDebouncedSearch] = useState('');
 
     useEffect(() => {
         setIsSearching(true);
         const timer = setTimeout(() => {
-            setDebouncedSearch(search);
             setIsSearching(false);
-        }, 500);
+        }, 300);
         return () => clearTimeout(timer);
     }, [search]);
 
-    const fetchProducts = useCallback(async () => {
-        setLoading(true);
-        try {
-            const queryParams = new URLSearchParams({
-                page,
-                search: debouncedSearch,
-                category,
-                vendor,
-                ordering
-            });
-
-            const response = await fetchWithAuth(`${ENDPOINTS.INVENTORY_PRODUCTS}?${queryParams.toString()}`);
-            if (response.ok) {
-                const data = await response.json();
-                setProducts(data.results || []);
-                setCount(data.count || 0);
-                // Synchronize with DRF settings.PAGE_SIZE (20)
-                setTotalPages(Math.ceil((data.count || 0) / 20));
-            } else {
-                console.error('Failed to fetch products');
-            }
-        } catch (error) {
-            console.error('Error fetching products:', error);
-        } finally {
-            setLoading(false);
-        }
-    }, [fetchWithAuth, page, debouncedSearch, category, vendor, ordering]);
+    // Filter options
+    const [categories, setCategories] = useState([]);
+    const [vendors, setVendors] = useState([]);
 
     const fetchFilters = useCallback(async () => {
         try {
@@ -91,11 +68,6 @@ export default function ProductList() {
         }
     }, [fetchWithAuth]);
 
-    // Unified fetch execution: fires precisely when filters/pages or location.key changes
-    useEffect(() => {
-        fetchProducts();
-    }, [fetchProducts, location.key]);
-
     // Initial load for filters
     useEffect(() => {
         fetchFilters();
@@ -103,36 +75,23 @@ export default function ProductList() {
 
     const handleSearchChange = (e) => {
         setSearch(e.target.value);
-        setPage(1);
     };
 
     const handleCategoryChange = (e) => {
-        setCategory(e.target.value);
-        setPage(1);
+        setFilter('category', e.target.value);
     };
 
     const handleVendorChange = (e) => {
-        setVendor(e.target.value);
-        setPage(1);
+        setFilter('vendor', e.target.value);
     };
 
     const toggleSort = (column) => {
-        if (ordering === column) {
-            setOrdering(`-${column}`);
+        if (filters.ordering === column) {
+            setFilter('ordering', `-${column}`);
         } else {
-            setOrdering(column);
+            setFilter('ordering', column);
         }
-        setPage(1);
     };
-
-    const clearFilters = () => {
-        setSearch('');
-        setCategory('');
-        setVendor('');
-        setPage(1);
-    };
-
-    const isFilterActive = category !== '' || vendor !== '' || search !== '';
 
     const getStatus = (product) => {
         if (product.stock_quantity <= 0) return 'out-of-stock';
@@ -172,14 +131,14 @@ export default function ProductList() {
                     />
                 </div>
 
-                <select className="filter-select" value={category} onChange={handleCategoryChange}>
+                <select className="filter-select" value={filters.category} onChange={handleCategoryChange}>
                     <option value="">All Categories</option>
                     {categories.map(cat => (
                         <option key={cat.id || cat.name} value={cat.id || cat.name}>{cat.name}</option>
                     ))}
                 </select>
 
-                <select className="filter-select" value={vendor} onChange={handleVendorChange}>
+                <select className="filter-select" value={filters.vendor} onChange={handleVendorChange}>
                     <option value="">All Vendors</option>
                     {vendors.map(vend => (
                         <option key={vend.id || vend.name} value={vend.id || vend.name}>{vend.name}</option>
@@ -209,34 +168,34 @@ export default function ProductList() {
                                 <tr>
                                     <th>Image</th>
                                     <th onClick={() => toggleSort('display_id')} className="sortable" style={{ cursor: 'pointer' }}>
-                                        ID {ordering.includes('display_id') && (ordering.startsWith('-') ? '↓' : '↑')}
+                                        ID {filters.ordering.includes('display_id') && (filters.ordering.startsWith('-') ? '↓' : '↑')}
                                     </th>
                                     <th onClick={() => toggleSort('name')} className="sortable" style={{ cursor: 'pointer' }}>
-                                        Name {ordering.includes('name') && (ordering.startsWith('-') ? '↓' : '↑')}
+                                        Name {filters.ordering.includes('name') && (filters.ordering.startsWith('-') ? '↓' : '↑')}
                                     </th>
                                     <th onClick={() => toggleSort('category__name')} className="sortable" style={{ cursor: 'pointer' }}>
-                                        Category {ordering.includes('category__name') && (ordering.startsWith('-') ? '↓' : '↑')}
+                                        Category {filters.ordering.includes('category__name') && (filters.ordering.startsWith('-') ? '↓' : '↑')}
                                     </th>
                                     <th onClick={() => toggleSort('vendor__name')} className="sortable" style={{ cursor: 'pointer' }}>
-                                        Vendor {ordering.includes('vendor__name') && (ordering.startsWith('-') ? '↓' : '↑')}
+                                        Vendor {filters.ordering.includes('vendor__name') && (filters.ordering.startsWith('-') ? '↓' : '↑')}
                                     </th>
                                     <th onClick={() => toggleSort('cost_price')} className="sortable" style={{ cursor: 'pointer' }}>
-                                        Cost {ordering.includes('cost_price') && (ordering.startsWith('-') ? '↓' : '↑')}
+                                        Cost {filters.ordering.includes('cost_price') && (filters.ordering.startsWith('-') ? '↓' : '↑')}
                                     </th>
                                     <th onClick={() => toggleSort('selling_price')} className="sortable" style={{ cursor: 'pointer' }}>
-                                        Selling {ordering.includes('selling_price') && (ordering.startsWith('-') ? '↓' : '↑')}
+                                        Selling {filters.ordering.includes('selling_price') && (filters.ordering.startsWith('-') ? '↓' : '↑')}
                                     </th>
                                     <th onClick={() => toggleSort('stock_quantity')} className="sortable" style={{ cursor: 'pointer' }}>
-                                        Available {ordering.includes('stock_quantity') && (ordering.startsWith('-') ? '↓' : '↑')}
+                                        Available {filters.ordering.includes('stock_quantity') && (filters.ordering.startsWith('-') ? '↓' : '↑')}
                                     </th>
                                     <th onClick={() => toggleSort('physical_stock')} className="sortable" style={{ cursor: 'pointer' }}>
-                                        Physical {ordering.includes('physical_stock') && (ordering.startsWith('-') ? '↓' : '↑')}
+                                        Physical {filters.ordering.includes('physical_stock') && (filters.ordering.startsWith('-') ? '↓' : '↑')}
                                     </th>
                                     <th onClick={() => toggleSort('owed_quantity')} className="sortable" style={{ cursor: 'pointer', color: 'var(--color-warning)' }}>
-                                        Owed {ordering.includes('owed_quantity') && (ordering.startsWith('-') ? '↓' : '↑')}
+                                        Owed {filters.ordering.includes('owed_quantity') && (filters.ordering.startsWith('-') ? '↓' : '↑')}
                                     </th>
                                     <th onClick={() => toggleSort('delivered_quantity')} className="sortable" style={{ cursor: 'pointer', color: 'var(--color-success)' }}>
-                                        Delivered {ordering.includes('delivered_quantity') && (ordering.startsWith('-') ? '↓' : '↑')}
+                                        Delivered {filters.ordering.includes('delivered_quantity') && (filters.ordering.startsWith('-') ? '↓' : '↑')}
                                     </th>
                                     <th>Status</th>
                                     <th>Actions</th>

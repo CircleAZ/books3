@@ -1,61 +1,38 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { ENDPOINTS } from '../../config/api';
+import useServerList from '../../hooks/useServerList';
+import Pagination from '../../components/common/Pagination';
 import './ActivityLog.css';
 
 import '../../styles/components/modal-system.css';
 export default function ActivityLog() {
     const { fetchWithAuth } = useAuth();
-    const [activities, setActivities] = useState([]);
-    const [loading, setLoading] = useState(true);
-    const [searchTerm, setSearchTerm] = useState('');
-    const [filterType, setFilterType] = useState('');
-    const [dateFilter, setDateFilter] = useState('');
-    const [page, setPage] = useState(1);
-    const [totalPages, setTotalPages] = useState(1);
-    const [totalCount, setTotalCount] = useState(0);
     const [selectedLog, setSelectedLog] = useState(null);
 
-    const fetchActivities = useCallback(async () => {
-        setLoading(true);
-        try {
-// fallow-ignore-next-line code-duplication
-            const queryParams = new URLSearchParams({
-                page,
-                search: searchTerm,
-                action_type: filterType,
-                date: dateFilter
-            });
-
-            // Remove empty params
-            const cleanParams = new URLSearchParams();
-            for (const [key, value] of queryParams.entries()) {
-                if (value) cleanParams.append(key, value);
-            }
-
-            const response = await fetchWithAuth(`${ENDPOINTS.REPORTS_ACTIVITY}?${cleanParams.toString()}`);
-            if (response.ok) {
-                const data = await response.json();
-                setActivities(data.results || []);
-                setTotalCount(data.count || 0);
-                setTotalPages(Math.ceil((data.count || 0) / 20)); // Assuming page size 20
-            }
-        } catch (error) {
-            console.error('Error fetching activity log:', error);
-        } finally {
-            setLoading(false);
-        }
-    }, [fetchWithAuth, page, searchTerm, filterType, dateFilter]);
-
-    useEffect(() => {
-        const timer = setTimeout(() => {
-            fetchActivities();
-        }, 500);
-        return () => clearTimeout(timer);
-    }, [fetchActivities]);
+    const {
+        data: activities,
+        loading,
+        totalPages,
+        totalCount,
+        page,
+        setPage,
+        search,
+        setSearch,
+        filters,
+        setFilter,
+        refresh,
+    } = useServerList(ENDPOINTS.REPORTS_ACTIVITY, {
+        filterConfig: { action_type: '', date: '' },
+        buildParams: (debouncedSearch, f) => new URLSearchParams({
+            search: debouncedSearch,
+            action_type: f.action_type,
+            date: f.date,
+        }),
+    });
 
     const handleRefresh = () => {
-        fetchActivities();
+        refresh();
     };
 
     const getActionIcon = (type) => {
@@ -88,15 +65,15 @@ export default function ActivityLog() {
                     <input
                         type="text"
                         placeholder="Search users or descriptions..."
-                        value={searchTerm}
-                        onChange={(e) => { setSearchTerm(e.target.value); setPage(1); }}
+                        value={search}
+                        onChange={(e) => setSearch(e.target.value)}
                     />
                 </div>
 
                 <div className="filter-group">
                     <select
-                        value={filterType}
-                        onChange={(e) => { setFilterType(e.target.value); setPage(1); }}
+                        value={filters.action_type}
+                        onChange={(e) => setFilter('action_type', e.target.value)}
                         className="filter-select"
                     >
                         <option value="">All Event Types</option>
@@ -112,8 +89,8 @@ export default function ActivityLog() {
                     <input
                         type="date"
                         className="date-picker"
-                        value={dateFilter}
-                        onChange={(e) => { setDateFilter(e.target.value); setPage(1); }}
+                        value={filters.date}
+                        onChange={(e) => setFilter('date', e.target.value)}
                     />
                 </div>
             </div>
@@ -168,27 +145,15 @@ export default function ActivityLog() {
                 )}
             </div>
 
-            <div className="pagination">
-                <p className="pagination-info">
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '1rem' }}>
+                <p className="pagination-info" style={{ color: 'var(--color-text-muted)', margin: 0 }}>
                     Showing {activities.length} of {totalCount} entries
                 </p>
-                <div className="pagination-controls">
-                    <button
-                        className="btn btn-ghost"
-                        disabled={page <= 1}
-                        onClick={() => setPage(p => Math.max(1, p - 1))}
-                    >
-                        Previous
-                    </button>
-                    <span className="mx-2">Page {page} of {totalPages}</span>
-                    <button
-                        className="btn btn-ghost"
-                        disabled={page >= totalPages}
-                        onClick={() => setPage(p => Math.min(totalPages, p + 1))}
-                    >
-                        Next
-                    </button>
-                </div>
+                <Pagination
+                    currentPage={page}
+                    totalPages={totalPages}
+                    onPageChange={setPage}
+                />
             </div>
 
             {selectedLog && (

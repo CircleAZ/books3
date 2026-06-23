@@ -1,81 +1,50 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useAuth } from '../../context/AuthContext';
 import { useCurrency } from '../../context/CurrencyContext';
 import { ENDPOINTS } from '../../config/api';
 import { Filter, ChevronUp, ChevronDown, Search, X } from 'lucide-react';
+import useServerList from '../../hooks/useServerList';
+import Pagination from '../../components/common/Pagination';
 import './AllTransactions.css';
 
 import '../../styles/components/modal-system.css';
 import '../../styles/components/data-table.css';
 export default function AllTransactions() {
-    const { fetchWithAuth } = useAuth();
     const { currency } = useCurrency();
     const navigate = useNavigate();
 
-// fallow-ignore-next-line code-duplication
-    const [transactions, setTransactions] = useState([]);
-    const [loading, setLoading] = useState(true);
-    const [page, setPage] = useState(1);
-    const [totalPages, setTotalPages] = useState(1);
     const [showFilters, setShowFilters] = useState(window.innerWidth > 768);
     
     // Modal State
     const [selectedTx, setSelectedTx] = useState(null);
 
-    const [filters, setFilters] = useState({
-        search: '',
-        source: '',
-        type: '',
-        startDate: '',
-        endDate: '',
-        minAmount: '',
-        maxAmount: ''
+    const {
+        data: transactions,
+        loading,
+        totalPages,
+        page,
+        setPage,
+        filters,
+        setFilter,
+        search,
+        setSearch,
+    } = useServerList(ENDPOINTS.FINANCE_ALL_TRANSACTIONS, {
+        filterConfig: { source: '', type: '', startDate: '', endDate: '', minAmount: '', maxAmount: '' },
+        debounceMs: 300,
+        buildParams: (debouncedSearch, f) => new URLSearchParams({
+            search: debouncedSearch,
+            source: f.source,
+            transaction_type: f.type,
+            date_from: f.startDate,
+            date_to: f.endDate,
+            min_amount: f.minAmount,
+            max_amount: f.maxAmount,
+        }),
     });
-
-    const fetchTransactions = useCallback(async () => {
-        setLoading(true);
-        try {
-            const queryParams = new URLSearchParams({
-                page,
-                source: filters.source,
-                transaction_type: filters.type,
-                date_from: filters.startDate,
-                date_to: filters.endDate,
-                min_amount: filters.minAmount,
-                max_amount: filters.maxAmount,
-                search: filters.search
-            });
-
-            // Clean up empty params
-            for (const key of queryParams.keys()) {
-                if (!queryParams.get(key)) {
-                    queryParams.delete(key);
-                }
-            }
-
-// fallow-ignore-next-line code-duplication
-            const response = await fetchWithAuth(`${ENDPOINTS.FINANCE_ALL_TRANSACTIONS}?${queryParams.toString()}`);
-            if (response.ok) {
-                const data = await response.json();
-                setTransactions(data.results || []);
-                setTotalPages(Math.ceil((data.count || 0) / (data.page_size || 30)));
-            }
-        } catch (error) {
-            console.error('Error fetching transactions:', error);
-        } finally {
-            setLoading(false);
-        }
-    }, [fetchWithAuth, page, filters]);
-
-    useEffect(() => {
-        fetchTransactions();
-    }, [fetchTransactions]);
 
     const handleFilterChange = (e) => {
         const { name, value } = e.target;
-        setFilters(prev => ({ ...prev, [name]: value }));
-        setPage(1); // Reset to first page when filtering
+        setFilter(name, value);
     };
 
     const getTypeBadgeClass = (type) => {
@@ -130,9 +99,8 @@ export default function AllTransactions() {
                         type="text"
                         className="at-search-input"
                         placeholder="Search by Order ID, Customer ID, Reference, Username or Description..."
-                        name="search"
-                        value={filters.search}
-                        onChange={handleFilterChange}
+                        value={search}
+                        onChange={(e) => setSearch(e.target.value)}
                     />
                 </div>
 
@@ -256,19 +224,11 @@ export default function AllTransactions() {
                             </table>
                         </div>
 
-                        <div className="pagination-controls" style={{ padding: '1.5rem', borderTop: '1px solid var(--color-border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                            <span className="page-info" style={{ fontWeight: 500, color: 'var(--color-text-muted)' }}>
-                                Page {page} of {totalPages || 1}
-                            </span>
-                            <div className="pagination-buttons" style={{ display: 'flex', gap: '0.5rem' }}>
-                                <button className="btn btn-secondary" disabled={page <= 1} onClick={() => setPage(p => Math.max(1, p - 1))}>
-                                    Previous
-                                </button>
-                                <button className="btn btn-secondary" disabled={page >= totalPages} onClick={() => setPage(p => Math.min(totalPages, p + 1))}>
-                                    Next
-                                </button>
-                            </div>
-                        </div>
+                        <Pagination
+                            currentPage={page}
+                            totalPages={totalPages}
+                            onPageChange={setPage}
+                        />
                     </>
                 )}
             </div>

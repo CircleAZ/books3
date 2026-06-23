@@ -12,6 +12,14 @@ export default function Transporters() {
     const [transporters, setTransporters] = useState([]);
     const [loading, setLoading] = useState(true);
     const [search, setSearch] = useState('');
+    const [debouncedSearch, setDebouncedSearch] = useState('');
+
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            setDebouncedSearch(search);
+        }, 300);
+        return () => clearTimeout(timer);
+    }, [search]);
 
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingId, setEditingId] = useState(null);
@@ -27,7 +35,7 @@ export default function Transporters() {
     const fetchTransporters = useCallback(async () => {
         setLoading(true);
         try {
-            const res = await fetchWithAuth(`${ENDPOINTS.PROCUREMENT_TRANSPORTERS}?search=${search}`);
+            const res = await fetchWithAuth(`${ENDPOINTS.PROCUREMENT_TRANSPORTERS}?search=${debouncedSearch}`);
             if (res.ok) {
                 const data = await res.json();
                 setTransporters(data.results || data);
@@ -37,7 +45,7 @@ export default function Transporters() {
         } finally {
             setLoading(false);
         }
-    }, [fetchWithAuth, search]);
+    }, [fetchWithAuth, debouncedSearch]);
 
     useEffect(() => {
         fetchTransporters();

@@ -4,6 +4,8 @@ import { useAuth } from '../../context/AuthContext';
 import { useCurrency } from '../../context/CurrencyContext';
 import { ENDPOINTS } from '../../config/api';
 import { Filter, ChevronUp, ChevronDown } from 'lucide-react';
+import useServerList from '../../hooks/useServerList';
+import Pagination from '../../components/common/Pagination';
 import './BankTransactions.css';
 
 export default function BankTransactions() {
@@ -11,47 +13,29 @@ export default function BankTransactions() {
     const { currency } = useCurrency();
     const navigate = useNavigate();
 
-    const [transactions, setTransactions] = useState([]);
 // fallow-ignore-next-line code-duplication
     const [accounts, setAccounts] = useState([]);
-    const [loading, setLoading] = useState(true);
-    const [page, setPage] = useState(1);
-    const [totalPages, setTotalPages] = useState(1);
     const [showFilters, setShowFilters] = useState(window.innerWidth > 768);
 
-    const [filters, setFilters] = useState({
-        account: '',
-        type: '',
-        startDate: '',
-        endDate: '',
-        reconciled: ''
+    const {
+        data: transactions,
+        loading,
+        totalPages,
+        page,
+        setPage,
+        filters,
+        setFilter,
+        refresh,
+    } = useServerList(ENDPOINTS.FINANCE_BANK_TRANSACTIONS, {
+        filterConfig: { account: '', type: '', startDate: '', endDate: '', reconciled: '' },
+        buildParams: (search, f) => new URLSearchParams({
+            account: f.account,
+            transaction_type: f.type,
+            start_date: f.startDate,
+            end_date: f.endDate,
+            is_reconciled: f.reconciled,
+        }),
     });
-
-    const fetchTransactions = useCallback(async () => {
-        setLoading(true);
-        try {
-            const queryParams = new URLSearchParams({
-                page,
-                account: filters.account,
-                transaction_type: filters.type,
-                start_date: filters.startDate,
-                end_date: filters.endDate,
-                is_reconciled: filters.reconciled
-            });
-
-// fallow-ignore-next-line code-duplication
-            const response = await fetchWithAuth(`${ENDPOINTS.FINANCE_BANK_TRANSACTIONS}?${queryParams.toString()}`);
-            if (response.ok) {
-                const data = await response.json();
-                setTransactions(data.results || []);
-                setTotalPages(Math.ceil((data.count || 0) / (data.page_size || 10)));
-            }
-        } catch (error) {
-            console.error('Error fetching transactions:', error);
-        } finally {
-            setLoading(false);
-        }
-    }, [fetchWithAuth, page, filters]);
 
     const fetchAccounts = useCallback(async () => {
         try {
@@ -66,17 +50,12 @@ export default function BankTransactions() {
     }, [fetchWithAuth]);
 
     useEffect(() => {
-        fetchTransactions();
-    }, [fetchTransactions]);
-
-    useEffect(() => {
         fetchAccounts();
     }, [fetchAccounts]);
 
     const handleFilterChange = (e) => {
         const { name, value } = e.target;
-        setFilters(prev => ({ ...prev, [name]: value }));
-        setPage(1);
+        setFilter(name, value);
     };
 
     const handleReconcile = async (id) => {
@@ -85,7 +64,7 @@ export default function BankTransactions() {
                 method: 'POST'
             });
             if (response.ok) {
-                fetchTransactions();
+                refresh();
             }
         } catch (error) {
             console.error('Error reconciling transaction:', error);
@@ -261,27 +240,11 @@ export default function BankTransactions() {
                             </tbody>
                         </table>
 
-                        <div className="pagination-controls">
-                            <span className="page-info">
-                                Page {page} of {totalPages || 1}
-                            </span>
-                            <div className="pagination-buttons">
-                                <button
-                                    className="btn btn-ghost"
-                                    disabled={page <= 1}
-                                    onClick={() => setPage(p => Math.max(1, p - 1))}
-                                >
-                                    Previous
-                                </button>
-                                <button
-                                    className="btn btn-ghost"
-                                    disabled={page >= totalPages}
-                                    onClick={() => setPage(p => Math.min(totalPages, p + 1))}
-                                >
-                                    Next
-                                </button>
-                            </div>
-                        </div>
+                        <Pagination
+                            currentPage={page}
+                            totalPages={totalPages}
+                            onPageChange={setPage}
+                        />
                     </>
                 )}
             </div>

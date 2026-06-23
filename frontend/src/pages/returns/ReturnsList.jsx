@@ -1,102 +1,55 @@
-import { useState, useEffect, useCallback } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
-import { useAuth } from '../../context/AuthContext';
+import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useCurrency } from '../../context/CurrencyContext';
 import { ENDPOINTS } from '../../config/api';
 import Pagination from '../../components/common/Pagination';
+import useServerList from '../../hooks/useServerList';
 import './ReturnsList.css';
 
 export default function ReturnsList() {
-    const { fetchWithAuth } = useAuth();
     const { currency } = useCurrency();
     const navigate = useNavigate();
-    const location = useLocation();
 
-// fallow-ignore-next-line code-duplication
-    const [returns, setReturns] = useState([]);
-    const [loading, setLoading] = useState(true);
-    const [search, setSearch] = useState('');
-    const [page, setPage] = useState(1);
-    const [totalPages, setTotalPages] = useState(1);
-    const [count, setCount] = useState(0);
+    const {
+        data: returns,
+        loading,
+        page,
+        setPage,
+        totalPages,
+        totalCount: count,
+        search,
+        setSearch,
+        filters,
+        setFilter,
+        clearFilters,
+    } = useServerList(ENDPOINTS.RETURNS, {
+        filterConfig: { status: '', dateAfter: '', dateBefore: '', ordering: '-created_at' },
+        pageSize: 20,
+        buildParams: (debouncedSearch, fltrs) => ({
+            search: debouncedSearch,
+            status: fltrs.status,
+            created_after: fltrs.dateAfter ? `${fltrs.dateAfter}T00:00:00` : '',
+            created_before: fltrs.dateBefore ? `${fltrs.dateBefore}T23:59:59` : '',
+            ordering: fltrs.ordering,
+        })
+    });
 
-    // Filters
-    const [status, setStatus] = useState('');
-    const [dateAfter, setDateAfter] = useState('');
-    const [dateBefore, setDateBefore] = useState('');
-// fallow-ignore-next-line code-duplication
-    const [ordering, setOrdering] = useState('-created_at');
-
-    // Debounced search state
-    const [debouncedSearch, setDebouncedSearch] = useState('');
-
-    useEffect(() => {
-        const timer = setTimeout(() => {
-            setDebouncedSearch(search);
-        }, 500);
-        return () => clearTimeout(timer);
-    }, [search]);
-
-    const fetchReturns = useCallback(async () => {
-        setLoading(true);
-        try {
-// fallow-ignore-next-line code-duplication
-            const queryParams = new URLSearchParams({
-                page,
-                search: debouncedSearch,
-                status,
-// fallow-ignore-next-line code-duplication
-                created_after: dateAfter ? `${dateAfter}T00:00:00` : '',
-                created_before: dateBefore ? `${dateBefore}T23:59:59` : '',
-                ordering
-            });
-
-            // Remove empty params
-            const cleanParams = new URLSearchParams();
-            for (const [key, value] of queryParams.entries()) {
-                if (value) cleanParams.append(key, value);
-            }
-
-            const response = await fetchWithAuth(`${ENDPOINTS.RETURNS}?${cleanParams.toString()}`);
-            if (response.ok) {
-                const data = await response.json();
-                setReturns(data.results || []);
-                setCount(data.count || 0);
-                // Synchronize with DRF settings.PAGE_SIZE (20)
-                setTotalPages(Math.ceil((data.count || 0) / 20));
-            } else {
-                console.error('Failed to fetch returns');
-            }
-        } catch (error) {
-            console.error('Error fetching returns:', error);
-        } finally {
-            setLoading(false);
-        }
-    }, [fetchWithAuth, page, debouncedSearch, status, dateAfter, dateBefore, ordering]);
-
-    // Unified fetch execution: fires precisely when filters/pages or location.key changes
-    useEffect(() => {
-        fetchReturns();
-    }, [fetchReturns, location.key]);
+    const isFilterActive = search !== '' || filters.status !== '' || filters.dateAfter !== '' || filters.dateBefore !== '';
 
     const handleSearchChange = (e) => {
         setSearch(e.target.value);
-        setPage(1);
     };
 
-    const handleFilterChange = (setter) => (e) => {
-        setter(e.target.value);
-        setPage(1);
+    const handleFilterChange = (key) => (e) => {
+        setFilter(key, e.target.value);
     };
 
     const toggleSort = (column) => {
-        if (ordering === column) {
-            setOrdering(`-${column}`);
+        if (filters.ordering === column) {
+            setFilter('ordering', `-${column}`);
         } else {
-            setOrdering(column);
+            setFilter('ordering', column);
         }
-// fallow-ignore-next-line code-duplication
-        setPage(1);
     };
 
     const formatDate = (dateString) => {
@@ -147,7 +100,7 @@ export default function ReturnsList() {
                 <div className="filter-row">
                     <div className="filter-group">
                         <label>Return Status</label>
-                        <select value={status} onChange={handleFilterChange(setStatus)}>
+                        <select value={filters.status} onChange={handleFilterChange('status')}>
                             <option value="">All Statuses</option>
                             <option value="initiated">Initiated</option>
                             <option value="items_received">Items Received</option>
@@ -159,12 +112,12 @@ export default function ReturnsList() {
 
                     <div className="filter-group">
                         <label>From</label>
-                        <input type="date" value={dateAfter} onChange={handleFilterChange(setDateAfter)} />
+                        <input type="date" value={filters.dateAfter} onChange={handleFilterChange('dateAfter')} />
                     </div>
 
                     <div className="filter-group">
                         <label>To</label>
-                        <input type="date" value={dateBefore} onChange={handleFilterChange(setDateBefore)} />
+                        <input type="date" value={filters.dateBefore} onChange={handleFilterChange('dateBefore')} />
                     </div>
 
                     <div className="filter-group spacer"></div>
@@ -183,18 +136,18 @@ export default function ReturnsList() {
                             <thead>
                                 <tr>
                                     <th onClick={() => toggleSort('display_id')} className="sortable">
-                                        Return ID {ordering.includes('display_id') && (ordering.startsWith('-') ? '↓' : '↑')}
+                                        Return ID {filters.ordering.includes('display_id') && (filters.ordering.startsWith('-') ? '↓' : '↑')}
                                     </th>
                                     <th>Order ID</th>
                                     <th>Customer</th>
                                     <th onClick={() => toggleSort('created_at')} className="sortable">
-                                        Date {ordering.includes('created_at') && (ordering.startsWith('-') ? '↓' : '↑')}
+                                        Date {filters.ordering.includes('created_at') && (filters.ordering.startsWith('-') ? '↓' : '↑')}
                                     </th>
                                     <th>Items</th>
                                     <th>Return Status</th>
                                     <th>Refund Status</th>
                                     <th onClick={() => toggleSort('total_refund_amount')} className="sortable">
-                                        Amount {ordering.includes('total_refund_amount') && (ordering.startsWith('-') ? '↓' : '↑')}
+                                        Amount {filters.ordering.includes('total_refund_amount') && (filters.ordering.startsWith('-') ? '↓' : '↑')}
                                     </th>
                                 </tr>
                             </thead>

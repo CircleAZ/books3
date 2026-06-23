@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { PROCUREMENT_ENDPOINTS } from '../../services/procurementService';
 import { ENDPOINTS } from '../../config/api';
 import Pagination from '../../components/common/Pagination';
+import useServerList from '../../hooks/useServerList';
 
 const DATE_PRESETS = [
     { label: 'This Week', value: 'week' },
@@ -14,36 +15,35 @@ const DATE_PRESETS = [
 ];
 
 export default function ProcurementList() {
-    const [orders, setOrders] = useState([]);
-    const [loading, setLoading] = useState(true);
+    const { fetchWithAuth } = useAuth();
+    const navigate = useNavigate();
+
+    const {
+        data: orders,
+        loading,
+        page: currentPage,
+        setPage: setCurrentPage,
+        totalPages,
+        totalCount,
+        search,
+        setSearch,
+        filters,
+        setFilter,
+        clearFilters,
+        isFilterActive,
+    } = useServerList(PROCUREMENT_ENDPOINTS.PURCHASE_ORDERS, {
+        filterConfig: { status: '', payment_status: '', vendor: '' },
+        pageSize: 20
+    });
+
     const [activeTab, setActiveTab] = useState('orders');
     const [analytics, setAnalytics] = useState(null);
     const [analyticsLoading, setAnalyticsLoading] = useState(false);
     const [period, setPeriod] = useState('all');
     const [startDate, setStartDate] = useState('');
     const [endDate, setEndDate] = useState('');
-    const { fetchWithAuth } = useAuth();
-    const navigate = useNavigate();
-    const location = useLocation();
 
-    // Filters and Pagination State
-    const [search, setSearch] = useState('');
-    const [debouncedSearch, setDebouncedSearch] = useState('');
-    const [selectedStatus, setSelectedStatus] = useState('');
-    const [selectedPaymentStatus, setSelectedPaymentStatus] = useState('');
-    const [selectedVendor, setSelectedVendor] = useState('');
     const [vendors, setVendors] = useState([]);
-    const [currentPage, setCurrentPage] = useState(1);
-    const [totalPages, setTotalPages] = useState(1);
-    const [totalCount, setTotalCount] = useState(0);
-
-    // Debounced search logic
-    useEffect(() => {
-        const timer = setTimeout(() => {
-            setDebouncedSearch(search);
-        }, 400);
-        return () => clearTimeout(timer);
-    }, [search]);
 
     // Fetch vendors on mount
     useEffect(() => {
@@ -61,70 +61,21 @@ export default function ProcurementList() {
         fetchVendorsList();
     }, [fetchWithAuth]);
 
-    const fetchOrders = useCallback(async (pageVal = currentPage) => {
-        setLoading(true);
-        try {
-            let url = `${PROCUREMENT_ENDPOINTS.PURCHASE_ORDERS}?page=${pageVal}`;
-            if (debouncedSearch) {
-                url += `&search=${encodeURIComponent(debouncedSearch)}`;
-            }
-            if (selectedStatus) {
-                url += `&status=${encodeURIComponent(selectedStatus)}`;
-            }
-            if (selectedPaymentStatus) {
-                url += `&payment_status=${encodeURIComponent(selectedPaymentStatus)}`;
-            }
-            if (selectedVendor) {
-                url += `&vendor=${encodeURIComponent(selectedVendor)}`;
-            }
-            const response = await fetchWithAuth(url);
-            if (response.ok) {
-                const data = await response.json();
-                setOrders(data.results || []);
-                setTotalPages(Math.ceil((data.count || 0) / 20));
-                setTotalCount(data.count || 0);
-            }
-        } catch (error) {
-            console.error("Failed to load purchase orders", error);
-        } finally {
-            setLoading(false);
-        }
-    }, [fetchWithAuth, debouncedSearch, selectedStatus, selectedPaymentStatus, selectedVendor]);
-
-    // Fetch orders when page or filters/dependencies change
-    useEffect(() => {
-        fetchOrders(currentPage);
-    }, [fetchOrders, currentPage, location.key]);
-
     const handleSearchChange = (e) => {
         setSearch(e.target.value);
-        setCurrentPage(1);
     };
 
     const handleStatusChange = (e) => {
-        setSelectedStatus(e.target.value);
-        setCurrentPage(1);
+        setFilter('status', e.target.value);
     };
 
     const handlePaymentStatusChange = (e) => {
-        setSelectedPaymentStatus(e.target.value);
-        setCurrentPage(1);
+        setFilter('payment_status', e.target.value);
     };
 
     const handleVendorChange = (e) => {
-        setSelectedVendor(e.target.value);
-        setCurrentPage(1);
+        setFilter('vendor', e.target.value);
     };
-
-    const clearFilters = () => {
-        setSearch('');
-        setSelectedStatus('');
-        setSelectedPaymentStatus('');
-        setSelectedVendor('');
-        setCurrentPage(1);
-    };
-
-    const isFilterActive = search !== '' || selectedStatus !== '' || selectedPaymentStatus !== '' || selectedVendor !== '';
 
     const fetchAnalytics = useCallback(async () => {
         setAnalyticsLoading(true);
@@ -211,7 +162,7 @@ export default function ProcurementList() {
                         <div style={{ minWidth: '130px' }}>
                             <select
                                 className="form-control"
-                                value={selectedStatus}
+                                value={filters.status}
                                 onChange={handleStatusChange}
                                 style={{ width: '100%' }}
                             >
@@ -226,7 +177,7 @@ export default function ProcurementList() {
                         <div style={{ minWidth: '150px' }}>
                             <select
                                 className="form-control"
-                                value={selectedPaymentStatus}
+                                value={filters.payment_status}
                                 onChange={handlePaymentStatusChange}
                                 style={{ width: '100%' }}
                             >
@@ -239,7 +190,7 @@ export default function ProcurementList() {
                         <div style={{ minWidth: '150px' }}>
                             <select
                                 className="form-control"
-                                value={selectedVendor}
+                                value={filters.vendor}
                                 onChange={handleVendorChange}
                                 style={{ width: '100%' }}
                             >

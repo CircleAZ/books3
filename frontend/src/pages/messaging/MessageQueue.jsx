@@ -1,39 +1,35 @@
-import React, { useState, useEffect } from 'react';
-import { useLocation } from 'react-router-dom';
+import React from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { ENDPOINTS } from '../../config/api';
+import Pagination from '../../components/common/Pagination';
+import useServerList from '../../hooks/useServerList';
 import './MessageQueue.css';
 
 import '../../styles/components/data-table.css';
+
 const MessageQueue = () => {
     const { fetchWithAuth } = useAuth();
-    const location = useLocation();
-    const [messages, setMessages] = useState([]);
-    const [loading, setLoading] = useState(true);
-    const [filter, setFilter] = useState('all');
 
-    useEffect(() => {
-        fetchMessages();
-    }, [filter, location.key]);
-
-    const fetchMessages = async () => {
-        setLoading(true);
-        try {
-            let url = `${ENDPOINTS.MESSAGING_QUEUE}`;
-            if (filter !== 'all') {
-                url += `?status=${filter}`;
+    const {
+        data: messages,
+        loading,
+        page,
+        setPage,
+        totalPages,
+        filters,
+        setFilter,
+        refresh: fetchMessages,
+    } = useServerList(ENDPOINTS.MESSAGING_QUEUE, {
+        filterConfig: { status: 'all' },
+        pageSize: 20,
+        buildParams: (debouncedSearch, fltrs) => {
+            const params = {};
+            if (fltrs.status && fltrs.status !== 'all') {
+                params.status = fltrs.status;
             }
-            const response = await fetchWithAuth(url);
-            if (response.ok) {
-                const data = await response.json();
-                setMessages(data.results || data);
-            }
-        } catch (error) {
-            console.error('Error fetching queue:', error);
-        } finally {
-            setLoading(false);
+            return params;
         }
-    };
+    });
 
     const retryMessage = async (id) => {
         try {
@@ -44,13 +40,13 @@ const MessageQueue = () => {
         }
     };
 
-    if (loading) return <div>Loading Queue...</div>;
+    if (loading && messages.length === 0) return <div>Loading Queue...</div>;
 
     return (
         <div className="message-queue">
             <header>
                 <div className="filters">
-                    <select value={filter} onChange={(e) => setFilter(e.target.value)}>
+                    <select value={filters.status} onChange={(e) => setFilter('status', e.target.value)}>
                         <option value="all">All Status</option>
                         <option value="pending">Pending</option>
                         <option value="failed">Failed</option>
@@ -96,6 +92,13 @@ const MessageQueue = () => {
                     ))}
                 </tbody>
             </table>
+            <div className="pagination-bar" style={{ marginTop: '1.5rem', display: 'flex', justifyContent: 'center' }}>
+                <Pagination 
+                    currentPage={page} 
+                    totalPages={totalPages} 
+                    onPageChange={setPage} 
+                />
+            </div>
         </div>
     );
 };

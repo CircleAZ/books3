@@ -2,12 +2,12 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { ENDPOINTS } from '../../config/api';
+import useServerList from '../../hooks/useServerList';
 import './ProductList.css';
 import './StockControl.css';
 
 import '../../styles/components/form-layout.css';
 import '../../styles/components/modal-system.css';
-const HISTORY_PAGE_SIZE = 50;
 
 export default function StockControl() {
     const { fetchWithAuth } = useAuth();
@@ -15,10 +15,8 @@ export default function StockControl() {
     const [activeTab, setActiveTab] = useState('low-stock');
     const [lowStockItems, setLowStockItems] = useState([]);
     const [negativeStockItems, setNegativeStockItems] = useState([]);
-    const [historyItems, setHistoryItems] = useState([]);
     const [loading, setLoading] = useState(true);
     const [isFiltering, setIsFiltering] = useState(false);
-    const hasLoadedHistory = useRef(false);
 
     // Modal state
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -34,27 +32,37 @@ export default function StockControl() {
     // LENS-12: Searchable product filter
     const [productSearch, setProductSearch] = useState('');
 
-    // History filter state
-    const [historySearch, setHistorySearch] = useState('');
-    const [debouncedHistorySearch, setDebouncedHistorySearch] = useState('');
-    const [historyReason, setHistoryReason] = useState('');
-    const [historyUser, setHistoryUser] = useState('');
-    const [historyDirection, setHistoryDirection] = useState('');
-    const [historyDateFrom, setHistoryDateFrom] = useState('');
-    const [historyDateTo, setHistoryDateTo] = useState('');
-    const [historyPage, setHistoryPage] = useState(1);
-    const [historyTotalPages, setHistoryTotalPages] = useState(1);
-    const [historyCount, setHistoryCount] = useState(0);
     const [filterOptions, setFilterOptions] = useState({ users: [], reasons: [] });
 
-    // Debounce search — batch page reset with search term update (prevents race condition)
+    // useServerList for history
+    const {
+        data: historyItems,
+        loading: historyLoading,
+        page: historyPage,
+        setPage: setHistoryPage,
+        totalPages: historyTotalPages,
+        totalCount: historyCount,
+        search: historySearch,
+        setSearch: setHistorySearch,
+        filters: historyFilters,
+        setFilter: setHistoryFilter,
+        clearFilters: clearAllFilters,
+        isFilterActive: hasActiveFilters,
+        refresh: refreshHistory,
+    } = useServerList(ENDPOINTS.INVENTORY_STOCK_HISTORY, {
+        filterConfig: { reason: '', created_by: '', change_direction: '', date_from: '', date_to: '' },
+        pageSize: 20, // standardized to 20!
+    });
+
+    const hasLoadedHistory = useRef(false);
     useEffect(() => {
-        const timer = setTimeout(() => {
-            setDebouncedHistorySearch(historySearch);
-            setHistoryPage(1);
-        }, 400);
-        return () => clearTimeout(timer);
-    }, [historySearch]);
+        if (!historyLoading) {
+            hasLoadedHistory.current = true;
+            setIsFiltering(false);
+        } else if (hasLoadedHistory.current) {
+            setIsFiltering(true);
+        }
+    }, [historyLoading]);
 
     const fetchLowStock = useCallback(async () => {
         setLoading(true);
@@ -86,40 +94,6 @@ export default function StockControl() {
         }
     }, [fetchWithAuth]);
 
-    const fetchHistory = useCallback(async () => {
-        // First load → full spinner; subsequent loads → subtle dim effect
-        if (!hasLoadedHistory.current) {
-            setLoading(true);
-        } else {
-            setIsFiltering(true);
-        }
-        try {
-            const params = new URLSearchParams();
-            params.set('page', historyPage);
-            params.set('page_size', HISTORY_PAGE_SIZE);
-            if (debouncedHistorySearch) params.set('search', debouncedHistorySearch);
-            if (historyReason) params.set('reason', historyReason);
-            if (historyUser) params.set('created_by', historyUser);
-            if (historyDirection) params.set('change_direction', historyDirection);
-            if (historyDateFrom) params.set('date_from', historyDateFrom);
-            if (historyDateTo) params.set('date_to', historyDateTo);
-
-            const response = await fetchWithAuth(`${ENDPOINTS.INVENTORY_STOCK_HISTORY}?${params.toString()}`);
-            if (response.ok) {
-                const data = await response.json();
-                setHistoryItems(data.results || []);
-                setHistoryCount(data.count || 0);
-                setHistoryTotalPages(Math.ceil((data.count || 0) / HISTORY_PAGE_SIZE));
-            }
-        } catch (error) {
-            console.error('Error fetching history:', error);
-        } finally {
-            hasLoadedHistory.current = true;
-            setLoading(false);
-            setIsFiltering(false);
-        }
-    }, [fetchWithAuth, historyPage, debouncedHistorySearch, historyReason, historyUser, historyDirection, historyDateFrom, historyDateTo]);
-
     const fetchProducts = useCallback(async () => {
         try {
             const response = await fetchWithAuth(ENDPOINTS.INVENTORY_PRODUCTS);
@@ -149,14 +123,6 @@ export default function StockControl() {
         if (activeTab === 'low-stock') fetchLowStock();
         else if (activeTab === 'negative-stock') fetchNegativeStock();
     }, [activeTab, fetchLowStock, fetchNegativeStock, location.key]);
-
-    // History — re-fetch on tab switch, navigation, OR when any filter changes
-    // NOTE: location.key is intentionally in both effects. When the user
-    // navigates back to this page, both effects fire, but only the one
-    // matching the active tab actually calls a fetch function.
-    useEffect(() => {
-        if (activeTab === 'history') fetchHistory();
-    }, [activeTab, fetchHistory, location.key]);
 
     // Reset filtering state when leaving history tab (prevents stuck dim)
     useEffect(() => {
@@ -243,7 +209,7 @@ export default function StockControl() {
                 // Refresh current tab
                 if (activeTab === 'low-stock') fetchLowStock();
                 else if (activeTab === 'negative-stock') fetchNegativeStock();
-                else fetchHistory();
+                else refreshHistory();
                 // Also refresh products list to update stock counts in dropdown
                 fetchProducts();
             } else {
@@ -255,23 +221,9 @@ export default function StockControl() {
         }
     };
 
-    const handleFilterChange = (setter) => (e) => {
-        setter(e.target.value);
-        setHistoryPage(1);
+    const handleFilterChange = (key) => (e) => {
+        setHistoryFilter(key, e.target.value);
     };
-
-    const clearAllFilters = () => {
-        setHistorySearch('');
-        setDebouncedHistorySearch('');
-        setHistoryReason('');
-        setHistoryUser('');
-        setHistoryDirection('');
-        setHistoryDateFrom('');
-        setHistoryDateTo('');
-        setHistoryPage(1);
-    };
-
-    const hasActiveFilters = historySearch || historyReason || historyUser || historyDirection || historyDateFrom || historyDateTo;
 
     return (
         <div className="inventory-container fade-in">
@@ -404,13 +356,12 @@ export default function StockControl() {
                                         onChange={e => setHistorySearch(e.target.value)}
                                     />
                                 </div>
-                            </div>
-                            <div className="filter-controls-row">
+                            </div>                            <div className="filter-controls-row">
                                 <select
                                     id="history-reason-filter"
                                     className="filter-select"
-                                    value={historyReason}
-                                    onChange={handleFilterChange(setHistoryReason)}
+                                    value={historyFilters.reason}
+                                    onChange={handleFilterChange('reason')}
                                 >
                                     <option value="">All Reasons</option>
                                     {filterOptions.reasons.map(r => (
@@ -421,8 +372,8 @@ export default function StockControl() {
                                 <select
                                     id="history-user-filter"
                                     className="filter-select"
-                                    value={historyUser}
-                                    onChange={handleFilterChange(setHistoryUser)}
+                                    value={historyFilters.created_by}
+                                    onChange={handleFilterChange('created_by')}
                                 >
                                     <option value="">All Users</option>
                                     {filterOptions.users.map(u => (
@@ -433,8 +384,8 @@ export default function StockControl() {
                                 <select
                                     id="history-direction-filter"
                                     className="filter-select"
-                                    value={historyDirection}
-                                    onChange={handleFilterChange(setHistoryDirection)}
+                                    value={historyFilters.change_direction}
+                                    onChange={handleFilterChange('change_direction')}
                                 >
                                     <option value="">All Changes</option>
                                     <option value="positive">↑ Increases Only</option>
@@ -447,8 +398,8 @@ export default function StockControl() {
                                         type="date"
                                         id="history-date-from"
                                         className="filter-date-input"
-                                        value={historyDateFrom}
-                                        onChange={handleFilterChange(setHistoryDateFrom)}
+                                        value={historyFilters.date_from}
+                                        onChange={handleFilterChange('date_from')}
                                     />
                                 </div>
 
@@ -458,8 +409,8 @@ export default function StockControl() {
                                         type="date"
                                         id="history-date-to"
                                         className="filter-date-input"
-                                        value={historyDateTo}
-                                        onChange={handleFilterChange(setHistoryDateTo)}
+                                        value={historyFilters.date_to}
+                                        onChange={handleFilterChange('date_to')}
                                     />
                                 </div>
 
@@ -484,7 +435,7 @@ export default function StockControl() {
                             </div>
                         </div>
 
-                        {loading && !hasLoadedHistory.current ? (
+                        {historyLoading && !hasLoadedHistory.current ? (
                             <div className="loading-container"><div className="spinner-large"></div></div>
                         ) : (
                             <div className={`history-table-wrapper${isFiltering ? ' is-filtering' : ''}`}>
@@ -527,27 +478,13 @@ export default function StockControl() {
                                 </table>
 
                                 {/* Pagination */}
-                                {historyTotalPages > 1 && (
-                                    <div className="history-pagination">
-                                        <button
-                                            className="btn btn-ghost btn-sm"
-                                            disabled={historyPage <= 1}
-                                            onClick={() => setHistoryPage(p => p - 1)}
-                                        >
-                                            ← Previous
-                                        </button>
-                                        <span className="pagination-info">
-                                            Page {historyPage} of {historyTotalPages}
-                                        </span>
-                                        <button
-                                            className="btn btn-ghost btn-sm"
-                                            disabled={historyPage >= historyTotalPages}
-                                            onClick={() => setHistoryPage(p => p + 1)}
-                                        >
-                                            Next →
-                                        </button>
-                                    </div>
-                                )}
+                                <div className="pagination-bar" style={{ marginTop: '1.5rem', display: 'flex', justifyContent: 'center' }}>
+                                    <Pagination 
+                                        currentPage={historyPage} 
+                                        totalPages={historyTotalPages} 
+                                        onPageChange={setHistoryPage} 
+                                    />
+                                </div>
                             </div>
                         )}
                     </>

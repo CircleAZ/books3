@@ -3,6 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useCurrency } from '../../context/CurrencyContext';
 import { ENDPOINTS } from '../../config/api';
+import useServerList from '../../hooks/useServerList';
+import Pagination from '../../components/common/Pagination';
 import './ExpenseList.css';
 
 export default function ExpenseList() {
@@ -10,46 +12,26 @@ export default function ExpenseList() {
     const { currency } = useCurrency();
     const navigate = useNavigate();
 
-    const [expenses, setExpenses] = useState([]);
-    const [loading, setLoading] = useState(true);
-    const [page, setPage] = useState(1);
-    const [totalPages, setTotalPages] = useState(1);
-
-    // Filter options
+    // Filter options (independent data fetch — not part of list hook)
     const [categories, setCategories] = useState([]);
-    const [filters, setFilters] = useState({
-        category: '',
-        status: '',
-        startDate: '',
-        endDate: ''
+
+    const {
+        data: expenses,
+        loading,
+        totalPages,
+        page,
+        setPage,
+        filters,
+        setFilter,
+    } = useServerList(ENDPOINTS.FINANCE_EXPENSES, {
+        filterConfig: { category: '', status: '', startDate: '', endDate: '' },
+        buildParams: (search, f) => new URLSearchParams({
+            category: f.category,
+            payment_status: f.status,
+            start_date: f.startDate,
+            end_date: f.endDate,
+        }),
     });
-
-    const fetchExpenses = useCallback(async () => {
-        setLoading(true);
-        try {
-            const queryParams = new URLSearchParams({
-                page,
-                category: filters.category,
-                payment_status: filters.status,
-                start_date: filters.startDate,
-                end_date: filters.endDate
-            });
-
-            const response = await fetchWithAuth(`${ENDPOINTS.FINANCE_EXPENSES}?${queryParams.toString()}`);
-            if (response.ok) {
-                const data = await response.json();
-                setExpenses(data.results || []);
-                setTotalPages(Math.ceil((data.count || 0) / (data.page_size || 10)));
-            } else {
-                console.error('Failed to fetch expenses');
-            }
-        } catch (error) {
-            console.error('Error fetching expenses:', error);
-        } finally {
-            setLoading(false);
-        }
-// fallow-ignore-next-line code-duplication
-    }, [fetchWithAuth, page, filters]);
 
     const fetchCategories = useCallback(async () => {
         try {
@@ -64,17 +46,12 @@ export default function ExpenseList() {
     }, [fetchWithAuth]);
 
     useEffect(() => {
-        fetchExpenses();
-    }, [fetchExpenses]);
-
-    useEffect(() => {
         fetchCategories();
     }, [fetchCategories]);
 
     const handleFilterChange = (e) => {
         const { name, value } = e.target;
-        setFilters(prev => ({ ...prev, [name]: value }));
-        setPage(1);
+        setFilter(name, value);
     };
 
     const getStatusClass = (status) => {
@@ -214,27 +191,11 @@ export default function ExpenseList() {
                     </>
                 )}
 
-                <div className="pagination-controls">
-                    <span className="page-info">
-                        Page {page} of {totalPages || 1}
-                    </span>
-                    <div className="pagination-buttons">
-                        <button
-                            className="btn btn-ghost"
-                            disabled={page <= 1}
-                            onClick={() => setPage(p => Math.max(1, p - 1))}
-                        >
-                            Previous
-                        </button>
-                        <button
-                            className="btn btn-ghost"
-                            disabled={page >= totalPages}
-                            onClick={() => setPage(p => Math.min(totalPages, p + 1))}
-                        >
-                            Next
-                        </button>
-                    </div>
-                </div>
+                <Pagination
+                    currentPage={page}
+                    totalPages={totalPages}
+                    onPageChange={setPage}
+                />
             </div>
         </div>
     );

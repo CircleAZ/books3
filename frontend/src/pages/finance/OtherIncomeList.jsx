@@ -1,42 +1,24 @@
-import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useAuth } from '../../context/AuthContext';
 import { useCurrency } from '../../context/CurrencyContext';
-import { useToast } from '../../context/ToastContext';
 import { ENDPOINTS } from '../../config/api';
 import { Plus, Search } from 'lucide-react';
+import useServerList from '../../hooks/useServerList';
+import Pagination from '../../components/common/Pagination';
 import '../../styles/components/data-table.css';
 
 export default function OtherIncomeList() {
-    const { fetchWithAuth } = useAuth();
     const { currency } = useCurrency();
-    const { showToast } = useToast();
     const navigate = useNavigate();
-    const [incomeRecords, setIncomeRecords] = useState([]);
-    const [loading, setLoading] = useState(true);
-    const [search, setSearch] = useState('');
-    const [page, setPage] = useState(1);
-    const [totalPages, setTotalPages] = useState(1);
 
-    const fetchIncome = useCallback(async () => {
-        setLoading(true);
-        try {
-            const res = await fetchWithAuth(`${ENDPOINTS.FINANCE_OTHER_INCOME}?page=${page}&search=${search}`);
-            if (res.ok) {
-                const data = await res.json();
-                setIncomeRecords(data.results || data);
-                setTotalPages(Math.ceil((data.count || 0) / (data.page_size || 30)));
-            }
-        } catch (error) {
-            showToast("Failed to fetch other income records", 'error');
-        } finally {
-            setLoading(false);
-        }
-    }, [fetchWithAuth, page, search]);
-
-    useEffect(() => {
-        fetchIncome();
-    }, [fetchIncome]);
+    const {
+        data: incomeRecords,
+        loading,
+        totalPages,
+        page,
+        setPage,
+        search,
+        setSearch,
+    } = useServerList(ENDPOINTS.FINANCE_OTHER_INCOME);
 
     return (
         <div className="page-container fade-in">
@@ -99,19 +81,11 @@ export default function OtherIncomeList() {
                                 )}
                             </tbody>
                         </table>
-                        <div className="pagination-controls" style={{ padding: '1.5rem', borderTop: '1px solid var(--color-border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                            <span className="page-info" style={{ fontWeight: 500, color: 'var(--color-text-muted)' }}>
-                                Page {page} of {totalPages || 1}
-                            </span>
-                            <div className="pagination-buttons" style={{ display: 'flex', gap: '0.5rem' }}>
-                                <button className="btn btn-secondary" disabled={page <= 1} onClick={() => setPage(p => Math.max(1, p - 1))}>
-                                    Previous
-                                </button>
-                                <button className="btn btn-secondary" disabled={page >= totalPages} onClick={() => setPage(p => Math.min(totalPages, p + 1))}>
-                                    Next
-                                </button>
-                            </div>
-                        </div>
+                        <Pagination
+                            currentPage={page}
+                            totalPages={totalPages}
+                            onPageChange={setPage}
+                        />
                     </>
                 )}
             </div>

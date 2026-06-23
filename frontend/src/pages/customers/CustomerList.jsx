@@ -1,77 +1,25 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
-import { useAuth } from '../../context/AuthContext';
+import React from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useCurrency } from '../../context/CurrencyContext';
 import { ENDPOINTS } from '../../config/api';
-import './CustomerList.css';
+import useServerList from '../../hooks/useServerList';
+import Pagination from '../../components/common/Pagination';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
+import './CustomerList.css';
 
 const CustomerList = () => {
     const { currency } = useCurrency();
-    const [customers, setCustomers] = useState([]);
-    const [loading, setLoading] = useState(true);
-    const [search, setSearch] = useState('');
-    const [page, setPage] = useState(1);
-    const [totalPages, setTotalPages] = useState(1);
-    const [debouncedSearch, setDebouncedSearch] = useState('');
     const navigate = useNavigate();
-    const location = useLocation();
-    const { fetchWithAuth } = useAuth();
-    const abortControllerRef = useRef(null);
 
-    const fetchCustomers = useCallback(async (fetchPage, fetchSearch) => {
-        // Cancel any in-flight request to prevent stale responses from winning the race
-        if (abortControllerRef.current) {
-            abortControllerRef.current.abort();
-        }
-        const controller = new AbortController();
-        abortControllerRef.current = controller;
-
-        setLoading(true);
-        try {
-            const response = await fetchWithAuth(
-                `${ENDPOINTS.CUSTOMERS}?page=${fetchPage}&search=${fetchSearch}`,
-                { signal: controller.signal }
-            );
-            if (controller.signal.aborted) return;
-            if (response.ok) {
-                const data = await response.json();
-                setCustomers(data.results || []);
-                setTotalPages(Math.ceil((data.count || 0) / 20));
-            }
-        } catch (error) {
-            if (error.name === 'AbortError') return;
-            console.error('Error fetching customers:', error);
-        } finally {
-            if (!controller.signal.aborted) {
-                setLoading(false);
-            }
-        }
-    }, [fetchWithAuth]);
-
-    useEffect(() => {
-        const timer = setTimeout(() => {
-            setDebouncedSearch(search);
-            // Reset to page 1 when search term changes (batched with debounce)
-            setPage(1);
-        }, 300);
-        return () => clearTimeout(timer);
-    }, [search]);
-
-    useEffect(() => {
-        fetchCustomers(page, debouncedSearch);
-        return () => {
-            if (abortControllerRef.current) {
-                abortControllerRef.current.abort();
-            }
-        };
-    }, [page, debouncedSearch, location.key, fetchCustomers]);
-
-    const handleSearchChange = (e) => {
-        setSearch(e.target.value);
-        // Do NOT setPage(1) here — it's batched inside the debounce effect
-        // to prevent an immediate unfiltered fetch with stale debouncedSearch
-    };
+    const {
+        data: customers,
+        loading,
+        totalPages,
+        page,
+        setPage,
+        search,
+        setSearch,
+    } = useServerList(ENDPOINTS.CUSTOMERS);
 
     return (
         <div className="customer-list-container fade-in">
@@ -96,7 +44,7 @@ const CustomerList = () => {
                     type="text"
                     placeholder="Search by name, phone, email..."
                     value={search}
-                    onChange={handleSearchChange}
+                    onChange={(e) => setSearch(e.target.value)}
                     className="form-input"
                 />
             </div>
@@ -148,25 +96,14 @@ const CustomerList = () => {
                 </div>
             )}
 
-            <div className="pagination">
-                <button
-                    disabled={page === 1}
-                    onClick={() => setPage(page - 1)}
-                    className="btn btn-secondary"
-                >
-                    Previous
-                </button>
-                <span>Page {page} of {Math.max(1, totalPages)}</span>
-                <button
-                    disabled={page >= totalPages}
-                    onClick={() => setPage(page + 1)}
-                    className="btn btn-secondary"
-                >
-                    Next
-                </button>
-            </div>
+            <Pagination
+                currentPage={page}
+                totalPages={totalPages}
+                onPageChange={setPage}
+            />
         </div>
     );
 };
 
 export default CustomerList;
+

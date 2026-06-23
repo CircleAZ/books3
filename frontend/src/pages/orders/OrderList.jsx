@@ -1,137 +1,90 @@
-import { useState, useEffect, useCallback } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
-import { useAuth } from '../../context/AuthContext';
+import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useCurrency } from '../../context/CurrencyContext';
 import { ENDPOINTS } from '../../config/api';
 import { getStatusClass, formatStatusLabel, STATUS_OPTIONS } from '../../utils/statusUtils';
 import Pagination from '../../components/common/Pagination';
+import useServerList from '../../hooks/useServerList';
 import '../OrderList.css';
 
 export default function OrderList() {
-    const { fetchWithAuth } = useAuth();
     const { currency } = useCurrency();
     const navigate = useNavigate();
-    const location = useLocation();
 
-// fallow-ignore-next-line code-duplication
-    const [orders, setOrders] = useState([]);
-    const [loading, setLoading] = useState(true);
-    const [search, setSearch] = useState('');
-    const [page, setPage] = useState(1);
-    const [totalPages, setTotalPages] = useState(1);
-    const [count, setCount] = useState(0);
+    const {
+        data: orders,
+        loading,
+        page,
+        setPage,
+        totalPages,
+        totalCount: count,
+        search,
+        setSearch,
+        filters,
+        setFilter,
+        clearFilters: clearAllFilters,
+    } = useServerList(ENDPOINTS.ORDERS, {
+        filterConfig: {
+            orderStatus: '',
+            paymentStatus: '',
+            deliveryStatus: '',
+            returnStatus: '',
+            refundStatus: '',
+            cancellationStatus: '',
+            dateAfter: '',
+            dateBefore: '',
+            ordering: '-created_at',
+        },
+        pageSize: 20,
+        buildParams: (debouncedSearch, fltrs) => ({
+            search: debouncedSearch,
+            order_status: fltrs.orderStatus,
+            payment_status: fltrs.paymentStatus,
+            delivery_status: fltrs.deliveryStatus,
+            return_status: fltrs.returnStatus,
+            refund_status: fltrs.refundStatus,
+            cancellation_status: fltrs.cancellationStatus,
+            created_after: fltrs.dateAfter ? `${fltrs.dateAfter}T00:00:00` : '',
+            created_before: fltrs.dateBefore ? `${fltrs.dateBefore}T23:59:59` : '',
+            ordering: fltrs.ordering,
+        })
+    });
 
-    // Filters
-    const [orderStatus, setOrderStatus] = useState('');
-    const [paymentStatus, setPaymentStatus] = useState('');
-    const [deliveryStatus, setDeliveryStatus] = useState('');
-    const [returnStatus, setReturnStatus] = useState('');
-    const [refundStatus, setRefundStatus] = useState('');
-    const [cancellationStatus, setCancellationStatus] = useState('');
-    const [dateAfter, setDateAfter] = useState('');
-    const [dateBefore, setDateBefore] = useState('');
-    const [ordering, setOrdering] = useState('-created_at');
     const [showFilters, setShowFilters] = useState(false);
 
-// fallow-ignore-next-line code-duplication
-    const activeFilterCount = [orderStatus, paymentStatus, deliveryStatus, returnStatus, refundStatus, cancellationStatus, dateAfter, dateBefore].filter(Boolean).length;
-
-    // Debounced search state
-    const [debouncedSearch, setDebouncedSearch] = useState('');
-
-    useEffect(() => {
-        const timer = setTimeout(() => {
-            setDebouncedSearch(search);
-        }, 500);
-        return () => clearTimeout(timer);
-    }, [search]);
-
-    const fetchOrders = useCallback(async () => {
-        setLoading(true);
-        try {
-            const queryParams = new URLSearchParams({
-                page,
-                search: debouncedSearch,
-                order_status: orderStatus,
-                payment_status: paymentStatus,
-                delivery_status: deliveryStatus,
-                return_status: returnStatus,
-                refund_status: refundStatus,
-                cancellation_status: cancellationStatus,
-// fallow-ignore-next-line code-duplication
-                created_after: dateAfter ? `${dateAfter}T00:00:00` : '',
-                created_before: dateBefore ? `${dateBefore}T23:59:59` : '',
-                ordering
-            });
-
-            // Remove empty params
-            const cleanParams = new URLSearchParams();
-            for (const [key, value] of queryParams.entries()) {
-                if (value) cleanParams.append(key, value);
-            }
-
-            const response = await fetchWithAuth(`${ENDPOINTS.ORDERS}?${cleanParams.toString()}`);
-            if (response.ok) {
-                const data = await response.json();
-                setOrders(data.results || []);
-                setCount(data.count || 0);
-                // Synchronize with DRF settings.PAGE_SIZE (20)
-                setTotalPages(Math.ceil((data.count || 0) / 20));
-            } else {
-                console.error('Failed to fetch orders');
-            }
-        } catch (error) {
-            console.error('Error fetching orders:', error);
-        } finally {
-            setLoading(false);
-        }
-    }, [fetchWithAuth, page, debouncedSearch, orderStatus, paymentStatus, deliveryStatus, returnStatus, refundStatus, cancellationStatus, dateAfter, dateBefore, ordering]);
-
-    // Unified fetch execution: fires precisely when filters/pages or location.key changes
-    useEffect(() => {
-        fetchOrders();
-    }, [fetchOrders, location.key]);
+    const activeFilterCount = [
+        filters.orderStatus,
+        filters.paymentStatus,
+        filters.deliveryStatus,
+        filters.returnStatus,
+        filters.refundStatus,
+        filters.cancellationStatus,
+        filters.dateAfter,
+        filters.dateBefore
+    ].filter(Boolean).length;
 
     const handleSearchChange = (e) => {
         setSearch(e.target.value);
-        setPage(1);
     };
 
-    const handleFilterChange = (setter) => (e) => {
-        setter(e.target.value);
-        setPage(1);
+    const handleFilterChange = (key) => (e) => {
+        setFilter(key, e.target.value);
     };
 
     const toggleSort = (column) => {
-        if (ordering === column) {
-            setOrdering(`-${column}`);
+        if (filters.ordering === column) {
+            setFilter('ordering', `-${column}`);
         } else {
-            setOrdering(column);
+            setFilter('ordering', column);
         }
-        setPage(1);
-    };
-
-    const clearAllFilters = () => {
-        setSearch('');
-        setOrderStatus('');
-        setPaymentStatus('');
-        setDeliveryStatus('');
-        setReturnStatus('');
-        setRefundStatus('');
-        setCancellationStatus('');
-        setDateAfter('');
-        setDateBefore('');
-        setPage(1);
     };
 
     const todayStr = new Date().toISOString().split('T')[0];
-    const isToday = dateAfter === todayStr && dateBefore === todayStr;
+    const isToday = filters.dateAfter === todayStr && filters.dateBefore === todayStr;
 
     const setTodayFilter = () => {
-        setDateAfter(todayStr);
-        setDateBefore(todayStr);
-// fallow-ignore-next-line code-duplication
-        setPage(1);
+        setFilter('dateAfter', todayStr);
+        setFilter('dateBefore', todayStr);
     };
 
     const formatDate = (dateString) => {
@@ -201,7 +154,7 @@ export default function OrderList() {
                     <div className="filter-row">
                         <div className="filter-group">
                             <label>Order Status</label>
-                            <select value={orderStatus} onChange={handleFilterChange(setOrderStatus)}>
+                            <select value={filters.orderStatus} onChange={handleFilterChange('orderStatus')}>
                                 <option value="">All Statuses</option>
                                 {STATUS_OPTIONS.order_status.map(opt => (
                                     <option key={opt.value} value={opt.value}>{opt.label}</option>
@@ -211,7 +164,7 @@ export default function OrderList() {
 
                         <div className="filter-group">
                             <label>Payment Status</label>
-                            <select value={paymentStatus} onChange={handleFilterChange(setPaymentStatus)}>
+                            <select value={filters.paymentStatus} onChange={handleFilterChange('paymentStatus')}>
                                 <option value="">All Payments</option>
                                 {STATUS_OPTIONS.payment_status.map(opt => (
                                     <option key={opt.value} value={opt.value}>{opt.label}</option>
@@ -221,7 +174,7 @@ export default function OrderList() {
 
                         <div className="filter-group">
                             <label>Delivery Status</label>
-                            <select value={deliveryStatus} onChange={handleFilterChange(setDeliveryStatus)}>
+                            <select value={filters.deliveryStatus} onChange={handleFilterChange('deliveryStatus')}>
                                 <option value="">All Deliveries</option>
                                 {STATUS_OPTIONS.delivery_status.map(opt => (
                                     <option key={opt.value} value={opt.value}>{opt.label}</option>
@@ -231,7 +184,7 @@ export default function OrderList() {
 
                         <div className="filter-group">
                             <label>Return Status</label>
-                            <select value={returnStatus} onChange={handleFilterChange(setReturnStatus)}>
+                            <select value={filters.returnStatus} onChange={handleFilterChange('returnStatus')}>
                                 <option value="">All Returns</option>
                                 {STATUS_OPTIONS.return_status.map(opt => (
                                     <option key={opt.value} value={opt.value}>{opt.label}</option>
@@ -241,7 +194,7 @@ export default function OrderList() {
 
                         <div className="filter-group">
                             <label>Refund Status</label>
-                            <select value={refundStatus} onChange={handleFilterChange(setRefundStatus)}>
+                            <select value={filters.refundStatus} onChange={handleFilterChange('refundStatus')}>
                                 <option value="">All Refunds</option>
                                 {STATUS_OPTIONS.refund_status.map(opt => (
                                     <option key={opt.value} value={opt.value}>{opt.label}</option>
@@ -251,7 +204,7 @@ export default function OrderList() {
 
                         <div className="filter-group">
                             <label>Cancellation</label>
-                            <select value={cancellationStatus} onChange={handleFilterChange(setCancellationStatus)}>
+                            <select value={filters.cancellationStatus} onChange={handleFilterChange('cancellationStatus')}>
                                 <option value="">All</option>
                                 {STATUS_OPTIONS.cancellation_status.map(opt => (
                                     <option key={opt.value} value={opt.value}>{opt.label}</option>
@@ -261,12 +214,12 @@ export default function OrderList() {
 
                         <div className="filter-group">
                             <label>From</label>
-                            <input type="date" value={dateAfter} onChange={handleFilterChange(setDateAfter)} />
+                            <input type="date" value={filters.dateAfter} onChange={handleFilterChange('dateAfter')} />
                         </div>
 
                         <div className="filter-group">
                             <label>To</label>
-                            <input type="date" value={dateBefore} onChange={handleFilterChange(setDateBefore)} />
+                            <input type="date" value={filters.dateBefore} onChange={handleFilterChange('dateBefore')} />
                         </div>
                     </div>
                 )}
@@ -283,25 +236,25 @@ export default function OrderList() {
                             <thead>
                                 <tr>
                                     <th onClick={() => toggleSort('display_id')} className="sortable">
-                                        Order ID {ordering.includes('display_id') && (ordering.startsWith('-') ? '↓' : '↑')}
+                                        Order ID {filters.ordering.includes('display_id') && (filters.ordering.startsWith('-') ? '↓' : '↑')}
                                     </th>
                                     <th onClick={() => toggleSort('customer_sort_name')} className="sortable">
-                                        Customer {ordering.includes('customer_sort_name') && (ordering.startsWith('-') ? '↓' : '↑')}
+                                        Customer {filters.ordering.includes('customer_sort_name') && (filters.ordering.startsWith('-') ? '↓' : '↑')}
                                     </th>
                                     <th onClick={() => toggleSort('created_at')} className="sortable">
-                                        Date {ordering.includes('created_at') && (ordering.startsWith('-') ? '↓' : '↑')}
+                                        Date {filters.ordering.includes('created_at') && (filters.ordering.startsWith('-') ? '↓' : '↑')}
                                     </th>
                                     <th onClick={() => toggleSort('total')} className="sortable">
-                                        Total {ordering.includes('total') && (ordering.startsWith('-') ? '↓' : '↑')}
+                                        Total {filters.ordering.includes('total') && (filters.ordering.startsWith('-') ? '↓' : '↑')}
                                     </th>
                                     <th onClick={() => toggleSort('payment_status')} className="sortable">
-                                        Payment {ordering.includes('payment_status') && (ordering.startsWith('-') ? '↓' : '↑')}
+                                        Payment {filters.ordering.includes('payment_status') && (filters.ordering.startsWith('-') ? '↓' : '↑')}
                                     </th>
                                     <th onClick={() => toggleSort('order_status')} className="sortable">
-                                        Status {ordering.includes('order_status') && (ordering.startsWith('-') ? '↓' : '↑')}
+                                        Status {filters.ordering.includes('order_status') && (filters.ordering.startsWith('-') ? '↓' : '↑')}
                                     </th>
                                     <th onClick={() => toggleSort('item_count')} className="sortable">
-                                        Items {ordering.includes('item_count') && (ordering.startsWith('-') ? '↓' : '↑')}
+                                        Items {filters.ordering.includes('item_count') && (filters.ordering.startsWith('-') ? '↓' : '↑')}
                                     </th>
                                 </tr>
                             </thead>

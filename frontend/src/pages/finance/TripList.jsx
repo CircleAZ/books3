@@ -22,14 +22,22 @@ export default function TripList() {
     const [trips, setTrips] = useState([]);
     const [loading, setLoading] = useState(true);
     const [search, setSearch] = useState('');
+    const [debouncedSearch, setDebouncedSearch] = useState('');
     const [filter, setFilter] = useState('');
+
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            setDebouncedSearch(search);
+        }, 300);
+        return () => clearTimeout(timer);
+    }, [search]);
 
     const fetchTrips = useCallback(async () => {
         setLoading(true);
         try {
             let url = ENDPOINTS.FINANCE_EXPENSE_TRIPS;
             const params = [];
-            if (search) params.push(`search=${encodeURIComponent(search)}`);
+            if (debouncedSearch) params.push(`search=${encodeURIComponent(debouncedSearch)}`);
             if (filter) params.push(`settlement=${filter}`);
             if (params.length) url += '?' + params.join('&');
             const res = await fetchWithAuth(url);
@@ -40,7 +48,7 @@ export default function TripList() {
         } catch (err) {
             showToast('Failed to load trips: ' + err.message, 'error');
         } finally { setLoading(false); }
-    }, [fetchWithAuth, search, filter]);
+    }, [fetchWithAuth, debouncedSearch, filter]);
 
     useEffect(() => { fetchTrips(); }, [fetchTrips]);
 
