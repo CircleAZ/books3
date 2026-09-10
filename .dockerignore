@@ -6,8 +6,9 @@ venv/
 .venv/
 env/
 
-# Node
+# Node & Frontend
 frontend/node_modules/
+frontend/dist/
 
 # Git
 .git/
@@ -27,7 +28,7 @@ Thumbs.db
 docker-compose.yml
 Dockerfile
 
-# Dev/Test artifacts
+# Dev / Test / Scratch artifacts
 *.log
 *.bak
 concurrency_output*.txt
@@ -35,6 +36,16 @@ verify_out.txt
 last_error.html
 convert_log.py
 verify_reports.py
+scratch/
+tools/
+scripts/
 
-# Plan docs (not needed in image)
+# Planning, Documentation & Internal Notes (not needed in production image)
 Plan/
+docs/
+
+# Edge worker, catalog, and wrangler caches (deployed separately via Cloudflare)
+worker/
+catalog/
+.wrangler/
+data/polygon_extractor.html

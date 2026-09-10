@@ -140,22 +140,35 @@ staticfiles/
 .tmp.drivedownload/
 .tmp.driveupload/
 
-# Local planning notes
-Plan/
+# Cloudflare & Wrangler cache
+.wrangler/
 worker/node_modules/
+
+# Local planning notes and internal session documentation
+Plan/
+
+# Ephemeral scratch workspace (all temporary investigation scripts, SQL dumps, test dumps)
 scratch/
 
-
-scratch/
-
-# Documentation
-docs/
+# Local ad-hoc diagnostic, inspection, and temporary audit scripts
+scripts/archive/
+scripts/analyze_*.py
+scripts/audit_*.py
+!scripts/audit_regions.py
+scripts/compare_*.py
+scripts/dump_*.py
+scripts/find_*.py
+scripts/inspect_*.py
+scripts/list_*.py
+scripts/reconcile_*.py
+scripts/run_gap_audit.py
+scripts/search_*.py
+scripts/backfill_procurement_orphans.py
+scripts/reconcile_historical_po_stock.py
 
 # Local scratch scripts and reports
 extract_mendhar_pending.py
 mendhar_pending_report.md
-scripts/backfill_procurement_orphans.py
-scripts/reconcile_historical_po_stock.py
 
 # Securecoder cache
 .securecoder/
