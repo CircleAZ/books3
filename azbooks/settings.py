@@ -154,6 +154,9 @@ WSGI_APPLICATION = 'azbooks.wsgi.application'
 # Format: postgis://user:password@host:port/dbname?sslmode=require
 
 DATABASE_URL = os.getenv('DATABASE_URL', 'postgis://postgres:postgres@localhost:5432/azbooks')
+if 'ep-autumn-star' in DATABASE_URL:
+    raise RuntimeError("CRITICAL SECURITY HALT: books3 cannot connect to books2 legacy production database (ep-autumn-star)!")
+
 REPORT_DATABASE_URL = os.getenv('REPORT_DATABASE_URL', '')
 
 # Check if connection goes through Neon's PgBouncer pooler
@@ -322,11 +325,15 @@ if _r2_access_key:
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
-# Email Configuration (Resend HTTP API for OTP delivery via django-anymail)
-EMAIL_BACKEND = "anymail.backends.resend.EmailBackend"
-ANYMAIL = {
-    "RESEND_API_KEY": os.getenv("RESEND_API_KEY", ""),
-}
+# Email Configuration (Resend HTTP API for OTP delivery via django-anymail, with Console fallback)
+_resend_key = os.getenv("RESEND_API_KEY", "")
+if _resend_key:
+    EMAIL_BACKEND = "anymail.backends.resend.EmailBackend"
+    ANYMAIL = {
+        "RESEND_API_KEY": _resend_key,
+    }
+else:
+    EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
 DEFAULT_FROM_EMAIL = os.getenv('DEFAULT_FROM_EMAIL', 'CircleAZ <adm.circle.az@gmail.com>')
 
 
