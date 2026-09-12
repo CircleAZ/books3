@@ -53,3 +53,11 @@ services:
       # ── Receipt URL ──
       - key: RECEIPT_BASE_URL
         value: "https://books3.circleaz.in"
+
+      # ── Email & Admin (Resend HTTP API) ──
+      - key: DEFAULT_FROM_EMAIL
+        value: "CircleAZ <no-reply@auth3.circleaz.in>"
+      - key: SUPERUSER_EMAIL
+        value: "adm.circle.az@gmail.com"
+      - key: RESEND_API_KEY
+        sync: false

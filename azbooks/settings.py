@@ -334,7 +334,7 @@ if _resend_key:
     }
 else:
     EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
-DEFAULT_FROM_EMAIL = os.getenv('DEFAULT_FROM_EMAIL', 'CircleAZ <adm.circle.az@gmail.com>')
+DEFAULT_FROM_EMAIL = os.getenv('DEFAULT_FROM_EMAIL', 'CircleAZ <no-reply@auth3.circleaz.in>')
 
 
 # Django REST Framework configuration
