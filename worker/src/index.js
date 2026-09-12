@@ -20,7 +20,7 @@
 // Render backend instances for books3.
 // The cron job dynamically re-ranks these based on version freshness and latency.
 const BACKENDS = [
-  'https://azbooks3.onrender.com', // Primary books3 Render backend
+  'https://books3-mo5o.onrender.com', // Primary books3 Render backend
 ];
 
 const BACKEND_TIMEOUT_MS = 8000;  // 8 seconds — if exceeded, try next backend
