@@ -79,11 +79,12 @@ jobs:
           AWS_ACCESS_KEY_ID: ${{ secrets.R2_BACKUP_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_BACKUP_SECRET_ACCESS_KEY }}
           AWS_DEFAULT_REGION: auto
+          BACKUP_BUCKET: ${{ secrets.R2_BACKUP_BUCKET || 'books3-backups' }}
         run: |
           echo "Uploading to R2..."
           aws s3 cp \
             "${{ steps.filename.outputs.encrypted_file }}" \
-            "s3://azbooks-backups/daily/${{ steps.filename.outputs.encrypted_file }}" \
+            "s3://${BACKUP_BUCKET}/daily/${{ steps.filename.outputs.encrypted_file }}" \
             --endpoint-url "${{ secrets.R2_BACKUP_ENDPOINT }}"
           echo "✅ Upload complete"
 
@@ -92,10 +93,11 @@ jobs:
           AWS_ACCESS_KEY_ID: ${{ secrets.R2_BACKUP_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_BACKUP_SECRET_ACCESS_KEY }}
           AWS_DEFAULT_REGION: auto
+          BACKUP_BUCKET: ${{ secrets.R2_BACKUP_BUCKET || 'books3-backups' }}
         run: |
           echo "Verifying upload..."
           aws s3 ls \
-            "s3://azbooks-backups/daily/${{ steps.filename.outputs.encrypted_file }}" \
+            "s3://${BACKUP_BUCKET}/daily/${{ steps.filename.outputs.encrypted_file }}" \
             --endpoint-url "${{ secrets.R2_BACKUP_ENDPOINT }}"
           echo "✅ Upload verified on R2"
 
@@ -104,11 +106,12 @@ jobs:
           AWS_ACCESS_KEY_ID: ${{ secrets.R2_BACKUP_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_BACKUP_SECRET_ACCESS_KEY }}
           AWS_DEFAULT_REGION: auto
+          BACKUP_BUCKET: ${{ secrets.R2_BACKUP_BUCKET || 'books3-backups' }}
         run: |
           echo "Checking for backups older than 30 days..."
           CUTOFF_DATE=$(date -d '30 days ago' +%Y%m%d)
           
-          aws s3 ls "s3://azbooks-backups/daily/" \
+          aws s3 ls "s3://${BACKUP_BUCKET}/daily/" \
             --endpoint-url "${{ secrets.R2_BACKUP_ENDPOINT }}" \
             | while read -r line; do
               FILE=$(echo "$line" | awk '{print $4}')
@@ -116,7 +119,7 @@ jobs:
               FILE_DATE=$(echo "$FILE" | grep -oP '\d{8}' | head -1)
               if [ -n "$FILE_DATE" ] && [ "$FILE_DATE" -lt "$CUTOFF_DATE" ]; then
                 echo "Deleting old backup: $FILE (date: $FILE_DATE)"
-                aws s3 rm "s3://azbooks-backups/daily/$FILE" \
+                aws s3 rm "s3://${BACKUP_BUCKET}/daily/$FILE" \
                   --endpoint-url "${{ secrets.R2_BACKUP_ENDPOINT }}"
               fi
             done
@@ -130,7 +133,7 @@ jobs:
           echo "|:--|:--|" >> $GITHUB_STEP_SUMMARY
           echo "| **File** | \`${{ steps.filename.outputs.encrypted_file }}\` |" >> $GITHUB_STEP_SUMMARY
           echo "| **Timestamp** | ${{ steps.filename.outputs.timestamp }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| **Destination** | R2: \`azbooks-backups/daily/\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Destination** | R2: \`books3-backups/daily/\` |" >> $GITHUB_STEP_SUMMARY
           echo "| **Encryption** | AES-256 (GPG) |" >> $GITHUB_STEP_SUMMARY
           echo "| **Status** | ✅ Success |" >> $GITHUB_STEP_SUMMARY
 
