@@ -1,15 +1,15 @@
 # Render Infrastructure-as-Code
-# Deploy the same app to multiple Render accounts for failover.
+# Deploy AZBooks3 backend on Render
 # https://docs.render.com/infrastructure-as-code
 #
-# Usage: Connect each Render account to the CircleAZ/books2 GitHub repo.
+# Usage: Connect your Render account to the CircleAZ/books3 GitHub repo.
 # Render auto-detects this file and uses it for configuration.
 
 services:
   - type: web
-    name: AZBooks
+    name: azbooks3
     runtime: docker
-    repo: https://github.com/CircleAZ/books2.git
+    repo: https://github.com/CircleAZ/books3.git
     branch: main
     plan: free
     healthCheckPath: /api/health/
@@ -22,13 +22,13 @@ services:
       - key: ALLOWED_HOSTS
         value: ".onrender.com,.circleaz.in,localhost"
       - key: CSRF_TRUSTED_ORIGINS
-        value: "https://books.circleaz.in,https://circleaz.in,https://api.circleaz.in"
+        value: "https://books3.circleaz.in,https://circleaz.in,https://api3.circleaz.in"
       - key: CORS_ALLOWED_ORIGINS
-        value: "https://books.circleaz.in,https://circleaz.in"
+        value: "https://books3.circleaz.in,https://circleaz.in"
 
       # ── Database (Neon Singapore — pooled connection) ──
       - key: DATABASE_URL
-        sync: false  # Set manually per account — same DB for all instances
+        sync: false  # Set manually: ep-raspy-lake-b39hlekz-pooler.c-4.ap-southeast-1.aws.neon.tech
 
       # ── Cloudflare R2 ──
       - key: R2_ENDPOINT_URL
@@ -38,7 +38,7 @@ services:
       - key: R2_SECRET_ACCESS_KEY
         sync: false
       - key: R2_RECEIPTS_BUCKET
-        value: "azbooks-receipts"
+        value: "azbooks3-receipts"
 
       # ── WhatsApp (optional — pending SIM) ──
       - key: WHATSAPP_PHONE_NUMBER_ID
@@ -48,10 +48,4 @@ services:
 
       # ── Receipt URL ──
       - key: RECEIPT_BASE_URL
-        value: "https://books.circleaz.in"
-
-      # ── New Relic APM (disabled for performance on free tier) ──
-      # - key: NEW_RELIC_LICENSE_KEY
-      #   sync: false
-      # - key: NEW_RELIC_APP_NAME
-      #   value: "AZBooks"
+        value: "https://books3.circleaz.in"

@@ -1,9 +1,9 @@
-name = "azbooks-api-gateway"
+name = "azbooks3-api-gateway"
 main = "src/index.js"
 compatibility_date = "2024-12-01"
 
 # The Worker will be deployed to Cloudflare's global edge network.
-# Route it to api.circleaz.in/* in the Cloudflare dashboard.
+# Route it to api3.circleaz.in/* in the Cloudflare dashboard.
 #
 # Deployment:
 #   1. Install Wrangler: npm install -g wrangler
@@ -12,8 +12,8 @@ compatibility_date = "2024-12-01"
 #
 # Add a route in Cloudflare Dashboard:
 #   Workers Routes → Add Route
-#   Route: api.circleaz.in/*
-#   Worker: azbooks-api-gateway
+#   Route: api3.circleaz.in/*
+#   Worker: azbooks3-api-gateway
 
 [observability]
 enabled = true

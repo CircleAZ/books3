@@ -17,21 +17,17 @@
  * All instances share the same Neon database (Singapore).
  */
 
-// Render backend instances — static list, ORDER DOES NOT MATTER.
+// Render backend instances — static list for Books3
 // The cron job dynamically re-ranks these based on version freshness and latency.
 const BACKENDS = [
-  'https://azbooks.onrender.com',        // Account #1
-  'https://azbooks2-xmxe.onrender.com',  // Account #2
-  'https://azbooks3.onrender.com',       // Account #3
-  'https://azbooks4.onrender.com',       // Account #4
-  'https://azbooks5.onrender.com',       // Account #5
+  'https://azbooks3.onrender.com', // Books3 Primary Instance
 ];
 
 const BACKEND_TIMEOUT_MS = 8000;  // 8 seconds — if exceeded, try next backend
 const PROBE_TIMEOUT_MS = 5000;    // 5 seconds — health probe timeout during cron
 
 // Cache key for storing backend ranking
-const RANKING_CACHE_KEY = 'https://internal.azbooks.worker/backend-ranking';
+const RANKING_CACHE_KEY = 'https://internal.azbooks3.worker/backend-ranking';
 
 // SWR cache settings for GET requests
 const CACHE_MAX_AGE = 60;           // 1 minute fresh
