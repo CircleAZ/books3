@@ -129,9 +129,12 @@ dmypy.json
 .DS_Store
 Thumbs.db
 
-# Media files (user uploads)
+# Media files (track initial assets for R2 hydration)
 media/*
 !media/.gitkeep
+!media/products/
+!media/store/
+!media/category_icons/
 
 # Static files (collected)
 staticfiles/
