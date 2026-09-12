@@ -1,4 +1,4 @@
-name = "azbooks3-api-gateway"
+name = "books3-api-gateway"
 main = "src/index.js"
 compatibility_date = "2024-12-01"
 
@@ -13,7 +13,7 @@ compatibility_date = "2024-12-01"
 # Add a route in Cloudflare Dashboard:
 #   Workers Routes → Add Route
 #   Route: api3.circleaz.in/*
-#   Worker: azbooks3-api-gateway
+#   Worker: books3-api-gateway
 
 [observability]
 enabled = true

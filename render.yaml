@@ -1,5 +1,5 @@
 # Render Infrastructure-as-Code
-# Deploy AZBooks3 backend on Render
+# Deploy the same app to Render for books3.
 # https://docs.render.com/infrastructure-as-code
 #
 # Usage: Connect your Render account to the CircleAZ/books3 GitHub repo.
@@ -7,7 +7,7 @@
 
 services:
   - type: web
-    name: azbooks3
+    name: AZBooks3
     runtime: docker
     repo: https://github.com/CircleAZ/books3.git
     branch: main
@@ -28,7 +28,7 @@ services:
 
       # ── Database (Neon Singapore — pooled connection) ──
       - key: DATABASE_URL
-        sync: false  # Set manually: ep-raspy-lake-b39hlekz-pooler.c-4.ap-southeast-1.aws.neon.tech
+        sync: false  # Set manually per account — same DB for all instances
 
       # ── Cloudflare R2 ──
       - key: R2_ENDPOINT_URL
@@ -37,8 +37,12 @@ services:
         sync: false
       - key: R2_SECRET_ACCESS_KEY
         sync: false
+      - key: R2_BUCKET_NAME
+        value: "books3-media"
+      - key: R2_CUSTOM_DOMAIN
+        value: "media3.circleaz.in"
       - key: R2_RECEIPTS_BUCKET
-        value: "azbooks3-receipts"
+        value: "books3-receipts"
 
       # ── WhatsApp (optional — pending SIM) ──
       - key: WHATSAPP_PHONE_NUMBER_ID

@@ -50,16 +50,16 @@ DEBUG = os.getenv('DEBUG', 'True').lower() == 'true'
 if not DEBUG and 'insecure' in SECRET_KEY:
     from django.core.exceptions import ImproperlyConfigured
     raise ImproperlyConfigured("Production requires a real SECRET_KEY. Set SECRET_KEY env var.")
-_hosts = os.getenv('ALLOWED_HOSTS', 'localhost,127.0.0.1,api.circleaz.in')
+_hosts = os.getenv('ALLOWED_HOSTS', 'localhost,127.0.0.1,api.circleaz.in,api3.circleaz.in')
 ALLOWED_HOSTS = [
     x.strip().replace('https://', '').replace('http://', '') 
     for x in _hosts.split(',') if x.strip()
 ]
-# Each Render instance sets its own hostname via env var (e.g., "azbooks.onrender.com,api.circleaz.in")
+# Each Render instance sets its own hostname via env var (e.g., "azbooks3.onrender.com,api3.circleaz.in")
 # Do NOT hardcode all instance hostnames here — that defeats per-instance isolation.
 
 # CSRF trusted origins (required for Django 4.0+ when DEBUG=False)
-_trusted_origins = os.getenv('CSRF_TRUSTED_ORIGINS', 'http://localhost:8000,http://127.0.0.1:8000,https://api.circleaz.in')
+_trusted_origins = os.getenv('CSRF_TRUSTED_ORIGINS', 'http://localhost:8000,http://127.0.0.1:8000,https://api.circleaz.in,https://api3.circleaz.in,https://books.circleaz.in,https://books3.circleaz.in')
 CSRF_TRUSTED_ORIGINS = [x.strip() for x in _trusted_origins.split(',') if x.strip()]
 
 # Trust the X-Forwarded-Host header from Cloudflare Worker
@@ -302,11 +302,11 @@ _r2_access_key = os.getenv('R2_ACCESS_KEY_ID')
 if _r2_access_key:
     AWS_ACCESS_KEY_ID = _r2_access_key
     AWS_SECRET_ACCESS_KEY = os.getenv('R2_SECRET_ACCESS_KEY')
-    AWS_STORAGE_BUCKET_NAME = os.getenv('R2_BUCKET_NAME', 'azbooks-media')
+    AWS_STORAGE_BUCKET_NAME = os.getenv('R2_BUCKET_NAME', 'books3-media')
     AWS_S3_ENDPOINT_URL = os.getenv('R2_ENDPOINT_URL')
     
     # Strip protocol from custom domain as storages appends it automatically
-    _custom_domain = os.getenv('R2_CUSTOM_DOMAIN', 'media.circleaz.in')
+    _custom_domain = os.getenv('R2_CUSTOM_DOMAIN', 'media3.circleaz.in')
     AWS_S3_CUSTOM_DOMAIN = _custom_domain.replace('https://', '').replace('http://', '').strip('/')
     
     AWS_S3_SIGNATURE_VERSION = 's3v4'
@@ -442,4 +442,4 @@ RECEIPT_BASE_URL = os.getenv('RECEIPT_BASE_URL', 'http://localhost:5173')
 R2_ENDPOINT_URL = os.getenv('R2_ENDPOINT_URL', '')  # https://{account_id}.r2.cloudflarestorage.com
 R2_ACCESS_KEY_ID = os.getenv('R2_ACCESS_KEY_ID', '')
 R2_SECRET_ACCESS_KEY = os.getenv('R2_SECRET_ACCESS_KEY', '')
-R2_RECEIPTS_BUCKET = os.getenv('R2_RECEIPTS_BUCKET', 'azbooks-receipts')
+R2_RECEIPTS_BUCKET = os.getenv('R2_RECEIPTS_BUCKET', 'books3-receipts')

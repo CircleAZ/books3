@@ -17,17 +17,17 @@
  * All instances share the same Neon database (Singapore).
  */
 
-// Render backend instances — static list for Books3
+// Render backend instances for books3.
 // The cron job dynamically re-ranks these based on version freshness and latency.
 const BACKENDS = [
-  'https://azbooks3.onrender.com', // Books3 Primary Instance
+  'https://azbooks3.onrender.com', // Primary books3 Render backend
 ];
 
 const BACKEND_TIMEOUT_MS = 8000;  // 8 seconds — if exceeded, try next backend
 const PROBE_TIMEOUT_MS = 5000;    // 5 seconds — health probe timeout during cron
 
 // Cache key for storing backend ranking
-const RANKING_CACHE_KEY = 'https://internal.azbooks3.worker/backend-ranking';
+const RANKING_CACHE_KEY = 'https://internal.books3.worker/backend-ranking';
 
 // SWR cache settings for GET requests
 const CACHE_MAX_AGE = 60;           // 1 minute fresh
@@ -471,6 +471,8 @@ function isNoCachePath(path) {
 function handleCORS(request) {
   const origin = request.headers.get('Origin') || '';
   const allowedOrigins = [
+    'https://books3.circleaz.in',
+    'https://api3.circleaz.in',
     'https://books.circleaz.in',
     'https://circleaz.in',
     'https://www.circleaz.in',
@@ -499,6 +501,8 @@ function handleCORS(request) {
 function addCORSHeaders(response, request) {
   const origin = request.headers.get('Origin') || '';
   const allowedOrigins = [
+    'https://books3.circleaz.in',
+    'https://api3.circleaz.in',
     'https://books.circleaz.in',
     'https://circleaz.in',
     'https://www.circleaz.in',
