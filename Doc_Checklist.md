@@ -288,7 +288,7 @@ This document is the authoritative, living tracking registry for the Books3 frac
 - **Domain**: Analytics & Reporting
 - **Target Documentation**: `docs/architecture/backend/EU-16_dashboard_reports_routing.md`
 - **File Count**: 10 files
-- **Status**: - [ ] Unassigned / Ready for Documentation
+- **Status**: - [x] **Complete** (`docs/architecture/backend/EU-16_dashboard_reports_routing.md`)
 - **Member Files**:
   1. `dashboard/__init__.py`
   2. `dashboard/apps.py`
@@ -306,7 +306,7 @@ This document is the authoritative, living tracking registry for the Books3 frac
 - **Domain**: Analytics & Reporting
 - **Target Documentation**: `docs/architecture/backend/EU-17_reporting_azql_analytics.md`
 - **File Count**: 10 files
-- **Status**: - [ ] Unassigned / Ready for Documentation
+- **Status**: - [x] **Complete** (`docs/architecture/backend/EU-17_reporting_azql_analytics.md`)
 - **Member Files**:
   1. `reports/models.py`
   2. `reports/serializers.py`
@@ -324,7 +324,7 @@ This document is the authoritative, living tracking registry for the Books3 frac
 - **Domain**: DevOps & Tooling
 - **Target Documentation**: `docs/architecture/backend/EU-18_deployment_tooling_hydration.md`
 - **File Count**: 10 files
-- **Status**: - [ ] Unassigned / Ready for Documentation
+- **Status**: - [x] **Complete** (`docs/architecture/backend/EU-18_deployment_tooling_hydration.md`)
 - **Member Files**:
   1. `manage.py`
   2. `Dockerfile`
