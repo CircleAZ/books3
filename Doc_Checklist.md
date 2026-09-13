@@ -78,7 +78,7 @@ This document is the authoritative, living tracking registry for the Books3 frac
 - **Domain**: Inventory
 - **Target Documentation**: `docs/architecture/backend/EU-04_inventory_master_stockservice.md`
 - **File Count**: 10 files
-- **Status**: - [ ] Unassigned / Ready for Documentation
+- **Status**: - [x] **Complete** (`docs/architecture/backend/EU-04_inventory_master_stockservice.md`)
 - **Member Files**:
   1. `inventory/__init__.py`
   2. `inventory/apps.py`
@@ -96,7 +96,7 @@ This document is the authoritative, living tracking registry for the Books3 frac
 - **Domain**: Inventory & Catalog
 - **Target Documentation**: `docs/architecture/backend/EU-05_inventory_api_catalog.md`
 - **File Count**: 10 files
-- **Status**: - [ ] Unassigned / Ready for Documentation
+- **Status**: - [x] **Complete** (`docs/architecture/backend/EU-05_inventory_api_catalog.md`)
 - **Member Files**:
   1. `inventory/serializers.py`
   2. `inventory/views.py`
