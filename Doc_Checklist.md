@@ -418,7 +418,7 @@ This document is the authoritative, living tracking registry for the Books3 frac
 - **Domain**: PWA & Offline Services
 - **Target Documentation**: `docs/architecture/frontend/FE-05_pwa_offline_diagnostics_ui_primitives.md`
 - **File Count**: 10 files
-- **Status**: - [ ] Unassigned / Ready for Documentation
+- **Status**: - [x] **Complete** (`docs/architecture/frontend/FE-05_pwa_offline_diagnostics_ui_primitives.md`)
 - **Member Files**:
   1. `frontend/src/components/common/ErrorBoundary.jsx`
   2. `frontend/src/components/common/PageSkeleton.jsx`
@@ -436,7 +436,7 @@ This document is the authoritative, living tracking registry for the Books3 frac
 - **Domain**: Common UI Components
 - **Target Documentation**: `docs/architecture/frontend/FE-06_common_ui_widgets_feedback_shared_controls.md`
 - **File Count**: 9 files
-- **Status**: - [ ] Unassigned / Ready for Documentation
+- **Status**: - [x] **Complete** (`docs/architecture/frontend/FE-06_common_ui_widgets_feedback_shared_controls.md`)
 - **Member Files**:
   1. `frontend/src/components/common/PWAInstallPrompt.css`
   2. `frontend/src/components/common/Pagination.jsx`
@@ -453,7 +453,7 @@ This document is the authoritative, living tracking registry for the Books3 frac
 - **Domain**: POS & Orders
 - **Target Documentation**: `docs/architecture/frontend/FE-07_universal_payment_engine_core_pos_checkout.md`
 - **File Count**: 8 files
-- **Status**: - [ ] Unassigned / Ready for Documentation
+- **Status**: - [x] **Complete** (`docs/architecture/frontend/FE-07_universal_payment_engine_core_pos_checkout.md`)
 - **Member Files**:
   1. `frontend/src/components/common/UniversalPaymentEngine.jsx`
   2. `frontend/src/pages/orders/NewOrder.jsx`
@@ -469,7 +469,7 @@ This document is the authoritative, living tracking registry for the Books3 frac
 - **Domain**: POS & Orders
 - **Target Documentation**: `docs/architecture/frontend/FE-08_order_management_receipts_order_history.md`
 - **File Count**: 10 files
-- **Status**: - [ ] Unassigned / Ready for Documentation
+- **Status**: - [x] **Complete** (`docs/architecture/frontend/FE-08_order_management_receipts_order_history.md`)
 - **Member Files**:
   1. `frontend/src/pages/orders/OrderList.jsx`
   2. `frontend/src/pages/OrderList.css`
