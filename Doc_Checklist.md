@@ -218,7 +218,7 @@ This document is the authoritative, living tracking registry for the Books3 frac
 - **Domain**: Procurement
 - **Target Documentation**: `docs/architecture/backend/EU-12_procurement_landed_cost.md`
 - **File Count**: 9 files
-- **Status**: - [ ] Unassigned / Ready for Documentation
+- **Status**: - [x] **Complete** (`docs/architecture/backend/EU-12_procurement_landed_cost.md`)
 - **Member Files**:
   1. `procurement/__init__.py`
   2. `procurement/apps.py`
