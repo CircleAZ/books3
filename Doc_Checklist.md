@@ -822,48 +822,48 @@ This document is the authoritative, living tracking registry for the Books3 frac
 
 | Unit ID | Title | Domain | File Count | Target Documentation | Status |
 |---|---|---|---|---|---|
-| `EU-01` | Core Architecture & Sovereign Latch | Core & Infrastructure | 9 | `docs/architecture/backend/EU-01_core_architecture_latch.md` | - [ ] Pending |
-| `EU-02` | Core Permissions, DB Routing & AZQL Engine | Core Framework | 10 | `docs/architecture/backend/EU-02_core_permissions_azql.md` | - [ ] Pending |
-| `EU-03` | Account Identity, Authentication & OTP | Account & Auth | 10 | `docs/architecture/backend/EU-03_account_identity_otp.md` | - [ ] Pending |
-| `EU-04` | Inventory Master Models, Pack Atomization & StockService | Inventory | 10 | `docs/architecture/backend/EU-04_inventory_master_stockservice.md` | - [ ] Pending |
-| `EU-05` | Inventory API, Serializers & Catalog Ingestion | Inventory & Catalog | 10 | `docs/architecture/backend/EU-05_inventory_api_catalog.md` | - [ ] Pending |
-| `EU-06` | Customer Aggregate, PostGIS Geodata & Wallets | Customers | 9 | `docs/architecture/backend/EU-06_customer_aggregate_geodata.md` | - [ ] Pending |
-| `EU-07` | Customer Views, Spatial Boundaries & Prospecting | Customers & GIS | 9 | `docs/architecture/backend/EU-07_customer_views_spatial.md` | - [ ] Pending |
-| `EU-08` | Order Aggregate, Receipts & Cloud Storage Integration | Orders & Storage | 10 | `docs/architecture/backend/EU-08_order_aggregate_receipts.md` | - [ ] Pending |
-| `EU-09` | Order Views, Reminders & Lifecycle Tests | Orders | 9 | `docs/architecture/backend/EU-09_order_views_lifecycle.md` | - [ ] Pending |
-| `EU-10` | Financial Ledger, Bank Transactions & LedgerService | Finance | 9 | `docs/architecture/backend/EU-10_financial_ledger_ledgerservice.md` | - [ ] Pending |
-| `EU-11` | Financial Operations, Multi-DB & Cluster Maintenance | Finance & Operations | 10 | `docs/architecture/backend/EU-11_financial_ops_maintenance.md` | - [ ] Pending |
-| `EU-12` | Procurement, Landed Cost & Freight Calculations | Procurement | 9 | `docs/architecture/backend/EU-12_procurement_landed_cost.md` | - [ ] Pending |
-| `EU-13` | Outlet Consignment, Stock Transfers & Sales | Outlets | 9 | `docs/architecture/backend/EU-13_outlet_consignment_transfers.md` | - [ ] Pending |
-| `EU-14` | Messaging Engine, WhatsApp API & Dispatch Gateway | Messaging | 10 | `docs/architecture/backend/EU-14_messaging_whatsapp_dispatch.md` | - [ ] Pending |
-| `EU-15` | Settings, RBAC & Store Configurations | Settings & RBAC | 10 | `docs/architecture/backend/EU-15_settings_rbac_store.md` | - [ ] Pending |
-| `EU-16` | Dashboard KPIs & Reports Routing Engine | Analytics & Reporting | 10 | `docs/architecture/backend/EU-16_dashboard_reports_routing.md` | - [ ] Pending |
-| `EU-17` | Reporting Deep Analytics & AZQL Test Suite | Analytics & Reporting | 10 | `docs/architecture/backend/EU-17_reporting_azql_analytics.md` | - [ ] Pending |
-| `EU-18` | Operational Tooling, Environment Hydration & Deployment | DevOps & Tooling | 10 | `docs/architecture/backend/EU-18_deployment_tooling_hydration.md` | - [ ] Pending |
-| `FE-01` | Core SPA Shell & Build Configuration | Core Architecture | 10 | `docs/architecture/frontend/FE-01_core_spa_shell_build_configuration.md` | - [ ] Pending |
-| `FE-02` | State, Auth & Security Foundations | Authentication & Security | 10 | `docs/architecture/frontend/FE-02_state_auth_security_foundations.md` | - [ ] Pending |
-| `FE-03` | Application Layout & Navigation Infrastructure | Layout & Navigation | 10 | `docs/architecture/frontend/FE-03_application_layout_navigation_infrastructure.md` | - [ ] Pending |
-| `FE-04` | OmniSearch, Notifications & Common Utilities | Common UI & Utilities | 10 | `docs/architecture/frontend/FE-04_omnisearch_notifications_common_utilities.md` | - [ ] Pending |
-| `FE-05` | PWA, Offline, Diagnostics & UI Primitives | PWA & Offline Services | 10 | `docs/architecture/frontend/FE-05_pwa_offline_diagnostics_ui_primitives.md` | - [ ] Pending |
-| `FE-06` | Common UI Widgets, Feedback & Shared Controls | Common UI Components | 9 | `docs/architecture/frontend/FE-06_common_ui_widgets_feedback_shared_controls.md` | - [ ] Pending |
-| `FE-07` | Universal Payment Engine & Core POS Checkout | POS & Orders | 8 | `docs/architecture/frontend/FE-07_universal_payment_engine_core_pos_checkout.md` | - [ ] Pending |
-| `FE-08` | Order Management, Receipts & Order History | POS & Orders | 10 | `docs/architecture/frontend/FE-08_order_management_receipts_order_history.md` | - [ ] Pending |
-| `FE-09` | Returns, Refunds & Outlets Consignment Engine | Orders & Outlets | 9 | `docs/architecture/frontend/FE-09_returns_refunds_outlets_consignment_engine.md` | - [ ] Pending |
-| `FE-10` | Outlets Modals & Stock Movement Transactions | Outlets & Procurement | 9 | `docs/architecture/frontend/FE-10_outlets_modals_stock_movement_transactions.md` | - [ ] Pending |
-| `FE-11` | Procurement Services & Inventory Catalog | Procurement & Inventory | 9 | `docs/architecture/frontend/FE-11_procurement_services_inventory_catalog.md` | - [ ] Pending |
-| `FE-12` | Inventory Stock Control & Product Components | Inventory Domain | 10 | `docs/architecture/frontend/FE-12_inventory_stock_control_product_components.md` | - [ ] Pending |
-| `FE-13` | Customer Directory, Profiling & Registration | Customer Domain | 9 | `docs/architecture/frontend/FE-13_customer_directory_profiling_registration.md` | - [ ] Pending |
-| `FE-14` | Customer GIS, Mapping & Geographic Demographics | Customer Domain | 9 | `docs/architecture/frontend/FE-14_customer_gis_mapping_geographic_demographics.md` | - [ ] Pending |
-| `FE-15` | Dashboard Hub, Analytics & Executive Metrics | Dashboard & Auth Pages | 10 | `docs/architecture/frontend/FE-15_dashboard_hub_analytics_executive_metrics.md` | - [ ] Pending |
-| `FE-16` | Dashboard Performance Widgets & Sales Visualizations | Dashboard & Reports | 10 | `docs/architecture/frontend/FE-16_dashboard_performance_widgets_sales_visualizations.md` | - [ ] Pending |
-| `FE-17` | Reports Hub, Sales Analytics & Data Export | Reports Domain | 10 | `docs/architecture/frontend/FE-17_reports_hub_sales_analytics_data_export.md` | - [ ] Pending |
-| `FE-18` | AZQL Query Playground & Visual Blockly Workspace | Reports & Messaging | 10 | `docs/architecture/frontend/FE-18_azql_query_playground_visual_blockly_workspace.md` | - [ ] Pending |
-| `FE-19` | Messaging Center & Core Finance Overview | Messaging & Finance | 10 | `docs/architecture/frontend/FE-19_messaging_center_core_finance_overview.md` | - [ ] Pending |
-| `FE-20` | Banking Ledgers, Cash Wallets & Transactions | Finance Domain | 10 | `docs/architecture/frontend/FE-20_banking_ledgers_cash_wallets_transactions.md` | - [ ] Pending |
-| `FE-21` | Expense Tracking, Category Allocation & Trips | Finance Domain | 10 | `docs/architecture/frontend/FE-21_expense_tracking_category_allocation_trips.md` | - [ ] Pending |
-| `FE-22` | Trip Management, Budgets & Recurring Expenses | Finance Domain | 10 | `docs/architecture/frontend/FE-22_trip_management_budgets_recurring_expenses.md` | - [ ] Pending |
-| `FE-23` | Financial Statement Reports & Payroll Ledger | Finance Domain | 10 | `docs/architecture/frontend/FE-23_financial_statement_reports_payroll_ledger.md` | - [ ] Pending |
-| `FE-24` | Loans, Debt Recovery & Legacy Ledger | Finance & Settings | 9 | `docs/architecture/frontend/FE-24_loans_debt_recovery_legacy_ledger.md` | - [ ] Pending |
+| `EU-01` | Core Architecture & Sovereign Latch | Core & Infrastructure | 9 | `docs/architecture/backend/EU-01_core_architecture_latch.md` | - [x] Complete |
+| `EU-02` | Core Permissions, DB Routing & AZQL Engine | Core Framework | 10 | `docs/architecture/backend/EU-02_core_permissions_azql.md` | - [x] Complete |
+| `EU-03` | Account Identity, Authentication & OTP | Account & Auth | 10 | `docs/architecture/backend/EU-03_account_identity_otp.md` | - [x] Complete |
+| `EU-04` | Inventory Master Models, Pack Atomization & StockService | Inventory | 10 | `docs/architecture/backend/EU-04_inventory_master_stockservice.md` | - [x] Complete |
+| `EU-05` | Inventory API, Serializers & Catalog Ingestion | Inventory & Catalog | 10 | `docs/architecture/backend/EU-05_inventory_api_catalog.md` | - [x] Complete |
+| `EU-06` | Customer Aggregate, PostGIS Geodata & Wallets | Customers | 9 | `docs/architecture/backend/EU-06_customer_aggregate_geodata.md` | - [x] Complete |
+| `EU-07` | Customer Views, Spatial Boundaries & Prospecting | Customers & GIS | 9 | `docs/architecture/backend/EU-07_customer_views_spatial.md` | - [x] Complete |
+| `EU-08` | Order Aggregate, Receipts & Cloud Storage Integration | Orders & Storage | 10 | `docs/architecture/backend/EU-08_order_aggregate_receipts.md` | - [x] Complete |
+| `EU-09` | Order Views, Reminders & Lifecycle Tests | Orders | 9 | `docs/architecture/backend/EU-09_order_views_lifecycle.md` | - [x] Complete |
+| `EU-10` | Financial Ledger, Bank Transactions & LedgerService | Finance | 9 | `docs/architecture/backend/EU-10_financial_ledger_ledgerservice.md` | - [x] Complete |
+| `EU-11` | Financial Operations, Multi-DB & Cluster Maintenance | Finance & Operations | 10 | `docs/architecture/backend/EU-11_financial_ops_maintenance.md` | - [x] Complete |
+| `EU-12` | Procurement, Landed Cost & Freight Calculations | Procurement | 9 | `docs/architecture/backend/EU-12_procurement_landed_cost.md` | - [x] Complete |
+| `EU-13` | Outlet Consignment, Stock Transfers & Sales | Outlets | 9 | `docs/architecture/backend/EU-13_outlet_consignment_transfers.md` | - [x] Complete |
+| `EU-14` | Messaging Engine, WhatsApp API & Dispatch Gateway | Messaging | 10 | `docs/architecture/backend/EU-14_messaging_whatsapp_dispatch.md` | - [x] Complete |
+| `EU-15` | Settings, RBAC & Store Configurations | Settings & RBAC | 10 | `docs/architecture/backend/EU-15_settings_rbac_store.md` | - [x] Complete |
+| `EU-16` | Dashboard KPIs & Reports Routing Engine | Analytics & Reporting | 10 | `docs/architecture/backend/EU-16_dashboard_reports_routing.md` | - [x] Complete |
+| `EU-17` | Reporting Deep Analytics & AZQL Test Suite | Analytics & Reporting | 10 | `docs/architecture/backend/EU-17_reporting_azql_analytics.md` | - [x] Complete |
+| `EU-18` | Operational Tooling, Environment Hydration & Deployment | DevOps & Tooling | 10 | `docs/architecture/backend/EU-18_deployment_tooling_hydration.md` | - [x] Complete |
+| `FE-01` | Core SPA Shell & Build Configuration | Core Architecture | 10 | `docs/architecture/frontend/FE-01_core_spa_shell_build_configuration.md` | - [x] Complete |
+| `FE-02` | State, Auth & Security Foundations | Authentication & Security | 10 | `docs/architecture/frontend/FE-02_state_auth_security_foundations.md` | - [x] Complete |
+| `FE-03` | Application Layout & Navigation Infrastructure | Layout & Navigation | 10 | `docs/architecture/frontend/FE-03_application_layout_navigation_infrastructure.md` | - [x] Complete |
+| `FE-04` | OmniSearch, Notifications & Common Utilities | Common UI & Utilities | 10 | `docs/architecture/frontend/FE-04_omnisearch_notifications_common_utilities.md` | - [x] Complete |
+| `FE-05` | PWA, Offline, Diagnostics & UI Primitives | PWA & Offline Services | 10 | `docs/architecture/frontend/FE-05_pwa_offline_diagnostics_ui_primitives.md` | - [x] Complete |
+| `FE-06` | Common UI Widgets, Feedback & Shared Controls | Common UI Components | 9 | `docs/architecture/frontend/FE-06_common_ui_widgets_feedback_shared_controls.md` | - [x] Complete |
+| `FE-07` | Universal Payment Engine & Core POS Checkout | POS & Orders | 8 | `docs/architecture/frontend/FE-07_universal_payment_engine_core_pos_checkout.md` | - [x] Complete |
+| `FE-08` | Order Management, Receipts & Order History | POS & Orders | 10 | `docs/architecture/frontend/FE-08_order_management_receipts_order_history.md` | - [x] Complete |
+| `FE-09` | Returns, Refunds & Outlets Consignment Engine | Orders & Outlets | 9 | `docs/architecture/frontend/FE-09_returns_refunds_outlets_consignment_engine.md` | - [x] Complete |
+| `FE-10` | Outlets Modals & Stock Movement Transactions | Outlets & Procurement | 9 | `docs/architecture/frontend/FE-10_outlets_modals_stock_movement_transactions.md` | - [x] Complete |
+| `FE-11` | Procurement Services & Inventory Catalog | Procurement & Inventory | 9 | `docs/architecture/frontend/FE-11_procurement_services_inventory_catalog.md` | - [x] Complete |
+| `FE-12` | Inventory Stock Control & Product Components | Inventory Domain | 10 | `docs/architecture/frontend/FE-12_inventory_stock_control_product_components.md` | - [x] Complete |
+| `FE-13` | Customer Directory, Profiling & Registration | Customer Domain | 9 | `docs/architecture/frontend/FE-13_customer_directory_profiling_registration.md` | - [x] Complete |
+| `FE-14` | Customer GIS, Mapping & Geographic Demographics | Customer Domain | 9 | `docs/architecture/frontend/FE-14_customer_gis_mapping_geographic_demographics.md` | - [x] Complete |
+| `FE-15` | Dashboard Hub, Analytics & Executive Metrics | Dashboard & Auth Pages | 10 | `docs/architecture/frontend/FE-15_dashboard_hub_analytics_executive_metrics.md` | - [x] Complete |
+| `FE-16` | Dashboard Performance Widgets & Sales Visualizations | Dashboard & Reports | 10 | `docs/architecture/frontend/FE-16_dashboard_performance_widgets_sales_visualizations.md` | - [x] Complete |
+| `FE-17` | Reports Hub, Sales Analytics & Data Export | Reports Domain | 10 | `docs/architecture/frontend/FE-17_reports_hub_sales_analytics_data_export.md` | - [x] Complete |
+| `FE-18` | AZQL Query Playground & Visual Blockly Workspace | Reports & Messaging | 10 | `docs/architecture/frontend/FE-18_azql_query_playground_visual_blockly_workspace.md` | - [x] Complete |
+| `FE-19` | Messaging Center & Core Finance Overview | Messaging & Finance | 10 | `docs/architecture/frontend/FE-19_messaging_center_core_finance_overview.md` | - [x] Complete |
+| `FE-20` | Banking Ledgers, Cash Wallets & Transactions | Finance Domain | 10 | `docs/architecture/frontend/FE-20_banking_ledgers_cash_wallets_transactions.md` | - [x] Complete |
+| `FE-21` | Expense Tracking, Category Allocation & Trips | Finance Domain | 10 | `docs/architecture/frontend/FE-21_expense_tracking_category_allocation_trips.md` | - [x] Complete |
+| `FE-22` | Trip Management, Budgets & Recurring Expenses | Finance Domain | 10 | `docs/architecture/frontend/FE-22_trip_management_budgets_recurring_expenses.md` | - [x] Complete |
+| `FE-23` | Financial Statement Reports & Payroll Ledger | Finance Domain | 10 | `docs/architecture/frontend/FE-23_financial_statement_reports_payroll_ledger.md` | - [x] Complete |
+| `FE-24` | Loans, Debt Recovery & Legacy Ledger | Finance & Settings | 9 | `docs/architecture/frontend/FE-24_loans_debt_recovery_legacy_ledger.md` | - [x] Complete |
 | `FE-25` | Store Settings, System Info & Tax Configuration | Settings Domain | 9 | `docs/architecture/frontend/FE-25_store_settings_system_info_tax_configuration.md` | - [ ] Pending |
 | `FE-26` | RBAC Administration & Data Management | Settings Domain | 10 | `docs/architecture/frontend/FE-26_rbac_administration_data_management.md` | - [ ] Pending |
 | `FE-27` | Academic & Customer Hierarchy Settings | Settings Domain | 9 | `docs/architecture/frontend/FE-27_academic_customer_hierarchy_settings.md` | - [ ] Pending |
