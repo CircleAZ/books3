@@ -25,7 +25,7 @@ This document is the authoritative, living tracking registry for the Books3 frac
 - **Domain**: Core & Infrastructure
 - **Target Documentation**: `docs/architecture/backend/EU-01_core_architecture_latch.md`
 - **File Count**: 9 files
-- **Status**: - [ ] Unassigned / Ready for Documentation
+- **Status**: - [x] **Complete** (`docs/architecture/backend/EU-01_core_architecture_latch.md`)
 - **Member Files**:
   1. `azbooks/__init__.py`
   2. `azbooks/settings.py`
@@ -42,7 +42,7 @@ This document is the authoritative, living tracking registry for the Books3 frac
 - **Domain**: Core Framework
 - **Target Documentation**: `docs/architecture/backend/EU-02_core_permissions_azql.md`
 - **File Count**: 10 files
-- **Status**: - [ ] Unassigned / Ready for Documentation
+- **Status**: - [x] **Complete** (`docs/architecture/backend/EU-02_core_permissions_azql.md`)
 - **Member Files**:
   1. `core/__init__.py`
   2. `core/apps.py`
@@ -60,7 +60,7 @@ This document is the authoritative, living tracking registry for the Books3 frac
 - **Domain**: Account & Auth
 - **Target Documentation**: `docs/architecture/backend/EU-03_account_identity_otp.md`
 - **File Count**: 10 files
-- **Status**: - [ ] Unassigned / Ready for Documentation
+- **Status**: - [x] **Complete** (`docs/architecture/backend/EU-03_account_identity_otp.md`)
 - **Member Files**:
   1. `account/__init__.py`
   2. `account/apps.py`
