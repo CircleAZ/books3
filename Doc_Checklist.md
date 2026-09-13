@@ -346,7 +346,7 @@ This document is the authoritative, living tracking registry for the Books3 frac
 - **Domain**: Core Architecture
 - **Target Documentation**: `docs/architecture/frontend/FE-01_core_spa_shell_build_configuration.md`
 - **File Count**: 10 files
-- **Status**: - [ ] Unassigned / Ready for Documentation
+- **Status**: - [x] **Complete** (`docs/architecture/frontend/FE-01_core_spa_shell_build_configuration.md`)
 - **Member Files**:
   1. `frontend/src/App.jsx`
   2. `frontend/src/main.jsx`
@@ -364,7 +364,7 @@ This document is the authoritative, living tracking registry for the Books3 frac
 - **Domain**: Authentication & Security
 - **Target Documentation**: `docs/architecture/frontend/FE-02_state_auth_security_foundations.md`
 - **File Count**: 10 files
-- **Status**: - [ ] Unassigned / Ready for Documentation
+- **Status**: - [x] **Complete** (`docs/architecture/frontend/FE-02_state_auth_security_foundations.md`)
 - **Member Files**:
   1. `frontend/src/context/AuthContext.jsx`
   2. `frontend/src/context/CurrencyContext.jsx`
@@ -382,7 +382,7 @@ This document is the authoritative, living tracking registry for the Books3 frac
 - **Domain**: Layout & Navigation
 - **Target Documentation**: `docs/architecture/frontend/FE-03_application_layout_navigation_infrastructure.md`
 - **File Count**: 10 files
-- **Status**: - [ ] Unassigned / Ready for Documentation
+- **Status**: - [x] **Complete** (`docs/architecture/frontend/FE-03_application_layout_navigation_infrastructure.md`)
 - **Member Files**:
   1. `frontend/src/components/layout/MainLayout.jsx`
   2. `frontend/src/components/layout/MainLayout.css`
@@ -400,7 +400,7 @@ This document is the authoritative, living tracking registry for the Books3 frac
 - **Domain**: Common UI & Utilities
 - **Target Documentation**: `docs/architecture/frontend/FE-04_omnisearch_notifications_common_utilities.md`
 - **File Count**: 10 files
-- **Status**: - [ ] Unassigned / Ready for Documentation
+- **Status**: - [x] **Complete** (`docs/architecture/frontend/FE-04_omnisearch_notifications_common_utilities.md`)
 - **Member Files**:
   1. `frontend/src/components/layout/UserProfileDropdown.jsx`
   2. `frontend/src/components/layout/UserProfileDropdown.css`
