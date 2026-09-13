@@ -114,7 +114,7 @@ This document is the authoritative, living tracking registry for the Books3 frac
 - **Domain**: Customers
 - **Target Documentation**: `docs/architecture/backend/EU-06_customer_aggregate_geodata.md`
 - **File Count**: 9 files
-- **Status**: - [ ] Unassigned / Ready for Documentation
+- **Status**: - [x] **Complete** (`docs/architecture/backend/EU-06_customer_aggregate_geodata.md`)
 - **Member Files**:
   1. `customers/__init__.py`
   2. `customers/apps.py`
@@ -131,7 +131,7 @@ This document is the authoritative, living tracking registry for the Books3 frac
 - **Domain**: Customers & GIS
 - **Target Documentation**: `docs/architecture/backend/EU-07_customer_views_spatial.md`
 - **File Count**: 9 files
-- **Status**: - [ ] Unassigned / Ready for Documentation
+- **Status**: - [x] **Complete** (`docs/architecture/backend/EU-07_customer_views_spatial.md`)
 - **Member Files**:
   1. `customers/views.py`
   2. `customers/management/commands/__init__.py`
