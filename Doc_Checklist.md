@@ -487,7 +487,7 @@ This document is the authoritative, living tracking registry for the Books3 frac
 - **Domain**: Orders & Outlets
 - **Target Documentation**: `docs/architecture/frontend/FE-09_returns_refunds_outlets_consignment_engine.md`
 - **File Count**: 9 files
-- **Status**: - [ ] Unassigned / Ready for Documentation
+- **Status**: - [x] **Complete** (`docs/architecture/frontend/FE-09_returns_refunds_outlets_consignment_engine.md`)
 - **Member Files**:
   1. `frontend/src/pages/returns/modals/RefundModal.jsx`
   2. `frontend/src/pages/outlets/OutletsList.jsx`
@@ -504,7 +504,7 @@ This document is the authoritative, living tracking registry for the Books3 frac
 - **Domain**: Outlets & Procurement
 - **Target Documentation**: `docs/architecture/frontend/FE-10_outlets_modals_stock_movement_transactions.md`
 - **File Count**: 9 files
-- **Status**: - [ ] Unassigned / Ready for Documentation
+- **Status**: - [x] **Complete** (`docs/architecture/frontend/FE-10_outlets_modals_stock_movement_transactions.md`)
 - **Member Files**:
   1. `frontend/src/pages/outlets/modals/ReturnDetailsModal.jsx`
   2. `frontend/src/pages/outlets/modals/ReturnModal.jsx`
@@ -521,7 +521,7 @@ This document is the authoritative, living tracking registry for the Books3 frac
 - **Domain**: Procurement & Inventory
 - **Target Documentation**: `docs/architecture/frontend/FE-11_procurement_services_inventory_catalog.md`
 - **File Count**: 9 files
-- **Status**: - [ ] Unassigned / Ready for Documentation
+- **Status**: - [x] **Complete** (`docs/architecture/frontend/FE-11_procurement_services_inventory_catalog.md`)
 - **Member Files**:
   1. `frontend/src/pages/procurement/Transporters.jsx`
   2. `frontend/src/services/procurementService.js`
@@ -538,7 +538,7 @@ This document is the authoritative, living tracking registry for the Books3 frac
 - **Domain**: Inventory Domain
 - **Target Documentation**: `docs/architecture/frontend/FE-12_inventory_stock_control_product_components.md`
 - **File Count**: 10 files
-- **Status**: - [ ] Unassigned / Ready for Documentation
+- **Status**: - [x] **Complete** (`docs/architecture/frontend/FE-12_inventory_stock_control_product_components.md`)
 - **Member Files**:
   1. `frontend/src/pages/inventory/StockControl.jsx`
   2. `frontend/src/pages/inventory/StockControl.css`
