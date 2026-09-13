@@ -200,7 +200,7 @@ This document is the authoritative, living tracking registry for the Books3 frac
 - **Domain**: Finance & Operations
 - **Target Documentation**: `docs/architecture/backend/EU-11_financial_ops_maintenance.md`
 - **File Count**: 10 files
-- **Status**: - [ ] Unassigned / Ready for Documentation
+- **Status**: - [x] **Complete** (`docs/architecture/backend/EU-11_financial_ops_maintenance.md`)
 - **Member Files**:
   1. `finance/serializers.py`
   2. `finance/views.py`
@@ -235,7 +235,7 @@ This document is the authoritative, living tracking registry for the Books3 frac
 - **Domain**: Outlets
 - **Target Documentation**: `docs/architecture/backend/EU-13_outlet_consignment_transfers.md`
 - **File Count**: 9 files
-- **Status**: - [ ] Unassigned / Ready for Documentation
+- **Status**: - [x] **Complete** (`docs/architecture/backend/EU-13_outlet_consignment_transfers.md`)
 - **Member Files**:
   1. `outlets/__init__.py`
   2. `outlets/apps.py`
@@ -252,7 +252,7 @@ This document is the authoritative, living tracking registry for the Books3 frac
 - **Domain**: Messaging
 - **Target Documentation**: `docs/architecture/backend/EU-14_messaging_whatsapp_dispatch.md`
 - **File Count**: 10 files
-- **Status**: - [ ] Unassigned / Ready for Documentation
+- **Status**: - [x] **Complete** (`docs/architecture/backend/EU-14_messaging_whatsapp_dispatch.md`)
 - **Member Files**:
   1. `messaging/__init__.py`
   2. `messaging/apps.py`
@@ -270,7 +270,7 @@ This document is the authoritative, living tracking registry for the Books3 frac
 - **Domain**: Settings & RBAC
 - **Target Documentation**: `docs/architecture/backend/EU-15_settings_rbac_store.md`
 - **File Count**: 10 files
-- **Status**: - [ ] Unassigned / Ready for Documentation
+- **Status**: - [x] **Complete** (`docs/architecture/backend/EU-15_settings_rbac_store.md`)
 - **Member Files**:
   1. `settings_app/__init__.py`
   2. `settings_app/apps.py`
