@@ -698,7 +698,7 @@ This document is the authoritative, living tracking registry for the Books3 frac
 - **Domain**: Finance Domain
 - **Target Documentation**: `docs/architecture/frontend/FE-21_expense_tracking_category_allocation_trips.md`
 - **File Count**: 10 files
-- **Status**: - [ ] Unassigned / Ready for Documentation
+- **Status**: - [x] **Complete** (`docs/architecture/frontend/FE-21_expense_tracking_category_allocation_trips.md`)
 - **Member Files**:
   1. `frontend/src/pages/finance/ExpenseList.jsx`
   2. `frontend/src/pages/finance/ExpenseList.css`
@@ -716,7 +716,7 @@ This document is the authoritative, living tracking registry for the Books3 frac
 - **Domain**: Finance Domain
 - **Target Documentation**: `docs/architecture/frontend/FE-22_trip_management_budgets_recurring_expenses.md`
 - **File Count**: 10 files
-- **Status**: - [ ] Unassigned / Ready for Documentation
+- **Status**: - [x] **Complete** (`docs/architecture/frontend/FE-22_trip_management_budgets_recurring_expenses.md`)
 - **Member Files**:
   1. `frontend/src/pages/finance/CreateTrip.jsx`
   2. `frontend/src/pages/finance/RecurringExpenses.jsx`
@@ -734,7 +734,7 @@ This document is the authoritative, living tracking registry for the Books3 frac
 - **Domain**: Finance Domain
 - **Target Documentation**: `docs/architecture/frontend/FE-23_financial_statement_reports_payroll_ledger.md`
 - **File Count**: 10 files
-- **Status**: - [ ] Unassigned / Ready for Documentation
+- **Status**: - [x] **Complete** (`docs/architecture/frontend/FE-23_financial_statement_reports_payroll_ledger.md`)
 - **Member Files**:
   1. `frontend/src/pages/finance/TaxReport.jsx`
   2. `frontend/src/pages/finance/EmployeeExpenses.jsx`
@@ -752,7 +752,7 @@ This document is the authoritative, living tracking registry for the Books3 frac
 - **Domain**: Finance & Settings
 - **Target Documentation**: `docs/architecture/frontend/FE-24_loans_debt_recovery_legacy_ledger.md`
 - **File Count**: 9 files
-- **Status**: - [ ] Unassigned / Ready for Documentation
+- **Status**: - [x] **Complete** (`docs/architecture/frontend/FE-24_loans_debt_recovery_legacy_ledger.md`)
 - **Member Files**:
   1. `frontend/src/pages/finance/LoanDetails.jsx`
   2. `frontend/src/pages/finance/LoanDetails.css`
