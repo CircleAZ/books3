@@ -626,7 +626,7 @@ This document is the authoritative, living tracking registry for the Books3 frac
 - **Domain**: Reports Domain
 - **Target Documentation**: `docs/architecture/frontend/FE-17_reports_hub_sales_analytics_data_export.md`
 - **File Count**: 10 files
-- **Status**: - [ ] Unassigned / Ready for Documentation
+- **Status**: - [x] **Complete** (`docs/architecture/frontend/FE-17_reports_hub_sales_analytics_data_export.md`)
 - **Member Files**:
   1. `frontend/src/pages/reports/SalesReports.jsx`
   2. `frontend/src/pages/reports/SalesReports.css`
@@ -644,7 +644,7 @@ This document is the authoritative, living tracking registry for the Books3 frac
 - **Domain**: Reports & Messaging
 - **Target Documentation**: `docs/architecture/frontend/FE-18_azql_query_playground_visual_blockly_workspace.md`
 - **File Count**: 10 files
-- **Status**: - [ ] Unassigned / Ready for Documentation
+- **Status**: - [x] **Complete** (`docs/architecture/frontend/FE-18_azql_query_playground_visual_blockly_workspace.md`)
 - **Member Files**:
   1. `frontend/src/pages/queries/QueryBuilder.jsx`
   2. `frontend/src/pages/queries/QueryBuilder.css`
@@ -662,7 +662,7 @@ This document is the authoritative, living tracking registry for the Books3 frac
 - **Domain**: Messaging & Finance
 - **Target Documentation**: `docs/architecture/frontend/FE-19_messaging_center_core_finance_overview.md`
 - **File Count**: 10 files
-- **Status**: - [ ] Unassigned / Ready for Documentation
+- **Status**: - [x] **Complete** (`docs/architecture/frontend/FE-19_messaging_center_core_finance_overview.md`)
 - **Member Files**:
   1. `frontend/src/pages/messaging/MessageQueue.jsx`
   2. `frontend/src/pages/messaging/MessageQueue.css`
@@ -680,7 +680,7 @@ This document is the authoritative, living tracking registry for the Books3 frac
 - **Domain**: Finance Domain
 - **Target Documentation**: `docs/architecture/frontend/FE-20_banking_ledgers_cash_wallets_transactions.md`
 - **File Count**: 10 files
-- **Status**: - [ ] Unassigned / Ready for Documentation
+- **Status**: - [x] **Complete** (`docs/architecture/frontend/FE-20_banking_ledgers_cash_wallets_transactions.md`)
 - **Member Files**:
   1. `frontend/src/pages/finance/BankAccounts.jsx`
   2. `frontend/src/pages/finance/BankAccounts.css`
