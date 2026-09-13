@@ -148,7 +148,7 @@ This document is the authoritative, living tracking registry for the Books3 frac
 - **Domain**: Orders & Storage
 - **Target Documentation**: `docs/architecture/backend/EU-08_order_aggregate_receipts.md`
 - **File Count**: 10 files
-- **Status**: - [ ] Unassigned / Ready for Documentation
+- **Status**: - [x] **Complete** (`docs/architecture/backend/EU-08_order_aggregate_receipts.md`)
 - **Member Files**:
   1. `orders/__init__.py`
   2. `orders/apps.py`
@@ -166,7 +166,7 @@ This document is the authoritative, living tracking registry for the Books3 frac
 - **Domain**: Orders
 - **Target Documentation**: `docs/architecture/backend/EU-09_order_views_lifecycle.md`
 - **File Count**: 9 files
-- **Status**: - [ ] Unassigned / Ready for Documentation
+- **Status**: - [x] **Complete** (`docs/architecture/backend/EU-09_order_views_lifecycle.md`)
 - **Member Files**:
   1. `orders/views.py`
   2. `orders/urls.py`
@@ -183,7 +183,7 @@ This document is the authoritative, living tracking registry for the Books3 frac
 - **Domain**: Finance
 - **Target Documentation**: `docs/architecture/backend/EU-10_financial_ledger_ledgerservice.md`
 - **File Count**: 9 files
-- **Status**: - [ ] Unassigned / Ready for Documentation
+- **Status**: - [x] **Complete** (`docs/architecture/backend/EU-10_financial_ledger_ledgerservice.md`)
 - **Member Files**:
   1. `finance/__init__.py`
   2. `finance/apps.py`
