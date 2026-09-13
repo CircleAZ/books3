@@ -178,3 +178,7 @@ mendhar_pending_report.md
 
 # Node dependencies (including root junction)
 node_modules/
+
+# Agent scratch working directories
+.agents/*
+!.agents/rules/
