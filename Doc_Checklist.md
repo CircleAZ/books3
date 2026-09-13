@@ -556,7 +556,7 @@ This document is the authoritative, living tracking registry for the Books3 frac
 - **Domain**: Customer Domain
 - **Target Documentation**: `docs/architecture/frontend/FE-13_customer_directory_profiling_registration.md`
 - **File Count**: 9 files
-- **Status**: - [ ] Unassigned / Ready for Documentation
+- **Status**: - [x] **Complete** (`docs/architecture/frontend/FE-13_customer_directory_profiling_registration.md`)
 - **Member Files**:
   1. `frontend/src/pages/customers/CustomerList.jsx`
   2. `frontend/src/pages/customers/CustomerList.css`
@@ -573,7 +573,7 @@ This document is the authoritative, living tracking registry for the Books3 frac
 - **Domain**: Customer Domain
 - **Target Documentation**: `docs/architecture/frontend/FE-14_customer_gis_mapping_geographic_demographics.md`
 - **File Count**: 9 files
-- **Status**: - [ ] Unassigned / Ready for Documentation
+- **Status**: - [x] **Complete** (`docs/architecture/frontend/FE-14_customer_gis_mapping_geographic_demographics.md`)
 - **Member Files**:
   1. `frontend/src/pages/customers/CustomerMap.jsx`
   2. `frontend/src/pages/customers/CustomerMap.css`
@@ -590,7 +590,7 @@ This document is the authoritative, living tracking registry for the Books3 frac
 - **Domain**: Dashboard & Auth Pages
 - **Target Documentation**: `docs/architecture/frontend/FE-15_dashboard_hub_analytics_executive_metrics.md`
 - **File Count**: 10 files
-- **Status**: - [ ] Unassigned / Ready for Documentation
+- **Status**: - [x] **Complete** (`docs/architecture/frontend/FE-15_dashboard_hub_analytics_executive_metrics.md`)
 - **Member Files**:
   1. `frontend/src/pages/Dashboard.jsx`
   2. `frontend/src/pages/Dashboard.css`
@@ -608,7 +608,7 @@ This document is the authoritative, living tracking registry for the Books3 frac
 - **Domain**: Dashboard & Reports
 - **Target Documentation**: `docs/architecture/frontend/FE-16_dashboard_performance_widgets_sales_visualizations.md`
 - **File Count**: 10 files
-- **Status**: - [ ] Unassigned / Ready for Documentation
+- **Status**: - [x] **Complete** (`docs/architecture/frontend/FE-16_dashboard_performance_widgets_sales_visualizations.md`)
 - **Member Files**:
   1. `frontend/src/components/dashboard/StatCard.css`
   2. `frontend/src/components/dashboard/SalesTrendChart.jsx`
