@@ -161,3 +161,21 @@ Misconfigurations at the infrastructure layer lead to container OOM kills (`Exit
           # ... proceed to upload and set sentinel on completion ...
   ```
 - **Active Developments:** Boot check queries R2 for `media/.sync_completed_v1`. On subsequent boots, the command returns in $\approx 45\text{ms}$, allowing instant Gunicorn startup without delaying health checks.
+
+---
+
+### `BUG-INF-007`: Cloudflare Pages Build Pipeline Stall & Node Runtime Version Mismatch
+- **Severity:** High (P1)
+- **Status:** **ACTIVE / ROOT CAUSE IDENTIFIED**
+- **Affected Files:**
+  - [`.node-version`](file:///z:/books3/.node-version)
+  - [`.nvmrc`](file:///z:/books3/.nvmrc)
+  - [`frontend/.node-version`](file:///z:/books3/frontend/.node-version)
+  - [`frontend/.nvmrc`](file:///z:/books3/frontend/.nvmrc)
+  - [`.github/workflows/deploy_frontend.yml`](file:///z:/books3/.github/workflows/deploy_frontend.yml)
+- **Mechanism & Root Cause:**
+  Cloudflare Pages build environment defaults to Node.js 18 or 12 in the absence of explicit runtime pins. Because Books3 frontend utilizes Vite 7 (`^7.2.4`) and React 19 (`^19.2.0`), unpinned builds fail during `npm run build` or fail silently if GitHub App webhook events are missing on new repositories (`CircleAZ/books3`). As a result, Cloudflare Pages continued serving the pre-patch bundle (`index-D3tP9avu.js` and `OrderList-DjZvXDqu.js`), giving the false impression that frontend code patches had failed when in fact they were never compiled or served to the client.
+- **Verification Evidence:**
+  Direct curl probe of live edge assets on `https://books3.circleaz.in/assets/OrderList-DjZvXDqu.js` confirmed unhoisted, unmemoized inline functions (`buildParams: (s, a) => ...`) from before commit `b717741`.
+- **Active Developments:**
+  Pinned Node.js `20.18.0` across repository and frontend root `.node-version` and `.nvmrc` files. Staged direct GitHub Actions deployment pipeline to eliminate Cloudflare Pages builder ambiguity.
