@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
 import { useAuth } from './AuthContext';
 import { ENDPOINTS } from '../config/api';
 
@@ -31,8 +31,13 @@ export const StoreProvider = ({ children }) => {
     // full-size 600px image, not the 32px favicon, and causes a 27KB
     // redundant fetch on every page load.
 
+    const value = useMemo(() => ({
+        storeSettings,
+        fetchStoreSettings,
+    }), [storeSettings, fetchStoreSettings]);
+
     return (
-        <StoreContext.Provider value={{ storeSettings, fetchStoreSettings }}>
+        <StoreContext.Provider value={value}>
             {children}
         </StoreContext.Provider>
     );

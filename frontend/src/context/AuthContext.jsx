@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect, useRef, useCallback } from 'react';
+import { createContext, useContext, useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { API_BASE } from '../config/api';
 import { secureStorage } from '../utils/secureStorage';
 
@@ -510,7 +510,7 @@ export function AuthProvider({ children }) {
     // Keep retry ref always pointing to latest closure
     refreshTokenWithRetryRef.current = refreshTokenWithRetry;
 
-    const value = {
+    const value = useMemo(() => ({
         user,
         token,
         loading,
@@ -524,7 +524,7 @@ export function AuthProvider({ children }) {
         rbac,
         elevatedAuthRequest,
         setElevatedAuthRequest,
-    };
+    }), [user, token, loading, fetchWithAuth, rbac, elevatedAuthRequest]);
 
     return (
         <AuthContext.Provider value={value}>

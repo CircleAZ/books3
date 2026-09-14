@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useCallback, useRef, useEffect } from 'react';
+import { createContext, useContext, useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import Toast from '../components/common/Toast';
 
 const ToastContext = createContext(null);
@@ -47,8 +47,13 @@ export function ToastProvider({ children }) {
         return () => window.removeEventListener('session-expiring', handleSessionExpiring);
     }, [showToast]);
 
+    const value = useMemo(() => ({
+        showToast,
+        removeToast,
+    }), [showToast, removeToast]);
+
     return (
-        <ToastContext.Provider value={{ showToast, removeToast }}>
+        <ToastContext.Provider value={value}>
             {children}
             <div className="toast-container">
                 {toasts.map(t => (

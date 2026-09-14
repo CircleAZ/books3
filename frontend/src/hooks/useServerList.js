@@ -83,83 +83,96 @@ export default function useServerList(endpoint, options = {}) {
 
     const isFilterActive = search !== '' || Object.values(filters).some(v => v !== '');
 
+    // Ref for fetchWithAuth to prevent network refetch cascades on auth context re-renders
+    const fetchWithAuthRef = useRef(fetchWithAuth);
+    useEffect(() => {
+        fetchWithAuthRef.current = fetchWithAuth;
+    }, [fetchWithAuth]);
+
+    // Explicit refresh trigger index
+    const [refreshIndex, setRefreshIndex] = useState(0);
+
     // --- Data fetching ---
-    const fetchData = useCallback(async () => {
-        // Cancel in-flight request
+    // Single source of truth: network requests run IF AND ONLY IF query params, location, or refreshIndex change.
+    // fetchWithAuth and options are accessed via refs to maintain mathematical referential immunity.
+    useEffect(() => {
+        // Cancel prior in-flight request on new trigger
         if (abortControllerRef.current) {
             abortControllerRef.current.abort();
         }
         const controller = new AbortController();
         abortControllerRef.current = controller;
 
+        let isMounted = true;
         setLoading(true);
-        try {
-            let queryParams;
 
-            if (buildParamsRef.current) {
-                // Consumer provides custom param mapping
-                const customParams = buildParamsRef.current(debouncedSearch, filters);
-                queryParams = customParams instanceof URLSearchParams
-                    ? customParams
-                    : new URLSearchParams(customParams);
-            } else {
-                // Default: send filter keys as-is + search
-                queryParams = new URLSearchParams({
-                    search: debouncedSearch,
-                    ...filters,
-                });
-            }
+        const executeFetch = async () => {
+            try {
+                let queryParams;
 
-            // Always inject page
-            queryParams.set('page', page);
+                if (buildParamsRef.current) {
+                    // Consumer provides custom param mapping
+                    const customParams = buildParamsRef.current(debouncedSearch, filters);
+                    queryParams = customParams instanceof URLSearchParams
+                        ? customParams
+                        : new URLSearchParams(customParams);
+                } else {
+                    // Default: send filter keys as-is + search
+                    queryParams = new URLSearchParams({
+                        search: debouncedSearch,
+                        ...filters,
+                    });
+                }
 
-            // Remove empty params to keep URLs clean
-            const cleanParams = new URLSearchParams();
-            for (const [key, value] of queryParams.entries()) {
-                if (value !== '' && value !== undefined && value !== null) {
-                    cleanParams.append(key, value);
+                // Always inject page
+                queryParams.set('page', page);
+
+                // Remove empty params to keep URLs clean
+                const cleanParams = new URLSearchParams();
+                for (const [key, value] of queryParams.entries()) {
+                    if (value !== '' && value !== undefined && value !== null) {
+                        cleanParams.append(key, value);
+                    }
+                }
+
+                const response = await fetchWithAuthRef.current(
+                    `${endpoint}?${cleanParams.toString()}`,
+                    { signal: controller.signal }
+                );
+
+                if (controller.signal.aborted || !isMounted) return;
+
+                if (response.ok) {
+                    const json = await response.json();
+                    if (!isMounted || controller.signal.aborted) return;
+                    setData(json.results || []);
+                    setTotalCount(json.count || 0);
+                    setTotalPages(Math.ceil((json.count || 0) / (pageSizeRef.current || DEFAULT_PAGE_SIZE)));
+                } else {
+                    console.error(`useServerList: fetch failed for ${endpoint}`, response.status);
+                }
+            } catch (error) {
+                if (error.name === 'AbortError') return;
+                console.error(`useServerList: error fetching ${endpoint}`, error);
+            } finally {
+                if (isMounted && !controller.signal.aborted) {
+                    setLoading(false);
                 }
             }
-
-            const response = await fetchWithAuth(
-                `${endpoint}?${cleanParams.toString()}`,
-                { signal: controller.signal }
-            );
-
-            if (controller.signal.aborted) return;
-
-            if (response.ok) {
-                const json = await response.json();
-                setData(json.results || []);
-                setTotalCount(json.count || 0);
-                setTotalPages(Math.ceil((json.count || 0) / (pageSizeRef.current || DEFAULT_PAGE_SIZE)));
-            } else {
-                console.error(`useServerList: fetch failed for ${endpoint}`, response.status);
-            }
-        } catch (error) {
-            if (error.name === 'AbortError') return;
-            console.error(`useServerList: error fetching ${endpoint}`, error);
-        } finally {
-            if (!controller.signal.aborted) {
-                setLoading(false);
-            }
-        }
-    }, [fetchWithAuth, endpoint, page, debouncedSearch, filters]);
-
-    // Fetch on param changes + location.key (navigation back to page)
-    useEffect(() => {
-        fetchData();
-        return () => {
-            if (abortControllerRef.current) {
-                abortControllerRef.current.abort();
-            }
         };
-    }, [fetchData, location.key]);
+
+        executeFetch();
+
+        return () => {
+            isMounted = false;
+            controller.abort();
+        };
+    }, [endpoint, page, debouncedSearch, filters, location.key, refreshIndex]);
 
     // --- Refresh (re-fetch current state) ---
     const refresh = useCallback(() => {
-        fetchData();
-    }, [fetchData]);
+        setRefreshIndex(prev => prev + 1);
+    }, []);
 
     return {
         data,

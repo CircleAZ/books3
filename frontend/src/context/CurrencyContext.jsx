@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
 import { ENDPOINTS } from '../config/api';
 import { useAuth } from './AuthContext';
 
@@ -53,17 +53,18 @@ export const CurrencyProvider = ({ children }) => {
         }
     }, [token, fetchWithAuth, fetchCurrency]);
 
-    const value = {
+    const formatCurrency = useCallback((amount) => {
+        const formatted = Number(amount || 0).toFixed(2);
+        return `${currency}${formatted}`;
+    }, [currency]);
+
+    const value = useMemo(() => ({
         currency,
         setCurrency,
         refreshCurrency: fetchCurrency,
         loading,
-        // Format currency with symbol
-        formatCurrency: (amount) => {
-            const formatted = Number(amount || 0).toFixed(2);
-            return `${currency}${formatted}`;
-        }
-    };
+        formatCurrency,
+    }), [currency, fetchCurrency, loading, formatCurrency]);
 
     return (
         <CurrencyContext.Provider value={value}>
