@@ -7,6 +7,37 @@ import Pagination from '../../components/common/Pagination';
 import useServerList from '../../hooks/useServerList';
 import '../OrderList.css';
 
+const ORDER_FILTER_CONFIG = {
+    orderStatus: '',
+    paymentStatus: '',
+    deliveryStatus: '',
+    returnStatus: '',
+    refundStatus: '',
+    cancellationStatus: '',
+    dateAfter: '',
+    dateBefore: '',
+    ordering: '-created_at',
+};
+
+const buildOrderParams = (debouncedSearch, fltrs) => ({
+    search: debouncedSearch,
+    order_status: fltrs.orderStatus,
+    payment_status: fltrs.paymentStatus,
+    delivery_status: fltrs.deliveryStatus,
+    return_status: fltrs.returnStatus,
+    refund_status: fltrs.refundStatus,
+    cancellation_status: fltrs.cancellationStatus,
+    created_after: fltrs.dateAfter ? `${fltrs.dateAfter}T00:00:00` : '',
+    created_before: fltrs.dateBefore ? `${fltrs.dateBefore}T23:59:59` : '',
+    ordering: fltrs.ordering,
+});
+
+const ORDER_LIST_OPTIONS = {
+    filterConfig: ORDER_FILTER_CONFIG,
+    pageSize: 20,
+    buildParams: buildOrderParams,
+};
+
 export default function OrderList() {
     const { currency } = useCurrency();
     const navigate = useNavigate();
@@ -23,32 +54,7 @@ export default function OrderList() {
         filters,
         setFilter,
         clearFilters: clearAllFilters,
-    } = useServerList(ENDPOINTS.ORDERS, {
-        filterConfig: {
-            orderStatus: '',
-            paymentStatus: '',
-            deliveryStatus: '',
-            returnStatus: '',
-            refundStatus: '',
-            cancellationStatus: '',
-            dateAfter: '',
-            dateBefore: '',
-            ordering: '-created_at',
-        },
-        pageSize: 20,
-        buildParams: (debouncedSearch, fltrs) => ({
-            search: debouncedSearch,
-            order_status: fltrs.orderStatus,
-            payment_status: fltrs.paymentStatus,
-            delivery_status: fltrs.deliveryStatus,
-            return_status: fltrs.returnStatus,
-            refund_status: fltrs.refundStatus,
-            cancellation_status: fltrs.cancellationStatus,
-            created_after: fltrs.dateAfter ? `${fltrs.dateAfter}T00:00:00` : '',
-            created_before: fltrs.dateBefore ? `${fltrs.dateBefore}T23:59:59` : '',
-            ordering: fltrs.ordering,
-        })
-    });
+    } = useServerList(ENDPOINTS.ORDERS, ORDER_LIST_OPTIONS);
 
     const [showFilters, setShowFilters] = useState(false);
 

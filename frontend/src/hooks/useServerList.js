@@ -35,6 +35,16 @@ export default function useServerList(endpoint, options = {}) {
     const { fetchWithAuth } = useAuth();
     const location = useLocation();
 
+    // Stable refs for options that may be passed unmemoized from callers
+    const buildParamsRef = useRef(buildParams);
+    buildParamsRef.current = buildParams;
+
+    const filterConfigRef = useRef(filterConfig);
+    filterConfigRef.current = filterConfig;
+
+    const pageSizeRef = useRef(pageSize);
+    pageSizeRef.current = pageSize;
+
     // --- State ---
     const [data, setData] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -65,12 +75,11 @@ export default function useServerList(endpoint, options = {}) {
     }, []);
 
     const clearFilters = useCallback(() => {
-        setFilters({ ...filterConfig });
+        setFilters({ ...filterConfigRef.current });
         setSearch('');
         setDebouncedSearch('');
         setPage(1);
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []); // filterConfig is stable (from options on mount)
+    }, []);
 
     const isFilterActive = search !== '' || Object.values(filters).some(v => v !== '');
 
@@ -87,9 +96,9 @@ export default function useServerList(endpoint, options = {}) {
         try {
             let queryParams;
 
-            if (buildParams) {
+            if (buildParamsRef.current) {
                 // Consumer provides custom param mapping
-                const customParams = buildParams(debouncedSearch, filters);
+                const customParams = buildParamsRef.current(debouncedSearch, filters);
                 queryParams = customParams instanceof URLSearchParams
                     ? customParams
                     : new URLSearchParams(customParams);
@@ -123,7 +132,7 @@ export default function useServerList(endpoint, options = {}) {
                 const json = await response.json();
                 setData(json.results || []);
                 setTotalCount(json.count || 0);
-                setTotalPages(Math.ceil((json.count || 0) / pageSize));
+                setTotalPages(Math.ceil((json.count || 0) / (pageSizeRef.current || DEFAULT_PAGE_SIZE)));
             } else {
                 console.error(`useServerList: fetch failed for ${endpoint}`, response.status);
             }
@@ -135,7 +144,7 @@ export default function useServerList(endpoint, options = {}) {
                 setLoading(false);
             }
         }
-    }, [fetchWithAuth, endpoint, page, debouncedSearch, filters, buildParams, pageSize]);
+    }, [fetchWithAuth, endpoint, page, debouncedSearch, filters]);
 
     // Fetch on param changes + location.key (navigation back to page)
     useEffect(() => {

@@ -34,11 +34,11 @@ docs/bugs/
 | [01. Financial & Ledger Invariants](file:///z:/books3/docs/bugs/01_financial_and_ledger_bugs.md) | 4 | 4 | 1 | 0 | **9** |
 | [02. Concurrency, Locking & Transactions](file:///z:/books3/docs/bugs/02_concurrency_locking_and_transactions.md) | 2 | 4 | 0 | 0 | **6** |
 | [03. Inventory, Procurement & Stock Invariants](file:///z:/books3/docs/bugs/03_inventory_procurement_and_stock_bugs.md) | 2 | 4 | 1 | 0 | **7** |
-| [04. Frontend State & React Lifecycle](file:///z:/books3/docs/bugs/04_frontend_state_and_react_lifecycle_bugs.md) | 1 | 4 | 2 | 1 | **8** |
+| [04. Frontend State & React Lifecycle](file:///z:/books3/docs/bugs/04_frontend_state_and_react_lifecycle_bugs.md) | 2 | 4 | 2 | 1 | **9** |
 | [05. Security, RBAC & Data Integrity](file:///z:/books3/docs/bugs/05_security_rbac_and_data_integrity_bugs.md) | 2 | 4 | 0 | 0 | **6** |
 | [06. Database Data Reconciliation Crucibles](file:///z:/books3/docs/bugs/06_database_data_reconciliation_crucibles.md) | 3 | 2 | 0 | 0 | **5** |
 | [07. Infrastructure, Cloud & Deployment](file:///z:/books3/docs/bugs/07_infrastructure_cloud_and_deployment_bugs.md) | 2 | 3 | 1 | 0 | **6** |
-| **TOTALS** | **16** | **25** | **5** | **1** | **47 Items** |
+| **TOTALS** | **17** | **25** | **5** | **1** | **48 Items** |
 
 ---
 
@@ -103,6 +103,7 @@ Detailed Dossiers: [`04_frontend_state_and_react_lifecycle_bugs.md`](file:///z:/
 | `BUG-FE-006` | Browser Tab Heap Bloat via Unrevoked Blob URL Retention in File Exports | P2 | **RESOLVED / PATCHED** | [`frontend/src/pages/reports/DataExport.jsx:L47-L55`](file:///z:/books3/frontend/src/pages/reports/DataExport.jsx#L47-L55) |
 | `BUG-FE-007` | UPE Key Mismatch (`payment_method` vs `method`) on Legacy Financial Endpoints | P1 | **RESOLVED / PATCHED** | [`frontend/src/pages/finance/LoanDetails.jsx:L85-L87`](file:///z:/books3/frontend/src/pages/finance/LoanDetails.jsx#L85-L87) |
 | `BUG-FE-008` | Lexicographical Sort Inversion in Academic Class Trees | P3 | **RESOLVED / PATCHED** | [`frontend/src/pages/settings/ManageClasses.jsx:L99`](file:///z:/books3/frontend/src/pages/settings/ManageClasses.jsx#L99) |
+| `BUG-FE-009` | Unmemoized Hook Options Causing Infinite React Re-Render & Abort Loop in `useServerList` | P0 | **RESOLVED / PATCHED** | [`frontend/src/hooks/useServerList.js:L38-L134`](file:///z:/books3/frontend/src/hooks/useServerList.js#L38-L134), [`frontend/src/pages/orders/OrderList.jsx:L7-L35`](file:///z:/books3/frontend/src/pages/orders/OrderList.jsx#L7-L35) |
 
 ---
 

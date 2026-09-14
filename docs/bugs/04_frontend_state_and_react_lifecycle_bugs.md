@@ -20,6 +20,7 @@ The Books3 frontend is a dense, high-frequency enterprise interface powering poi
 | **`BUG-FE-006`** | Browser Tab Heap Bloat via Unrevoked Blob URL Retention in File Exports | **MEDIUM** | **RESOLVED / PATCHED** | `DataExport.jsx:L54`, `SalesReports.jsx:L65` |
 | **`BUG-FE-007`** | UPE Key Mismatch (`payment_method` vs `method`) on Legacy Financial Endpoints | **HIGH** | **RESOLVED / PATCHED** | `LoanDetails.jsx:L85-L87` |
 | **`BUG-FE-008`** | Lexicographical Sort Inversion in Academic Class Trees | **LOW** | **RESOLVED / PATCHED** | `ManageClasses.jsx:L99`, `ManageDivisions.jsx:L127` |
+| **`BUG-FE-009`** | Unmemoized Hook Options Causing Infinite React Re-Render & Abort Loop in `useServerList` | **CRITICAL** | **RESOLVED / PATCHED** | `useServerList.js:L38-L134`, `OrderList.jsx:L10-L40` |
 
 ---
 
@@ -228,3 +229,49 @@ The Books3 frontend is a dense, high-frequency enterprise interface powering poi
   classes.sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' }));
   ```
 - **Active Developments:** Enforced across `ManageClasses.jsx`, `ManageDivisions.jsx`, and `ManageSubdivisions.jsx`.
+
+---
+
+### `BUG-FE-009`: Unmemoized Hook Options Causing Infinite React Re-Render & Abort Loop in `useServerList`
+- **Severity:** Critical (P0)
+- **Status:** **RESOLVED / PATCHED**
+- **Affected Files:**
+  - Hook: [`frontend/src/hooks/useServerList.js`](file:///z:/books3/frontend/src/hooks/useServerList.js#L38-L134)
+  - Caller: [`frontend/src/pages/orders/OrderList.jsx`](file:///z:/books3/frontend/src/pages/orders/OrderList.jsx#L10-L40)
+- **Mechanism & Root Cause:**
+  When list pages like `OrderList.jsx` pass configuration objects containing inline helper functions (`buildParams: (search, filters) => ({ ... })`) to `useServerList`, a new function reference is generated on every component render. Because `useServerList` included `buildParams` in the `useCallback` dependency array of `fetchData`, and `fetchData` was declared in the `useEffect` dependency array responsible for network requests:
+  1. `fetchData` executed $\rightarrow$ triggered `setLoading(true)` $\rightarrow$ forced host component to re-render.
+  2. Host component re-render created a new `buildParams` reference.
+  3. `useCallback` invalidated and re-created `fetchData`.
+  4. `useEffect` detected a new `fetchData` instance $\rightarrow$ executed cleanup which invoked `abortController.abort()` $\rightarrow$ canceled the previous in-flight HTTP request.
+  5. `useEffect` immediately executed the new `fetchData` $\rightarrow$ set `loading` again $\rightarrow$ looped infinitely.
+  This flooded the browser network tab with rapid `(canceled)` and `200` requests at 60fps, degrading client CPU and spamming the backend API.
+- **Verification Evidence:**
+  Inspected fix in [`frontend/src/hooks/useServerList.js`](file:///z:/books3/frontend/src/hooks/useServerList.js#L38-L134):
+  ```javascript
+  // Stable refs for options that may be passed unmemoized from callers
+  const buildParamsRef = useRef(buildParams);
+  buildParamsRef.current = buildParams;
+
+  const filterConfigRef = useRef(filterConfig);
+  filterConfigRef.current = filterConfig;
+
+  const pageSizeRef = useRef(pageSize);
+  pageSizeRef.current = pageSize;
+  ```
+  And decoupled `fetchData` dependency array:
+  ```javascript
+  const fetchData = useCallback(async () => {
+      // ... uses buildParamsRef.current ...
+  }, [fetchWithAuth, endpoint, page, debouncedSearch, filters]);
+  ```
+  And hoisted caller options in [`frontend/src/pages/orders/OrderList.jsx`](file:///z:/books3/frontend/src/pages/orders/OrderList.jsx#L7-L35):
+  ```javascript
+  const ORDER_LIST_OPTIONS = {
+      filterConfig: ORDER_FILTER_CONFIG,
+      pageSize: 20,
+      buildParams: buildOrderParams,
+  };
+  ```
+- **Active Developments:** Verified with production build (`vite build` exit code 0). Zero infinite loops, stable request lifecycle with clean `AbortController` cancellation only on actual search/filter/page change.
+
