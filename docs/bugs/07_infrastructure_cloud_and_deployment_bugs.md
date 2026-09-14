@@ -166,7 +166,7 @@ Misconfigurations at the infrastructure layer lead to container OOM kills (`Exit
 
 ### `BUG-INF-007`: Cloudflare Pages Build Pipeline Stall & Node Runtime Version Mismatch
 - **Severity:** High (P1)
-- **Status:** **ACTIVE / ROOT CAUSE IDENTIFIED**
+- **Status:** **RESOLVED / PATCHED**
 - **Affected Files:**
   - [`.node-version`](file:///z:/books3/.node-version)
   - [`.nvmrc`](file:///z:/books3/.nvmrc)

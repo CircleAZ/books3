@@ -37,8 +37,8 @@ docs/bugs/
 | [04. Frontend State & React Lifecycle](file:///z:/books3/docs/bugs/04_frontend_state_and_react_lifecycle_bugs.md) | 2 | 4 | 2 | 1 | **9** |
 | [05. Security, RBAC & Data Integrity](file:///z:/books3/docs/bugs/05_security_rbac_and_data_integrity_bugs.md) | 2 | 4 | 0 | 0 | **6** |
 | [06. Database Data Reconciliation Crucibles](file:///z:/books3/docs/bugs/06_database_data_reconciliation_crucibles.md) | 3 | 2 | 0 | 0 | **5** |
-| [07. Infrastructure, Cloud & Deployment](file:///z:/books3/docs/bugs/07_infrastructure_cloud_and_deployment_bugs.md) | 2 | 3 | 1 | 0 | **6** |
-| **TOTALS** | **17** | **25** | **5** | **1** | **48 Items** |
+| [07. Infrastructure, Cloud & Deployment](file:///z:/books3/docs/bugs/07_infrastructure_cloud_and_deployment_bugs.md) | 2 | 4 | 1 | 0 | **7** |
+| **TOTALS** | **17** | **26** | **5** | **1** | **49 Items** |
 
 ---
 
@@ -145,6 +145,7 @@ Detailed Dossiers: [`07_infrastructure_cloud_and_deployment_bugs.md`](file:///z:
 | `BUG-INF-004` | Cloudflare Pages vs Render CNAME Domain Name Collision | P1 | **RESOLVED / CONFIGURED** | [`render.yaml:L22-L27`](file:///z:/books3/render.yaml#L22-L27) |
 | `BUG-INF-005` | Render Ephemeral Deploy Secret Rotation Invalidating Active JWTs | P1 | **RESOLVED / ENFORCED** | [`render.yaml:L18-L19`](file:///z:/books3/render.yaml#L18-L19) |
 | `BUG-INF-006` | Container Boot R2 Media Hydration Race Condition | P2 | **RESOLVED / PATCHED** | [`docker-entrypoint.sh:L10-L11`](file:///z:/books3/docker-entrypoint.sh#L10-L11) |
+| `BUG-INF-007` | Cloudflare Pages Build Pipeline Stall & Node Runtime Version Mismatch | P1 | **RESOLVED / PATCHED** | [`.node-version`](file:///z:/books3/.node-version), [`frontend/.node-version`](file:///z:/books3/frontend/.node-version) |
 
 ---
 
