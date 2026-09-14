@@ -1,5 +1,4 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
 const DEFAULT_PAGE_SIZE = 20;
@@ -33,7 +32,6 @@ export default function useServerList(endpoint, options = {}) {
     } = options;
 
     const { fetchWithAuth } = useAuth();
-    const location = useLocation();
 
     // Stable refs for options that may be passed unmemoized from callers
     const buildParamsRef = useRef(buildParams);
@@ -92,67 +90,92 @@ export default function useServerList(endpoint, options = {}) {
     // Explicit refresh trigger index
     const [refreshIndex, setRefreshIndex] = useState(0);
 
-    // --- Data fetching ---
-    // Single source of truth: network requests run IF AND ONLY IF query params, location, or refreshIndex change.
-    // fetchWithAuth and options are accessed via refs to maintain mathematical referential immunity.
+// --- Data fetching ---
+    // Invariant refs for deduplication and idempotent network scheduling
+    const lastFetchedUrlRef = useRef('');
+    const inFlightUrlRef = useRef('');
+    const lastRefreshIndexRef = useRef(0);
+
+    // Stringify filters to guarantee primitive value comparison in useEffect dependency array
+    const filtersKey = JSON.stringify(filters);
+
     useEffect(() => {
-        // Cancel prior in-flight request on new trigger
+        let queryParams;
+
+        if (buildParamsRef.current) {
+            // Consumer provides custom param mapping
+            const customParams = buildParamsRef.current(debouncedSearch, filters);
+            queryParams = customParams instanceof URLSearchParams
+                ? customParams
+                : new URLSearchParams(customParams);
+        } else {
+            // Default: send filter keys as-is + search
+            queryParams = new URLSearchParams({
+                search: debouncedSearch,
+                ...filters,
+            });
+        }
+
+        // Always inject page
+        queryParams.set('page', page);
+
+        // Remove empty params to keep URLs clean
+        const cleanParams = new URLSearchParams();
+        for (const [key, value] of queryParams.entries()) {
+            if (value !== '' && value !== undefined && value !== null) {
+                cleanParams.append(key, value);
+            }
+        }
+
+        const targetUrl = `${endpoint}?${cleanParams.toString()}`;
+        const isManualRefresh = refreshIndex !== lastRefreshIndexRef.current;
+        lastRefreshIndexRef.current = refreshIndex;
+
+        // DEDUPLICATION GATE:
+        // 1. If this exact query is already fetched and rendered (and it's NOT an explicit manual refresh), bail out!
+        if (!isManualRefresh && targetUrl === lastFetchedUrlRef.current) {
+            return;
+        }
+
+        // 2. If this exact query is ALREADY IN FLIGHT, do not cancel and re-trigger identical work!
+        if (!isManualRefresh && targetUrl === inFlightUrlRef.current) {
+            return;
+        }
+
+        // 3. New query parameter target: abort prior in-flight request if different
         if (abortControllerRef.current) {
             abortControllerRef.current.abort();
         }
         const controller = new AbortController();
         abortControllerRef.current = controller;
+        inFlightUrlRef.current = targetUrl;
 
         let isMounted = true;
         setLoading(true);
 
         const executeFetch = async () => {
             try {
-                let queryParams;
-
-                if (buildParamsRef.current) {
-                    // Consumer provides custom param mapping
-                    const customParams = buildParamsRef.current(debouncedSearch, filters);
-                    queryParams = customParams instanceof URLSearchParams
-                        ? customParams
-                        : new URLSearchParams(customParams);
-                } else {
-                    // Default: send filter keys as-is + search
-                    queryParams = new URLSearchParams({
-                        search: debouncedSearch,
-                        ...filters,
-                    });
-                }
-
-                // Always inject page
-                queryParams.set('page', page);
-
-                // Remove empty params to keep URLs clean
-                const cleanParams = new URLSearchParams();
-                for (const [key, value] of queryParams.entries()) {
-                    if (value !== '' && value !== undefined && value !== null) {
-                        cleanParams.append(key, value);
-                    }
-                }
-
-                const response = await fetchWithAuthRef.current(
-                    `${endpoint}?${cleanParams.toString()}`,
-                    { signal: controller.signal }
-                );
+                const response = await fetchWithAuthRef.current(targetUrl, {
+                    signal: controller.signal,
+                });
 
                 if (controller.signal.aborted || !isMounted) return;
 
                 if (response.ok) {
                     const json = await response.json();
                     if (!isMounted || controller.signal.aborted) return;
+                    lastFetchedUrlRef.current = targetUrl;
+                    inFlightUrlRef.current = '';
                     setData(json.results || []);
                     setTotalCount(json.count || 0);
                     setTotalPages(Math.ceil((json.count || 0) / (pageSizeRef.current || DEFAULT_PAGE_SIZE)));
                 } else {
+                    inFlightUrlRef.current = '';
                     console.error(`useServerList: fetch failed for ${endpoint}`, response.status);
                 }
             } catch (error) {
                 if (error.name === 'AbortError') return;
+                inFlightUrlRef.current = '';
                 console.error(`useServerList: error fetching ${endpoint}`, error);
             } finally {
                 if (isMounted && !controller.signal.aborted) {
@@ -165,9 +188,13 @@ export default function useServerList(endpoint, options = {}) {
 
         return () => {
             isMounted = false;
-            controller.abort();
+            // Only abort if this controller is still the active in-flight request
+            if (abortControllerRef.current === controller) {
+                controller.abort();
+                inFlightUrlRef.current = '';
+            }
         };
-    }, [endpoint, page, debouncedSearch, filters, location.key, refreshIndex]);
+    }, [endpoint, page, debouncedSearch, filtersKey, refreshIndex]);
 
     // --- Refresh (re-fetch current state) ---
     const refresh = useCallback(() => {
