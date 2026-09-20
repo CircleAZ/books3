@@ -34,8 +34,8 @@ class FinanceQueryOptimizationTestCase(TestCase):
     def test_customers_list_is_constant_queries(self):
         # 1 customer with addresses
         c1 = Customer.objects.create(first_name="Cust1", last_name="L1", phone="1000000001", created_by=self.user)
-        Address.objects.create(customer=c1, address_line="Street 1", faliya="Village 1", is_primary=True)
-        Address.objects.create(customer=c1, address_line="Street 1b", faliya="Village 1b", is_primary=False)
+        Address.objects.create(customer=c1, address_line="Street 1", taluka="Taluka 1", district="District 1", is_primary=True)
+        Address.objects.create(customer=c1, address_line="Street 1b", taluka="Taluka 1b", district="District 1b", is_primary=False)
         
         with CaptureQueriesContext(connection) as ctx1:
             res1 = self.client.get("/api/customers/customers/")
@@ -45,8 +45,8 @@ class FinanceQueryOptimizationTestCase(TestCase):
         # 6 customers with addresses
         for i in range(2, 7):
             ci = Customer.objects.create(first_name=f"Cust{i}", last_name=f"L{i}", phone=f"100000000{i}", created_by=self.user)
-            Address.objects.create(customer=ci, address_line=f"Street {i}", faliya=f"Village {i}", is_primary=True)
-            Address.objects.create(customer=ci, address_line=f"Street {i}b", faliya=f"Village {i}b", is_primary=False)
+            Address.objects.create(customer=ci, address_line=f"Street {i}", taluka=f"Taluka {i}", district=f"District {i}", is_primary=True)
+            Address.objects.create(customer=ci, address_line=f"Street {i}b", taluka=f"Taluka {i}b", district=f"District {i}b", is_primary=False)
             
         with CaptureQueriesContext(connection) as ctx5:
             res5 = self.client.get("/api/customers/customers/")

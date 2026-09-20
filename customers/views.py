@@ -424,8 +424,9 @@ class CustomerViewSet(viewsets.ModelViewSet):
                 'notes': strip_tags(c.notes or ''),
                 'classes_display': classes_str,
                 'village': strip_tags(primary_addr.region.name if primary_addr.region else ''),
-                'faliya': strip_tags(primary_addr.faliya or ''),
-                'landmark': strip_tags(primary_addr.landmark or ''),
+                'taluka': strip_tags(primary_addr.taluka or ''),
+                'district': strip_tags(primary_addr.district or ''),
+                'address_line': strip_tags(primary_addr.address_line or ''),
                 'latitude': str(primary_addr.location.y),
                 'longitude': str(primary_addr.location.x),
                 'customer_group': strip_tags(c.customer_group.name) if c.customer_group else None,
@@ -772,13 +773,13 @@ class CustomerViewSet(viewsets.ModelViewSet):
 
             rows.append({
                 'village': strip_tags(v),
-                'faliya': strip_tags(primary_addr.faliya or ''),
+                'taluka': strip_tags(primary_addr.taluka or ''),
                 'name': strip_tags(c.full_name),
                 'phone': c.phone or '',
                 'status': status_label,
             })
 
-        rows.sort(key=lambda r: (r['village'].lower(), r['faliya'].lower(), r['name'].lower()))
+        rows.sort(key=lambda r: (r['village'].lower(), r['name'].lower()))
 
         # Build HTML for PDF
         html = f"""
@@ -793,19 +794,18 @@ class CustomerViewSet(viewsets.ModelViewSet):
             th {{ background: #333; color: #fff; padding: 6px 8px; text-align: left; font-size: 10px; text-transform: uppercase; }}
             td {{ padding: 5px 8px; border-bottom: 1px solid #ddd; font-size: 11px; }}
             tr:nth-child(even) {{ background: #f9f9f9; }}
-            .footer {{ margin-top: 20px; font-size: 9px; color: #999; text-align: center; }}
         </style>
         </head>
         <body>
-            <h1>AZ Books \u2014 Door-to-Door Checklist</h1>
-            <h2>{village_filter or 'All Villages'} | {season_label} | {len(rows)} customers</h2>
+            <h1>Customer Coverage List — {strip_tags(village_filter or 'All Villages')}</h1>
+            <h2>Season: {season_label} &nbsp;|&nbsp; Generated: {today.strftime('%d %b %Y')}</h2>
             <table>
                 <thead>
                     <tr>
-                        <th>#</th>
+                        <th style="width: 25px;">#</th>
                         <th>Village</th>
-                        <th>Faliya</th>
-                        <th>Customer</th>
+                        <th>Taluka</th>
+                        <th>Customer Name</th>
                         <th>Phone</th>
                         <th>Status</th>
                         <th>Notes</th>
@@ -818,7 +818,7 @@ class CustomerViewSet(viewsets.ModelViewSet):
                     <tr>
                         <td>{i}</td>
                         <td>{row['village']}</td>
-                        <td>{row['faliya']}</td>
+                        <td>{row['taluka']}</td>
                         <td>{row['name']}</td>
                         <td>{row['phone']}</td>
                         <td>{row['status']}</td>
@@ -1489,22 +1489,16 @@ class GeoRegionListView(APIView):
 
 class GeographicRegionViewSet(viewsets.ModelViewSet):
     """
-    CRUD for GeographicRegion. Requires settings.manage_store permission.
+    CRUD for GeographicRegion (Village Boundaries). Requires settings.manage_store permission.
     """
-    queryset = GeographicRegion.objects.all().order_by('layer', 'name')
+    queryset = GeographicRegion.objects.all().order_by('name')
     serializer_class = GeographicRegionSerializer
     permission_classes = [HasRequiredPermission]
     required_permission = 'settings.manage_store'
     pagination_class = None
 
     def get_queryset(self):
-        # Exclude soft-deleted implicitly via manager, or explicitly if needed
-        # SoftDeleteModel manager already excludes deleted_at is not null
-        qs = GeographicRegion.objects.all().order_by('layer', 'name')
-        layer = self.request.query_params.get('layer', '').strip().lower()
-        if layer in ('district', 'taluka', 'village'):
-            qs = qs.filter(layer=layer)
-        return qs
+        return GeographicRegion.objects.all().order_by('name')
 
     def perform_destroy(self, instance):
         # The region is soft-deleted, but Address.region has SET_NULL on_delete.
@@ -1519,8 +1513,8 @@ class GeographicRegionViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=['get'])
     def reverse_geocode(self, request):
         """
-        Takes lat/lng and returns the authoritative PostGIS matching region data.
-        Bypasses OSM Nominatim to enforce internal boundary hierarchy.
+        Takes lat/lng and returns the authoritative PostGIS matching village data.
+        Bypasses OSM Nominatim to enforce internal village boundary hierarchy.
         """
         from django.contrib.gis.geos import Point
         from rest_framework.response import Response
@@ -1537,47 +1531,17 @@ class GeographicRegionViewSet(viewsets.ModelViewSet):
         except ValueError:
             return Response({"error": "Invalid lat or lng"}, status=400)
             
-        # 1. Create strict WGS84 point
         point = Point(lng, lat, srid=4326)
         
-        # 2. Query against all active bounds, ordered by smallest layer first (village)
-        # Note: If there are overlaps within a layer, order by -id picks latest created.
-        qs = GeographicRegion.objects.filter(
+        region = GeographicRegion.objects.filter(
             boundary__intersects=point,
             is_deleted=False
-        ).order_by(
-            models.Case(
-                models.When(layer='village', then=1),
-                models.When(layer='taluka', then=2),
-                models.When(layer='district', then=3),
-                default=4,
-                output_field=models.IntegerField(),
-            ),
-            '-id'
-        )
+        ).order_by('-id').first()
         
-        result = {
-            "village": "",
-            "taluka": "",
-            "district": "",
-            "pincode": ""
-        }
-        
-        # We might hit multiple overlapping layers (e.g., a village is inside a taluka).
-        # We extract names for each layer found.
-        for region in qs:
-            if region.layer == 'village' and not result["village"]:
-                result["village"] = region.name
-                if region.pincode and not result["pincode"]:
-                    result["pincode"] = region.pincode
-            elif region.layer == 'taluka' and not result["taluka"]:
-                result["taluka"] = region.name
-                if region.pincode and not result["pincode"]:
-                    result["pincode"] = region.pincode
-            elif region.layer == 'district' and not result["district"]:
-                result["district"] = region.name
-                
-        return Response(result)
+        return Response({
+            "village": region.name if region else "",
+            "region_id": str(region.id) if region else None
+        })
 
     @action(detail=False, methods=['post'])
     def sync_customers(self, request):
@@ -1599,8 +1563,7 @@ class GeographicRegionViewSet(viewsets.ModelViewSet):
                         UPDATE customers_address a
                         SET region_id = r.id
                         FROM customers_geographicregion r
-                        WHERE r.layer = 'village'
-                          AND r.is_deleted = False
+                        WHERE r.is_deleted = False
                           AND r.boundary IS NOT NULL
                           AND a.location IS NOT NULL
                           AND ST_Contains(r.boundary, a.location)

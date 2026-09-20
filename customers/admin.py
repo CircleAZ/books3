@@ -5,7 +5,7 @@ from .models import Customer, Student, Address, CustomerLink, Wallet, WalletTran
 class AddressInline(admin.TabularInline):
     model = Address
     extra = 0
-    fields = ('region', 'faliya', 'address_line', 'pincode', 'is_primary', 'home_photo')
+    fields = ('region', 'taluka', 'district', 'address_line', 'is_primary')
 
 class WalletInline(admin.StackedInline):
     model = Wallet
@@ -36,9 +36,9 @@ class StudentAdmin(admin.ModelAdmin):
 
 @admin.register(Address)
 class AddressAdmin(admin.ModelAdmin):
-    list_display = ('customer', 'region', 'pincode', 'is_primary')
+    list_display = ('customer', 'region', 'taluka', 'district', 'is_primary')
     list_filter = ('is_primary',)
-    search_fields = ('region__name', 'pincode', 'customer__first_name')
+    search_fields = ('region__name', 'taluka', 'district', 'customer__first_name')
 
 
 @admin.register(CustomerLink)

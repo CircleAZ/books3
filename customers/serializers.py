@@ -143,7 +143,7 @@ class AddressSerializer(serializers.ModelSerializer):
     )
     # Expose region as writable FK + read-only name
     region_name = serializers.CharField(source='region.name', read_only=True, default=None)
-    # Backward compat: accept 'village' text from frontend, auto-resolve to region FK
+    # Accept 'village' text from frontend (auto-resolved from internal geocoding boundary)
     village = serializers.CharField(write_only=True, required=False, allow_blank=True)
     # Accept lat/lng from frontend, convert to PointField internally
     latitude = serializers.FloatField(write_only=True, required=False, allow_null=True)
@@ -152,11 +152,10 @@ class AddressSerializer(serializers.ModelSerializer):
     class Meta:
         model = Address
         fields = [
-            'id', 'region', 'region_name', 'village', 'faliya', 'address_line', 'landmark',
+            'id', 'region', 'region_name', 'village', 'taluka', 'district', 'address_line',
             'location_tags', 'location_tag_ids',
-            'latitude', 'longitude', 'pincode', 'is_primary', 'home_photo'
+            'latitude', 'longitude', 'is_primary'
         ]
-        read_only_fields = ['home_photo']
     
     def validate_latitude(self, value):
         """Validate latitude is within valid range."""
@@ -171,7 +170,7 @@ class AddressSerializer(serializers.ModelSerializer):
         return value
     
     def _resolve_village_to_region(self, validated_data):
-        """Bridge: convert 'village' text or spatial location coordinates to 'region' FK.
+        """Bridge: convert spatial location coordinates or 'village' text to 'region' FK.
         Enforces internal boundary hierarchy using PostGIS coordinates first,
         falling back to village name matching if no spatial match is found.
         """
@@ -193,7 +192,6 @@ class AddressSerializer(serializers.ModelSerializer):
             from customers.models import GeographicRegion
             region = GeographicRegion.objects.filter(
                 boundary__intersects=point,
-                layer='village',
                 is_deleted=False
             ).first()
 
@@ -202,7 +200,6 @@ class AddressSerializer(serializers.ModelSerializer):
             from customers.models import GeographicRegion
             region = GeographicRegion.objects.filter(
                 name__iexact=village_name.strip(),
-                layer='village',
                 is_deleted=False
             ).first()
 
@@ -244,8 +241,10 @@ class AddressSerializer(serializers.ModelSerializer):
         else:
             rep['latitude'] = None
             rep['longitude'] = None
-        # Expose village name for backward compat with frontend
+        # Expose village, taluka, district
         rep['village'] = instance.region.name if instance.region else ''
+        rep['taluka'] = instance.taluka or ''
+        rep['district'] = instance.district or ''
         return rep
 
 
@@ -397,14 +396,13 @@ class CustomerCreateUpdateSerializer(serializers.ModelSerializer):
     """Serializer for creating/updating customers."""
     addresses = AddressSerializer(many=True, required=False)
     students = StudentSerializer(many=True, required=True, allow_empty=False)
-    home_photo = serializers.ImageField(required=False, write_only=True)
     
     class Meta:
         model = Customer
         fields = [
             'id', 'display_id', 'first_name', 'middle_name', 'last_name',
             'phone', 'email', 'students',
-            'customer_group', 'notes', 'addresses', 'home_photo'
+            'customer_group', 'notes', 'addresses'
         ]
         read_only_fields = ['id', 'display_id']
     
@@ -527,7 +525,6 @@ class CustomerCreateUpdateSerializer(serializers.ModelSerializer):
         
         addresses_data = validated_data.pop('addresses', [])
         students_data = validated_data.pop('students', [])
-        home_photo = validated_data.pop('home_photo', None)
         customer = Customer.objects.create(**validated_data)
         
         # Create students
@@ -545,26 +542,6 @@ class CustomerCreateUpdateSerializer(serializers.ModelSerializer):
                 customer=customer, is_primary=(i == 0), **addr_data
             )
             address.location_tags.set(location_tags)
-            
-            # Attach home_photo to the primary (first) address via explicit
-            # field.save() to guarantee the storage backend (R2/S3) is used.
-            # Using objects.create(home_photo=file) can silently fall back to
-            # local FileSystemStorage if the file stream is in an unexpected state.
-            if i == 0 and home_photo:
-                try:
-                    # Ensure file pointer is at start
-                    if hasattr(home_photo, 'seek'):
-                        home_photo.seek(0)
-                    fname = getattr(home_photo, 'name', 'home.webp')
-                    address.home_photo.save(fname, home_photo, save=True)
-                    logger.info(
-                        "Home photo saved: name=%s, storage=%s, url=%s",
-                        fname,
-                        type(address.home_photo.storage).__name__,
-                        address.home_photo.url if address.home_photo else 'N/A'
-                    )
-                except Exception as e:
-                    logger.error("Home photo upload FAILED: %s", e, exc_info=True)
         
         # Create empty wallet
         Wallet.objects.create(customer=customer)
@@ -577,7 +554,6 @@ class CustomerCreateUpdateSerializer(serializers.ModelSerializer):
         
         addresses_data = validated_data.pop('addresses', None)
         students_data = validated_data.pop('students', None)
-        home_photo = validated_data.pop('home_photo', None)
         
         # Update customer fields
         for attr, value in validated_data.items():
@@ -664,42 +640,11 @@ class CustomerCreateUpdateSerializer(serializers.ModelSerializer):
                     )
                     address.location_tags.set(location_tags)
                     incoming_ids.add(address.pk)
-                
-                # Attach home_photo to the primary (first) address via explicit
-                # field.save() — QuerySet.update() bypasses the storage backend
-                # entirely, writing only the filename without uploading to R2/S3.
-                if i == 0 and home_photo:
-                    try:
-                        if hasattr(home_photo, 'seek'):
-                            home_photo.seek(0)
-                        fname = getattr(home_photo, 'name', 'home.webp')
-                        address.home_photo.save(fname, home_photo, save=True)
-                        logger.info(
-                            "Home photo updated: name=%s, storage=%s",
-                            fname, type(address.home_photo.storage).__name__
-                        )
-                    except Exception as e:
-                        logger.error("Home photo upload FAILED: %s", e, exc_info=True)
             
             # Delete addresses that were removed
             removed = existing_ids - incoming_ids
             if removed:
                 instance.addresses.filter(pk__in=removed).delete()
-        elif home_photo:
-            # If no addresses_data was sent but a home_photo was, attach it to the primary address
-            primary_addr = instance.addresses.filter(is_primary=True).first()
-            if primary_addr:
-                try:
-                    if hasattr(home_photo, 'seek'):
-                        home_photo.seek(0)
-                    fname = getattr(home_photo, 'name', 'home.webp')
-                    primary_addr.home_photo.save(fname, home_photo, save=True)
-                    logger.info(
-                        "Home photo updated (standalone): name=%s, storage=%s",
-                        fname, type(primary_addr.home_photo.storage).__name__
-                    )
-                except Exception as e:
-                    logger.error("Home photo upload FAILED: %s", e, exc_info=True)
         
         return instance
 
@@ -845,7 +790,7 @@ class GeographicRegionSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = GeographicRegion
-        fields = ['id', 'name', 'layer', 'pincode', 'color', 'boundary']
+        fields = ['id', 'name', 'color', 'boundary']
 
     def validate_boundary(self, value):
         """Convert GeoJSON dictionary to PostGIS Polygon and validate it."""
@@ -865,13 +810,12 @@ class GeographicRegionSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError(f"Invalid GeoJSON: {str(e)}")
 
     def validate(self, data):
-        """Check for spatial overlaps within the same layer, excluding touches."""
-        layer = data.get('layer') or (self.instance.layer if self.instance else None)
+        """Check for spatial overlaps between village boundaries, excluding touches."""
         boundary = data.get('boundary')
         
-        if layer and boundary:
-            # Check for intersections against active (non-deleted) regions in the same layer
-            qs = GeographicRegion.objects.filter(layer=layer, boundary__isnull=False)
+        if boundary:
+            # Check for intersections against active (non-deleted) regions
+            qs = GeographicRegion.objects.filter(boundary__isnull=False, is_deleted=False)
             if self.instance:
                 qs = qs.exclude(pk=self.instance.pk)
                 

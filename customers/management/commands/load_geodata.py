@@ -29,8 +29,6 @@ class Command(BaseCommand):
 
         for item in data:
             name = item.get('name', 'Unknown')
-            layer = item.get('layer', 'village')
-            pincode = item.get('pincode', '')
             color = item.get('color', '')
 
             # Parse boundary
@@ -57,9 +55,7 @@ class Command(BaseCommand):
                 # Try standard update_or_create
                 region, created = GeographicRegion.objects.update_or_create(
                     name=name,
-                    layer=layer,
                     defaults={
-                        'pincode': pincode,
                         'color': color,
                         'boundary': boundary_geom,
                     }
@@ -67,9 +63,8 @@ class Command(BaseCommand):
             except GeographicRegion.MultipleObjectsReturned:
                 # Concurrency race condition caused duplicates in the past.
                 # Find all matching duplicates
-                duplicates = list(GeographicRegion.objects.filter(name=name, layer=layer).order_by('id'))
+                duplicates = list(GeographicRegion.objects.filter(name=name).order_by('id'))
                 region = duplicates[0]
-                region.pincode = pincode
                 region.color = color
                 region.boundary = boundary_geom
                 region.save()

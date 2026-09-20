@@ -92,15 +92,15 @@ export default function CoverageList() {
         saveFilters({ ...current, village: val });
     };
 
-    // Sort customers: village → faliya → name
+    // Sort customers: village → taluka → name
     const sortedCustomers = data?.customers
         ? [...data.customers].sort((a, b) => {
             const va = (a.village || '').toLowerCase();
             const vb = (b.village || '').toLowerCase();
             if (va !== vb) return va.localeCompare(vb);
-            const fa = (a.faliya || '').toLowerCase();
-            const fb = (b.faliya || '').toLowerCase();
-            if (fa !== fb) return fa.localeCompare(fb);
+            const ta = (a.taluka || '').toLowerCase();
+            const tb = (b.taluka || '').toLowerCase();
+            if (ta !== tb) return ta.localeCompare(tb);
             return (a.full_name || '').localeCompare(b.full_name || '');
         })
         : [];
@@ -198,7 +198,7 @@ export default function CoverageList() {
                         <thead>
                             <tr>
                                 <th>Village</th>
-                                <th>Faliya</th>
+                                <th>Taluka</th>
                                 <th>Customer</th>
                                 <th>Phone</th>
                                 <th>Last Order</th>
@@ -211,7 +211,7 @@ export default function CoverageList() {
                                 return (
                                     <tr key={c.id}>
                                         <td className="td-village">{c.village || '—'}</td>
-                                        <td className="td-faliya">{c.faliya || '—'}</td>
+                                        <td className="td-taluka">{c.taluka || '—'}</td>
                                         <td className="td-name">
                                             <Link to={`/customers/${c.id}`}>{c.full_name}</Link>
                                         </td>
@@ -258,7 +258,7 @@ export default function CoverageList() {
                                     </span>
                                 </div>
                                 <div className="card-info">
-                                    <span>📍 {c.village || '—'}{c.faliya ? `, ${c.faliya}` : ''}</span>
+                                    <span>📍 {c.village || '—'}{c.taluka ? `, ${c.taluka}` : ''}</span>
                                     {c.phone && <a href={`tel:${c.phone}`}>📞 {c.phone}</a>}
                                     <span>🗓️ {c.last_order_date || 'Never ordered'}</span>
                                 </div>

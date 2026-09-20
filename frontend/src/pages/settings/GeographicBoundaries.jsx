@@ -24,8 +24,6 @@ export default function GeographicBoundaries() {
     
     const [formData, setFormData] = useState({
         name: '',
-        layer: 'village',
-        pincode: '',
         color: '#ff0000',
         boundary: null
     });
@@ -96,8 +94,6 @@ export default function GeographicBoundaries() {
         setEditingRegion(null);
         setFormData({
             name: '',
-            layer: 'village',
-            pincode: '',
             color: '#ff0000',
             boundary: null
         });
@@ -108,8 +104,6 @@ export default function GeographicBoundaries() {
         setEditingRegion(region);
         setFormData({
             name: region.name,
-            layer: region.layer,
-            pincode: region.pincode || '',
             color: region.color || '#ff0000',
             boundary: region.boundary // GeoJSON dict
         });
@@ -198,9 +192,9 @@ export default function GeographicBoundaries() {
         setFormData(prev => ({ ...prev, boundary: null }));
     };
 
-    // Filter regions of the SAME layer to show as background context
+    // Filter other regions to show as background context
     const backgroundRegions = regions.filter(r => 
-        r.layer === formData.layer && (!editingRegion || r.id !== editingRegion.id)
+        !editingRegion || r.id !== editingRegion.id
     );
 
     // Initial map center (Navsari default)
@@ -211,8 +205,8 @@ export default function GeographicBoundaries() {
         <div className="boundaries-page">
             <div className="boundaries-header">
                 <div>
-                    <h1>Geocoding Boundaries</h1>
-                    <p>Manage spatial polygons for districts, talukas, and villages</p>
+                    <h1>Village Boundaries</h1>
+                    <p>Manage spatial polygons for authoritative village boundaries</p>
                 </div>
                 <div className="boundaries-actions">
                     <button 
@@ -223,7 +217,7 @@ export default function GeographicBoundaries() {
                         {syncing ? 'Syncing...' : 'Re-sync Customers'}
                     </button>
                     <button className="add-btn" onClick={openCreateModal}>
-                        + Add Boundary
+                        + Add Village Boundary
                     </button>
                 </div>
             </div>
@@ -232,24 +226,20 @@ export default function GeographicBoundaries() {
                 <table className="boundaries-table">
                     <thead>
                         <tr>
-                            <th>Name</th>
-                            <th>Layer</th>
-                            <th>Pincode</th>
+                            <th>Village Name</th>
                             <th>Color</th>
                             <th>Actions</th>
                         </tr>
                     </thead>
                     <tbody>
                         {loading ? (
-                            <tr><td colSpan="5" style={{textAlign: 'center'}}>Loading regions...</td></tr>
+                            <tr><td colSpan="3" style={{textAlign: 'center'}}>Loading regions...</td></tr>
                         ) : regions.length === 0 ? (
-                            <tr><td colSpan="5" style={{textAlign: 'center'}}>No boundaries found.</td></tr>
+                            <tr><td colSpan="3" style={{textAlign: 'center'}}>No boundaries found.</td></tr>
                         ) : (
                             regions.map(region => (
                                 <tr key={region.id}>
                                     <td><strong>{region.name}</strong></td>
-                                    <td style={{textTransform: 'capitalize'}}>{region.layer}</td>
-                                    <td>{region.pincode || '-'}</td>
                                     <td>
                                         <span 
                                             className="color-indicator" 
@@ -271,14 +261,14 @@ export default function GeographicBoundaries() {
                 <div className="boundary-modal-overlay">
                     <div className="boundary-modal">
                         <div className="modal-header">
-                            <h2>{editingRegion ? `Edit ${editingRegion.name}` : 'New Boundary'}</h2>
+                            <h2>{editingRegion ? `Edit ${editingRegion.name}` : 'New Village Boundary'}</h2>
                             <button className="close-btn" onClick={closeModal}>&times;</button>
                         </div>
                         
                         <div className="modal-body">
                             <div className="form-row">
-                                <div className="form-group">
-                                    <label>Name</label>
+                                <div className="form-group" style={{ flex: 2 }}>
+                                    <label>Village Name</label>
                                     <input 
                                         type="text" 
                                         value={formData.name} 
@@ -286,26 +276,7 @@ export default function GeographicBoundaries() {
                                         placeholder="e.g. Krushnapur"
                                     />
                                 </div>
-                                <div className="form-group">
-                                    <label>Layer</label>
-                                    <select 
-                                        value={formData.layer}
-                                        onChange={e => setFormData({...formData, layer: e.target.value})}
-                                    >
-                                        <option value="village">Village</option>
-                                        <option value="taluka">Taluka</option>
-                                        <option value="district">District</option>
-                                    </select>
-                                </div>
-                                <div className="form-group">
-                                    <label>Pincode</label>
-                                    <input 
-                                        type="text" 
-                                        value={formData.pincode} 
-                                        onChange={e => setFormData({...formData, pincode: e.target.value})}
-                                    />
-                                </div>
-                                <div className="form-group">
+                                <div className="form-group" style={{ flex: 1 }}>
                                     <label>Color</label>
                                     <input 
                                         type="color" 
@@ -319,7 +290,7 @@ export default function GeographicBoundaries() {
                             <div className="map-container-wrapper">
                                 <label>
                                     Boundary Map
-                                    <span className="map-help">Existing {formData.layer}s are shown as context.</span>
+                                    <span className="map-help">Existing village boundaries are shown as context.</span>
                                 </label>
                                 <div className="map-container">
                                     <MapContainer 

@@ -122,13 +122,13 @@ SCHEMA_WHITELIST = {
     'address': {
         'model': 'customers.Address',
         'fields': {
-            'faliya', 'address_line', 'landmark', 'pincode', 'is_primary'
+            'taluka', 'district', 'address_line', 'is_primary'
         }
     },
     'geographicregion': {
         'model': 'customers.GeographicRegion',
         'fields': {
-            'name', 'layer', 'pincode', 'color'
+            'name', 'color'
         }
     },
     'legacydebt': {

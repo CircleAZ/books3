@@ -3,7 +3,6 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { ENDPOINTS } from '../../config/api';
 import MapComponent from '../../components/MapComponent';
-import { compressImage } from '../../utils/imageCompression';
 import { sanitizeFKFields, sanitizeStudentFKs } from '../../utils/payloadSanitizer';
 import './AddCustomer.css';
 import StudentEducationBlock from '../../components/StudentEducationBlock';
@@ -23,11 +22,6 @@ export default function AddCustomer({ onSuccess, onCancel, isEmbedded = false })
     const formTopRef = useRef(null);
     const tagTimeoutRef = useRef(null);
 
-    // Home Photo State
-    const [homePhoto, setHomePhoto] = useState(null);
-    const [homePhotoPreview, setHomePhotoPreview] = useState(null);
-    const [imageError, setImageError] = useState('');
-
     // Form state
     const [formData, setFormData] = useState({
         first_name: '',
@@ -44,12 +38,11 @@ export default function AddCustomer({ onSuccess, onCancel, isEmbedded = false })
         class_name: '',
         division_name: '',
         subdivision_name: '',
-        // Address
+        // Address (Coordinate-driven)
         village: '',
-        faliya: '',
+        taluka: '',
+        district: '',
         address_line: '',
-        landmark: '',
-        pincode: '',
         latitude: null,
         longitude: null,
         location_tags: []
@@ -99,9 +92,6 @@ export default function AddCustomer({ onSuccess, onCancel, isEmbedded = false })
         address: true,
         links: false
     });
-
-    // Address Override Toggle
-    const [overrideAddress, setOverrideAddress] = useState(false);
 
     // Additional Students State
     const [additionalStudents, setAdditionalStudents] = useState([]);
@@ -198,7 +188,6 @@ export default function AddCustomer({ onSuccess, onCancel, isEmbedded = false })
                     if (res.ok) {
                         const data = await res.json();
                         const primaryAddr = data.addresses?.[0] || {};
-                        if (primaryAddr.home_photo) setHomePhotoPreview(primaryAddr.home_photo);
 
                         const customerData = {
                             first_name: data.first_name || '',
@@ -216,10 +205,9 @@ export default function AddCustomer({ onSuccess, onCancel, isEmbedded = false })
                             division_name: data.division_name || '',
                             subdivision_name: data.subdivision_name || '',
                             village: primaryAddr.village || '',
-                            faliya: primaryAddr.faliya || '',
+                            taluka: primaryAddr.taluka || '',
+                            district: primaryAddr.district || '',
                             address_line: primaryAddr.address_line || '',
-                            landmark: primaryAddr.landmark || '',
-                            pincode: primaryAddr.pincode || '',
                             latitude: primaryAddr.latitude ? parseFloat(primaryAddr.latitude) : null,
                             longitude: primaryAddr.longitude ? parseFloat(primaryAddr.longitude) : null,
                             location_tags: primaryAddr.location_tags?.map(t => t.id) || []
@@ -298,27 +286,6 @@ export default function AddCustomer({ onSuccess, onCancel, isEmbedded = false })
         };
         fetchOptions();
     }, [id, fetchWithAuth, isEmbedded]);
-
-    const handleHomePhotoChange = async (e) => {
-        const file = e.target.files[0];
-        if (!file) return;
-
-        setImageError('');
-        try {
-            // Use 2000px resolution for home photos as per requirement
-            const { file: compressedFile, previewUrl } = await compressImage(file, 2000, 2000, 0.8);
-            setHomePhoto(compressedFile);
-            setHomePhotoPreview(previewUrl);
-        } catch (error) {
-            console.error('Failed to compress home photo', error);
-            setImageError('Failed to process image. Please try another.');
-        }
-    };
-
-    const removeHomePhoto = () => {
-        setHomePhoto(null);
-        setHomePhotoPreview(null);
-    };
 
     // Cascading Dropdowns: School -> Class
     useEffect(() => {
@@ -417,11 +384,6 @@ export default function AddCustomer({ onSuccess, onCancel, isEmbedded = false })
             }
             return;
         }
-        if (name === 'pincode') {
-            const digits = value.replace(/\D/g, '').slice(0, 6);
-            setFormData(prev => ({ ...prev, [name]: digits }));
-            return;
-        }
         // Merge field update + dependent resets in one setState
         if (name === 'school') {
             setFormData(prev => ({ ...prev, [name]: value, class_obj: '', division: '', subdivision: '' }));
@@ -453,52 +415,50 @@ export default function AddCustomer({ onSuccess, onCancel, isEmbedded = false })
             longitude: lng
         }));
 
-        if (!overrideAddress) {
-            try {
-                // Fire both requests concurrently
-                const [nominatimRes, internalRes] = await Promise.allSettled([
-                    // 1. Nominatim with a strict 3-second timeout via AbortController
-                    new Promise((resolve, reject) => {
-                        const controller = new AbortController();
-                        const id = setTimeout(() => controller.abort(), 3000);
-                        fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1`, {
-                            signal: controller.signal
-                        })
-                        .then(res => { clearTimeout(id); return res.json(); })
-                        .then(resolve)
-                        .catch(err => { clearTimeout(id); reject(err); });
-                    }),
-                    // 2. Internal PostGIS ST_Contains (Primary Authority)
-                    fetchWithAuth(`${ENDPOINTS.GEO_REGIONS_REVERSE_GEOCODE}?lat=${lat}&lng=${lng}`).then(res => res.json())
-                ]);
+        try {
+            // Fire both requests concurrently
+            const [nominatimRes, internalRes] = await Promise.allSettled([
+                // 1. Nominatim with a strict 3-second timeout via AbortController
+                new Promise((resolve, reject) => {
+                    const controller = new AbortController();
+                    const id = setTimeout(() => controller.abort(), 3000);
+                    fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1`, {
+                        signal: controller.signal
+                    })
+                    .then(res => { clearTimeout(id); return res.json(); })
+                    .then(resolve)
+                    .catch(err => { clearTimeout(id); reject(err); });
+                }),
+                // 2. Internal PostGIS ST_Contains (Strict Authority for Village)
+                fetchWithAuth(`${ENDPOINTS.GEO_REGIONS_REVERSE_GEOCODE}?lat=${lat}&lng=${lng}`).then(res => res.json())
+            ]);
 
-                setFormData(prev => {
-                    const next = { ...prev };
-                    
-                    // First, apply Nominatim data (lowest priority, only for display text)
-                    if (nominatimRes.status === 'fulfilled' && nominatimRes.value?.address) {
-                        const nData = nominatimRes.value;
-                        next.address_line = nData.display_name || prev.address_line;
-                        next.landmark = nData.address.neighbourhood || nData.address.road || prev.landmark;
-                    }
-                    
-                    // Second, strictly overwrite administrative fields with internal authoritative data
-                    if (internalRes.status === 'fulfilled' && !internalRes.value.error) {
-                        const iData = internalRes.value;
-                        // ONLY set village if it was found in OUR database. Otherwise, it must be empty.
-                        next.village = iData.village || '';
-                        if (iData.pincode) next.pincode = iData.pincode;
-                    } else if (nominatimRes.status === 'fulfilled' && nominatimRes.value?.address) {
-                        // Fallback: If internal API failed (e.g. 500 error), DO NOT fallback to OSM village.
-                        // Wait, the plan says: "If internal API returns no village, village = ''. If OSM returns an address, we append it."
-                        // So we NEVER use OSM for village/pincode.
-                    }
+            setFormData(prev => {
+                const next = { ...prev };
+                
+                // 1. Nominatim: Extract Taluka (Level 6), District (Level 5), Full Address
+                if (nominatimRes.status === 'fulfilled' && nominatimRes.value?.address) {
+                    const nData = nominatimRes.value;
+                    const addr = nData.address || {};
+                    // Taluka is admin_level 6 (county / subdistrict / tehsil / taluk)
+                    next.taluka = addr.county || addr.subdistrict || addr.tehsil || addr.taluk || '';
+                    // District is admin_level 5 (state_district / district)
+                    next.district = addr.state_district || addr.district || '';
+                    // Full address text
+                    next.address_line = nData.display_name || '';
+                }
+                
+                // 2. Internal PostGIS: Strict authoritative village boundary
+                if (internalRes.status === 'fulfilled' && !internalRes.value.error && internalRes.value.village) {
+                    next.village = internalRes.value.village;
+                } else {
+                    next.village = '';
+                }
 
-                    return next;
-                });
-            } catch (err) {
-                console.error("Geocoding failed:", err);
-            }
+                return next;
+            });
+        } catch (err) {
+            console.error("Geocoding failed:", err);
         }
 
         // Phase 5: Check for nearby potential customer pins within 5m
@@ -741,17 +701,17 @@ export default function AddCustomer({ onSuccess, onCancel, isEmbedded = false })
         sanitizeFKFields(payload, ['customer_group', 'email']);
         payload.students.forEach(s => sanitizeStudentFKs(s));
 
-        // Add address if relevant fields are present, OR if a home photo was captured
-        if (formData.village || formData.address_line || formData.pincode || formData.latitude !== null || formData.location_tags.length > 0 || homePhoto) {
+        // Add address if coordinates or location tags or any address fields are present
+        if (formData.latitude !== null || formData.village || formData.taluka || formData.district || formData.address_line || formData.location_tags.length > 0) {
             const addrPayload = {
-                village: formData.village,
-                faliya: formData.faliya,
-                address_line: formData.address_line,
-                landmark: formData.landmark,
-                pincode: formData.pincode,
+                village: formData.village || '',
+                taluka: formData.taluka || '',
+                district: formData.district || '',
+                address_line: formData.address_line || '',
                 latitude: formData.latitude,
                 longitude: formData.longitude,
-                location_tag_ids: formData.location_tags
+                location_tag_ids: formData.location_tags,
+                is_primary: true
             };
             if (addressId) addrPayload.id = addressId;
             payload.addresses.push(addrPayload);
@@ -761,37 +721,10 @@ export default function AddCustomer({ onSuccess, onCancel, isEmbedded = false })
             const url = isEditMode ? `${ENDPOINTS.CUSTOMERS}${id}/` : ENDPOINTS.CUSTOMERS;
             const method = isEditMode ? 'PUT' : 'POST';
 
-            let requestBody;
-            let headers = {};
-
-            if (homePhoto) {
-                requestBody = new FormData();
-                // FK fields that must be explicitly sent even when null (as '')
-                // so the backend can coerce '' → None and actually clear them.
-                // Without this, null values are silently stripped from FormData
-                // and the backend never receives the "clear" instruction on PUT.
-                const NULLABLE_FK_KEYS = new Set(['customer_group', 'email']);
-
-                Object.keys(payload).forEach(key => {
-                    if (key === 'addresses' || key === 'location_tags' || key === 'students') {
-                        requestBody.append(key, JSON.stringify(payload[key]));
-                    } else if (NULLABLE_FK_KEYS.has(key)) {
-                        // Always include FK fields — send '' if null so backend coercion picks it up
-                        requestBody.append(key, payload[key] ?? '');
-                    } else if (payload[key] !== null && payload[key] !== undefined && payload[key] !== '') {
-                        requestBody.append(key, payload[key]);
-                    }
-                });
-                requestBody.append('home_photo', homePhoto);
-            } else {
-                requestBody = JSON.stringify(payload);
-                headers['Content-Type'] = 'application/json';
-            }
-
             const res = await fetchWithAuth(url, {
                 method: method,
-                headers: headers,
-                body: requestBody
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
             });
 
             if (res.ok) {
@@ -1124,35 +1057,65 @@ export default function AddCustomer({ onSuccess, onCancel, isEmbedded = false })
                     {sections.address && (
                         <div className="section-content open">
                             <div className="form-grid">
-                                <div className="form-group full-width map-container" style={{ marginBottom: '20px' }}>
+                                <div className="form-group full-width map-container" style={{ marginBottom: '16px' }}>
                                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                                        <label style={{ margin: 0 }}>Select Location on Map</label>
-                                        <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem', color: 'var(--color-primary)', cursor: 'pointer', margin: 0, fontWeight: 600 }}>
-                                            <input 
-                                                type="checkbox" 
-                                                checked={overrideAddress} 
-                                                onChange={(e) => setOverrideAddress(e.target.checked)} 
-                                                style={{ cursor: 'pointer' }}
-                                            />
-                                            Manual Override (Disable Auto-Fill)
-                                        </label>
+                                        <label style={{ margin: 0, fontWeight: 600 }}>Pin Location on Map</label>
+                                        <span className="text-muted text-sm">Village, Taluka & District resolve automatically</span>
                                     </div>
                                     <MapComponent
                                         position={formData.latitude !== null && formData.longitude !== null ? [formData.latitude, formData.longitude] : null}
                                         onLocationSelect={handleLocationSelect}
                                     />
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '5px', flexWrap: 'wrap', gap: '6px' }}>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                            {formData.latitude !== null ? (
-                                                <>
-                                                    <p className="text-muted text-sm" style={{ margin: 0 }}>Selected: {formData.latitude.toFixed(6)}, {formData.longitude.toFixed(6)}</p>
+                                </div>
+
+                                {/* Auto-Resolved Location Summary Card */}
+                                <div className="form-group full-width" style={{ marginBottom: '16px' }}>
+                                    {formData.latitude !== null && formData.longitude !== null ? (
+                                        <div style={{
+                                            background: 'var(--color-bg-secondary, #f8fafc)',
+                                            border: '1px solid var(--color-border, #e2e8f0)',
+                                            borderRadius: '8px',
+                                            padding: '14px 16px',
+                                            display: 'flex',
+                                            flexDirection: 'column',
+                                            gap: '10px'
+                                        }}>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                                                    {formData.village ? (
+                                                        <span className="badge" style={{ background: '#10b981', color: '#fff', padding: '4px 10px', borderRadius: '12px', fontSize: '0.85rem', fontWeight: 600 }}>
+                                                            📍 Village: {formData.village}
+                                                        </span>
+                                                    ) : (
+                                                        <span className="badge" style={{ background: '#f59e0b', color: '#fff', padding: '4px 10px', borderRadius: '12px', fontSize: '0.85rem', fontWeight: 500 }}>
+                                                            ⚠️ Outside village boundaries
+                                                        </span>
+                                                    )}
+                                                    {formData.taluka && (
+                                                        <span style={{ fontSize: '0.85rem', color: 'var(--color-text-secondary, #475569)' }}>
+                                                            Taluka: <strong style={{ color: 'var(--color-text, #1e293b)' }}>{formData.taluka}</strong>
+                                                        </span>
+                                                    )}
+                                                    {formData.district && (
+                                                        <span style={{ fontSize: '0.85rem', color: 'var(--color-text-secondary, #475569)' }}>
+                                                            District: <strong style={{ color: 'var(--color-text, #1e293b)' }}>{formData.district}</strong>
+                                                        </span>
+                                                    )}
+                                                </div>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                    <span className="text-muted text-sm" style={{ fontFamily: 'monospace' }}>
+                                                        {formData.latitude.toFixed(6)}, {formData.longitude.toFixed(6)}
+                                                    </span>
                                                     <button
                                                         type="button"
                                                         onClick={() => setFormData(prev => ({
                                                             ...prev,
                                                             latitude: null,
                                                             longitude: null,
-                                                            ...(overrideAddress ? {} : { village: '', faliya: '', address_line: '', landmark: '', pincode: '' })
+                                                            village: '',
+                                                            taluka: '',
+                                                            district: '',
+                                                            address_line: ''
                                                         }))}
                                                         style={{
                                                             background: 'none',
@@ -1169,33 +1132,31 @@ export default function AddCustomer({ onSuccess, onCancel, isEmbedded = false })
                                                     >
                                                         ✕ Remove Pin
                                                     </button>
-                                                 </>
-                                            ) : <div/>}
+                                                </div>
+                                            </div>
+                                            {formData.address_line && (
+                                                <div style={{ fontSize: '0.85rem', color: 'var(--color-text-muted, #64748b)', lineHeight: 1.4 }}>
+                                                    {formData.address_line}
+                                                </div>
+                                            )}
                                         </div>
-                                    </div>
+                                    ) : (
+                                        <div style={{
+                                            padding: '12px 16px',
+                                            background: 'var(--color-bg-tertiary, #f1f5f9)',
+                                            borderRadius: '8px',
+                                            border: '1px dashed var(--color-border, #cbd5e1)',
+                                            color: 'var(--color-text-muted, #64748b)',
+                                            fontSize: '0.85rem',
+                                            textAlign: 'center'
+                                        }}>
+                                            📍 Click or drag on the map above to select customer location. Village, Taluka, and District resolve automatically.
+                                        </div>
+                                    )}
                                 </div>
 
-                                <div className="form-group">
-                                    <label>Village</label>
-                                    <input type="text" name="village" value={formData.village} onChange={handleInputChange} disabled={!overrideAddress} style={!overrideAddress ? { backgroundColor: 'var(--color-bg-hover)' } : {}} />
-                                </div>
-                                <div className="form-group">
-                                    <label>Faliya <span className="info-tooltip" title="Neighbourhood / Lane">ⓘ</span></label>
-                                    <input type="text" name="faliya" value={formData.faliya} onChange={handleInputChange} disabled={!overrideAddress} style={!overrideAddress ? { backgroundColor: 'var(--color-bg-hover)' } : {}} />
-                                </div>
+                                {/* Location Tags */}
                                 <div className="form-group full-width">
-                                    <label>Address Line</label>
-                                    <textarea name="address_line" value={formData.address_line} onChange={handleInputChange} rows={2} disabled={!overrideAddress} style={!overrideAddress ? { backgroundColor: 'var(--color-bg-hover)' } : {}} />
-                                </div>
-                                <div className="form-group">
-                                    <label>Landmark</label>
-                                    <input type="text" name="landmark" value={formData.landmark} onChange={handleInputChange} disabled={!overrideAddress} style={!overrideAddress ? { backgroundColor: 'var(--color-bg-hover)' } : {}} />
-                                </div>
-                                <div className="form-group">
-                                    <label>Pincode</label>
-                                    <input type="text" name="pincode" value={formData.pincode} onChange={handleInputChange} disabled={!overrideAddress} style={!overrideAddress ? { backgroundColor: 'var(--color-bg-hover)' } : {}} />
-                                </div>
-                                <div className="form-group">
                                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                                         <label style={{ margin: 0 }}>Location Tags</label>
                                         {!showNewTagInput && (
@@ -1241,45 +1202,6 @@ export default function AddCustomer({ onSuccess, onCancel, isEmbedded = false })
                                         })}
                                         {locationTags.length === 0 && <small className="text-muted">No tags yet</small>}
                                     </div>
-                                </div>
-                                <div className="form-group">
-                                    <label>Home Photo <span className="info-tooltip" title="Visual confirmation for delivery driver">ⓘ</span></label>
-                                    {!homePhotoPreview ? (
-                                        <div 
-                                            style={{
-                                                border: '2px dashed var(--color-border)', 
-                                                borderRadius: '8px', 
-                                                padding: '1rem', 
-                                                textAlign: 'center',
-                                                cursor: 'pointer',
-                                                background: 'var(--color-bg-tertiary)'
-                                            }}
-                                            onClick={() => document.getElementById('homePhotoInput').click()}
-                                        >
-                                            <div style={{ fontSize: '2rem', color: 'var(--color-text-muted)' }}>📷</div>
-                                            <p style={{ margin: '0.5rem 0 0', color: 'var(--color-primary)' }}>Tap to capture or upload</p>
-                                        </div>
-                                    ) : (
-                                        <div style={{ position: 'relative', width: '100%', maxWidth: '300px', borderRadius: '8px', overflow: 'hidden', border: '1px solid var(--color-border)' }}>
-                                            <img src={homePhotoPreview} alt="Customer Home" style={{ width: '100%', height: 'auto', display: 'block' }} />
-                                            <button 
-                                                type="button" 
-                                                onClick={removeHomePhoto}
-                                                style={{ position: 'absolute', top: '8px', right: '8px', background: 'rgba(0,0,0,0.6)', color: 'white', border: 'none', borderRadius: '50%', width: '28px', height: '28px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                                            >
-                                                ✕
-                                            </button>
-                                        </div>
-                                    )}
-                                    <input 
-                                        type="file" 
-                                        id="homePhotoInput" 
-                                        accept="image/*" 
-                                        capture="environment"
-                                        style={{ display: 'none' }} 
-                                        onChange={handleHomePhotoChange}
-                                    />
-                                    {imageError && <small style={{ color: 'var(--color-danger)' }}>{imageError}</small>}
                                 </div>
                             </div>
                         </div>

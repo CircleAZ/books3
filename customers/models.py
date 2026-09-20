@@ -8,28 +8,18 @@ from core.models import SoftDeleteModel, UUIDPrimaryKeyModel, DisplayIDMixin
 
 class GeographicRegion(SoftDeleteModel):
     """
-    Strict mapping layer from geocoding data.
-    Provides polygon boundaries for District, Taluka, and Village.
+    Strict mapping layer for village boundaries.
+    Provides polygon boundaries for villages.
     """
-    LAYER_CHOICES = [
-        ('district', 'District'),
-        ('taluka', 'Taluka'),
-        ('village', 'Village'),
-    ]
     name = models.CharField(max_length=200)
-    layer = models.CharField(max_length=20, choices=LAYER_CHOICES)
-    pincode = models.CharField(max_length=10, blank=True)
     color = models.CharField(max_length=10, blank=True)
     boundary = gis_models.PolygonField(srid=4326, null=True, blank=True, help_text="Village boundary coordinates")
-    parent = models.ForeignKey(
-        'self', on_delete=models.SET_NULL, null=True, blank=True, related_name='children'
-    )
     
     class Meta:
-        ordering = ['layer', 'name']
+        ordering = ['name']
     
     def __str__(self):
-        return f"{self.name} ({self.get_layer_display()})"
+        return self.name
 
 
 class Customer(DisplayIDMixin, SoftDeleteModel):
@@ -171,36 +161,28 @@ class Student(DisplayIDMixin, SoftDeleteModel):
 class Address(UUIDPrimaryKeyModel):
     """
     Customer address with location data for delivery/mapping.
+    Driven authoritatively by map coordinates.
     """
     customer = models.ForeignKey(Customer, on_delete=models.CASCADE, related_name='addresses')
     
     # Location hierarchy (Strict Geocoding)
     region = models.ForeignKey(
         GeographicRegion, on_delete=models.SET_NULL, null=True, blank=True,
-        related_name='addresses', help_text="Strictly normalized village/taluka layer"
+        related_name='addresses', help_text="Authoritative village boundary layer"
     )
-    faliya = models.CharField(max_length=200, blank=True, 
-        help_text="Sub-locality within a village (manual entry)")
+    taluka = models.CharField(max_length=100, blank=True, help_text="Taluka (OSM admin_level 6)")
+    district = models.CharField(max_length=100, blank=True, help_text="District (OSM admin_level 5)")
     
-    # Full address
-    address_line = models.TextField(blank=True, help_text="Full street address")
-    landmark = models.CharField(max_length=200, blank=True, 
-        help_text="Nearby landmark for easy finding")
+    # Full address from OSM display_name
+    address_line = models.TextField(blank=True, help_text="Full street address (auto-filled from OSM)")
     
     # Location Tags (for delivery routing)
     location_tags = models.ManyToManyField(
         'settings_app.LocationTag', blank=True, related_name='addresses'
     )
     
-    # Home Photo (Visual confirmation for delivery)
-    home_photo = models.ImageField(
-        upload_to='customer_homes/', blank=True, null=True,
-        help_text="Visual confirmation of the customer's home"
-    )
-    
     # Map coordinates (PostGIS)
     location = gis_models.PointField(srid=4326, null=True, blank=True)
-    pincode = models.CharField(max_length=10, blank=True)
     
     # Flags
     is_primary = models.BooleanField(default=False)
@@ -219,10 +201,10 @@ class Address(UUIDPrimaryKeyModel):
         parts = []
         if self.region:
             parts.append(self.region.name)
-        if self.faliya:
-            parts.append(self.faliya)
-        if self.pincode:
-            parts.append(self.pincode)
+        if self.taluka:
+            parts.append(self.taluka)
+        if self.district:
+            parts.append(self.district)
         return ', '.join(parts) if parts else f"Address {self.pk}"
 
 

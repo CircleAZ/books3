@@ -20,7 +20,7 @@ class Command(BaseCommand):
             self.stdout.write(self.style.WARNING("=== DRY RUN — no changes will be saved ===\n"))
 
         # Get all village boundaries
-        village_regions = GeographicRegion.objects.filter(layer='village', boundary__isnull=False)
+        village_regions = GeographicRegion.objects.filter(is_deleted=False, boundary__isnull=False)
         self.stdout.write(f"Found {village_regions.count()} village boundaries to test against.\n")
 
         # Get all primary addresses with GPS coordinates

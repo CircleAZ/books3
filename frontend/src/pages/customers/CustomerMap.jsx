@@ -162,7 +162,8 @@ function createPopupContent(customer, navigate, onOrderClick, fetchWithAuth, sho
 
     const locationParts = [];
     if (customer.village) locationParts.push(customer.village);
-    if (customer.faliya) locationParts.push(customer.faliya);
+    if (customer.taluka) locationParts.push(customer.taluka);
+    if (customer.district) locationParts.push(customer.district);
     if (locationParts.length > 0) {
         const locRow = document.createElement('div');
         locRow.className = 'popup-row';
@@ -170,11 +171,11 @@ function createPopupContent(customer, navigate, onOrderClick, fetchWithAuth, sho
         container.appendChild(locRow);
     }
 
-    if (customer.landmark) {
-        const landmarkRow = document.createElement('div');
-        landmarkRow.className = 'popup-row popup-landmark';
-        landmarkRow.textContent = `🏠 ${customer.landmark}`;
-        container.appendChild(landmarkRow);
+    if (customer.address_line) {
+        const addrRow = document.createElement('div');
+        addrRow.className = 'popup-row popup-landmark';
+        addrRow.textContent = `🏠 ${customer.address_line}`;
+        container.appendChild(addrRow);
     }
 
     // ── Editable Notes Section ──

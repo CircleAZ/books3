@@ -703,7 +703,8 @@ class CustomerReportViewSet(ReportBaseViewSet):
     def locations(self, request):
         """Customer locations for map visualization."""
         tag = request.query_params.get('tag')
-        pincode = request.query_params.get('pincode')
+        taluka = request.query_params.get('taluka')
+        district = request.query_params.get('district')
         village = request.query_params.get('village')
         
         addresses = Address.objects.filter(
@@ -712,8 +713,10 @@ class CustomerReportViewSet(ReportBaseViewSet):
         
         if tag:
             addresses = addresses.filter(location_tags__name=tag)
-        if pincode:
-            addresses = addresses.filter(pincode=pincode)
+        if taluka:
+            addresses = addresses.filter(taluka__icontains=taluka)
+        if district:
+            addresses = addresses.filter(district__icontains=district)
         if village:
             addresses = addresses.filter(region__name__icontains=village)
         
@@ -728,7 +731,8 @@ class CustomerReportViewSet(ReportBaseViewSet):
                 'latitude': float(addr.location.y),
                 'longitude': float(addr.location.x),
                 'address': str(addr),
-                'pincode': addr.pincode or '',
+                'taluka': addr.taluka or '',
+                'district': addr.district or '',
                 'village': addr.region.name if addr.region else '',
                 'tag': first_tag.name if first_tag else '',
                 'tag_color': first_tag.color if first_tag else ''
