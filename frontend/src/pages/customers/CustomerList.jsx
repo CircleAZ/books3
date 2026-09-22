@@ -5,6 +5,7 @@ import { ENDPOINTS } from '../../config/api';
 import useServerList from '../../hooks/useServerList';
 import Pagination from '../../components/common/Pagination';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
+import SearchTokenPalette from '../../components/common/SearchTokenPalette';
 import './CustomerList.css';
 
 const CustomerList = () => {
@@ -48,26 +49,12 @@ const CustomerList = () => {
             </div>
 
             <div className="customer-search-card card">
-                <div className="search-container">
-                    <span className="search-icon">🔍</span>
-                    <input
-                        type="text"
-                        placeholder="Search by name, phone, email..."
-                        value={search}
-                        onChange={(e) => setSearch(e.target.value)}
-                        className="search-input"
-                    />
-                    {search && (
-                        <button
-                            type="button"
-                            className="search-clear-btn"
-                            onClick={() => setSearch('')}
-                            title="Clear search"
-                        >
-                            ✕
-                        </button>
-                    )}
-                </div>
+                <SearchTokenPalette
+                    value={search}
+                    onChange={setSearch}
+                    placeholder="Search by name, phone, taluka:..., wallet:>0..."
+                    suggestionsEndpoint={ENDPOINTS.CUSTOMERS_SEARCH_SUGGESTIONS}
+                />
             </div>
 
             <div className="customer-table-card card">

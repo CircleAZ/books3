@@ -34,6 +34,7 @@ export const ENDPOINTS = {
 
     // Customers
     CUSTOMERS: `${API_BASE}/customers/customers/`,
+    CUSTOMERS_SEARCH_SUGGESTIONS: `${API_BASE}/customers/customers/search-suggestions/`,
     SCHOOLS: `${API_BASE}/customers/schools/`,
     CLASSES: `${API_BASE}/customers/classes/`,
     CUSTOMERS_GROUPS: `${API_BASE}/customers/customer-groups/`,
