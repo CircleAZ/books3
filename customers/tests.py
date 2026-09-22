@@ -419,3 +419,5 @@ class CustomerMapDataSoftDeleteTest(TestCase):
         self.assertEqual(float(customer_data['total_spent']), 1020.00)
         self.assertEqual(customer_data['season_orders'], 1)
 
+from .tests_tokenized_search import CustomerTokenizedSearchTests
+

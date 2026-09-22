@@ -10,8 +10,9 @@ from django.db.models import Prefetch
 from django.db import transaction, models
 from orders.constants import VALID_SALE_STATUSES
 from core.db_routers import use_read_replica
-
 from core.permissions import HasRequiredPermission
+
+from .filters import CustomerTokenizedSearchFilter
 from .models import Customer, Address, CustomerLink, Wallet, WalletTransaction, TargetVillage, PotentialCustomer, GeographicRegion, LegacyDebt
 from .serializers import (
     CustomerListSerializer, CustomerDetailSerializer, CustomerCreateUpdateSerializer,
@@ -107,9 +108,9 @@ class CustomerViewSet(viewsets.ModelViewSet):
     permission_map = {
         'list': 'customers.view_customers',
         'retrieve': 'customers.view_customers',
+        'search_suggestions': 'customers.view_customers',
     }
-    filter_backends = [filters.SearchFilter, filters.OrderingFilter, DjangoFilterBackend]
-    search_fields = ['first_name', 'middle_name', 'last_name', 'phone', 'email', 'display_id']
+    filter_backends = [CustomerTokenizedSearchFilter, filters.OrderingFilter, DjangoFilterBackend]
     ordering_fields = ['created_at', 'first_name', 'last_name', 'display_id']
     filterset_fields = ['customer_group']
     
@@ -147,6 +148,83 @@ class CustomerViewSet(viewsets.ModelViewSet):
         customer = self.get_object()
         # TODO: Implement when Orders module is ready
         return Response({'orders': [], 'total_spent': 0})
+
+    @action(detail=False, methods=['get'], url_path='search-suggestions')
+    def search_suggestions(self, request):
+        """
+        Returns search prefix schema cheatsheet (Screenshot 1) OR
+        dynamic distinct values with counts for a specific prefix (Screenshot 2).
+        """
+        prefix = request.query_params.get('prefix', '').strip().lower()
+        q = request.query_params.get('q', '').strip()
+
+        # If no prefix specified, return available search qualifiers cheatsheet
+        if not prefix:
+            return Response({
+                'prefixes': [
+                    {'prefix': 'phone', 'example': 'phone:...', 'description': 'Filter by phone number'},
+                    {'prefix': 'name', 'example': 'name:"..."', 'description': 'Search by customer name'},
+                    {'prefix': 'taluka', 'example': 'taluka:...', 'description': 'Filter by taluka (OSM L6)'},
+                    {'prefix': 'district', 'example': 'district:...', 'description': 'Filter by district (OSM L5)'},
+                    {'prefix': 'village', 'example': 'village:...', 'description': 'Filter by village boundary'},
+                    {'prefix': 'wallet', 'example': 'wallet:>N', 'description': 'Filter by wallet balance'},
+                    {'prefix': 'debt', 'example': 'debt:>N', 'description': 'Filter by legacy debt'},
+                    {'prefix': 'email', 'example': 'email:...', 'description': 'Filter by email address'},
+                    {'prefix': 'group', 'example': 'group:...', 'description': 'Filter by customer group'},
+                    {'prefix': 'id', 'example': 'id:N', 'description': 'Filter by customer ID'},
+                ]
+            })
+
+        from django.db.models import Count
+        from customers.models import Address, GeographicRegion
+        from settings_app.models import CustomerGroup
+
+        suggestions = []
+        if prefix == 'taluka':
+            qs = Address.objects.exclude(taluka='')
+            if q:
+                qs = qs.filter(taluka__icontains=q)
+            results = qs.values('taluka').annotate(count=Count('customer_id', distinct=True)).order_by('-count')[:10]
+            suggestions = [{'value': r['taluka'], 'count': r['count'], 'prefix': 'taluka'} for r in results]
+
+        elif prefix == 'district':
+            qs = Address.objects.exclude(district='')
+            if q:
+                qs = qs.filter(district__icontains=q)
+            results = qs.values('district').annotate(count=Count('customer_id', distinct=True)).order_by('-count')[:10]
+            suggestions = [{'value': r['district'], 'count': r['count'], 'prefix': 'district'} for r in results]
+
+        elif prefix == 'village':
+            qs = GeographicRegion.objects.filter(is_deleted=False)
+            if q:
+                qs = qs.filter(name__icontains=q)
+            results = qs.annotate(count=Count('addresses__customer_id', distinct=True)).values('name', 'count').order_by('-count')[:10]
+            suggestions = [{'value': r['name'], 'count': r['count'], 'prefix': 'village'} for r in results]
+
+        elif prefix == 'group':
+            qs = CustomerGroup.objects.all()
+            if q:
+                qs = qs.filter(name__icontains=q)
+            results = qs.annotate(count=Count('customers', distinct=True)).values('name', 'count').order_by('-count')[:10]
+            suggestions = [{'value': r['name'], 'count': r['count'], 'prefix': 'group'} for r in results]
+
+        elif prefix == 'wallet':
+            suggestions = [
+                {'value': '>0', 'count': None, 'prefix': 'wallet', 'label': 'Positive balance (>0)'},
+                {'value': '=0', 'count': None, 'prefix': 'wallet', 'label': 'Zero balance (=0)'},
+                {'value': '>500', 'count': None, 'prefix': 'wallet', 'label': 'High credit (>500)'},
+            ]
+
+        elif prefix == 'debt':
+            suggestions = [
+                {'value': '>0', 'count': None, 'prefix': 'debt', 'label': 'Pending debt (>0)'},
+                {'value': '=0', 'count': None, 'prefix': 'debt', 'label': 'Cleared debt (=0)'},
+            ]
+
+        return Response({
+            'prefix': prefix,
+            'suggestions': suggestions
+        })
 
     @action(detail=False, methods=['get'], url_path='map_data')
     @use_read_replica
