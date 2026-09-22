@@ -1,40 +1,333 @@
+/* Customer List Page Styles — Books3 Design System */
+
 .customer-list-container {
     padding: var(--page-padding);
+    display: flex;
+    flex-direction: column;
+    gap: var(--page-gap);
+    width: 100%;
 }
 
-.page-header {
+/* Page Header */
+.customer-list-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: var(--page-gap);
     flex-wrap: wrap;
+    gap: var(--space-md);
+}
+
+.header-title-group {
+    display: flex;
+    align-items: center;
     gap: var(--space-sm);
 }
 
-.search-bar {
-    margin-bottom: var(--page-gap);
+.customer-list-title {
+    font-size: var(--font-size-2xl);
+    font-weight: 700;
+    color: var(--color-text-primary);
+    margin: 0;
+    letter-spacing: -0.02em;
 }
 
-.clickable-row {
+.customer-count-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: var(--font-size-xs);
+    font-weight: 600;
+    padding: 3px 10px;
+    border-radius: var(--radius-full);
+    background: var(--color-bg-tertiary);
+    color: var(--color-text-secondary);
+    border: 1px solid var(--color-border);
+}
+
+.header-actions {
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
+}
+
+/* Search Card */
+.customer-search-card {
+    background: var(--color-bg-secondary);
+    border: 1px solid var(--color-border-light);
+    border-radius: var(--radius-md);
+    padding: var(--space-xs) var(--space-sm) !important;
+    transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.customer-search-card:focus-within {
+    border-color: var(--color-primary);
+    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.15);
+}
+
+.search-container {
+    position: relative;
+    display: flex;
+    align-items: center;
+    width: 100%;
+}
+
+.search-icon {
+    position: absolute;
+    left: 12px;
+    font-size: 0.9rem;
+    color: var(--color-text-muted);
+    pointer-events: none;
+    user-select: none;
+}
+
+.search-input {
+    width: 100%;
+    padding: 10px 36px 10px 38px;
+    background: transparent;
+    border: none;
+    font-size: var(--font-size-sm);
+    color: var(--color-text-primary);
+    outline: none;
+}
+
+.search-input::placeholder {
+    color: var(--color-text-muted);
+}
+
+.search-clear-btn {
+    position: absolute;
+    right: 8px;
+    background: none;
+    border: none;
+    color: var(--color-text-muted);
+    font-size: 0.85rem;
+    cursor: pointer;
+    padding: 4px 8px;
+    border-radius: var(--radius-sm);
+    transition: all var(--transition-fast);
+}
+
+.search-clear-btn:hover {
+    color: var(--color-text-primary);
+    background: var(--color-bg-hover);
+}
+
+/* Table Card */
+.customer-table-card {
+    background: var(--color-bg-secondary);
+    border: 1px solid var(--color-border-light);
+    border-radius: var(--radius-lg);
+    padding: 0 !important;
+    overflow: hidden;
+    box-shadow: var(--shadow-sm);
+}
+
+.customer-loading-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 260px;
+}
+
+.table-responsive {
+    width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+}
+
+.customer-table {
+    width: 100%;
+    border-collapse: collapse;
+    text-align: left;
+}
+
+/* Header Cells */
+.customer-table th {
+    padding: 14px 18px;
+    background-color: var(--color-bg-tertiary);
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs, 0.75rem);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    border-bottom: 1px solid var(--color-border);
+    white-space: nowrap;
+}
+
+/* Data Cells */
+.customer-table td {
+    padding: 14px 18px;
+    border-bottom: 1px solid var(--color-border-light);
+    font-size: var(--font-size-sm, 0.875rem);
+    vertical-align: middle;
+    color: var(--color-text-primary);
+}
+
+/* Column Dimensions & Alignments */
+.th-id, .cell-id {
+    width: 90px;
+    white-space: nowrap;
+}
+
+.th-name, .cell-name {
+    min-width: 200px;
+}
+
+.th-phone, .cell-phone {
+    width: 150px;
+    white-space: nowrap;
+}
+
+.th-email, .cell-email {
+    min-width: 160px;
+    max-width: 220px;
+}
+
+.th-wallet, .cell-wallet {
+    width: 130px;
+    text-align: right;
+}
+
+.th-action, .cell-action {
+    width: 100px;
+    text-align: right;
+    padding-right: 20px;
+}
+
+/* Row Hover & Click States */
+.customer-table tr.clickable-row {
     cursor: pointer;
     transition: background-color var(--transition-fast);
 }
 
-.clickable-row:hover {
+.customer-table tr.clickable-row:hover {
     background-color: var(--color-bg-hover);
 }
 
-/* Responsive Table Adjustments */
-@media (max-width: 768px) {
-    /* Hide ID */
-    .data-table th:nth-child(1),
-    .data-table td:nth-child(1),
-    /* Hide Email */
-    .data-table th:nth-child(4),
-    .data-table td:nth-child(4),
-    /* Hide Wallet */
-    .data-table th:nth-child(5),
-    .data-table td:nth-child(5) {
+.customer-table tr:last-child td {
+    border-bottom: none;
+}
+
+/* Visual Cell Elements */
+.id-badge {
+    font-family: monospace;
+    font-size: 0.8rem;
+    color: var(--color-text-muted);
+    background: rgba(255, 255, 255, 0.04);
+    padding: 3px 8px;
+    border-radius: var(--radius-sm);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.customer-name-text {
+    font-weight: 600;
+    color: var(--color-text-primary);
+    transition: color var(--transition-fast);
+}
+
+.customer-table tr.clickable-row:hover .customer-name-text {
+    color: var(--color-primary-light);
+}
+
+.phone-text {
+    color: var(--color-text-secondary);
+    font-family: monospace;
+    font-size: 0.85rem;
+    letter-spacing: 0.02em;
+}
+
+.email-text {
+    color: var(--color-text-muted);
+    font-size: 0.85rem;
+    display: block;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.wallet-badge {
+    font-weight: 600;
+    font-size: 0.875rem;
+    color: var(--color-text-muted);
+    font-variant-numeric: tabular-nums;
+}
+
+.wallet-badge.positive {
+    color: var(--color-success);
+    font-weight: 700;
+}
+
+.btn-action-edit {
+    padding: 5px 14px;
+    font-size: 0.8rem;
+    font-weight: 500;
+    border-radius: var(--radius-sm);
+    background: var(--color-bg-tertiary);
+    border: 1px solid var(--color-border);
+    color: var(--color-text-secondary);
+    transition: all var(--transition-fast);
+}
+
+.btn-action-edit:hover {
+    background: var(--color-primary);
+    color: #fff;
+    border-color: var(--color-primary);
+}
+
+/* Empty State */
+.empty-state {
+    text-align: center;
+    padding: var(--space-2xl) var(--space-lg) !important;
+}
+
+.empty-state-content {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--space-xs);
+}
+
+.empty-state-icon {
+    font-size: 2.5rem;
+    opacity: 0.5;
+    margin-bottom: var(--space-xs);
+}
+
+.empty-state-content p {
+    margin: 0;
+    font-size: var(--font-size-md);
+    font-weight: 500;
+    color: var(--color-text-secondary);
+}
+
+/* Responsive Breakpoints */
+@media (max-width: 900px) {
+    .th-email, .cell-email {
         display: none;
+    }
+}
+
+@media (max-width: 640px) {
+    .th-id, .cell-id {
+        display: none;
+    }
+
+    .customer-table th, 
+    .customer-table td {
+        padding: 10px 12px;
+    }
+
+    .customer-list-header {
+        gap: var(--space-sm);
+    }
+
+    .header-title-group {
+        width: 100%;
+        justify-content: space-between;
+    }
+
+    .header-actions {
+        width: 100%;
+        justify-content: flex-end;
     }
 }
