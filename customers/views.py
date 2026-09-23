@@ -171,16 +171,27 @@ class CustomerViewSet(viewsets.ModelViewSet):
                     {'prefix': 'debt', 'example': 'debt:>N', 'description': 'Filter by legacy debt'},
                     {'prefix': 'email', 'example': 'email:...', 'description': 'Filter by email address'},
                     {'prefix': 'group', 'example': 'group:...', 'description': 'Filter by customer group'},
+                    {'prefix': 'coords', 'example': 'coords:false', 'description': 'Filter by saved GPS coordinates (true/false)'},
                     {'prefix': 'id', 'example': 'id:N', 'description': 'Filter by customer ID'},
                 ]
             })
 
-        from django.db.models import Count
-        from customers.models import Address, GeographicRegion
+        from django.db.models import Count, Exists, OuterRef
+        from customers.models import Customer, Address, GeographicRegion
         from settings_app.models import CustomerGroup
 
         suggestions = []
-        if prefix == 'taluka':
+        if prefix in ('coords', 'location', 'geo', 'gps'):
+            has_coords_q = Exists(Address.objects.filter(customer=OuterRef('pk'), location__isnull=False))
+            with_coords_count = Customer.objects.filter(has_coords_q).count()
+            total_customers = Customer.objects.count()
+            without_coords_count = max(0, total_customers - with_coords_count)
+            suggestions = [
+                {'value': 'false', 'count': without_coords_count, 'prefix': 'coords', 'label': 'Missing GPS (false)'},
+                {'value': 'true', 'count': with_coords_count, 'prefix': 'coords', 'label': 'GPS Saved (true)'},
+            ]
+
+        elif prefix == 'taluka':
             qs = Address.objects.exclude(taluka='')
             if q:
                 qs = qs.filter(taluka__icontains=q)

@@ -23,6 +23,29 @@ const CustomerList = () => {
         setSearch,
     } = useServerList(ENDPOINTS.CUSTOMERS);
 
+    const toggleSearchToken = (token) => {
+        const current = (search || '').trim();
+        const regex = new RegExp(`(^|\\s)${token.replace(/([.*+?^=!:${}()|\[\]\/\\])/g, "\\$1")}($|\\s)`, 'i');
+        if (regex.test(current)) {
+            const next = current.replace(regex, ' ').replace(/\s+/g, ' ').trim();
+            setSearch(next);
+        } else {
+            let next = current;
+            if (token === 'coords:false') {
+                next = next.replace(/(^|\s)coords:true($|\s)/gi, ' ');
+            } else if (token === 'coords:true') {
+                next = next.replace(/(^|\s)coords:false($|\s)/gi, ' ');
+            }
+            next = next ? `${next.trim()} ${token}` : token;
+            setSearch(next.replace(/\s+/g, ' ').trim());
+        }
+    };
+
+    const isMissingGpsActive = /(^|\s)coords:false($|\s)/i.test(search || '');
+    const isGpsSavedActive = /(^|\s)coords:true($|\s)/i.test(search || '');
+    const isWalletActive = /(^|\s)wallet:>0($|\s)/i.test(search || '');
+    const isDebtActive = /(^|\s)debt:>0($|\s)/i.test(search || '');
+
     return (
         <div className="customer-list-container fade-in">
             <div className="customer-list-header">
@@ -52,9 +75,54 @@ const CustomerList = () => {
                 <SearchTokenPalette
                     value={search}
                     onChange={setSearch}
-                    placeholder="Search by name, phone, taluka:..., wallet:>0..."
+                    placeholder="Search by name, phone, coords:false, taluka:..., wallet:>0..."
                     suggestionsEndpoint={ENDPOINTS.CUSTOMERS_SEARCH_SUGGESTIONS}
                 />
+
+                <div className="customer-quick-pills" style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center', marginTop: '10px' }}>
+                    <button
+                        type="button"
+                        className={`btn btn-sm ${isMissingGpsActive ? 'btn-primary' : 'btn-ghost'}`}
+                        onClick={() => toggleSearchToken('coords:false')}
+                        title="Filter customers without saved GPS coordinates"
+                    >
+                        {isMissingGpsActive ? '✕ Missing GPS' : '📍 Missing GPS'}
+                    </button>
+                    <button
+                        type="button"
+                        className={`btn btn-sm ${isGpsSavedActive ? 'btn-primary' : 'btn-ghost'}`}
+                        onClick={() => toggleSearchToken('coords:true')}
+                        title="Filter customers with saved GPS coordinates"
+                    >
+                        {isGpsSavedActive ? '✕ GPS Saved' : '📍 GPS Saved'}
+                    </button>
+                    <button
+                        type="button"
+                        className={`btn btn-sm ${isWalletActive ? 'btn-primary' : 'btn-ghost'}`}
+                        onClick={() => toggleSearchToken('wallet:>0')}
+                        title="Filter customers with positive wallet credit"
+                    >
+                        {isWalletActive ? '✕ Wallet > 0' : '💰 Wallet > 0'}
+                    </button>
+                    <button
+                        type="button"
+                        className={`btn btn-sm ${isDebtActive ? 'btn-primary' : 'btn-ghost'}`}
+                        onClick={() => toggleSearchToken('debt:>0')}
+                        title="Filter customers with pending legacy debt"
+                    >
+                        {isDebtActive ? '✕ Has Debt' : '⚠️ Has Debt'}
+                    </button>
+                    {search && (
+                        <button
+                            type="button"
+                            className="btn btn-sm btn-ghost"
+                            onClick={() => setSearch('')}
+                            style={{ marginLeft: 'auto' }}
+                        >
+                            Clear Search
+                        </button>
+                    )}
+                </div>
             </div>
 
             <div className="customer-table-card card">

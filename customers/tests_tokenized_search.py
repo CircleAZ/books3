@@ -5,6 +5,7 @@ Unit Tests for Customer Tokenized Search Filter and Autocomplete Suggestions API
 from decimal import Decimal
 from django.test import TestCase
 from django.contrib.auth import get_user_model
+from django.contrib.gis.geos import Point
 from rest_framework.test import APIClient
 from rest_framework import status
 
@@ -33,7 +34,7 @@ class CustomerTokenizedSearchTests(TestCase):
         self.village_valod = GeographicRegion.objects.create(name='Valod')
         self.village_kadod = GeographicRegion.objects.create(name='Kadod')
 
-        # Customer 1: Aarav Patel (Bardoli, Surat, Wallet: 500)
+        # Customer 1: Aarav Patel (Bardoli, Surat, Wallet: 500, with GPS coords)
         self.c1 = Customer.objects.create(
             first_name='Aarav',
             last_name='Patel',
@@ -46,6 +47,7 @@ class CustomerTokenizedSearchTests(TestCase):
             taluka='Bardoli',
             district='Surat',
             region=self.village_valod,
+            location=Point(72.831, 21.170, srid=4326),
             is_primary=True
         )
         Wallet.objects.create(customer=self.c1, balance=Decimal('500.00'))
@@ -179,4 +181,36 @@ class CustomerTokenizedSearchTests(TestCase):
         self.assertEqual(values['Bardoli'], 1)
         self.assertIn('Kamrej', values)
         self.assertEqual(values['Kamrej'], 1)
+
+    def test_filter_by_missing_coords(self):
+        """coords:false returns customers with no GPS coordinates saved."""
+        response = self.client.get('/api/customers/customers/?search=coords:false')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['count'], 2)
+        returned_ids = {r['id'] for r in response.data['results']}
+        self.assertIn(str(self.c2.id), returned_ids)
+        self.assertIn(str(self.c3.id), returned_ids)
+        self.assertNotIn(str(self.c1.id), returned_ids)
+
+    def test_filter_by_saved_coords(self):
+        """coords:true returns customers with saved GPS coordinates."""
+        response = self.client.get('/api/customers/customers/?search=coords:true')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['count'], 1)
+        self.assertEqual(response.data['results'][0]['id'], str(self.c1.id))
+
+    def test_filter_by_negated_coords(self):
+        """-coords:true returns customers with no GPS coordinates saved."""
+        response = self.client.get('/api/customers/customers/?search=-coords:true')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['count'], 2)
+
+    def test_search_suggestions_coords(self):
+        """Calling search-suggestions with prefix=coords returns true and false counts."""
+        response = self.client.get('/api/customers/customers/search-suggestions/?prefix=coords')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['prefix'], 'coords')
+        suggestions = {s['value']: s['count'] for s in response.data['suggestions']}
+        self.assertEqual(suggestions['true'], 1)
+        self.assertEqual(suggestions['false'], 2)
 

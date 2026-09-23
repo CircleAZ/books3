@@ -21,6 +21,7 @@ class CustomerTokenizedSearchFilter(BaseTokenizedSearchFilter):
       - debt:<op><num>        -> legacy debt principal comparison
       - id:<int>              -> exact display_id match
       - group:<str>           -> customer group name icontains
+      - coords:<bool>         -> filter by saved GPS location coordinates (true/false)
       - -<prefix>:<val>       -> negation (~Q)
       - <raw terms>           -> fallback to first_name, last_name, phone, display_id
     """
@@ -38,6 +39,10 @@ class CustomerTokenizedSearchFilter(BaseTokenizedSearchFilter):
         'wallet': 'handle_wallet',
         'debt': 'handle_debt',
         'group': 'customer_group__name__icontains',
+        'coords': 'handle_coords',
+        'location': 'handle_coords',
+        'geo': 'handle_coords',
+        'gps': 'handle_coords',
     }
 
     @classmethod
@@ -70,3 +75,14 @@ class CustomerTokenizedSearchFilter(BaseTokenizedSearchFilter):
     @classmethod
     def handle_debt(cls, val):
         return cls.parse_numeric_clause('legacy_debt__principal_amount', val)
+
+    @classmethod
+    def handle_coords(cls, val):
+        from customers.models import Address
+        clean_val = val.strip().lower()
+        has_coords = clean_val in ('true', 'yes', '1', 'saved', 'has')
+        has_coords_q = Exists(Address.objects.filter(customer=OuterRef('pk'), location__isnull=False))
+        if has_coords:
+            return Q(has_coords_q)
+        return ~Q(has_coords_q)
+
