@@ -200,3 +200,7 @@ class FinanceQueryOptimizationTestCase(TestCase):
         
         # Verify constant query count (O(1) queries due to prefetch + in-memory calculation)
         self.assertEqual(q5_count, q1_count, f"N+1 leak on expense trips list: {q1_count} vs {q5_count}")
+
+
+from .tests_tokenized_search import FinancialTransactionsSearchTests, ExpensesSearchTests
+

@@ -303,10 +303,11 @@ except Exception:
 from django.test.utils import get_runner
 TestRunner = get_runner(settings)
 test_runner = TestRunner(interactive=False, keepdb=False)
-failures = test_runner.run_tests([
+test_labels = sys.argv[1:] if len(sys.argv) > 1 else [
     "finance", "orders", "outlets", "procurement",
     "customers", "settings_app", "reports", "messaging",
     "inventory"
-])
+]
+failures = test_runner.run_tests(test_labels)
 sys.exit(bool(failures))
 

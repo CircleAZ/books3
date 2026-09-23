@@ -7,6 +7,7 @@ import { ENDPOINTS } from '../../config/api';
 import { secureStorage } from '../../utils/secureStorage';
 import Pagination from '../../components/common/Pagination';
 import useServerList from '../../hooks/useServerList';
+import SearchTokenPalette from '../../components/common/SearchTokenPalette';
 import './EmployeeExpenses.css';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
 import GuardedAction from '../../components/GuardedAction';
@@ -26,11 +27,35 @@ export default function EmployeeExpenses() {
         totalCount,
         filters,
         setFilter,
+        search,
+        setSearch,
         refresh: fetchExpenses,
     } = useServerList(ENDPOINTS.FINANCE_EMPLOYEE_EXPENSES, {
         filterConfig: { status: '' },
-        pageSize: 20
+        debounceMs: 300,
+        pageSize: 20,
+        buildParams: (debouncedSearch, f) => new URLSearchParams({
+            search: debouncedSearch,
+            status: f.status,
+        }),
     });
+
+    const toggleSearchToken = (token) => {
+        const current = (search || '').trim();
+        const regex = new RegExp(`(^|\\s)${token.replace(/([.*+?^=!:${}()|\[\]\/\\])/g, "\\$1")}($|\\s)`, 'i');
+        if (regex.test(current)) {
+            const next = current.replace(regex, ' ').replace(/\s+/g, ' ').trim();
+            setSearch(next);
+        } else {
+            const next = current ? `${current} ${token}` : token;
+            setSearch(next);
+        }
+    };
+
+    const isPending = /(^|\s)status:pending($|\s)/i.test(search || '');
+    const isApproved = /(^|\s)status:approved($|\s)/i.test(search || '');
+    const isReimbursed = /(^|\s)status:reimbursed($|\s)/i.test(search || '');
+    const isHighValue = /(^|\s)amount:>5000($|\s)/i.test(search || '');
 
     const [showSubmitModal, setShowSubmitModal] = useState(false);
     const [categories, setCategories] = useState([]);
@@ -227,6 +252,66 @@ export default function EmployeeExpenses() {
                     </button>
                 </div>
             </div>
+
+            <div style={{
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '0.75rem',
+                marginBottom: '1rem',
+                padding: '1rem',
+                background: 'var(--color-surface-raised, var(--color-surface, #1e1e2e))',
+                borderRadius: '12px',
+                border: '1px solid var(--color-border-light, #313244)',
+            }}>
+                <SearchTokenPalette
+                    value={search}
+                    onChange={setSearch}
+                    placeholder="Search claims: employee:..., category:..., status:pending, amount:>1000, date:today..."
+                    suggestionsEndpoint={ENDPOINTS.FINANCE_EMPLOYEE_EXPENSES_SUGGESTIONS}
+                />
+
+                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
+                    <button
+                        type="button"
+                        className={`btn btn-sm ${isPending ? 'btn-primary' : 'btn-ghost'}`}
+                        onClick={() => toggleSearchToken('status:pending')}
+                    >
+                        {isPending ? '✕ Pending Review' : 'Pending Review'}
+                    </button>
+                    <button
+                        type="button"
+                        className={`btn btn-sm ${isApproved ? 'btn-primary' : 'btn-ghost'}`}
+                        onClick={() => toggleSearchToken('status:approved')}
+                    >
+                        {isApproved ? '✕ Approved' : 'Approved Claims'}
+                    </button>
+                    <button
+                        type="button"
+                        className={`btn btn-sm ${isReimbursed ? 'btn-primary' : 'btn-ghost'}`}
+                        onClick={() => toggleSearchToken('status:reimbursed')}
+                    >
+                        {isReimbursed ? '✕ Reimbursed' : 'Reimbursed'}
+                    </button>
+                    <button
+                        type="button"
+                        className={`btn btn-sm ${isHighValue ? 'btn-primary' : 'btn-ghost'}`}
+                        onClick={() => toggleSearchToken('amount:>5000')}
+                    >
+                        {isHighValue ? '✕ >₹5,000' : 'High Value (>₹5,000)'}
+                    </button>
+                    {search && (
+                        <button
+                            type="button"
+                            className="btn btn-sm btn-outline-danger"
+                            onClick={() => setSearch('')}
+                            style={{ marginLeft: 'auto' }}
+                        >
+                            ✕ Clear Search
+                        </button>
+                    )}
+                </div>
+            </div>
+
             <div className="expenses-controls glass-card">
                 <div className="filter-group">
                     <label>Filter by Status</label>

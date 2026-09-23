@@ -22,6 +22,7 @@ from inventory.models import Product, StockHistory
 from customers.models import Customer, Address
 from .models import ActivityLog, SavedQuery, QueryStateHistory
 from .serializers import ActivityLogSerializer, SavedQuerySerializer, QueryStateHistorySerializer
+from .filters import ActivityLogTokenizedSearchFilter
 import csv
 import re
 from django.http import HttpResponse
@@ -754,6 +755,7 @@ class CustomerReportViewSet(ReportBaseViewSet):
 class ActivityLogViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = ActivityLog.objects.select_related('user')
     serializer_class = ActivityLogSerializer
+    filter_backends = [ActivityLogTokenizedSearchFilter]
     permission_classes = [HasRequiredPermission]
     required_permission = 'settings.view_audit_logs'
     
@@ -778,6 +780,74 @@ class ActivityLogViewSet(viewsets.ReadOnlyModelViewSet):
                 queryset = queryset.filter(created_at__date__lte=end_date)
             
         return queryset
+
+    @action(detail=False, methods=['get'], url_path='search-suggestions')
+    def search_suggestions(self, request):
+        """
+        Returns search prefix schema cheatsheet OR dynamic distinct values with counts
+        for system audit activity log tokens.
+        """
+        prefix = request.query_params.get('prefix', '').strip().lower()
+        q = request.query_params.get('q', '').strip()
+
+        if not prefix:
+            return Response({
+                'prefixes': [
+                    {'prefix': 'user', 'label': 'User', 'example': 'user:admin', 'description': 'Filter by username or full name'},
+                    {'prefix': 'action', 'label': 'Action Type', 'example': 'action:delete', 'description': 'login, logout, create, update, delete, view, export, order, return, refund'},
+                    {'prefix': 'model', 'label': 'Model / Entity', 'example': 'model:Order', 'description': 'Filter by target model (Order, Customer, Product, etc.)'},
+                    {'prefix': 'entity', 'label': 'Model / Entity', 'example': 'entity:Order', 'description': 'Alias for model:'},
+                    {'prefix': 'id', 'label': 'Entity / Log ID', 'example': 'id:1001', 'description': 'Filter by affected entity ID or log sequence ID'},
+                    {'prefix': 'date', 'label': 'Date', 'example': 'date:today', 'description': 'today, yesterday, this_week, this_month, or YYYY-MM-DD'},
+                    {'prefix': 'ip', 'label': 'IP Address', 'example': 'ip:127.0.0.1', 'description': 'Filter by client IP address'},
+                ]
+            })
+
+        suggestions = []
+        if prefix in ('action', 'action_type'):
+            action_counts = dict(
+                ActivityLog.objects.values('action_type')
+                .annotate(count=Count('id'))
+                .values_list('action_type', 'count')
+            )
+            for val, label in ActivityLog.ACTION_TYPES:
+                if not q or q.lower() in val.lower() or q.lower() in label.lower():
+                    suggestions.append({
+                        'value': val,
+                        'label': label,
+                        'count': action_counts.get(val, 0),
+                        'prefix': 'action',
+                        'badge': 'ACTION'
+                    })
+        elif prefix in ('model', 'entity', 'entity_type'):
+            qs = ActivityLog.objects.exclude(entity_type='').exclude(entity_type__isnull=True)
+            if q:
+                qs = qs.filter(entity_type__icontains=q)
+            results = qs.values('entity_type').annotate(count=Count('id')).order_by('-count')[:15]
+            suggestions = [
+                {'value': r['entity_type'], 'label': r['entity_type'], 'count': r['count'], 'prefix': 'model', 'badge': 'MODEL'}
+                for r in results
+            ]
+        elif prefix in ('user', 'username'):
+            from account.models import User
+            qs = User.objects.filter(is_active=True)
+            if q:
+                qs = qs.filter(Q(username__icontains=q) | Q(first_name__icontains=q) | Q(last_name__icontains=q))
+            results = qs.annotate(
+                count=Count('report_activity_logs')
+            ).filter(count__gt=0).values('username', 'first_name', 'last_name', 'count').order_by('-count')[:10]
+            suggestions = [
+                {
+                    'value': r['username'],
+                    'label': f"{r['first_name']} {r['last_name']}".strip() or r['username'],
+                    'count': r['count'],
+                    'prefix': 'user',
+                    'badge': 'USER'
+                }
+                for r in results
+            ]
+
+        return Response({'suggestions': suggestions})
 
 
 def get_field_choices(model_class, field_path):

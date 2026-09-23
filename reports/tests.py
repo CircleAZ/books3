@@ -190,3 +190,7 @@ class ReportsOptimizationTestCase(TestCase):
         
         print("\nUnit Test: test_pnl_endpoint PASSED.")
         print(f"P&L optimized values verified: Revenue Net Sales={revenue['net_sales']}, COGS Net={cogs['net']}")
+
+
+from .tests_tokenized_search import ActivityLogTokenizedSearchTests
+

@@ -6,6 +6,7 @@ import { ENDPOINTS } from '../../config/api';
 import { Filter, ChevronUp, ChevronDown } from 'lucide-react';
 import useServerList from '../../hooks/useServerList';
 import Pagination from '../../components/common/Pagination';
+import SearchTokenPalette from '../../components/common/SearchTokenPalette';
 import './BankTransactions.css';
 
 export default function BankTransactions() {
@@ -15,7 +16,7 @@ export default function BankTransactions() {
 
 // fallow-ignore-next-line code-duplication
     const [accounts, setAccounts] = useState([]);
-    const [showFilters, setShowFilters] = useState(window.innerWidth > 768);
+    const [showFilters, setShowFilters] = useState(false);
 
     const {
         data: transactions,
@@ -25,10 +26,14 @@ export default function BankTransactions() {
         setPage,
         filters,
         setFilter,
+        search,
+        setSearch,
         refresh,
     } = useServerList(ENDPOINTS.FINANCE_BANK_TRANSACTIONS, {
         filterConfig: { account: '', type: '', startDate: '', endDate: '', reconciled: '' },
-        buildParams: (search, f) => new URLSearchParams({
+        debounceMs: 300,
+        buildParams: (debouncedSearch, f) => new URLSearchParams({
+            search: debouncedSearch,
             account: f.account,
             transaction_type: f.type,
             start_date: f.startDate,
@@ -36,6 +41,24 @@ export default function BankTransactions() {
             is_reconciled: f.reconciled,
         }),
     });
+
+    const toggleSearchToken = (token) => {
+        const current = (search || '').trim();
+        const regex = new RegExp(`(^|\\s)${token.replace(/([.*+?^=!:${}()|\[\]\/\\])/g, "\\$1")}($|\\s)`, 'i');
+        if (regex.test(current)) {
+            const next = current.replace(regex, ' ').replace(/\s+/g, ' ').trim();
+            setSearch(next);
+        } else {
+            const next = current ? `${current} ${token}` : token;
+            setSearch(next);
+        }
+    };
+
+    const isDepositActive = /(^|\s)type:deposit($|\s)/i.test(search || '');
+    const isWithdrawalActive = /(^|\s)type:withdrawal($|\s)/i.test(search || '');
+    const isUnreconciledActive = /(^|\s)reconciled:false($|\s)/i.test(search || '');
+    const isReconciledActive = /(^|\s)reconciled:true($|\s)/i.test(search || '');
+    const isHighValueActive = /(^|\s)amount:>10000($|\s)/i.test(search || '');
 
     const fetchAccounts = useCallback(async () => {
         try {
@@ -82,7 +105,13 @@ export default function BankTransactions() {
 
     return (
         <div className="transactions-container fade-in">
-            <div className="transactions-header" style={{ justifyContent: 'flex-end' }}>
+            <div className="transactions-header" style={{ justifyContent: 'space-between', alignItems: 'center' }}>
+                <div>
+                    <h1 style={{ fontSize: '1.5rem', fontWeight: 700, margin: 0 }}>Bank Transactions</h1>
+                    <p style={{ color: 'var(--color-text-secondary)', margin: '4px 0 0', fontSize: '0.85rem' }}>
+                        Bank accounts immutable ledger &amp; reconciliation
+                    </p>
+                </div>
                 <div className="transactions-actions">
                     <button className="btn btn-manage-accounts" onClick={() => navigate('/finance/banking')}>
                         Manage Accounts
@@ -90,6 +119,72 @@ export default function BankTransactions() {
                     <button className="btn btn-primary" onClick={() => navigate('/finance/banking/record')}>
                         Record Transaction
                     </button>
+                </div>
+            </div>
+
+            <div style={{
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '0.75rem',
+                marginBottom: '1rem',
+                padding: '1rem',
+                background: 'var(--color-surface-raised, var(--color-surface, #1e1e2e))',
+                borderRadius: '12px',
+                border: '1px solid var(--color-border-light, #313244)',
+            }}>
+                <SearchTokenPalette
+                    value={search}
+                    onChange={setSearch}
+                    placeholder="Search bank transactions: ref:UTR..., type:deposit, account:..., amount:>5000, date:today..."
+                    suggestionsEndpoint={ENDPOINTS.FINANCE_BANK_TRANSACTIONS_SUGGESTIONS}
+                />
+
+                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
+                    <button
+                        type="button"
+                        className={`btn btn-sm ${isDepositActive ? 'btn-primary' : 'btn-ghost'}`}
+                        onClick={() => toggleSearchToken('type:deposit')}
+                    >
+                        {isDepositActive ? '✕ Deposits' : 'Inflows (Deposits)'}
+                    </button>
+                    <button
+                        type="button"
+                        className={`btn btn-sm ${isWithdrawalActive ? 'btn-primary' : 'btn-ghost'}`}
+                        onClick={() => toggleSearchToken('type:withdrawal')}
+                    >
+                        {isWithdrawalActive ? '✕ Withdrawals' : 'Outflows (Withdrawals)'}
+                    </button>
+                    <button
+                        type="button"
+                        className={`btn btn-sm ${isUnreconciledActive ? 'btn-primary' : 'btn-ghost'}`}
+                        onClick={() => toggleSearchToken('reconciled:false')}
+                    >
+                        {isUnreconciledActive ? '✕ Unreconciled' : 'Unreconciled'}
+                    </button>
+                    <button
+                        type="button"
+                        className={`btn btn-sm ${isReconciledActive ? 'btn-primary' : 'btn-ghost'}`}
+                        onClick={() => toggleSearchToken('reconciled:true')}
+                    >
+                        {isReconciledActive ? '✕ Reconciled' : 'Reconciled'}
+                    </button>
+                    <button
+                        type="button"
+                        className={`btn btn-sm ${isHighValueActive ? 'btn-primary' : 'btn-ghost'}`}
+                        onClick={() => toggleSearchToken('amount:>10000')}
+                    >
+                        {isHighValueActive ? '✕ >₹10,000' : 'High Value (>₹10,000)'}
+                    </button>
+                    {search && (
+                        <button
+                            type="button"
+                            className="btn btn-sm btn-outline-danger"
+                            onClick={() => setSearch('')}
+                            style={{ marginLeft: 'auto' }}
+                        >
+                            ✕ Clear Search
+                        </button>
+                    )}
                 </div>
             </div>
 

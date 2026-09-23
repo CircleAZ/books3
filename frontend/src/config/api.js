@@ -77,11 +77,14 @@ export const ENDPOINTS = {
     // Finance
     FINANCE_DASHBOARD: `${API_BASE}/finance/dashboard/`,
     FINANCE_EXPENSES: `${API_BASE}/finance/expenses/`,
+    FINANCE_EXPENSES_SUGGESTIONS: `${API_BASE}/finance/expenses/search-suggestions/`,
     FINANCE_EXPENSE_CATEGORIES: `${API_BASE}/finance/expense-categories/`,
     FINANCE_EMPLOYEE_EXPENSES: `${API_BASE}/finance/employee-expenses/`,
+    FINANCE_EMPLOYEE_EXPENSES_SUGGESTIONS: `${API_BASE}/finance/employee-expenses/search-suggestions/`,
     FINANCE_SALARIES: `${API_BASE}/finance/salaries/`,
     FINANCE_BANK_ACCOUNTS: `${API_BASE}/finance/bank-accounts/`,
     FINANCE_BANK_TRANSACTIONS: `${API_BASE}/finance/bank-transactions/`,
+    FINANCE_BANK_TRANSACTIONS_SUGGESTIONS: `${API_BASE}/finance/bank-transactions/search-suggestions/`,
     FINANCE_LENDERS: `${API_BASE}/finance/lenders/`,
     FINANCE_LOANS: `${API_BASE}/finance/loans/`,
     FINANCE_INCOME_CATEGORIES: `${API_BASE}/finance/income-categories/`,
@@ -92,6 +95,7 @@ export const ENDPOINTS = {
     FINANCE_CASH_WALLETS: `${API_BASE}/finance/cash-wallets/`,
     FINANCE_CASH_TRANSFERS: `${API_BASE}/finance/cash-transfers/`,
     FINANCE_ALL_TRANSACTIONS: `${API_BASE}/finance/all-transactions/`,
+    FINANCE_ALL_TRANSACTIONS_SUGGESTIONS: `${API_BASE}/finance/all-transactions/search-suggestions/`,
     FINANCE_OPENING_BALANCES: `${API_BASE}/finance/opening-balances/`,
     FINANCE_OTHER_INCOME: `${API_BASE}/finance/other-income/`,
 
@@ -106,6 +110,7 @@ export const ENDPOINTS = {
     REPORTS_INVENTORY: `${API_BASE}/reports/inventory/`,
     REPORTS_CUSTOMERS: `${API_BASE}/reports/customers/`,
     REPORTS_ACTIVITY: `${API_BASE}/reports/activity/`,
+    REPORTS_ACTIVITY_SUGGESTIONS: `${API_BASE}/reports/activity/search-suggestions/`,
     REPORTS_EXPORT: `${API_BASE}/reports/export/`,
     REPORTS_FINANCE: `${API_BASE}/reports/finance/`,
 

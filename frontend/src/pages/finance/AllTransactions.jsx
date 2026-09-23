@@ -2,9 +2,10 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useCurrency } from '../../context/CurrencyContext';
 import { ENDPOINTS } from '../../config/api';
-import { Filter, ChevronUp, ChevronDown, Search, X } from 'lucide-react';
+import { Filter, ChevronUp, ChevronDown, X } from 'lucide-react';
 import useServerList from '../../hooks/useServerList';
 import Pagination from '../../components/common/Pagination';
+import SearchTokenPalette from '../../components/common/SearchTokenPalette';
 import './AllTransactions.css';
 
 import '../../styles/components/modal-system.css';
@@ -13,7 +14,7 @@ export default function AllTransactions() {
     const { currency } = useCurrency();
     const navigate = useNavigate();
 
-    const [showFilters, setShowFilters] = useState(window.innerWidth > 768);
+    const [showFilters, setShowFilters] = useState(false);
     
     // Modal State
     const [selectedTx, setSelectedTx] = useState(null);
@@ -29,7 +30,7 @@ export default function AllTransactions() {
         search,
         setSearch,
     } = useServerList(ENDPOINTS.FINANCE_ALL_TRANSACTIONS, {
-        filterConfig: { source: '', type: '', startDate: '', endDate: '', minAmount: '', maxAmount: '' },
+        filterConfig: { source: '', type: '', startDate: '', endDate: '' },
         debounceMs: 300,
         buildParams: (debouncedSearch, f) => new URLSearchParams({
             search: debouncedSearch,
@@ -37,10 +38,26 @@ export default function AllTransactions() {
             transaction_type: f.type,
             date_from: f.startDate,
             date_to: f.endDate,
-            min_amount: f.minAmount,
-            max_amount: f.maxAmount,
         }),
     });
+
+    const toggleSearchToken = (token) => {
+        const current = (search || '').trim();
+        const regex = new RegExp(`(^|\\s)${token.replace(/([.*+?^=!:${}()|\[\]\/\\])/g, "\\$1")}($|\\s)`, 'i');
+        if (regex.test(current)) {
+            const next = current.replace(regex, ' ').replace(/\s+/g, ' ').trim();
+            setSearch(next);
+        } else {
+            const next = current ? `${current} ${token}` : token;
+            setSearch(next);
+        }
+    };
+
+    const isBankActive = /(^|\s)source:bank($|\s)/i.test(search || '');
+    const isWalletActive = /(^|\s)source:wallet($|\s)/i.test(search || '');
+    const isDepositActive = /(^|\s)type:deposit($|\s)/i.test(search || '');
+    const isWithdrawalActive = /(^|\s)type:withdrawal($|\s)/i.test(search || '');
+    const isHighValueActive = /(^|\s)amount:>10000($|\s)/i.test(search || '');
 
     const handleFilterChange = (e) => {
         const { name, value } = e.target;
@@ -93,50 +110,76 @@ export default function AllTransactions() {
             </div>
 
             <div className="at-controls-card">
-                <div className="at-search-bar">
-                    <Search className="at-search-icon" size={20} />
-                    <input
-                        type="text"
-                        className="at-search-input"
-                        placeholder="Search by Order ID, Customer ID, Reference, Username or Description..."
-                        value={search}
-                        onChange={(e) => setSearch(e.target.value)}
-                    />
+                <SearchTokenPalette
+                    value={search}
+                    onChange={setSearch}
+                    placeholder="Search ledger: ref:..., type:deposit, source:bank, amount:>5000, date:today..."
+                    suggestionsEndpoint={ENDPOINTS.FINANCE_ALL_TRANSACTIONS_SUGGESTIONS}
+                />
+
+                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center', marginTop: '1rem' }}>
+                    <button
+                        type="button"
+                        className={`btn btn-sm ${isBankActive ? 'btn-primary' : 'btn-ghost'}`}
+                        onClick={() => toggleSearchToken('source:bank')}
+                    >
+                        {isBankActive ? '✕ Bank Only' : 'Bank Accounts'}
+                    </button>
+                    <button
+                        type="button"
+                        className={`btn btn-sm ${isWalletActive ? 'btn-primary' : 'btn-ghost'}`}
+                        onClick={() => toggleSearchToken('source:wallet')}
+                    >
+                        {isWalletActive ? '✕ Cash Only' : 'Cash Wallets'}
+                    </button>
+                    <button
+                        type="button"
+                        className={`btn btn-sm ${isDepositActive ? 'btn-primary' : 'btn-ghost'}`}
+                        onClick={() => toggleSearchToken('type:deposit')}
+                    >
+                        {isDepositActive ? '✕ Deposits' : 'Inflows (Deposits)'}
+                    </button>
+                    <button
+                        type="button"
+                        className={`btn btn-sm ${isWithdrawalActive ? 'btn-primary' : 'btn-ghost'}`}
+                        onClick={() => toggleSearchToken('type:withdrawal')}
+                    >
+                        {isWithdrawalActive ? '✕ Withdrawals' : 'Outflows (Withdrawals)'}
+                    </button>
+                    <button
+                        type="button"
+                        className={`btn btn-sm ${isHighValueActive ? 'btn-primary' : 'btn-ghost'}`}
+                        onClick={() => toggleSearchToken('amount:>10000')}
+                    >
+                        {isHighValueActive ? '✕ >₹10,000' : 'High Value (>₹10,000)'}
+                    </button>
+                    {search && (
+                        <button
+                            type="button"
+                            className="btn btn-sm btn-outline-danger"
+                            onClick={() => setSearch('')}
+                            style={{ marginLeft: 'auto' }}
+                        >
+                            ✕ Clear Search
+                        </button>
+                    )}
                 </div>
 
                 <div className="filter-collapsible-wrapper" style={{ marginTop: '1rem' }}>
                     <button
                         className="btn filter-toggle-btn"
                         onClick={() => setShowFilters(!showFilters)}
-                        style={{ width: '100%', justifyContent: 'space-between', padding: '1rem', background: 'rgba(var(--color-primary-rgb), 0.05)', border: '1px solid var(--color-border)', borderRadius: '8px' }}
+                        style={{ width: '100%', justifyContent: 'space-between', padding: '0.75rem 1rem', background: 'rgba(var(--color-primary-rgb), 0.05)', border: '1px solid var(--color-border)', borderRadius: '8px' }}
                     >
                         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: 600 }}>
-                            <Filter size={18} />
-                            <span>Advanced Filters</span>
+                            <Filter size={16} />
+                            <span>Date Range Picker</span>
                         </div>
-                        {showFilters ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
+                        {showFilters ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
                     </button>
 
                     {showFilters && (
-                        <div className="at-filters-grid" style={{ marginTop: '1.5rem' }}>
-                            <div className="at-filter-group">
-                                <label>Source (Bank / Wallet)</label>
-                                <select className="at-filter-input" name="source" value={filters.source} onChange={handleFilterChange}>
-                                    <option value="">All Sources</option>
-                                    <option value="bank">Bank Accounts</option>
-                                    <option value="wallet">Cash Wallets</option>
-                                </select>
-                            </div>
-
-                            <div className="at-filter-group">
-                                <label>Direction</label>
-                                <select className="at-filter-input" name="type" value={filters.type} onChange={handleFilterChange}>
-                                    <option value="">All Directions</option>
-                                    <option value="deposit">Inflow (Deposit)</option>
-                                    <option value="withdrawal">Outflow (Withdrawal)</option>
-                                </select>
-                            </div>
-
+                        <div className="at-filters-grid" style={{ marginTop: '1rem' }}>
                             <div className="at-filter-group">
                                 <label>From Date</label>
                                 <input type="date" className="at-filter-input" name="startDate" value={filters.startDate} onChange={handleFilterChange} />
@@ -145,16 +188,6 @@ export default function AllTransactions() {
                             <div className="at-filter-group">
                                 <label>To Date</label>
                                 <input type="date" className="at-filter-input" name="endDate" value={filters.endDate} onChange={handleFilterChange} />
-                            </div>
-
-                            <div className="at-filter-group">
-                                <label>Min Amount</label>
-                                <input type="number" className="at-filter-input" placeholder="0.00" name="minAmount" value={filters.minAmount} onChange={handleFilterChange} />
-                            </div>
-
-                            <div className="at-filter-group">
-                                <label>Max Amount</label>
-                                <input type="number" className="at-filter-input" placeholder="0.00" name="maxAmount" value={filters.maxAmount} onChange={handleFilterChange} />
                             </div>
                         </div>
                     )}

@@ -3,6 +3,7 @@ import { useAuth } from '../../context/AuthContext';
 import { ENDPOINTS } from '../../config/api';
 import useServerList from '../../hooks/useServerList';
 import Pagination from '../../components/common/Pagination';
+import SearchTokenPalette from '../../components/common/SearchTokenPalette';
 import './ActivityLog.css';
 
 import '../../styles/components/modal-system.css';
@@ -24,12 +25,31 @@ export default function ActivityLog() {
         refresh,
     } = useServerList(ENDPOINTS.REPORTS_ACTIVITY, {
         filterConfig: { action_type: '', date: '' },
+        debounceMs: 300,
         buildParams: (debouncedSearch, f) => new URLSearchParams({
             search: debouncedSearch,
             action_type: f.action_type,
             date: f.date,
         }),
     });
+
+    const toggleSearchToken = (token) => {
+        const current = (search || '').trim();
+        const regex = new RegExp(`(^|\\s)${token.replace(/([.*+?^=!:${}()|\[\]\/\\])/g, "\\$1")}($|\\s)`, 'i');
+        if (regex.test(current)) {
+            const next = current.replace(regex, ' ').replace(/\s+/g, ' ').trim();
+            setSearch(next);
+        } else {
+            const next = current ? `${current} ${token}` : token;
+            setSearch(next);
+        }
+    };
+
+    const isDeleteActive = /(^|\s)action:delete($|\s)/i.test(search || '');
+    const isTodayActive = /(^|\s)date:today($|\s)/i.test(search || '');
+    const isThisWeekActive = /(^|\s)date:this_week($|\s)/i.test(search || '');
+    const isOrderActive = /(^|\s)action:order($|\s)/i.test(search || '');
+    const isExportActive = /(^|\s)action:export($|\s)/i.test(search || '');
 
     const handleRefresh = () => {
         refresh();
@@ -59,18 +79,74 @@ export default function ActivityLog() {
                 </button>
             </header>
 
-            <div className="filters-bar glass">
-                <div className="search-box">
-                    <span>🔍</span>
-                    <input
-                        type="text"
-                        placeholder="Search users or descriptions..."
-                        value={search}
-                        onChange={(e) => setSearch(e.target.value)}
-                    />
-                </div>
+            <div style={{
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '0.75rem',
+                marginBottom: '1rem',
+                padding: '1rem',
+                background: 'var(--color-surface-raised, var(--color-surface, #1e1e2e))',
+                borderRadius: '12px',
+                border: '1px solid var(--color-border-light, #313244)',
+            }}>
+                <SearchTokenPalette
+                    value={search}
+                    onChange={setSearch}
+                    placeholder="Search audit logs: user:admin, action:delete, model:Order, date:today..."
+                    suggestionsEndpoint={ENDPOINTS.REPORTS_ACTIVITY_SUGGESTIONS}
+                />
 
-                <div className="filter-group">
+                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
+                    <button
+                        type="button"
+                        className={`btn btn-sm ${isDeleteActive ? 'btn-primary' : 'btn-ghost'}`}
+                        onClick={() => toggleSearchToken('action:delete')}
+                    >
+                        {isDeleteActive ? '✕ Deletions' : 'Deletions Only'}
+                    </button>
+                    <button
+                        type="button"
+                        className={`btn btn-sm ${isTodayActive ? 'btn-primary' : 'btn-ghost'}`}
+                        onClick={() => toggleSearchToken('date:today')}
+                    >
+                        {isTodayActive ? '✕ Today' : "Today's Activity"}
+                    </button>
+                    <button
+                        type="button"
+                        className={`btn btn-sm ${isThisWeekActive ? 'btn-primary' : 'btn-ghost'}`}
+                        onClick={() => toggleSearchToken('date:this_week')}
+                    >
+                        {isThisWeekActive ? '✕ This Week' : 'This Week'}
+                    </button>
+                    <button
+                        type="button"
+                        className={`btn btn-sm ${isOrderActive ? 'btn-primary' : 'btn-ghost'}`}
+                        onClick={() => toggleSearchToken('action:order')}
+                    >
+                        {isOrderActive ? '✕ Orders' : 'Order Events'}
+                    </button>
+                    <button
+                        type="button"
+                        className={`btn btn-sm ${isExportActive ? 'btn-primary' : 'btn-ghost'}`}
+                        onClick={() => toggleSearchToken('action:export')}
+                    >
+                        {isExportActive ? '✕ Exports' : 'Financial Exports'}
+                    </button>
+                    {search && (
+                        <button
+                            type="button"
+                            className="btn btn-sm btn-outline-danger"
+                            onClick={() => setSearch('')}
+                            style={{ marginLeft: 'auto' }}
+                        >
+                            ✕ Clear Search
+                        </button>
+                    )}
+                </div>
+            </div>
+
+            <div className="filters-bar glass">
+                <div className="filter-group" style={{ marginLeft: 'auto' }}>
                     <select
                         value={filters.action_type}
                         onChange={(e) => setFilter('action_type', e.target.value)}

@@ -41,6 +41,11 @@ from .serializers import (
     FinanceAuditLogSerializer, FinancialDashboardSerializer,
     ExpenseTripSerializer, ExpenseTripItemSerializer
 )
+from .filters import (
+    TransactionTokenizedSearchFilter,
+    ExpenseTokenizedSearchFilter,
+    EmployeeExpenseTokenizedSearchFilter
+)
 
 logger = logging.getLogger(__name__)
 
@@ -96,6 +101,7 @@ class ExpenseCategoryViewSet(viewsets.ModelViewSet):
 class ExpenseViewSet(viewsets.ModelViewSet):
     """CRUD for expenses with payment support, CSV export, and approval workflow."""
     queryset = Expense.objects.all()
+    filter_backends = [ExpenseTokenizedSearchFilter]
     permission_classes = [HasRequiredPermission]
     required_permission = 'finance.manage_expenses'
     pagination_class = FinancePagination
@@ -112,21 +118,12 @@ class ExpenseViewSet(viewsets.ModelViewSet):
         else:
             qs = Expense.objects.select_related('category', 'created_by', 'approved_by').prefetch_related('payments')
         
-        # Text search
-        search = self.request.query_params.get('search')
-        if search:
-            qs = qs.filter(
-                Q(payee_name__icontains=search) |
-                Q(description__icontains=search) |
-                Q(notes__icontains=search)
-            )
-        
         # Filters
-        status_filter = self.request.query_params.get('status')
+        status_filter = self.request.query_params.get('status') or self.request.query_params.get('payment_status')
         if status_filter:
             qs = qs.filter(payment_status=status_filter)
 
-        approval_filter = self.request.query_params.get('approval')
+        approval_filter = self.request.query_params.get('approval') or self.request.query_params.get('approval_status')
         if approval_filter:
             qs = qs.filter(approval_status=approval_filter)
         
@@ -138,11 +135,11 @@ class ExpenseViewSet(viewsets.ModelViewSet):
         if payee_type:
             qs = qs.filter(payee_type=payee_type)
         
-        date_from = self.request.query_params.get('date_from')
+        date_from = self.request.query_params.get('date_from') or self.request.query_params.get('start_date')
         if date_from:
             qs = qs.filter(date__gte=date_from)
         
-        date_to = self.request.query_params.get('date_to')
+        date_to = self.request.query_params.get('date_to') or self.request.query_params.get('end_date')
         if date_to:
             qs = qs.filter(date__lte=date_to)
         
@@ -271,6 +268,99 @@ class ExpenseViewSet(viewsets.ModelViewSet):
         _audit_log('export_csv', 'Expense', 'bulk', request.user,
                    {'count': self.get_queryset().count()})
         return response
+
+    @action(detail=False, methods=['get'], url_path='search-suggestions')
+    def search_suggestions(self, request):
+        """
+        Returns search prefix schema cheatsheet OR dynamic distinct values with counts
+        for company expense tokens.
+        """
+        prefix = request.query_params.get('prefix', '').strip().lower()
+        q = request.query_params.get('q', '').strip()
+        if not prefix and ':' in q:
+            prefix, q = q.split(':', 1)
+            prefix = prefix.strip().lower()
+            q = q.strip()
+
+        if not prefix:
+            return Response({
+                'prefixes': [
+                    {'prefix': 'payee', 'label': 'Payee Name', 'example': 'payee:"Office Supplies"', 'description': 'Filter by payee name'},
+                    {'prefix': 'category', 'label': 'Category', 'example': 'category:Travel', 'description': 'Filter by expense category'},
+                    {'prefix': 'status', 'label': 'Payment Status', 'example': 'status:unpaid', 'description': 'unpaid, partial, paid'},
+                    {'prefix': 'approval', 'label': 'Approval Status', 'example': 'approval:pending', 'description': 'auto_approved, pending, approved, rejected'},
+                    {'prefix': 'amount', 'label': 'Total Amount', 'example': 'amount:>5000', 'description': 'Comparison: >, <, >=, <=, ='},
+                    {'prefix': 'high_value', 'label': 'High Value Flag', 'example': 'high_value:true', 'description': 'Expenses >= ₹5,000 requiring approval'},
+                    {'prefix': 'date', 'label': 'Expense Date', 'example': 'date:today', 'description': 'today, yesterday, this_week, this_month, or YYYY-MM-DD'},
+                    {'prefix': 'user', 'label': 'Created By', 'example': 'user:admin', 'description': 'Filter by creator username'},
+                    {'prefix': 'id', 'label': 'Expense ID', 'example': 'id:uuid', 'description': 'Filter by expense UUID'},
+                ]
+            })
+
+        suggestions = []
+        if prefix == 'category':
+            qs = ExpenseCategory.objects.filter(is_active=True)
+            if q:
+                qs = qs.filter(name__icontains=q)
+            results = qs.annotate(
+                count=Count('expenses', filter=Q(expenses__is_deleted=False))
+            ).values('name', 'count').order_by('-count')[:10]
+            suggestions = [
+                {'value': r['name'], 'label': r['name'], 'count': r['count'], 'prefix': 'category', 'badge': 'CATEGORY'}
+                for r in results
+            ]
+        elif prefix in ('status', 'payment_status'):
+            status_counts = dict(
+                Expense.objects.filter(is_deleted=False)
+                .values('payment_status')
+                .annotate(count=Count('id'))
+                .values_list('payment_status', 'count')
+            )
+            for val, label in Expense.PaymentStatus.choices:
+                if not q or q.lower() in val.lower() or q.lower() in label.lower():
+                    suggestions.append({
+                        'value': val,
+                        'label': label,
+                        'count': status_counts.get(val, 0),
+                        'prefix': 'status',
+                        'badge': 'PAYMENT'
+                    })
+        elif prefix in ('approval', 'approval_status'):
+            appr_counts = dict(
+                Expense.objects.filter(is_deleted=False)
+                .values('approval_status')
+                .annotate(count=Count('id'))
+                .values_list('approval_status', 'count')
+            )
+            for val, label in Expense.ApprovalStatus.choices:
+                if not q or q.lower() in val.lower() or q.lower() in label.lower():
+                    suggestions.append({
+                        'value': val,
+                        'label': label,
+                        'count': appr_counts.get(val, 0),
+                        'prefix': 'approval',
+                        'badge': 'APPROVAL'
+                    })
+        elif prefix == 'payee':
+            qs = Expense.objects.filter(is_deleted=False)
+            if q:
+                qs = qs.filter(payee_name__icontains=q)
+            results = qs.values('payee_name').annotate(count=Count('id')).order_by('-count')[:10]
+            suggestions = [
+                {'value': r['payee_name'], 'label': r['payee_name'], 'count': r['count'], 'prefix': 'payee', 'badge': 'PAYEE'}
+                for r in results
+            ]
+        elif prefix == 'high_value':
+            hv_count = Expense.objects.filter(is_deleted=False, total_amount__gte=Decimal('5000.00')).count()
+            suggestions.append({
+                'value': 'true',
+                'label': 'High Value (>= ₹5,000)',
+                'count': hv_count,
+                'prefix': 'high_value',
+                'badge': 'THRESHOLD'
+            })
+
+        return Response({'suggestions': suggestions})
 
 
 class ExpensePaymentViewSet(viewsets.ModelViewSet):
@@ -425,6 +515,7 @@ class BankTransactionViewSet(mixins.CreateModelMixin,
     """
     queryset = BankTransaction.objects.select_related('account', 'recorded_by')
     serializer_class = BankTransactionSerializer
+    filter_backends = [TransactionTokenizedSearchFilter]
     permission_classes = [HasRequiredPermission]
     required_permission = 'finance.manage_banking'
     pagination_class = FinancePagination
@@ -442,17 +533,21 @@ class BankTransactionViewSet(mixins.CreateModelMixin,
         if account:
             qs = qs.filter(account_id=account)
         
-        txn_type = self.request.query_params.get('type')
+        txn_type = self.request.query_params.get('type') or self.request.query_params.get('transaction_type')
         if txn_type:
             qs = qs.filter(transaction_type=txn_type)
         
-        date_from = self.request.query_params.get('date_from')
+        date_from = self.request.query_params.get('date_from') or self.request.query_params.get('start_date')
         if date_from:
             qs = qs.filter(date__gte=date_from)
         
-        date_to = self.request.query_params.get('date_to')
+        date_to = self.request.query_params.get('date_to') or self.request.query_params.get('end_date')
         if date_to:
             qs = qs.filter(date__lte=date_to)
+
+        is_reconciled = self.request.query_params.get('is_reconciled') or self.request.query_params.get('reconciled')
+        if is_reconciled is not None and is_reconciled != '':
+            qs = qs.filter(is_reconciled=(is_reconciled.lower() in ('true', '1', 'yes')))
         
         return qs
     
@@ -468,6 +563,70 @@ class BankTransactionViewSet(mixins.CreateModelMixin,
         _audit_log('reconcile', 'BankTransaction', txn.id, request.user)
         return Response(BankTransactionSerializer(txn).data)
 
+    @action(detail=False, methods=['get'], url_path='search-suggestions')
+    def search_suggestions(self, request):
+        """
+        Returns search prefix schema cheatsheet OR dynamic distinct values with counts
+        for bank transaction tokens.
+        """
+        prefix = request.query_params.get('prefix', '').strip().lower()
+        q = request.query_params.get('q', '').strip()
+        if not prefix and ':' in q:
+            prefix, q = q.split(':', 1)
+            prefix = prefix.strip().lower()
+            q = q.strip()
+
+        if not prefix:
+            return Response({
+                'prefixes': [
+                    {'prefix': 'ref', 'label': 'Reference / UTR', 'example': 'ref:UTR1928301', 'description': 'Filter by reference or UTR number'},
+                    {'prefix': 'type', 'label': 'Transaction Type', 'example': 'type:deposit', 'description': 'deposit, withdrawal, transfer_in, transfer_out'},
+                    {'prefix': 'account', 'label': 'Bank Account', 'example': 'account:"Axis Bank"', 'description': 'Filter by account name'},
+                    {'prefix': 'amount', 'label': 'Amount', 'example': 'amount:>5000', 'description': 'Comparison: >, <, >=, <=, ='},
+                    {'prefix': 'date', 'label': 'Date', 'example': 'date:today', 'description': 'today, yesterday, this_week, this_month, or YYYY-MM-DD'},
+                    {'prefix': 'user', 'label': 'Recorded By', 'example': 'user:admin', 'description': 'Filter by user who recorded transaction'},
+                    {'prefix': 'reconciled', 'label': 'Reconciled Status', 'example': 'reconciled:true', 'description': 'true or false'},
+                ]
+            })
+
+        suggestions = []
+        if prefix in ('type', 'txn_type'):
+            type_counts = dict(
+                BankTransaction.objects.filter(is_deleted=False)
+                .values('transaction_type')
+                .annotate(count=Count('id'))
+                .values_list('transaction_type', 'count')
+            )
+            for val, label in BankTransaction.TransactionType.choices:
+                if not q or q.lower() in val.lower() or q.lower() in label.lower():
+                    suggestions.append({
+                        'value': val,
+                        'label': label,
+                        'count': type_counts.get(val, 0),
+                        'prefix': 'type',
+                        'badge': 'TYPE'
+                    })
+        elif prefix in ('account', 'bank'):
+            qs = BankAccount.objects.filter(is_active=True)
+            if q:
+                qs = qs.filter(Q(name__icontains=q) | Q(bank_name__icontains=q))
+            results = qs.annotate(
+                count=Count('transactions', filter=Q(transactions__is_deleted=False))
+            ).values('name', 'count').order_by('-count')[:10]
+            suggestions = [
+                {'value': r['name'], 'label': r['name'], 'count': r['count'], 'prefix': 'account', 'badge': 'ACCOUNT'}
+                for r in results
+            ]
+        elif prefix == 'reconciled':
+            rec_count = BankTransaction.objects.filter(is_deleted=False, is_reconciled=True).count()
+            unrec_count = BankTransaction.objects.filter(is_deleted=False, is_reconciled=False).count()
+            suggestions = [
+                {'value': 'true', 'label': 'Reconciled', 'count': rec_count, 'prefix': 'reconciled', 'badge': 'STATUS'},
+                {'value': 'false', 'label': 'Unreconciled', 'count': unrec_count, 'prefix': 'reconciled', 'badge': 'STATUS'},
+            ]
+
+        return Response({'suggestions': suggestions})
+
 
 # ======== Employee Finance ViewSets ========
 
@@ -479,12 +638,14 @@ class EmployeeExpenseViewSet(viewsets.ModelViewSet):
     """
     queryset = EmployeeExpense.objects.select_related('employee', 'category', 'reviewed_by')
     serializer_class = EmployeeExpenseSerializer
+    filter_backends = [EmployeeExpenseTokenizedSearchFilter]
     permission_classes = [HasRequiredPermission]
     required_permission = 'finance.manage_expenses'
     permission_map = {
         'list': None,       # Any authenticated user (queryset filters to own)
         'retrieve': None,   # Any authenticated user (queryset filters to own)
         'create': None,     # Any authenticated user can submit claims
+        'search_suggestions': None, # Any authenticated user can get syntax suggestions
         'approve': 'finance.approve_expenses',
         'reject': 'finance.approve_expenses',
         'reimburse': 'finance.approve_expenses',
@@ -606,6 +767,114 @@ class EmployeeExpenseViewSet(viewsets.ModelViewSet):
             return Response(EmployeeExpenseSerializer(expense).data)
         except ValidationError as e:
             return Response({'error': str(e.message)}, status=status.HTTP_400_BAD_REQUEST)
+
+    @action(detail=False, methods=['get'], url_path='search-suggestions')
+    def search_suggestions(self, request):
+        """
+        Returns search prefix schema cheatsheet OR dynamic distinct values with counts
+        for employee expense claims, scoped by user role.
+        """
+        prefix = request.query_params.get('prefix', '').strip().lower()
+        q = request.query_params.get('q', '').strip()
+        if not prefix and ':' in q:
+            prefix, q = q.split(':', 1)
+            prefix = prefix.strip().lower()
+            q = q.strip()
+
+        user = request.user
+        from settings_app.models import Role
+        user_role_names = set(
+            Role.objects.filter(role_users__user=user).values_list('name', flat=True)
+        )
+        is_finance_role = bool(
+            user_role_names & {'Admin', 'Manager', 'Accountant'}
+        )
+        is_scoped_employee = not user.is_superuser and not is_finance_role
+
+        base_ee_qs = EmployeeExpense.objects.filter(is_deleted=False)
+        if is_scoped_employee:
+            base_ee_qs = base_ee_qs.filter(employee=user)
+
+        if not prefix:
+            prefixes = [
+                {'prefix': 'category', 'label': 'Category', 'example': 'category:Travel', 'description': 'Filter by expense category'},
+                {'prefix': 'status', 'label': 'Claim Status', 'example': 'status:pending', 'description': 'pending, approved, rejected, reimbursed'},
+                {'prefix': 'amount', 'label': 'Claim Amount', 'example': 'amount:>1000', 'description': 'Comparison: >, <, >=, <=, ='},
+                {'prefix': 'high_value', 'label': 'High Value', 'example': 'high_value:true', 'description': 'Claims >= ₹5,000'},
+                {'prefix': 'date', 'label': 'Claim Date', 'example': 'date:today', 'description': 'today, yesterday, this_week, this_month, or YYYY-MM-DD'},
+            ]
+            if not is_scoped_employee:
+                prefixes.insert(0, {'prefix': 'employee', 'label': 'Employee', 'example': 'employee:mukun', 'description': 'Filter by claimant username or name'})
+            return Response({'prefixes': prefixes})
+
+        suggestions = []
+        if prefix in ('status', 'claim_status'):
+            status_counts = dict(
+                base_ee_qs.values('status')
+                .annotate(count=Count('id'))
+                .values_list('status', 'count')
+            )
+            for val, label in EmployeeExpense.Status.choices:
+                if not q or q.lower() in val.lower() or q.lower() in label.lower():
+                    suggestions.append({
+                        'value': val,
+                        'label': label,
+                        'count': status_counts.get(val, 0),
+                        'prefix': 'status',
+                        'badge': 'STATUS'
+                    })
+        elif prefix == 'category':
+            qs = ExpenseCategory.objects.filter(is_active=True)
+            if is_scoped_employee:
+                cat_ids = base_ee_qs.values_list('category_id', flat=True).distinct()
+                qs = qs.filter(id__in=cat_ids)
+            if q:
+                qs = qs.filter(name__icontains=q)
+            results = qs.annotate(
+                count=Count('employee_expenses', filter=Q(employee_expenses__is_deleted=False) & (Q(employee_expenses__employee=user) if is_scoped_employee else Q()))
+            ).values('name', 'count').order_by('-count')[:10]
+            suggestions = [
+                {'value': r['name'], 'label': r['name'], 'count': r['count'], 'prefix': 'category', 'badge': 'CATEGORY'}
+                for r in results
+            ]
+        elif prefix in ('employee', 'user'):
+            if is_scoped_employee:
+                suggestions = [{
+                    'value': user.username,
+                    'label': f"{user.first_name} {user.last_name}".strip() or user.username,
+                    'count': base_ee_qs.count(),
+                    'prefix': 'employee',
+                    'badge': 'EMPLOYEE'
+                }]
+            else:
+                from account.models import User
+                qs = User.objects.filter(is_active=True)
+                if q:
+                    qs = qs.filter(Q(username__icontains=q) | Q(first_name__icontains=q) | Q(last_name__icontains=q))
+                results = qs.annotate(
+                    count=Count('expense_claims', filter=Q(expense_claims__is_deleted=False))
+                ).filter(count__gt=0).values('username', 'first_name', 'last_name', 'count').order_by('-count')[:10]
+                suggestions = [
+                    {
+                        'value': r['username'],
+                        'label': f"{r['first_name']} {r['last_name']}".strip() or r['username'],
+                        'count': r['count'],
+                        'prefix': 'employee',
+                        'badge': 'EMPLOYEE'
+                    }
+                    for r in results
+                ]
+        elif prefix == 'high_value':
+            hv_count = base_ee_qs.filter(amount__gte=Decimal('5000.00')).count()
+            suggestions.append({
+                'value': 'true',
+                'label': 'High Value (>= ₹5,000)',
+                'count': hv_count,
+                'prefix': 'high_value',
+                'badge': 'THRESHOLD'
+            })
+
+        return Response({'suggestions': suggestions})
 
 
 class EmployeeSalaryViewSet(viewsets.ModelViewSet):
@@ -1624,6 +1893,7 @@ class AllTransactionsViewSet(viewsets.ViewSet):
     required_permission = 'finance.manage_banking'
 
     def list(self, request):
+        import uuid
         from finance.models import BankTransaction, CashWalletTransaction, Expense, Loan, SalaryPayment, EmployeeExpense, OtherIncome
         from orders.models import Order
         from django.db.models import Q, Value, CharField, F
@@ -1631,9 +1901,9 @@ class AllTransactionsViewSet(viewsets.ViewSet):
         
         # 1. Filters with 500 Error Shield
         try:
-            date_from = request.query_params.get('date_from')
-            date_to = request.query_params.get('date_to')
-            txn_type = request.query_params.get('transaction_type')
+            date_from = request.query_params.get('date_from') or request.query_params.get('start_date')
+            date_to = request.query_params.get('date_to') or request.query_params.get('end_date')
+            txn_type = request.query_params.get('transaction_type') or request.query_params.get('type')
             source = request.query_params.get('source') # 'bank' or 'wallet'
             min_amount = request.query_params.get('min_amount')
             max_amount = request.query_params.get('max_amount')
@@ -1659,14 +1929,14 @@ class AllTransactionsViewSet(viewsets.ViewSet):
                 cw_qs = cw_qs.filter(amount__lte=float(max_amount))
                 
             if search:
-                # Defeating the Architect: Strip wildcards and enforce minimum length
-                search = search.replace('%', '').replace('_', '').strip()
-                if len(search) < 3:
-                    raise ValidationError("Search query must be at least 3 characters long after ignoring wildcards.")
-                    
-                # We search across description and reference.
-                bt_qs = bt_qs.filter(Q(reference__icontains=search) | Q(description__icontains=search))
-                cw_qs = cw_qs.filter(Q(reference_id__icontains=search) | Q(description__icontains=search))
+                source_token = TransactionTokenizedSearchFilter.has_source_filter(search)
+                if source_token:
+                    source = source_token
+
+                bt_q = TransactionTokenizedSearchFilter.parse_query(search)
+                cw_q = TransactionTokenizedSearchFilter.parse_query_for_wallet(search)
+                bt_qs = bt_qs.filter(bt_q)
+                cw_qs = cw_qs.filter(cw_q)
         except (ValueError, TypeError):
             raise ValidationError("Invalid filter parameters provided.")
         except Exception as e:
@@ -1692,10 +1962,15 @@ class AllTransactionsViewSet(viewsets.ViewSet):
             user_name=F('created_by__username')
         ).values('id', 'date', 'transaction_type', 'amount', 'ref', 'description', 'source_type', 'source_name', 'source_id', 'created_at', 'user_name')
         
+        bt_values = bt_values.order_by()
+        cw_values = cw_values.order_by()
+
         if source == 'bank':
             unified = bt_values
         elif source == 'wallet':
             unified = cw_values
+        elif source == 'none':
+            unified = bt_values.none()
         else:
             unified = bt_values.union(cw_values)
             
@@ -1736,7 +2011,6 @@ class AllTransactionsViewSet(viewsets.ViewSet):
                     order_display_ids.add(display_id)
             elif ref.startswith('refund_') and can_view_orders:
                 ref_id = ref.replace('refund_', '')
-                import uuid
                 try:
                     uuid.UUID(ref_id)
                     refund_ids.add(ref_id)
@@ -1744,24 +2018,39 @@ class AllTransactionsViewSet(viewsets.ViewSet):
                     pass
             elif ref.startswith('expense_') and can_view_expenses:
                 exp_id = ref.replace('expense_', '')
-                if exp_id.isdigit():
+                try:
+                    uuid.UUID(exp_id)
                     expense_ids.add(exp_id)
+                except ValueError:
+                    pass
             elif ref.startswith('employee_expense_') and can_view_expenses:
                 ee_id = ref.replace('employee_expense_', '')
-                if ee_id.isdigit():
+                try:
+                    uuid.UUID(ee_id)
                     employee_expense_ids.add(ee_id)
+                except ValueError:
+                    pass
             elif ref.startswith('salary_') and can_view_salaries:
                 sal_id = ref.replace('salary_', '')
-                if sal_id.isdigit():
+                try:
+                    uuid.UUID(sal_id)
                     salary_ids.add(sal_id)
+                except ValueError:
+                    pass
             elif ref.startswith('loan_') and can_view_loans:
                 ln_id = ref.replace('loan_', '')
-                if ln_id.isdigit():
+                try:
+                    uuid.UUID(ln_id)
                     loan_ids.add(ln_id)
+                except ValueError:
+                    pass
             elif ref.startswith('other_income_'):
                 oi_id = ref.replace('other_income_', '')
-                if oi_id.isdigit():
+                try:
+                    uuid.UUID(oi_id)
                     other_income_ids.add(oi_id)
+                except ValueError:
+                    pass
                     
         orders_map = {}
         if order_display_ids:
@@ -1886,6 +2175,121 @@ class AllTransactionsViewSet(viewsets.ViewSet):
             enriched_results.append(item_dict)
             
         return paginator.get_paginated_response(enriched_results)
+
+    @action(detail=False, methods=['get'], url_path='search-suggestions')
+    def search_suggestions(self, request):
+        """
+        Returns search prefix schema cheatsheet OR dynamic distinct values with counts
+        for unified ledger transactions.
+        """
+        from finance.models import BankTransaction, CashWalletTransaction, BankAccount, CashWallet
+
+        prefix = request.query_params.get('prefix', '').strip().lower()
+        q = request.query_params.get('q', '').strip()
+        if not prefix and ':' in q:
+            prefix, q = q.split(':', 1)
+            prefix = prefix.strip().lower()
+            q = q.strip()
+
+        if not prefix:
+            return Response({
+                'prefixes': [
+                    {'prefix': 'ref', 'label': 'Reference / UTR', 'example': 'ref:UTR1928301', 'description': 'Filter by reference or UTR number'},
+                    {'prefix': 'type', 'label': 'Transaction Type', 'example': 'type:order_payment', 'description': 'deposit, withdrawal, order_payment, expense, salary, refund'},
+                    {'prefix': 'source', 'label': 'Ledger Source', 'example': 'source:bank', 'description': 'bank or wallet'},
+                    {'prefix': 'account', 'label': 'Account / Wallet', 'example': 'account:"Axis Bank"', 'description': 'Filter by bank account or wallet name'},
+                    {'prefix': 'amount', 'label': 'Amount', 'example': 'amount:>5000', 'description': 'Comparison: >, <, >=, <=, ='},
+                    {'prefix': 'order', 'label': 'Order ID', 'example': 'order:1001', 'description': 'Filter by linked order ID'},
+                    {'prefix': 'user', 'label': 'Recorded By', 'example': 'user:admin', 'description': 'Filter by user who recorded transaction'},
+                    {'prefix': 'date', 'label': 'Date', 'example': 'date:today', 'description': 'today, yesterday, this_week, this_month, or YYYY-MM-DD'},
+                ]
+            })
+
+        suggestions = []
+        if prefix == 'source':
+            bt_count = BankTransaction.objects.filter(is_deleted=False).count()
+            cw_count = CashWalletTransaction.objects.filter(is_deleted=False).count()
+            suggestions = [
+                {'value': 'bank', 'label': 'Bank Accounts', 'count': bt_count, 'prefix': 'source', 'badge': 'SOURCE'},
+                {'value': 'wallet', 'label': 'Cash Wallets', 'count': cw_count, 'prefix': 'source', 'badge': 'SOURCE'},
+            ]
+        elif prefix in ('type', 'txn_type'):
+            deposit_cnt = (
+                BankTransaction.objects.filter(is_deleted=False, transaction_type='deposit').count() +
+                CashWalletTransaction.objects.filter(is_deleted=False, transaction_type='deposit').count()
+            )
+            withdrawal_cnt = (
+                BankTransaction.objects.filter(is_deleted=False, transaction_type='withdrawal').count() +
+                CashWalletTransaction.objects.filter(is_deleted=False, transaction_type='withdrawal').count()
+            )
+            order_cnt = (
+                BankTransaction.objects.filter(is_deleted=False, reference__startswith='order_').count() +
+                CashWalletTransaction.objects.filter(is_deleted=False, reference_id__startswith='order_').count()
+            )
+            expense_cnt = (
+                BankTransaction.objects.filter(is_deleted=False, reference__startswith='expense_').count() +
+                CashWalletTransaction.objects.filter(is_deleted=False, reference_id__startswith='expense_').count()
+            )
+            salary_cnt = (
+                BankTransaction.objects.filter(is_deleted=False, reference__startswith='salary_').count() +
+                CashWalletTransaction.objects.filter(is_deleted=False, reference_id__startswith='salary_').count()
+            )
+            refund_cnt = (
+                BankTransaction.objects.filter(is_deleted=False, reference__startswith='refund_').count() +
+                CashWalletTransaction.objects.filter(is_deleted=False, reference_id__startswith='refund_').count()
+            )
+            suggestions = [
+                {'value': 'deposit', 'label': 'Deposit (Inflow)', 'count': deposit_cnt, 'prefix': 'type', 'badge': 'TYPE'},
+                {'value': 'withdrawal', 'label': 'Withdrawal (Outflow)', 'count': withdrawal_cnt, 'prefix': 'type', 'badge': 'TYPE'},
+                {'value': 'order_payment', 'label': 'Order Payments', 'count': order_cnt, 'prefix': 'type', 'badge': 'ACTIVITY'},
+                {'value': 'expense', 'label': 'Expense Payments', 'count': expense_cnt, 'prefix': 'type', 'badge': 'ACTIVITY'},
+                {'value': 'salary', 'label': 'Salary Payments', 'count': salary_cnt, 'prefix': 'type', 'badge': 'ACTIVITY'},
+                {'value': 'refund', 'label': 'Refunds', 'count': refund_cnt, 'prefix': 'type', 'badge': 'ACTIVITY'},
+            ]
+            if q:
+                suggestions = [s for s in suggestions if q.lower() in s['value'].lower() or q.lower() in s['label'].lower()]
+        elif prefix in ('account', 'wallet'):
+            qs = BankAccount.objects.filter(is_active=True)
+            if q:
+                qs = qs.filter(Q(name__icontains=q) | Q(bank_name__icontains=q))
+            for b in qs[:8]:
+                suggestions.append({
+                    'value': b.name,
+                    'label': f"{b.name} (Bank)",
+                    'count': b.transactions.filter(is_deleted=False).count(),
+                    'prefix': 'account',
+                    'badge': 'BANK'
+                })
+            w_qs = CashWallet.objects.filter(is_active=True)
+            if q:
+                w_qs = w_qs.filter(name__icontains=q)
+            for w in w_qs[:5]:
+                suggestions.append({
+                    'value': w.name,
+                    'label': f"{w.name} (Wallet)",
+                    'count': w.transactions.filter(is_deleted=False).count(),
+                    'prefix': 'account',
+                    'badge': 'WALLET'
+                })
+        elif prefix in ('user', 'username'):
+            from account.models import User
+            u_qs = User.objects.filter(is_active=True)
+            if q:
+                u_qs = u_qs.filter(Q(username__icontains=q) | Q(first_name__icontains=q) | Q(last_name__icontains=q))
+            for u in u_qs[:10]:
+                bt_cnt = BankTransaction.objects.filter(is_deleted=False, recorded_by=u).count()
+                cw_cnt = CashWalletTransaction.objects.filter(is_deleted=False, created_by=u).count()
+                total_cnt = bt_cnt + cw_cnt
+                if total_cnt > 0 or q:
+                    suggestions.append({
+                        'value': u.username,
+                        'label': f"{u.first_name} {u.last_name}".strip() or u.username,
+                        'count': total_cnt,
+                        'prefix': 'user',
+                        'badge': 'USER'
+                    })
+
+        return Response({'suggestions': suggestions})
 
 
 # ======== Opening Balance ViewSet ========
