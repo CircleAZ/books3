@@ -67,3 +67,63 @@ class ProductTokenizedSearchFilter(BaseTokenizedSearchFilter):
         elif v in ('false', '0', 'no', 'single'):
             return Q(is_pack=False)
         return None
+
+
+class StockHistoryTokenizedSearchFilter(BaseTokenizedSearchFilter):
+    """
+    Intelligent tokenized search filter for Stock History supporting:
+      - product:<str>         -> product name icontains
+      - type:<str>            -> increase / positive, decrease / negative, set
+      - reason:<str>          -> reason iexact/icontains or notes icontains
+      - user:<str>            -> created_by username or names icontains
+      - qty:<op><num>         -> quantity_change comparison (>50, <0, =10)
+      - cost:<op><num>        -> cost_at_time comparison (>100, <=50)
+      - date:<date_expr>      -> created_at__date comparison
+      - -<prefix>:<val>       -> negation (~Q)
+      - <raw terms>           -> fallback to product name, notes, reason
+    """
+    DISPLAY_ID_FIELD = None
+
+    FREE_TEXT_FIELDS = [
+        'product__name',
+        'notes',
+        'reason',
+        'created_by__username',
+    ]
+
+    PREFIX_MAP = {
+        'product': 'product__name__icontains',
+        'type': 'handle_type',
+        'reason': 'handle_reason',
+        'user': 'handle_user',
+        'qty': ('numeric', 'quantity_change'),
+        'quantity': ('numeric', 'quantity_change'),
+        'cost': ('numeric', 'cost_at_time'),
+        'unit_cost': ('numeric', 'cost_at_time'),
+        'cost_at_time': ('numeric', 'cost_at_time'),
+        'date': ('date', 'created_at__date'),
+    }
+
+    @classmethod
+    def handle_type(cls, val):
+        v = val.strip().lower()
+        if v in ('increase', 'positive', 'in'):
+            return Q(quantity_change__gt=0)
+        elif v in ('decrease', 'negative', 'out'):
+            return Q(quantity_change__lt=0)
+        elif v in ('set', 'set_total'):
+            return Q(notes__icontains='Set Stock') | Q(notes__icontains='(set)')
+        return Q(notes__icontains=f"({v})")
+
+    @classmethod
+    def handle_reason(cls, val):
+        return Q(reason__icontains=val) | Q(notes__icontains=val)
+
+    @classmethod
+    def handle_user(cls, val):
+        return (
+            Q(created_by__username__icontains=val) |
+            Q(created_by__first_name__icontains=val) |
+            Q(created_by__last_name__icontains=val)
+        )
+

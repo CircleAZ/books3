@@ -4,6 +4,7 @@ import { useCurrency } from '../../context/CurrencyContext';
 import { ENDPOINTS } from '../../config/api';
 import Pagination from '../../components/common/Pagination';
 import useServerList from '../../hooks/useServerList';
+import SearchTokenPalette from '../../components/common/SearchTokenPalette';
 import './ReturnsList.css';
 
 export default function ReturnsList() {
@@ -36,9 +37,19 @@ export default function ReturnsList() {
 
     const isFilterActive = search !== '' || filters.status !== '' || filters.dateAfter !== '' || filters.dateBefore !== '';
 
-    const handleSearchChange = (e) => {
-        setSearch(e.target.value);
+    const toggleSearchToken = (token) => {
+        if (search.includes(token)) {
+            const updated = search.replace(token, '').replace(/\s{2,}/g, ' ').trim();
+            setSearch(updated);
+        } else {
+            const updated = search ? `${search.trim()} ${token}` : token;
+            setSearch(updated);
+        }
     };
+
+    const isPendingActive = search.includes('status:initiated');
+    const isReceivedActive = search.includes('status:items_received');
+    const isCompletedActive = search.includes('status:completed');
 
     const handleFilterChange = (key) => (e) => {
         setFilter(key, e.target.value);
@@ -84,17 +95,46 @@ export default function ReturnsList() {
             </div>
 
             <div className="returns-list-controls card">
-                <div className="search-row">
-                    <div className="search-container">
-                        <span className="search-icon">🔍</span>
-                        <input
-                            type="text"
-                            placeholder="Search by Return ID, Order ID, Customer..."
-                            className="search-input"
-                            value={search}
-                            onChange={handleSearchChange}
-                        />
-                    </div>
+                <div className="search-row" style={{ width: '100%' }}>
+                    <SearchTokenPalette
+                        value={search}
+                        onChange={setSearch}
+                        placeholder="Search by Return ID, order:..., customer:..., status:initiated, product:..."
+                        suggestionsEndpoint={ENDPOINTS.RETURNS_SEARCH_SUGGESTIONS}
+                    />
+                </div>
+
+                <div className="quick-filters" style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center', margin: '8px 0 12px 0' }}>
+                    <button
+                        type="button"
+                        className={`btn btn-sm ${isPendingActive ? 'btn-primary' : 'btn-ghost'}`}
+                        onClick={() => toggleSearchToken('status:initiated')}
+                    >
+                        {isPendingActive ? '✕ Pending Returns' : 'Pending Returns'}
+                    </button>
+                    <button
+                        type="button"
+                        className={`btn btn-sm ${isReceivedActive ? 'btn-primary' : 'btn-ghost'}`}
+                        onClick={() => toggleSearchToken('status:items_received')}
+                    >
+                        {isReceivedActive ? '✕ Items Received' : 'Items Received'}
+                    </button>
+                    <button
+                        type="button"
+                        className={`btn btn-sm ${isCompletedActive ? 'btn-primary' : 'btn-ghost'}`}
+                        onClick={() => toggleSearchToken('status:completed')}
+                    >
+                        {isCompletedActive ? '✕ Completed' : 'Completed'}
+                    </button>
+                    {search && (
+                        <button
+                            type="button"
+                            className="btn btn-sm btn-ghost"
+                            onClick={() => setSearch('')}
+                        >
+                            Clear Search
+                        </button>
+                    )}
                 </div>
 
                 <div className="filter-row">

@@ -12,7 +12,7 @@ from django.core.exceptions import ValidationError
 import django_filters
 from django_filters.rest_framework import DjangoFilterBackend
 from .models import Category, Vendor, Tag, Product, StockAdjustment, StockHistory
-from .filters import ProductTokenizedSearchFilter
+from .filters import ProductTokenizedSearchFilter, StockHistoryTokenizedSearchFilter
 from orders.constants import VALID_SALE_STATUSES
 from .serializers import (
     CategorySerializer, VendorSerializer, TagSerializer,
@@ -532,8 +532,7 @@ class StockHistoryViewSet(viewsets.ModelViewSet):
     pagination_class = ProductPagination
     permission_classes = [HasRequiredPermission]
     required_permission = 'inventory.view_products'
-    filter_backends = [filters.SearchFilter, filters.OrderingFilter, DjangoFilterBackend]
-    search_fields = ['product__name', 'notes']
+    filter_backends = [StockHistoryTokenizedSearchFilter, filters.OrderingFilter, DjangoFilterBackend]
     ordering = ['-created_at']
     filterset_class = StockHistoryFilter
     http_method_names = ['get', 'head', 'options']  # Read-only
@@ -552,3 +551,139 @@ class StockHistoryViewSet(viewsets.ModelViewSet):
             'users': [{'id': str(uid), 'username': uname} for uid, uname in users],
             'reasons': [{'value': c[0], 'label': c[1]} for c in StockHistory.REASON_CHOICES],
         })
+
+    @action(detail=False, methods=['get'], url_path='search-suggestions')
+    def search_suggestions(self, request):
+        """
+        Returns search prefix schema cheatsheet OR dynamic distinct values with counts
+        for stock history tokens.
+        """
+        prefix = request.query_params.get('prefix', '').strip().lower()
+        q = request.query_params.get('q', '').strip()
+
+        if not prefix:
+            return Response({
+                'prefixes': [
+                    {'prefix': 'product', 'label': 'Product Name', 'example': 'product:"Notebook"', 'description': 'Filter by product name'},
+                    {'prefix': 'type', 'label': 'Adjustment Type', 'example': 'type:increase', 'description': 'increase, decrease, set'},
+                    {'prefix': 'reason', 'label': 'Reason', 'example': 'reason:damage', 'description': 'damage, shrinkage, audit_correction, purchase, sale, return'},
+                    {'prefix': 'user', 'label': 'User', 'example': 'user:admin', 'description': 'Filter by user who performed adjustment'},
+                    {'prefix': 'qty', 'label': 'Quantity Change', 'example': 'qty:>50', 'description': 'Comparison: >, <, >=, <=, = (e.g. qty:<0)'},
+                    {'prefix': 'cost', 'label': 'Cost at Time', 'example': 'cost:>100', 'description': 'Comparison: >, <, >=, <=, ='},
+                    {'prefix': 'date', 'label': 'Adjustment Date', 'example': 'date:today', 'description': 'today, yesterday, or YYYY-MM-DD'},
+                ]
+            })
+
+        suggestions = []
+        if prefix == 'reason':
+            reason_counts = dict(
+                StockHistory.objects.values('reason')
+                .annotate(count=Count('id'))
+                .values_list('reason', 'count')
+            )
+            known_reasons = {}
+            for val, label in StockAdjustment.REASON_CHOICES:
+                known_reasons[val] = label
+            for val, label in StockHistory.REASON_CHOICES:
+                if val not in known_reasons:
+                    known_reasons[val] = label
+
+            all_reasons = list(known_reasons.keys())
+            for r in reason_counts:
+                if r not in known_reasons:
+                    known_reasons[r] = r.replace('_', ' ').title()
+                    all_reasons.append(r)
+
+            for r_val in all_reasons:
+                label = known_reasons.get(r_val, r_val.replace('_', ' ').title())
+                if not q or q.lower() in r_val.lower() or q.lower() in label.lower():
+                    suggestions.append({
+                        'value': r_val,
+                        'label': label,
+                        'count': reason_counts.get(r_val, 0),
+                        'prefix': 'reason',
+                        'badge': 'REASON'
+                    })
+
+        elif prefix == 'type':
+            pos_cnt = StockHistory.objects.filter(quantity_change__gt=0).count()
+            neg_cnt = StockHistory.objects.filter(quantity_change__lt=0).count()
+            set_cnt = StockHistory.objects.filter(Q(notes__icontains='Set Stock') | Q(notes__icontains='(set)')).count()
+            types = [
+                {'value': 'increase', 'label': 'Stock Increase (Positive)', 'count': pos_cnt, 'prefix': 'type', 'badge': 'TYPE'},
+                {'value': 'decrease', 'label': 'Stock Decrease (Negative)', 'count': neg_cnt, 'prefix': 'type', 'badge': 'TYPE'},
+                {'value': 'set', 'label': 'Set Stock Total', 'count': set_cnt, 'prefix': 'type', 'badge': 'TYPE'},
+            ]
+            suggestions = [t for t in types if not q or q.lower() in t['value'].lower() or q.lower() in t['label'].lower()]
+
+        elif prefix == 'product':
+            item_qs = StockHistory.objects.filter(product__is_deleted=False)
+            if q:
+                item_qs = item_qs.filter(product__name__icontains=q)
+            top_products = item_qs.values('product__name').annotate(
+                count=Count('id')
+            ).order_by('-count')[:10]
+            suggestions = [
+                {
+                    'value': r['product__name'],
+                    'label': r['product__name'],
+                    'count': r['count'],
+                    'prefix': 'product',
+                    'badge': 'PRODUCT'
+                }
+                for r in top_products
+            ]
+
+        elif prefix == 'user':
+            users_qs = StockHistory.objects.filter(created_by__isnull=False)
+            if q:
+                users_qs = users_qs.filter(
+                    Q(created_by__username__icontains=q) |
+                    Q(created_by__first_name__icontains=q) |
+                    Q(created_by__last_name__icontains=q)
+                )
+            results = (
+                users_qs.values('created_by__username')
+                .annotate(count=Count('id'))
+                .order_by('-count')[:10]
+            )
+            suggestions = [
+                {
+                    'value': r['created_by__username'],
+                    'label': r['created_by__username'],
+                    'count': r['count'],
+                    'prefix': 'user',
+                    'badge': 'USER'
+                }
+                for r in results
+            ]
+
+        elif prefix == 'qty':
+            presets = [
+                {'value': '>50', 'label': 'Large Increase (>50)', 'prefix': 'qty'},
+                {'value': '<0', 'label': 'Decreases / Reductions (<0)', 'prefix': 'qty'},
+                {'value': '<-10', 'label': 'Large Reductions (<-10)', 'prefix': 'qty'},
+                {'value': '>100', 'label': 'Bulk Additions (>100)', 'prefix': 'qty'},
+            ]
+            suggestions = [p for p in presets if not q or q in p['value']]
+
+        elif prefix == 'cost':
+            presets = [
+                {'value': '>100', 'label': 'Cost > ₹100', 'prefix': 'cost'},
+                {'value': '>500', 'label': 'Cost > ₹500', 'prefix': 'cost'},
+                {'value': '<50', 'label': 'Cost < ₹50', 'prefix': 'cost'},
+            ]
+            suggestions = [p for p in presets if not q or q in p['value']]
+
+        elif prefix == 'date':
+            presets = [
+                {'value': 'today', 'label': "Today's Adjustments", 'prefix': 'date'},
+                {'value': 'yesterday', 'label': "Yesterday's Adjustments", 'prefix': 'date'},
+            ]
+            suggestions = [p for p in presets if not q or q.lower() in p['value']]
+
+        return Response({
+            'prefix': prefix,
+            'suggestions': suggestions
+        })
+

@@ -30,6 +30,7 @@ export const ENDPOINTS = {
     INVENTORY_CATEGORIES: `${API_BASE}/inventory/categories/`,
     INVENTORY_VENDORS: `${API_BASE}/inventory/vendors/`,
     INVENTORY_STOCK_HISTORY: `${API_BASE}/inventory/stock-history/`,
+    INVENTORY_STOCK_HISTORY_SUGGESTIONS: `${API_BASE}/inventory/stock-history/search-suggestions/`,
     INVENTORY_STOCK_ADJUSTMENTS: `${API_BASE}/inventory/stock-adjustments/`,
 
 
@@ -69,6 +70,7 @@ export const ENDPOINTS = {
     ORDERS: `${API_BASE}/orders/orders/`,
     ORDERS_SEARCH_SUGGESTIONS: `${API_BASE}/orders/orders/search-suggestions/`,
     RETURNS: `${API_BASE}/orders/returns/`,
+    RETURNS_SEARCH_SUGGESTIONS: `${API_BASE}/orders/returns/search-suggestions/`,
     RETURN_REASONS: `${API_BASE}/orders/return-reasons/`,
     ORDERS_REFUNDS: `${API_BASE}/orders/refunds/`,
 
@@ -94,6 +96,8 @@ export const ENDPOINTS = {
     FINANCE_OTHER_INCOME: `${API_BASE}/finance/other-income/`,
 
     // Procurement
+    PROCUREMENT_PURCHASE_ORDERS: `${API_BASE}/procurement/purchase-orders/`,
+    PROCUREMENT_SEARCH_SUGGESTIONS: `${API_BASE}/procurement/purchase-orders/search-suggestions/`,
     PROCUREMENT_TRANSPORTERS: `${API_BASE}/procurement/transporters/`,
 
 

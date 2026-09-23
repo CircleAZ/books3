@@ -5,6 +5,7 @@ import { PROCUREMENT_ENDPOINTS } from '../../services/procurementService';
 import { ENDPOINTS } from '../../config/api';
 import Pagination from '../../components/common/Pagination';
 import useServerList from '../../hooks/useServerList';
+import SearchTokenPalette from '../../components/common/SearchTokenPalette';
 
 const DATE_PRESETS = [
     { label: 'This Week', value: 'week' },
@@ -35,6 +36,22 @@ export default function ProcurementList() {
         filterConfig: { status: '', payment_status: '', vendor: '' },
         pageSize: 20
     });
+
+    const toggleSearchToken = (token) => {
+        if (search.includes(token)) {
+            const updated = search.replace(token, '').replace(/\s{2,}/g, ' ').trim();
+            setSearch(updated);
+        } else {
+            const updated = search ? `${search.trim()} ${token}` : token;
+            setSearch(updated);
+        }
+    };
+
+    const isPendingActive = search.includes('status:ordered');
+    const isUnpaidActive = search.includes('payment:pending');
+    const isPartialActive = search.includes('status:partially_received');
+    const isReceivedActive = search.includes('status:received');
+    const isOverdueActive = search.includes('due:<today');
 
     const [activeTab, setActiveTab] = useState('orders');
     const [analytics, setAnalytics] = useState(null);
@@ -140,75 +157,123 @@ export default function ProcurementList() {
                     {/* Filters bar */}
                     <div style={{
                         display: 'flex',
-                        flexWrap: 'wrap',
+                        flexDirection: 'column',
                         gap: '0.75rem',
-                        alignItems: 'center',
                         marginBottom: '1.5rem',
                         padding: '1rem',
                         background: 'var(--color-surface-raised, var(--color-surface, #1e1e2e))',
                         borderRadius: '12px',
                         border: '1px solid var(--color-border-light, #313244)',
                     }}>
-                        <div style={{ flex: 1, minWidth: '200px' }}>
-                            <input
-                                type="text"
-                                className="form-control"
-                                placeholder="Search display ID, vendor, product..."
+                        <div style={{ width: '100%' }}>
+                            <SearchTokenPalette
                                 value={search}
-                                onChange={handleSearchChange}
-                                style={{ width: '100%' }}
+                                onChange={setSearch}
+                                placeholder="Search POs by display ID, vendor:..., status:ordered, product:..., total:>10000..."
+                                suggestionsEndpoint={PROCUREMENT_ENDPOINTS.SEARCH_SUGGESTIONS}
                             />
                         </div>
-                        <div style={{ minWidth: '130px' }}>
-                            <select
-                                className="form-control"
-                                value={filters.status}
-                                onChange={handleStatusChange}
-                                style={{ width: '100%' }}
-                            >
-                                <option value="">All Statuses</option>
-                                <option value="draft">Draft</option>
-                                <option value="ordered">Ordered</option>
-                                <option value="partially_received">Partially Received</option>
-                                <option value="received">Received</option>
-                                <option value="cancelled">Cancelled</option>
-                            </select>
-                        </div>
-                        <div style={{ minWidth: '150px' }}>
-                            <select
-                                className="form-control"
-                                value={filters.payment_status}
-                                onChange={handlePaymentStatusChange}
-                                style={{ width: '100%' }}
-                            >
-                                <option value="">All Payments</option>
-                                <option value="pending">Pending</option>
-                                <option value="partial">Partial</option>
-                                <option value="paid">Paid</option>
-                            </select>
-                        </div>
-                        <div style={{ minWidth: '150px' }}>
-                            <select
-                                className="form-control"
-                                value={filters.vendor}
-                                onChange={handleVendorChange}
-                                style={{ width: '100%' }}
-                            >
-                                <option value="">All Vendors</option>
-                                {vendors.map(v => (
-                                    <option key={v.id} value={v.id}>{v.name}</option>
-                                ))}
-                            </select>
-                        </div>
-                        {isFilterActive && (
+
+                        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
                             <button
-                                className="btn btn-ghost btn-sm"
-                                onClick={clearFilters}
-                                style={{ color: 'var(--color-warning, #f59e0b)', borderColor: 'var(--color-warning, #f59e0b)' }}
+                                type="button"
+                                className={`btn btn-sm ${isPendingActive ? 'btn-primary' : 'btn-ghost'}`}
+                                onClick={() => toggleSearchToken('status:ordered')}
                             >
-                                Clear
+                                {isPendingActive ? '✕ Pending Orders' : 'Pending Orders'}
                             </button>
-                        )}
+                            <button
+                                type="button"
+                                className={`btn btn-sm ${isUnpaidActive ? 'btn-primary' : 'btn-ghost'}`}
+                                onClick={() => toggleSearchToken('payment:pending')}
+                            >
+                                {isUnpaidActive ? '✕ Unpaid POs' : 'Unpaid POs'}
+                            </button>
+                            <button
+                                type="button"
+                                className={`btn btn-sm ${isPartialActive ? 'btn-primary' : 'btn-ghost'}`}
+                                onClick={() => toggleSearchToken('status:partially_received')}
+                            >
+                                {isPartialActive ? '✕ Partial' : 'Partially Received'}
+                            </button>
+                            <button
+                                type="button"
+                                className={`btn btn-sm ${isReceivedActive ? 'btn-primary' : 'btn-ghost'}`}
+                                onClick={() => toggleSearchToken('status:received')}
+                            >
+                                {isReceivedActive ? '✕ Received' : 'Fully Received'}
+                            </button>
+                            <button
+                                type="button"
+                                className={`btn btn-sm ${isOverdueActive ? 'btn-primary' : 'btn-ghost'}`}
+                                onClick={() => toggleSearchToken('due:<today')}
+                            >
+                                {isOverdueActive ? '✕ Overdue Delivery' : 'Overdue Delivery'}
+                            </button>
+                            {search && (
+                                <button
+                                    type="button"
+                                    className="btn btn-sm btn-ghost"
+                                    onClick={() => setSearch('')}
+                                >
+                                    Clear Search
+                                </button>
+                            )}
+
+                            <div style={{ marginLeft: 'auto', display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+                                <div style={{ minWidth: '130px' }}>
+                                    <select
+                                        className="form-control"
+                                        value={filters.status}
+                                        onChange={handleStatusChange}
+                                        style={{ width: '100%' }}
+                                    >
+                                        <option value="">All Statuses</option>
+                                        <option value="draft">Draft</option>
+                                        <option value="ordered">Ordered</option>
+                                        <option value="partially_received">Partially Received</option>
+                                        <option value="received">Received</option>
+                                        <option value="cancelled">Cancelled</option>
+                                    </select>
+                                </div>
+                                <div style={{ minWidth: '130px' }}>
+                                    <select
+                                        className="form-control"
+                                        value={filters.payment_status}
+                                        onChange={handlePaymentStatusChange}
+                                        style={{ width: '100%' }}
+                                    >
+                                        <option value="">All Payments</option>
+                                        <option value="pending">Pending</option>
+                                        <option value="partial">Partial</option>
+                                        <option value="paid">Paid</option>
+                                    </select>
+                                </div>
+                                <div style={{ minWidth: '140px' }}>
+                                    <select
+                                        className="form-control"
+                                        value={filters.vendor}
+                                        onChange={handleVendorChange}
+                                        style={{ width: '100%' }}
+                                    >
+                                        <option value="">All Vendors</option>
+                                        {vendors.map(v => (
+                                            <option key={v.id} value={v.id}>{v.name}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                                {isFilterActive && (
+                                    <button
+                                        type="button"
+                                        className="btn btn-ghost btn-sm"
+                                        onClick={clearFilters}
+                                        style={{ color: 'var(--color-warning, #f59e0b)', borderColor: 'var(--color-warning, #f59e0b)' }}
+                                    >
+                                        Clear
+                                    </button>
+                                )}
+                            </div>
+                        </div>
                     </div>
 
                     {loading ? (

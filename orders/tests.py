@@ -896,6 +896,6 @@ class OrderReturnTestCase(TestCase):
         self.assertEqual(rev_tx.created_by, self.user)
 
 
-
-
+from .tests_tokenized_search import OrderTokenizedSearchTests
+from .tests_return_tokenized_search import ReturnTokenizedSearchTests
 

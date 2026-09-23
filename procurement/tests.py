@@ -1107,5 +1107,8 @@ class POListFiltersTestCase(TestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data['count'], 15)
 
+from .tests_tokenized_search import PurchaseOrderTokenizedSearchTests
+
+
 
 

@@ -3,6 +3,7 @@ import { useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { ENDPOINTS } from '../../config/api';
 import useServerList from '../../hooks/useServerList';
+import SearchTokenPalette from '../../components/common/SearchTokenPalette';
 import './ProductList.css';
 import './StockControl.css';
 
@@ -53,6 +54,20 @@ export default function StockControl() {
         filterConfig: { reason: '', created_by: '', change_direction: '', date_from: '', date_to: '' },
         pageSize: 20, // standardized to 20!
     });
+
+    const toggleHistorySearchToken = (token) => {
+        if (historySearch.includes(token)) {
+            const updated = historySearch.replace(token, '').replace(/\s{2,}/g, ' ').trim();
+            setHistorySearch(updated);
+        } else {
+            const updated = historySearch ? `${historySearch.trim()} ${token}` : token;
+            setHistorySearch(updated);
+        }
+    };
+
+    const isDamageActive = historySearch.includes('reason:damage');
+    const isAuditActive = historySearch.includes('reason:audit_correction');
+    const isHighVolumeActive = historySearch.includes('qty:>50');
 
     const hasLoadedHistory = useRef(false);
     useEffect(() => {
@@ -342,21 +357,49 @@ export default function StockControl() {
                     <>
                         {/* Filter Bar */}
                         <div className="history-filter-bar">
-                            <div className="filter-search-row">
-                                <div className="filter-search-wrapper">
-                                    <svg className="filter-search-icon" viewBox="0 0 20 20" fill="currentColor" width="16" height="16">
-                                        <path fillRule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clipRule="evenodd" />
-                                    </svg>
-                                    <input
-                                        type="text"
-                                        id="history-search-input"
-                                        placeholder="Search by product name or notes..."
-                                        className="filter-search-input"
-                                        value={historySearch}
-                                        onChange={e => setHistorySearch(e.target.value)}
-                                    />
-                                </div>
-                            </div>                            <div className="filter-controls-row">
+                            <div className="filter-search-row" style={{ width: '100%', marginBottom: '8px' }}>
+                                <SearchTokenPalette
+                                    value={historySearch}
+                                    onChange={setHistorySearch}
+                                    placeholder="Search adjustments by product:..., reason:..., type:..., qty:>50, date:today..."
+                                    suggestionsEndpoint={ENDPOINTS.INVENTORY_STOCK_HISTORY_SUGGESTIONS}
+                                />
+                            </div>
+
+                            <div className="quick-filters" style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center', marginBottom: '12px' }}>
+                                <button
+                                    type="button"
+                                    className={`btn btn-sm ${isDamageActive ? 'btn-primary' : 'btn-ghost'}`}
+                                    onClick={() => toggleHistorySearchToken('reason:damage')}
+                                >
+                                    {isDamageActive ? '✕ Shrinkage / Damage' : 'Shrinkage / Damage'}
+                                </button>
+                                <button
+                                    type="button"
+                                    className={`btn btn-sm ${isAuditActive ? 'btn-primary' : 'btn-ghost'}`}
+                                    onClick={() => toggleHistorySearchToken('reason:audit_correction')}
+                                >
+                                    {isAuditActive ? '✕ Audit Corrections' : 'Audit Corrections'}
+                                </button>
+                                <button
+                                    type="button"
+                                    className={`btn btn-sm ${isHighVolumeActive ? 'btn-primary' : 'btn-ghost'}`}
+                                    onClick={() => toggleHistorySearchToken('qty:>50')}
+                                >
+                                    {isHighVolumeActive ? '✕ High Volume (>50)' : 'High Volume (>50)'}
+                                </button>
+                                {historySearch && (
+                                    <button
+                                        type="button"
+                                        className="btn btn-sm btn-ghost"
+                                        onClick={() => setHistorySearch('')}
+                                    >
+                                        Clear Search
+                                    </button>
+                                )}
+                            </div>
+
+                            <div className="filter-controls-row">
                                 <select
                                     id="history-reason-filter"
                                     className="filter-select"

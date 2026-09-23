@@ -4,7 +4,7 @@ Views for Order Management.
 import logging
 from rest_framework import viewsets, filters, status, serializers
 from rest_framework.decorators import action
-from django.db.models import Count, Case, When, Value, CharField, F
+from django.db.models import Count, Case, When, Value, CharField, F, Q
 from django.db.models.functions import Coalesce, Concat
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
@@ -18,7 +18,7 @@ from .models import (
     ReturnReason, Return, ReturnItem, Refund, CreditNote
 )
 from messaging.dispatch import dispatch_receipt, dispatch_payment_update
-from .filters import OrderTokenizedSearchFilter
+from .filters import OrderTokenizedSearchFilter, ReturnTokenizedSearchFilter
 from .serializers import (
     OrderListSerializer, OrderDetailSerializer, OrderCreateSerializer,
     OrderItemSerializer, PaymentSerializer, OrderStatusHistorySerializer,
@@ -1573,8 +1573,7 @@ class ReturnViewSet(viewsets.ModelViewSet):
     queryset = Return.objects.all()
     permission_classes = [HasRequiredPermission]
     required_permission = 'orders.manage_returns'
-    filter_backends = [filters.SearchFilter, filters.OrderingFilter, DjangoFilterBackend]
-    search_fields = ['display_id', 'order__display_id', 'order__guest_name', 'order__customer__first_name']
+    filter_backends = [ReturnTokenizedSearchFilter, filters.OrderingFilter, DjangoFilterBackend]
     ordering_fields = ['created_at', 'display_id']
     filterset_class = ReturnFilter
     
@@ -1597,7 +1596,137 @@ class ReturnViewSet(viewsets.ModelViewSet):
     
     def perform_create(self, serializer):
         serializer.save(created_by=self.request.user)
-    
+
+    @action(detail=False, methods=['get'], url_path='search-suggestions')
+    def search_suggestions(self, request):
+        """
+        Returns search prefix schema cheatsheet OR dynamic distinct values with counts
+        for return request tokens.
+        """
+        prefix = request.query_params.get('prefix', '').strip().lower()
+        q = request.query_params.get('q', '').strip()
+
+        if not prefix:
+            return Response({
+                'prefixes': [
+                    {'prefix': 'id', 'label': 'Return ID', 'example': 'id:50', 'description': 'Filter by exact return sequence ID'},
+                    {'prefix': 'order', 'label': 'Order ID', 'example': 'order:1001', 'description': 'Filter by parent order sequence ID'},
+                    {'prefix': 'status', 'label': 'Return Status', 'example': 'status:initiated', 'description': 'initiated, items_received, completed, cancelled'},
+                    {'prefix': 'customer', 'label': 'Customer', 'example': 'customer:Patel', 'description': 'Filter by customer or guest name'},
+                    {'prefix': 'product', 'label': 'Returned Product', 'example': 'product:"Notebook"', 'description': 'Filter by returned product name'},
+                    {'prefix': 'date', 'label': 'Return Date', 'example': 'date:today', 'description': 'today, yesterday, or YYYY-MM-DD'},
+                ]
+            })
+
+        suggestions = []
+        if prefix == 'status':
+            status_counts = dict(
+                Return.objects.filter(is_deleted=False)
+                .values('status')
+                .annotate(count=Count('id'))
+                .values_list('status', 'count')
+            )
+            for val, label in Return.RETURN_STATUS:
+                if not q or q.lower() in val.lower() or q.lower() in label.lower():
+                    suggestions.append({
+                        'value': val,
+                        'label': label,
+                        'count': status_counts.get(val, 0),
+                        'prefix': 'status',
+                        'badge': 'STATUS'
+                    })
+
+        elif prefix == 'product':
+            from orders.models import ReturnItem
+            item_qs = ReturnItem.objects.filter(return_request__is_deleted=False)
+            if q:
+                item_qs = item_qs.filter(order_item__product__name__icontains=q)
+            top_products = item_qs.values('order_item__product__name').annotate(
+                count=Count('return_request_id', distinct=True)
+            ).order_by('-count')[:10]
+            suggestions = [
+                {
+                    'value': r['order_item__product__name'],
+                    'label': r['order_item__product__name'],
+                    'count': r['count'],
+                    'prefix': 'product',
+                    'badge': 'PRODUCT'
+                }
+                for r in top_products
+            ]
+
+        elif prefix in ('customer', 'cust'):
+            orders_with_returns = Order.objects.filter(returns__is_deleted=False)
+            if q:
+                orders_with_returns = orders_with_returns.filter(
+                    Q(customer__first_name__icontains=q) |
+                    Q(customer__last_name__icontains=q) |
+                    Q(guest_name__icontains=q)
+                )
+
+            cust_results = (
+                orders_with_returns.filter(customer__isnull=False)
+                .values('customer__first_name', 'customer__last_name')
+                .annotate(count=Count('returns__id', distinct=True))
+                .order_by('-count')[:5]
+            )
+            for c in cust_results:
+                full_name = f"{c['customer__first_name']} {c['customer__last_name']}".strip()
+                suggestions.append({
+                    'value': full_name,
+                    'label': full_name,
+                    'count': c['count'],
+                    'prefix': 'customer',
+                    'badge': 'CUSTOMER'
+                })
+
+            guest_results = (
+                orders_with_returns.filter(customer__isnull=True, guest_name__gt='')
+                .values('guest_name')
+                .annotate(count=Count('returns__id', distinct=True))
+                .order_by('-count')[:5]
+            )
+            for g in guest_results:
+                suggestions.append({
+                    'value': g['guest_name'],
+                    'label': f"{g['guest_name']} (Guest)",
+                    'count': g['count'],
+                    'prefix': 'customer',
+                    'badge': 'GUEST'
+                })
+
+        elif prefix in ('order', 'order_id'):
+            order_qs = Order.objects.filter(returns__is_deleted=False)
+            if q:
+                clean_q = q.lstrip('#').strip()
+                if clean_q.isdigit():
+                    order_qs = order_qs.filter(display_id__startswith=int(clean_q))
+            top_orders = order_qs.values('display_id').annotate(
+                count=Count('returns__id', distinct=True)
+            ).order_by('-count')[:10]
+            suggestions = [
+                {
+                    'value': str(r['display_id']),
+                    'label': f"Order #{r['display_id']}",
+                    'count': r['count'],
+                    'prefix': 'order',
+                    'badge': 'ORDER'
+                }
+                for r in top_orders
+            ]
+
+        elif prefix == 'date':
+            presets = [
+                {'value': 'today', 'label': "Today's Returns", 'prefix': 'date'},
+                {'value': 'yesterday', 'label': "Yesterday's Returns", 'prefix': 'date'},
+            ]
+            suggestions = [p for p in presets if not q or q.lower() in p['value']]
+
+        return Response({
+            'prefix': prefix,
+            'suggestions': suggestions
+        })
+
     @action(detail=True, methods=['post'])
     def receive_items(self, request, pk=None):
         """

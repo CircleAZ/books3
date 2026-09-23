@@ -13,6 +13,8 @@ export const PROCUREMENT_ENDPOINTS = {
     TRANSPORTERS: `${API_BASE}/procurement/transporters/`,
     CHARGES: `${API_BASE}/procurement/purchase-charges/`,
     PAYMENTS: `${API_BASE}/procurement/purchase-payments/`,
+    SEARCH_SUGGESTIONS: `${API_BASE}/procurement/purchase-orders/search-suggestions/`,
+    PROCUREMENT_SEARCH_SUGGESTIONS: `${API_BASE}/procurement/purchase-orders/search-suggestions/`,
 };
 
 export const getPurchaseOrderUrl = (id) =>

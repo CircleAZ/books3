@@ -42,7 +42,7 @@ class BaseTokenizedSearchFilter(BaseFilterBackend):
     }
 
     TOKEN_PATTERN = re.compile(
-        r'(-?[\w]+:(?:"[^"]*"|(?:>=|<=|>|<|=)\s*-?\d+(?:\.\d+)?|[^\s]+)|"[^"]*"|[^\s]+)'
+        r'(-?[\w]+:(?:"[^"]*"|(?:>=|<=|>|<|=)?\s*\d{4}-\d{2}-\d{2}|(?:>=|<=|>|<|=)?\s*(?:today|yesterday)|(?:>=|<=|>|<|=)\s*-?\d+(?:\.\d+)?|[^\s]+)|"[^"]*"|[^\s]+)'
     )
     NUMERIC_PATTERN = re.compile(r'^(>=|<=|>|<|=)?\s*(-?\d+(?:\.\d+)?)$')
 
@@ -69,9 +69,9 @@ class BaseTokenizedSearchFilter(BaseFilterBackend):
     @classmethod
     def parse_id_clause(cls, field_name, val, id_field='id'):
         """
-        Builds an ID lookup matching exact display_id (stripped of #) or UUID prefix.
+        Builds an ID lookup matching exact display_id (stripped of #, PO-, ORD-, RET-) or UUID prefix.
         """
-        clean_id = val.lstrip('#').strip()
+        clean_id = re.sub(r'^(?:po|ord|ret)[#\-_]?', '', val.strip(), flags=re.IGNORECASE).lstrip('#').strip()
         if clean_id.isdigit():
             return Q(**{field_name: int(clean_id)})
         return Q(**{f"{id_field}__startswith": clean_id})
@@ -79,18 +79,24 @@ class BaseTokenizedSearchFilter(BaseFilterBackend):
     @classmethod
     def parse_date_clause(cls, field_name, val):
         """
-        Builds a date comparison Q-object supporting 'today', 'yesterday',
-        or ISO date strings with optional operators (>, <, >=, <=, =).
+        Builds a date comparison Q-object supporting 'today', 'yesterday'
+        (with optional comparison operators: >, <, >=, <=, =),
+        or ISO date strings with optional operators.
         """
         v = val.strip().lower()
         today = timezone.localdate()
 
-        if v == 'today':
-            return Q(**{field_name: today})
-        elif v == 'yesterday':
-            return Q(**{field_name: today - timedelta(days=1)})
+        # Match operator + relative date: e.g. '<today', '<=today', 'today', '>yesterday'
+        m_rel = re.match(r'^(>=|<=|>|<|=)?\s*(today|yesterday)$', v)
+        if m_rel:
+            op, rel_kw = m_rel.groups()
+            target_date = today if rel_kw == 'today' else today - timedelta(days=1)
+            lookup_suffix = cls.NUMERIC_OPERATORS.get(op, 'exact')
+            if lookup_suffix == 'exact':
+                return Q(**{field_name: target_date})
+            return Q(**{f"{field_name}__{lookup_suffix}": target_date})
 
-        # Match operator + date: e.g. '>2026-09-01', '<=2026-09-20', '2026-09-20'
+        # Match operator + ISO date: e.g. '>2026-09-01', '<=2026-09-20', '2026-09-20'
         m = re.match(r'^(>=|<=|>|<|=)?\s*(\d{4}-\d{2}-\d{2})$', v)
         if m:
             op, date_str = m.groups()
@@ -156,10 +162,9 @@ class BaseTokenizedSearchFilter(BaseFilterBackend):
 
         display_id_field = getattr(cls, 'DISPLAY_ID_FIELD', 'display_id')
         if display_id_field:
-            if term.isdigit():
-                term_q |= Q(**{display_id_field: int(term)})
-            elif term.startswith('#') and term[1:].isdigit():
-                term_q |= Q(**{display_id_field: int(term[1:])})
+            clean_term = re.sub(r'^(?:po|ord|ret)[#\-_]?', '', term.strip(), flags=re.IGNORECASE).lstrip('#').strip()
+            if clean_term.isdigit():
+                term_q |= Q(**{display_id_field: int(clean_term)})
 
         return term_q
 

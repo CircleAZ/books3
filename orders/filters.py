@@ -143,3 +143,82 @@ class OrderTokenizedSearchFilter(BaseTokenizedSearchFilter):
         q = self.parse_query(search_terms)
         return queryset.filter(q)
 
+
+class ReturnTokenizedSearchFilter(BaseTokenizedSearchFilter):
+    """
+    Intelligent tokenized search filter for Return requests supporting:
+      - id:<int>              -> exact display_id match (or #<int>)
+      - order:<int>           -> exact parent order display_id match (or #<int>)
+      - status:<str>          -> return status (initiated, items_received, completed, cancelled)
+      - customer:<str>        -> order customer first/last name or guest_name
+      - product:<str>         -> Exists() subquery on ReturnItem.order_item.product.name
+      - date:<date_expr>      -> created_at__date comparison
+      - -<prefix>:<val>       -> negation (~Q)
+      - <raw terms>           -> fallback to display_id, order display_id, customer names, notes
+    """
+    DISPLAY_ID_FIELD = 'display_id'
+
+    FREE_TEXT_FIELDS = [
+        'notes',
+    ]
+
+    PREFIX_MAP = {
+        'id': ('id', 'display_id'),
+        'display_id': ('id', 'display_id'),
+        'order': 'handle_order',
+        'order_id': 'handle_order',
+        'status': 'status__iexact',
+        'customer': 'handle_customer',
+        'product': 'handle_product',
+        'date': ('date', 'created_at__date'),
+    }
+
+    @classmethod
+    def handle_order(cls, val):
+        clean_num = re.sub(r'^(?:ord|order)[#\-_]?', '', val.strip(), flags=re.IGNORECASE).lstrip('#').strip()
+        if clean_num.isdigit():
+            return Q(order__display_id=int(clean_num))
+        return Q(order__id__startswith=clean_num)
+
+    @classmethod
+    def handle_customer(cls, val):
+        return (
+            Q(order__customer__first_name__icontains=val) |
+            Q(order__customer__last_name__icontains=val) |
+            Q(order__guest_name__icontains=val)
+        )
+
+    @classmethod
+    def handle_product(cls, val):
+        from orders.models import ReturnItem
+        return Q(
+            Exists(
+                ReturnItem.objects.filter(
+                    return_request=OuterRef('pk'),
+                    order_item__product__name__icontains=val
+                )
+            )
+        )
+
+    @classmethod
+    def build_free_text_q(cls, term):
+        term_q = super().build_free_text_q(term)
+        clean_term = re.sub(r'^(?:ord|order)[#\-_]?', '', term.strip(), flags=re.IGNORECASE).lstrip('#').strip()
+        if clean_term.isdigit():
+            term_q |= Q(order__display_id=int(clean_term))
+        term_q |= (
+            Q(order__customer__first_name__icontains=term) |
+            Q(order__customer__last_name__icontains=term) |
+            Q(order__guest_name__icontains=term)
+        )
+        from orders.models import ReturnItem
+        term_q |= Q(
+            Exists(
+                ReturnItem.objects.filter(
+                    return_request=OuterRef('pk'),
+                    order_item__product__name__icontains=term
+                )
+            )
+        )
+        return term_q
+

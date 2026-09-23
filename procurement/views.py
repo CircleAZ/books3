@@ -4,7 +4,7 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 from django.db import transaction
 from django.core.exceptions import ValidationError
-from django.db.models import Sum, F, DecimalField
+from django.db.models import Sum, F, DecimalField, Count, Q
 from django.utils.dateparse import parse_date
 from decimal import Decimal
 from datetime import timedelta
@@ -20,6 +20,7 @@ from .serializers import (
     PurchaseChargeSerializer, PurchasePaymentSerializer, POCreateSerializer, POReceiveSerializer
 )
 from .services import ProcurementService
+from .filters import PurchaseOrderTokenizedSearchFilter
 
 class TransporterViewSet(viewsets.ModelViewSet):
     queryset = Transporter.objects.all()
@@ -43,8 +44,7 @@ class PurchaseOrderViewSet(viewsets.ModelViewSet):
     queryset = PurchaseOrder.objects.select_related('vendor', 'created_by').prefetch_related('items', 'charges', 'payments').all().order_by('-created_at')
     permission_classes = [HasRequiredPermission]
     required_permission = 'inventory.manage_stock'
-    filter_backends = [filters.SearchFilter, filters.OrderingFilter, DjangoFilterBackend]
-    search_fields = ['=display_id', 'vendor__name', 'items__product__name', 'notes']
+    filter_backends = [PurchaseOrderTokenizedSearchFilter, filters.OrderingFilter, DjangoFilterBackend]
     ordering_fields = ['display_id', 'order_date', 'expected_delivery_date', 'total_amount', 'amount_paid', 'created_at']
     filterset_class = PurchaseOrderFilter
 
@@ -305,6 +305,117 @@ class PurchaseOrderViewSet(viewsets.ModelViewSet):
             },
             'vendors': vendors,
             'items': items,
+        })
+
+    @action(detail=False, methods=['get'], url_path='search-suggestions')
+    def search_suggestions(self, request):
+        """
+        Returns search prefix schema cheatsheet OR dynamic distinct values with counts
+        for purchase order tokens.
+        """
+        prefix = request.query_params.get('prefix', '').strip().lower()
+        q = request.query_params.get('q', '').strip()
+
+        if not prefix:
+            return Response({
+                'prefixes': [
+                    {'prefix': 'id', 'label': 'PO Number', 'example': 'id:101', 'description': 'Filter by exact PO display ID'},
+                    {'prefix': 'vendor', 'label': 'Vendor', 'example': 'vendor:"Navneet"', 'description': 'Filter by supplier/publisher name'},
+                    {'prefix': 'status', 'label': 'Status', 'example': 'status:ordered', 'description': 'draft, ordered, partially_received, received, cancelled'},
+                    {'prefix': 'payment', 'label': 'Payment Status', 'example': 'payment:pending', 'description': 'pending, partial, paid'},
+                    {'prefix': 'product', 'label': 'Product Name', 'example': 'product:"Notebook"', 'description': 'Filter POs containing this product'},
+                    {'prefix': 'total', 'label': 'Total Amount', 'example': 'total:>10000', 'description': 'Comparison: >, <, >=, <=, ='},
+                    {'prefix': 'paid', 'label': 'Amount Paid', 'example': 'paid:>0', 'description': 'Comparison: >, <, >=, <=, ='},
+                    {'prefix': 'date', 'label': 'Order Date', 'example': 'date:today', 'description': 'today, yesterday, or YYYY-MM-DD'},
+                    {'prefix': 'due', 'label': 'Expected Delivery', 'example': 'due:today', 'description': 'today, yesterday, or YYYY-MM-DD'},
+                ]
+            })
+
+        suggestions = []
+        if prefix == 'vendor':
+            from inventory.models import Vendor
+            qs = Vendor.objects.filter(is_deleted=False)
+            if q:
+                qs = qs.filter(name__icontains=q)
+            results = qs.annotate(
+                count=Count('purchase_orders', filter=Q(purchase_orders__is_deleted=False))
+            ).values('name', 'count').order_by('-count')[:10]
+            suggestions = [
+                {'value': r['name'], 'label': r['name'], 'count': r['count'], 'prefix': 'vendor', 'badge': 'VENDOR'}
+                for r in results
+            ]
+
+        elif prefix in ('status', 'po_status'):
+            status_counts = dict(
+                PurchaseOrder.objects.filter(is_deleted=False)
+                .values('status')
+                .annotate(count=Count('id'))
+                .values_list('status', 'count')
+            )
+            for val, label in PurchaseOrder.Status.choices:
+                if not q or q.lower() in val.lower() or q.lower() in label.lower():
+                    suggestions.append({
+                        'value': val,
+                        'label': label,
+                        'count': status_counts.get(val, 0),
+                        'prefix': 'status',
+                        'badge': 'STATUS'
+                    })
+
+        elif prefix in ('payment', 'payment_status'):
+            pay_counts = dict(
+                PurchaseOrder.objects.filter(is_deleted=False)
+                .values('payment_status')
+                .annotate(count=Count('id'))
+                .values_list('payment_status', 'count')
+            )
+            for val, label in PurchaseOrder.PaymentStatus.choices:
+                if not q or q.lower() in val.lower() or q.lower() in label.lower():
+                    suggestions.append({
+                        'value': val,
+                        'label': label,
+                        'count': pay_counts.get(val, 0),
+                        'prefix': 'payment',
+                        'badge': 'PAYMENT'
+                    })
+
+        elif prefix == 'product':
+            item_qs = PurchaseOrderItem.objects.filter(purchase_order__is_deleted=False)
+            if q:
+                item_qs = item_qs.filter(product__name__icontains=q)
+            top_products = item_qs.values('product__name').annotate(
+                count=Count('purchase_order_id', distinct=True)
+            ).order_by('-count')[:10]
+            suggestions = [
+                {
+                    'value': r['product__name'],
+                    'label': r['product__name'],
+                    'count': r['count'],
+                    'prefix': 'product',
+                    'badge': 'PRODUCT'
+                }
+                for r in top_products
+            ]
+
+        elif prefix in ('date', 'due'):
+            presets = [
+                {'value': 'today', 'label': "Today", 'prefix': prefix},
+                {'value': 'yesterday', 'label': "Yesterday", 'prefix': prefix},
+            ]
+            suggestions = [p for p in presets if not q or q.lower() in p['value']]
+
+        elif prefix in ('total', 'paid'):
+            presets = [
+                {'value': '>10000', 'label': 'Over ₹10,000', 'prefix': prefix},
+                {'value': '>50000', 'label': 'Over ₹50,000', 'prefix': prefix},
+                {'value': '<=5000', 'label': 'Under ₹5,000', 'prefix': prefix},
+                {'value': '=0', 'label': 'Zero (₹0)', 'prefix': prefix},
+            ]
+            suggestions = [p for p in presets if not q or q in p['value']]
+
+        return Response({
+            'prefix': prefix,
+            'suggestions': suggestions
         })
 
 class PurchaseChargeViewSet(viewsets.ModelViewSet):

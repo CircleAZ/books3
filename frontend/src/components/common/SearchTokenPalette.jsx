@@ -407,7 +407,7 @@ export default function SearchTokenPalette({
                                             <span className={`prefix-badge badge-${sug.prefix}`}>
                                                 {sug.prefix.toUpperCase()}
                                             </span>
-                                            <span className="suggestion-value">{sug.value}</span>
+                                            <span className="suggestion-value">{sug.label || sug.value}</span>
                                             {sug.count !== null && sug.count !== undefined && (
                                                 <span className="suggestion-count">
                                                     {formatCount(sug.count)}
