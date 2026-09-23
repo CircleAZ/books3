@@ -237,3 +237,36 @@ class ProductTokenizedSearchTests(TestCase):
         self.assertEqual(res.data['count'], 1)
         self.assertEqual(res.data['results'][0]['id'], str(self.p1.id))
 
+    def test_low_stock_query_param(self):
+        """Testing low_stock=true returns only products with stock_quantity <= low_stock_threshold."""
+        res = self.client.get('/api/inventory/products/?low_stock=true')
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        ids = [r['id'] for r in res.data['results']]
+        # p2 has stock_quantity=5, threshold=10 -> low stock
+        self.assertIn(str(self.p2.id), ids)
+        # p1 has stock_quantity=100, threshold=10 -> not low stock
+        self.assertNotIn(str(self.p1.id), ids)
+
+    def test_product_display_id_prefixes(self):
+        """Testing #<id>, PRD-<id>, #PRD-<id>, and PRD#<id> match product display_id."""
+        res_hash = self.client.get(f'/api/inventory/products/?search=#{self.p1.display_id}')
+        self.assertEqual(res_hash.status_code, status.HTTP_200_OK)
+        self.assertEqual(res_hash.data['count'], 1)
+        self.assertEqual(res_hash.data['results'][0]['id'], str(self.p1.id))
+
+        res_prd = self.client.get(f'/api/inventory/products/?search=PRD-{self.p2.display_id}')
+        self.assertEqual(res_prd.status_code, status.HTTP_200_OK)
+        self.assertEqual(res_prd.data['count'], 1)
+        self.assertEqual(res_prd.data['results'][0]['id'], str(self.p2.id))
+
+        # Mixed hash and business prefix (#PRD-<id> and id:#PRD-<id>)
+        res_hash_prd = self.client.get(f'/api/inventory/products/?search=#PRD-{self.p1.display_id}')
+        self.assertEqual(res_hash_prd.status_code, status.HTTP_200_OK)
+        self.assertEqual(res_hash_prd.data['count'], 1)
+        self.assertEqual(res_hash_prd.data['results'][0]['id'], str(self.p1.id))
+
+        res_qual_hash = self.client.get(f'/api/inventory/products/?search=id:#PRD-{self.p2.display_id}')
+        self.assertEqual(res_qual_hash.status_code, status.HTTP_200_OK)
+        self.assertEqual(res_qual_hash.data['count'], 1)
+        self.assertEqual(res_qual_hash.data['results'][0]['id'], str(self.p2.id))
+

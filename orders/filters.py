@@ -175,7 +175,8 @@ class ReturnTokenizedSearchFilter(BaseTokenizedSearchFilter):
 
     @classmethod
     def handle_order(cls, val):
-        clean_num = re.sub(r'^(?:ord|order)[#\-_]?', '', val.strip(), flags=re.IGNORECASE).lstrip('#').strip()
+        stripped = val.strip().lstrip('#').strip()
+        clean_num = re.sub(r'^(?:ord|order)[#\-_]?', '', stripped, flags=re.IGNORECASE).lstrip('#').strip()
         if clean_num.isdigit():
             return Q(order__display_id=int(clean_num))
         return Q(order__id__startswith=clean_num)
@@ -203,7 +204,8 @@ class ReturnTokenizedSearchFilter(BaseTokenizedSearchFilter):
     @classmethod
     def build_free_text_q(cls, term):
         term_q = super().build_free_text_q(term)
-        clean_term = re.sub(r'^(?:ord|order)[#\-_]?', '', term.strip(), flags=re.IGNORECASE).lstrip('#').strip()
+        stripped = term.strip().lstrip('#').strip()
+        clean_term = re.sub(r'^(?:ord|order)[#\-_]?', '', stripped, flags=re.IGNORECASE).lstrip('#').strip()
         if clean_term.isdigit():
             term_q |= Q(order__display_id=int(clean_term))
         term_q |= (

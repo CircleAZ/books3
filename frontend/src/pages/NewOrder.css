@@ -181,6 +181,94 @@
     color: var(--color-primary);
 }
 
+/* Category Pill Filter Row */
+.category-pills-container {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    overflow-x: auto;
+    padding-bottom: 0.4rem;
+    margin-bottom: var(--space-sm);
+    scrollbar-width: thin;
+}
+
+.category-pill {
+    padding: 0.25rem 0.75rem;
+    border-radius: 9999px;
+    font-size: 0.78rem;
+    font-weight: 500;
+    white-space: nowrap;
+    border: 1px solid var(--color-border, #333d4d);
+    background: var(--color-bg-tertiary, #1a202c);
+    color: var(--color-text-secondary, #94a3b8);
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.category-pill:hover {
+    color: var(--color-text, #f8fafc);
+    border-color: var(--color-primary, #3b82f6);
+}
+
+.category-pill.active {
+    background: var(--color-primary, #3b82f6);
+    color: #ffffff;
+    border-color: var(--color-primary, #3b82f6);
+    box-shadow: 0 0 10px rgba(59, 130, 246, 0.4);
+}
+
+/* Product Card Keyboard Focus */
+.product-card.keyboard-focused {
+    outline: 2px solid var(--color-primary, #3b82f6);
+    outline-offset: 2px;
+    background: var(--color-bg-hover, rgba(59, 130, 246, 0.1));
+}
+
+/* Real-Time Stock & Variant Badges */
+.product-card-badges {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.25rem;
+    align-items: center;
+}
+
+.product-badge-pack {
+    font-size: 0.68rem;
+    font-weight: 600;
+    padding: 0.1rem 0.4rem;
+    border-radius: 4px;
+    background: rgba(59, 130, 246, 0.16);
+    color: #3b82f6;
+    border: 1px solid rgba(59, 130, 246, 0.3);
+}
+
+.product-badge-in-stock {
+    font-size: 0.68rem;
+    font-weight: 600;
+    padding: 0.1rem 0.4rem;
+    border-radius: 4px;
+    background: rgba(34, 197, 94, 0.16);
+    color: #22c55e;
+}
+
+.product-badge-low-stock {
+    font-size: 0.68rem;
+    font-weight: 600;
+    padding: 0.1rem 0.4rem;
+    border-radius: 4px;
+    background: rgba(245, 158, 11, 0.16);
+    color: #f59e0b;
+}
+
+.product-badge-out-of-stock {
+    font-size: 0.68rem;
+    font-weight: 600;
+    padding: 0.1rem 0.4rem;
+    border-radius: 4px;
+    background: rgba(239, 68, 68, 0.16);
+    color: #ef4444;
+}
+
 /* Product card — in cart state */
 .product-card.in-cart {
     border-color: var(--color-primary);

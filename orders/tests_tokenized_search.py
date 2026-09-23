@@ -322,3 +322,34 @@ class OrderTokenizedSearchTests(TestCase):
         self.assertEqual(res_prod.status_code, status.HTTP_200_OK)
         prod_vals = [s['value'] for s in res_prod.data['suggestions']]
         self.assertIn('Mathematics 10th', prod_vals)
+
+    def test_order_display_id_prefixes(self):
+        """ORD-<id>, #<id>, #ORD-<id>, and id:#ORD-<id> match order display_id."""
+        res_ord = self.client.get(f'/api/orders/orders/?search=ORD-{self.order1.display_id}')
+        self.assertEqual(res_ord.status_code, status.HTTP_200_OK)
+        self.assertEqual(res_ord.data['count'], 1)
+        self.assertEqual(res_ord.data['results'][0]['id'], str(self.order1.id))
+
+        res_hash = self.client.get(f'/api/orders/orders/?search=#{self.order2.display_id}')
+        self.assertEqual(res_hash.status_code, status.HTTP_200_OK)
+        self.assertEqual(res_hash.data['count'], 1)
+        self.assertEqual(res_hash.data['results'][0]['id'], str(self.order2.id))
+
+        # Mixed hash and business prefix (#ORD-<id> and id:#ORD-<id>)
+        res_hash_ord = self.client.get(f'/api/orders/orders/?search=#ORD-{self.order1.display_id}')
+        self.assertEqual(res_hash_ord.status_code, status.HTTP_200_OK)
+        self.assertEqual(res_hash_ord.data['count'], 1)
+        self.assertEqual(res_hash_ord.data['results'][0]['id'], str(self.order1.id))
+
+        res_qual_hash = self.client.get(f'/api/orders/orders/?search=id:#ORD-{self.order2.display_id}')
+        self.assertEqual(res_qual_hash.status_code, status.HTTP_200_OK)
+        self.assertEqual(res_qual_hash.data['count'], 1)
+        self.assertEqual(res_qual_hash.data['results'][0]['id'], str(self.order2.id))
+
+    def test_order_list_customer_phone(self):
+        """Order list endpoint returns customer_phone for both registered and guest orders."""
+        res = self.client.get('/api/orders/orders/')
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        results = {r['id']: r for r in res.data['results']}
+        self.assertEqual(results[str(self.order1.id)]['customer_phone'], '9876543210')
+

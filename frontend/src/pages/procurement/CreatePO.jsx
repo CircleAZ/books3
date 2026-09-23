@@ -14,22 +14,30 @@ export default function CreatePO() {
     const [vendors, setVendors] = useState([]);
     const [selectedVendorId, setSelectedVendorId] = useState('');
 
+    // Transporter state
+    const [transporters, setTransporters] = useState([]);
+
     // Line items
     const [lineItems, setLineItems] = useState([]);
 
     // Additional Charges
     const [charges, setCharges] = useState([]);
 
-    // Product search
+    // Product search & replenishment
     const [productSearch, setProductSearch] = useState('');
     const [productResults, setProductResults] = useState([]);
     const [isSearching, setIsSearching] = useState(false);
+    const [highlightedIndex, setHighlightedIndex] = useState(-1);
     const productAbortRef = useRef(null);
+    const productInputRef = useRef(null);
 
-    // Search filters
+    // Search filters & quick replenishment
     const [categories, setCategories] = useState([]);
     const [filterCategoryId, setFilterCategoryId] = useState('');
     const [filterVendorId, setFilterVendorId] = useState('');
+    const [lowStockOnly, setLowStockOnly] = useState(false);
+    const [depletedProducts, setDepletedProducts] = useState([]);
+    const [lowStockCount, setLowStockCount] = useState(0);
 
     // Form fields
     const [expectedDate, setExpectedDate] = useState('');
@@ -39,13 +47,14 @@ export default function CreatePO() {
     const isSubmittingRef = useRef(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
 
-    // Fetch vendors and categories on mount
+    // Fetch vendors, categories, and transporters on mount
     useEffect(() => {
         const fetchFilters = async () => {
             try {
-                const [vendRes, catRes] = await Promise.all([
+                const [vendRes, catRes, transRes] = await Promise.all([
                     fetchWithAuth(ENDPOINTS.INVENTORY_VENDORS),
-                    fetchWithAuth(ENDPOINTS.INVENTORY_CATEGORIES)
+                    fetchWithAuth(ENDPOINTS.INVENTORY_CATEGORIES),
+                    fetchWithAuth(PROCUREMENT_ENDPOINTS.TRANSPORTERS)
                 ]);
                 if (vendRes.ok) {
                     const data = await vendRes.json();
@@ -55,6 +64,10 @@ export default function CreatePO() {
                     const data = await catRes.json();
                     setCategories(data.results || data);
                 }
+                if (transRes && transRes.ok) {
+                    const data = await transRes.json();
+                    setTransporters(data.results || data);
+                }
             } catch (e) {
                 console.error('Failed to load filters', e);
             }
@@ -62,10 +75,35 @@ export default function CreatePO() {
         fetchFilters();
     }, [fetchWithAuth]);
 
-    // Debounced product search — triggers on search text OR filter change
+    // Probe depleted / low-stock products when a vendor is selected
     useEffect(() => {
-        const hasFilter = filterVendorId || filterCategoryId;
-        const hasSearch = productSearch && productSearch.length >= 2;
+        const vendorId = filterVendorId || selectedVendorId;
+        if (!vendorId) {
+            setDepletedProducts([]);
+            setLowStockCount(0);
+            return;
+        }
+
+        const fetchDepleted = async () => {
+            try {
+                const res = await fetchWithAuth(`${ENDPOINTS.INVENTORY_PRODUCTS}?vendor=${vendorId}&low_stock=true&page_size=100`);
+                if (res.ok) {
+                    const data = await res.json();
+                    const list = data.results || (Array.isArray(data) ? data : []);
+                    setDepletedProducts(list);
+                    setLowStockCount(list.length);
+                }
+            } catch (err) {
+                console.error('Failed to probe low stock products:', err);
+            }
+        };
+        fetchDepleted();
+    }, [selectedVendorId, filterVendorId, fetchWithAuth]);
+
+    // Debounced product search — triggers on search text OR filter change OR lowStockOnly
+    useEffect(() => {
+        const hasFilter = filterVendorId || filterCategoryId || lowStockOnly;
+        const hasSearch = productSearch && productSearch.trim().length >= 1;
 
         if (!hasFilter && !hasSearch) {
             setProductResults([]);
@@ -81,7 +119,7 @@ export default function CreatePO() {
             try {
                 let url = `${ENDPOINTS.INVENTORY_PRODUCTS}?page_size=50`;
                 if (productSearch) {
-                    url += `&search=${encodeURIComponent(productSearch)}`;
+                    url += `&search=${encodeURIComponent(productSearch.trim())}`;
                 }
                 if (filterVendorId) {
                     url += `&vendor=${filterVendorId}`;
@@ -89,23 +127,88 @@ export default function CreatePO() {
                 if (filterCategoryId) {
                     url += `&category=${filterCategoryId}`;
                 }
+                if (lowStockOnly) {
+                    url += `&low_stock=true`;
+                }
                 const res = await fetchWithAuth(url, { signal: controller.signal });
                 if (res.ok) {
                     const data = await res.json();
                     setProductResults(data.results || []);
+                    setHighlightedIndex(-1);
                 }
             } catch (e) {
                 if (e.name !== 'AbortError') console.error('Product search failed', e);
             } finally {
                 setIsSearching(false);
             }
-        }, hasSearch ? 400 : 0); // no debounce for pure filter changes
+        }, hasSearch ? 300 : 0);
 
         return () => {
             clearTimeout(timer);
             if (productAbortRef.current) productAbortRef.current.abort();
         };
-    }, [productSearch, filterVendorId, filterCategoryId, fetchWithAuth]);
+    }, [productSearch, filterVendorId, filterCategoryId, lowStockOnly, fetchWithAuth]);
+
+    // 1-Click Replenishment: Pull all depleted products from vendor into PO
+    const handleAddAllDepleted = () => {
+        if (!depletedProducts.length) {
+            showToast('No depleted products found for this vendor', 'info');
+            return;
+        }
+        let addedCount = 0;
+        setLineItems(prev => {
+            const existingIds = new Set(prev.map(li => li.product_id));
+            const newItems = [];
+            for (const product of depletedProducts) {
+                if (!existingIds.has(product.id)) {
+                    const packSize = parseInt(product.pack_size) > 0 ? parseInt(product.pack_size) : 1;
+                    const rawCost = parseFloat(product.cost_price) || 0;
+                    const perUnitCost = product.is_pack ? (rawCost / packSize).toFixed(4) : rawCost.toFixed(4);
+                    const currentStock = parseInt(product.stock_quantity) || 0;
+                    const threshold = parseInt(product.low_stock_threshold) || 10;
+                    const deficit = threshold - currentStock;
+                    const targetReplenish = Math.max(1, Math.ceil(deficit / packSize));
+                    newItems.push({
+                        product_id: product.id,
+                        product_name: product.name,
+                        is_pack: product.is_pack,
+                        pack_size: packSize,
+                        vendor_pack_size: packSize,
+                        purchased_packs: targetReplenish,
+                        unit_cost_price: perUnitCost,
+                    });
+                    addedCount++;
+                }
+            }
+            if (addedCount === 0) {
+                showToast('All depleted products are already in line items', 'info');
+                return prev;
+            }
+            showToast(`Added ${addedCount} depleted products to line items`, 'success');
+            return [...prev, ...newItems];
+        });
+    };
+
+    // Keyboard navigation in product search
+    const handleProductKeyDown = (e) => {
+        if (e.key === 'ArrowDown') {
+            e.preventDefault();
+            setHighlightedIndex(prev => (prev < productResults.length - 1 ? prev + 1 : 0));
+        } else if (e.key === 'ArrowUp') {
+            e.preventDefault();
+            setHighlightedIndex(prev => (prev > 0 ? prev - 1 : productResults.length - 1));
+        } else if (e.key === 'Enter') {
+            e.preventDefault();
+            if (highlightedIndex >= 0 && productResults[highlightedIndex]) {
+                addLineItem(productResults[highlightedIndex]);
+            } else if (productResults.length === 1) {
+                addLineItem(productResults[0]);
+            }
+        } else if (e.key === 'Escape') {
+            setProductSearch('');
+            setHighlightedIndex(-1);
+        }
+    };
 
     const addLineItem = (product) => {
         // Prevent duplicates
@@ -116,7 +219,7 @@ export default function CreatePO() {
         // Backend expects unit_cost_price as cost per BASE UNIT.
         // For pack products, inventory cost_price is the pack price,
         // so we divide by pack_size to get the per-unit cost.
-        const packSize = product.pack_size || 1;
+        const packSize = parseInt(product.pack_size) > 0 ? parseInt(product.pack_size) : 1;
         const rawCost = parseFloat(product.cost_price) || 0;
         const perUnitCost = product.is_pack ? (rawCost / packSize).toFixed(4) : rawCost.toFixed(4);
 
@@ -144,7 +247,7 @@ export default function CreatePO() {
     };
 
     const addCharge = () => {
-        setCharges(prev => [...prev, { charge_type: 'packing', amount: '0.00', description: '' }]);
+        setCharges(prev => [...prev, { charge_type: 'packing', amount: '0.00', description: '', transporter_id: '' }]);
     };
 
     const updateCharge = (index, field, value) => {
@@ -201,7 +304,8 @@ export default function CreatePO() {
                 charges: charges.filter(c => parseFloat(c.amount) > 0).map(c => ({
                     charge_type: c.charge_type,
                     amount: c.amount.toString(),
-                    description: c.description
+                    description: c.description,
+                    transporter_id: c.transporter_id || null,
                 }))
             };
 
@@ -246,7 +350,11 @@ export default function CreatePO() {
                         <select
                             className="form-control"
                             value={selectedVendorId}
-                            onChange={e => setSelectedVendorId(e.target.value)}
+                            onChange={e => {
+                                const val = e.target.value;
+                                setSelectedVendorId(val);
+                                setFilterVendorId(val);
+                            }}
                             style={{ width: '100%' }}
                         >
                             <option value="">Select vendor...</option>
@@ -285,23 +393,67 @@ export default function CreatePO() {
 
             {/* Product Search + Line Items */}
             <div className="card" style={{ padding: '1.25rem', marginBottom: '1rem' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-                    <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: 600 }}>Line Items</h3>
-                    <span style={{ fontSize: '0.8rem', color: 'var(--color-text-secondary)' }}>
-                        {lineItems.length} item{lineItems.length !== 1 ? 's' : ''}
-                    </span>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', flexWrap: 'wrap', gap: '8px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: 600 }}>Line Items</h3>
+                        <span style={{ fontSize: '0.8rem', color: 'var(--color-text-secondary)' }}>
+                            ({lineItems.length} item{lineItems.length !== 1 ? 's' : ''})
+                        </span>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                        <button
+                            type="button"
+                            className={`btn btn-sm ${lowStockOnly ? 'btn-primary' : 'btn-ghost'}`}
+                            onClick={() => setLowStockOnly(prev => !prev)}
+                            style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '4px',
+                                border: '1px solid var(--color-border)',
+                                fontSize: '0.8rem',
+                            }}
+                            title="Filter search to items at or below low stock threshold"
+                        >
+                            ⚡ Low Stock Only
+                        </button>
+                        {selectedVendorId && (
+                            <button
+                                type="button"
+                                className="btn btn-sm btn-ghost"
+                                onClick={handleAddAllDepleted}
+                                disabled={depletedProducts.length === 0}
+                                style={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '4px',
+                                    border: '1px solid #f59e0b',
+                                    color: '#d97706',
+                                    background: depletedProducts.length > 0 ? '#fef3c722' : 'transparent',
+                                    cursor: depletedProducts.length === 0 ? 'not-allowed' : 'pointer',
+                                    opacity: depletedProducts.length === 0 ? 0.5 : 1,
+                                    fontSize: '0.8rem',
+                                    fontWeight: 600,
+                                }}
+                                title="Automatically calculate needed packs and add depleted items for this vendor"
+                            >
+                                ⚡ Replenish Depleted ({depletedProducts.length})
+                            </button>
+                        )}
+                    </div>
                 </div>
 
                 {/* Search */}
                 <div style={{ marginBottom: '1rem' }}>
                     <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', flexWrap: 'wrap' }}>
                         <input
+                            ref={productInputRef}
                             type="text"
                             className="form-control"
-                            placeholder="Search products to add..."
+                            placeholder="Search products by name/barcode... (↑/↓ to navigate, Enter to add)"
                             value={productSearch}
                             onChange={e => setProductSearch(e.target.value)}
-                            style={{ flex: 1, minWidth: '200px' }}
+                            onKeyDown={handleProductKeyDown}
+                            style={{ flex: 1, minWidth: '220px' }}
                         />
                         <select
                             className="form-control"
@@ -336,48 +488,69 @@ export default function CreatePO() {
                 )}
                 {!isSearching && productResults.length > 0 && (
                     <div style={{
-                        maxHeight: '300px', overflowY: 'auto', marginBottom: '1rem',
+                        maxHeight: '320px', overflowY: 'auto', marginBottom: '1rem',
                         border: '1px solid var(--color-border)', borderRadius: '8px',
                         background: 'var(--color-bg-secondary)',
                     }}>
-                        <div style={{ padding: '6px 14px', fontSize: '0.75rem', color: 'var(--color-text-secondary)', borderBottom: '1px solid var(--color-border)', fontWeight: 500 }}>
-                            {productResults.length} product{productResults.length !== 1 ? 's' : ''} found — click to add
+                        <div style={{ padding: '6px 14px', fontSize: '0.75rem', color: 'var(--color-text-secondary)', borderBottom: '1px solid var(--color-border)', fontWeight: 500, display: 'flex', justifyContent: 'space-between' }}>
+                            <span>{productResults.length} product{productResults.length !== 1 ? 's' : ''} found — click or Enter to add</span>
+                            <span style={{ fontSize: '0.7rem' }}>Use ↑ ↓ to navigate</span>
                         </div>
-                        {productResults.map(p => (
-                            <div
-                                key={p.id}
-                                onClick={() => addLineItem(p)}
-                                style={{
-                                    padding: '10px 14px', cursor: 'pointer',
-                                    borderBottom: '1px solid var(--color-border)',
-                                    display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                                    opacity: lineItems.find(li => li.product_id === p.id) ? 0.4 : 1,
-                                }}
-                                onMouseOver={e => e.currentTarget.style.background = 'var(--color-bg-hover, rgba(255,255,255,0.05))'}
-                                onMouseOut={e => e.currentTarget.style.background = 'transparent'}
-                            >
-                                <div>
-                                    <strong>{p.name}</strong>
-                                    {p.is_pack && (
+                        {productResults.map((p, idx) => {
+                            const isAdded = !!lineItems.find(li => li.product_id === p.id);
+                            const isSelected = idx === highlightedIndex;
+                            const isLowStock = p.stock_quantity <= (p.low_stock_threshold || 10);
+                            const isOutOfStock = p.stock_quantity <= 0;
+                            return (
+                                <div
+                                    key={p.id}
+                                    onClick={() => addLineItem(p)}
+                                    style={{
+                                        padding: '10px 14px', cursor: 'pointer',
+                                        borderBottom: '1px solid var(--color-border)',
+                                        display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                                        opacity: isAdded ? 0.45 : 1,
+                                        backgroundColor: isSelected ? 'var(--color-bg-hover, rgba(59, 130, 246, 0.15))' : 'transparent',
+                                        outline: isSelected ? '2px solid var(--color-primary)' : 'none',
+                                    }}
+                                    onMouseOver={e => { if (!isSelected) e.currentTarget.style.background = 'var(--color-bg-hover, rgba(255,255,255,0.05))'; }}
+                                    onMouseOut={e => { if (!isSelected) e.currentTarget.style.background = 'transparent'; }}
+                                >
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                        <strong>{p.name}</strong>
+                                        {p.is_pack && (
+                                            <span style={{
+                                                fontSize: '0.7rem', fontWeight: 600,
+                                                padding: '1px 6px', borderRadius: '4px',
+                                                background: '#3b82f622', color: '#3b82f6'
+                                            }}>PACK ({p.pack_size})</span>
+                                        )}
+                                        {isAdded && (
+                                            <span style={{
+                                                fontSize: '0.65rem', fontWeight: 600,
+                                                padding: '1px 6px', borderRadius: '4px',
+                                                background: '#22c55e22', color: '#22c55e'
+                                            }}>ADDED</span>
+                                        )}
+                                    </div>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                                         <span style={{
-                                            marginLeft: '8px', fontSize: '0.7rem', fontWeight: 600,
-                                            padding: '1px 6px', borderRadius: '4px',
-                                            background: '#3b82f622', color: '#3b82f6'
-                                        }}>PACK ({p.pack_size})</span>
-                                    )}
-                                    {lineItems.find(li => li.product_id === p.id) && (
-                                        <span style={{
-                                            marginLeft: '8px', fontSize: '0.65rem', fontWeight: 600,
-                                            padding: '1px 6px', borderRadius: '4px',
-                                            background: '#22c55e22', color: '#22c55e'
-                                        }}>ADDED</span>
-                                    )}
+                                            fontSize: '0.7rem',
+                                            fontWeight: 600,
+                                            padding: '2px 6px',
+                                            borderRadius: '4px',
+                                            background: isOutOfStock ? '#ef444422' : isLowStock ? '#f59e0b22' : '#22c55e22',
+                                            color: isOutOfStock ? '#ef4444' : isLowStock ? '#d97706' : '#16a34a',
+                                        }}>
+                                            {isOutOfStock ? 'OUT OF STOCK' : isLowStock ? `LOW (${p.stock_quantity})` : `STOCK: ${p.stock_quantity}`}
+                                        </span>
+                                        <span style={{ fontSize: '0.85rem', fontWeight: 600, minWidth: '70px', textAlign: 'right' }}>
+                                            ₹{parseFloat(p.cost_price).toFixed(2)}
+                                        </span>
+                                    </div>
                                 </div>
-                                <span style={{ fontSize: '0.8rem', color: 'var(--color-text-secondary)' }}>
-                                    Stock: {p.stock_quantity} | ₹{parseFloat(p.cost_price).toFixed(2)}
-                                </span>
-                            </div>
-                        ))}
+                            );
+                        })}
                     </div>
                 )}
                 {!isSearching && productResults.length === 0 && (filterVendorId || filterCategoryId) && (
@@ -502,13 +675,26 @@ export default function CreatePO() {
                                     className="form-control" 
                                     value={charge.charge_type} 
                                     onChange={e => updateCharge(idx, 'charge_type', e.target.value)}
-                                    style={{ width: '150px' }}
+                                    style={{ width: '130px' }}
                                 >
                                     <option value="packing">Packing</option>
                                     <option value="transport">Transport</option>
                                     <option value="handling">Handling</option>
                                     <option value="other">Other</option>
                                 </select>
+                                {charge.charge_type === 'transport' && (
+                                    <select
+                                        className="form-control"
+                                        value={charge.transporter_id || ''}
+                                        onChange={e => updateCharge(idx, 'transporter_id', e.target.value)}
+                                        style={{ width: '180px' }}
+                                    >
+                                        <option value="">Select transporter...</option>
+                                        {transporters.map(t => (
+                                            <option key={t.id} value={t.id}>{t.name}</option>
+                                        ))}
+                                    </select>
+                                )}
                                 <input 
                                     type="text" 
                                     className="form-control" 

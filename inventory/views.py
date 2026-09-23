@@ -284,6 +284,11 @@ class ProductViewSet(viewsets.ModelViewSet):
             elif commission_filter == 'default':
                 qs = qs.exclude(id__in=override_product_ids)
         
+        # --- Low stock filter ---
+        low_stock_param = self.request.query_params.get('low_stock')
+        if low_stock_param in ('true', '1', 'yes'):
+            qs = qs.filter(stock_quantity__lte=F('low_stock_threshold'))
+        
         return qs
 
     def get_serializer_class(self):

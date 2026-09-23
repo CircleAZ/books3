@@ -71,7 +71,8 @@ class BaseTokenizedSearchFilter(BaseFilterBackend):
         """
         Builds an ID lookup matching exact display_id (stripped of #, PO-, ORD-, RET-, EXP-, TXN-) or UUID prefix.
         """
-        clean_id = re.sub(r'^(?:po|ord|ret|exp|txn)[#\-_]?', '', val.strip(), flags=re.IGNORECASE).lstrip('#').strip()
+        stripped = val.strip().lstrip('#').strip()
+        clean_id = re.sub(r'^(?:po|ord|ret|exp|txn|prd|prod|cust)[#\-_]?', '', stripped, flags=re.IGNORECASE).lstrip('#').strip()
         if not clean_id:
             return Q(pk__isnull=True)
         if clean_id.isdigit():
@@ -192,7 +193,8 @@ class BaseTokenizedSearchFilter(BaseFilterBackend):
 
         display_id_field = getattr(cls, 'DISPLAY_ID_FIELD', 'display_id')
         if display_id_field:
-            clean_term = re.sub(r'^(?:po|ord|ret|exp|txn)[#\-_]?', '', term.strip(), flags=re.IGNORECASE).lstrip('#').strip()
+            stripped = term.strip().lstrip('#').strip()
+            clean_term = re.sub(r'^(?:po|ord|ret|exp|txn|prd|prod|cust)[#\-_]?', '', stripped, flags=re.IGNORECASE).lstrip('#').strip()
             if clean_term.isdigit():
                 term_q |= Q(**{display_id_field: int(clean_term)})
 

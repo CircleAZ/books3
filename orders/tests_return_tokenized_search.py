@@ -284,6 +284,13 @@ class ReturnTokenizedSearchTests(TestCase):
         self.assertEqual(len(results_ord), 1)
         self.assertEqual(results_ord[0]['id'], str(self.ret1.id))
 
+        # 2b. #ORD- prefix on order:
+        res_hash_ord = self.client.get(f'/api/orders/returns/?search=order:#ORD-{self.order1.display_id}')
+        self.assertEqual(res_hash_ord.status_code, status.HTTP_200_OK)
+        results_hash_ord = res_hash_ord.data.get('results', res_hash_ord.data)
+        self.assertEqual(len(results_hash_ord), 1)
+        self.assertEqual(results_hash_ord[0]['id'], str(self.ret1.id))
+
         # 3. Date comparison: date:today and date:>2020-01-01
         res_today = self.client.get('/api/orders/returns/?search=date:today')
         self.assertEqual(res_today.status_code, status.HTTP_200_OK)

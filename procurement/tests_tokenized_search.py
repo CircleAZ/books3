@@ -305,3 +305,36 @@ class PurchaseOrderTokenizedSearchTests(TestCase):
         self.assertEqual(len(results_free), 1)
         self.assertEqual(results_free[0]['id'], str(self.po2.id))
 
+    def test_create_po_with_transporter_charge(self):
+        """Test PO creation with transporter charge persists transporter foreign key."""
+        from procurement.models import Transporter
+        transporter = Transporter.objects.create(name='Navneet Express Logistics')
+        payload = {
+            'vendor_id': str(self.vendor_navneet.id),
+            'items': [
+                {
+                    'product_id': str(self.prod_notebook.id),
+                    'vendor_pack_size': 10,
+                    'purchased_packs': 5,
+                    'unit_cost_price': '45.00'
+                }
+            ],
+            'charges': [
+                {
+                    'charge_type': 'transport',
+                    'amount': '250.00',
+                    'description': 'Direct transit fee',
+                    'transporter_id': str(transporter.id)
+                }
+            ]
+        }
+        res = self.client.post('/api/procurement/purchase-orders/create-po/', data=payload, format='json')
+        self.assertEqual(res.status_code, status.HTTP_201_CREATED)
+        po_id = res.data['id']
+        po = PurchaseOrder.objects.get(id=po_id)
+        charge = po.charges.first()
+        self.assertIsNotNone(charge)
+        self.assertEqual(charge.transporter, transporter)
+        self.assertEqual(charge.amount, Decimal('250.00'))
+
+

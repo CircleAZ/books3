@@ -74,13 +74,14 @@ class OrderItemSerializer(serializers.ModelSerializer):
 class OrderListSerializer(serializers.ModelSerializer):
     """Lightweight serializer for list views."""
     customer_name = serializers.CharField(source='annotated_customer_name', read_only=True)
+    customer_phone = serializers.CharField(source='annotated_customer_phone', read_only=True, default='')
     item_count = serializers.IntegerField(read_only=True)
     derived_status = serializers.CharField(read_only=True)
     
     class Meta:
         model = Order
         fields = [
-            'id', 'display_id', 'customer_name', 'is_guest',
+            'id', 'display_id', 'customer_name', 'customer_phone', 'is_guest',
             'order_status', 'payment_status', 'delivery_status', 'derived_status',
             'total', 'item_count', 'created_at'
         ]

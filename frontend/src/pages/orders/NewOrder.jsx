@@ -7,6 +7,7 @@ import AddCustomer from '../customers/AddCustomer';
 import { useToast } from '../../context/ToastContext';
 import { compressImage } from '../../utils/imageCompression';
 import UniversalPaymentEngine from '../../components/common/UniversalPaymentEngine';
+import InlineCustomerPicker from '../../components/common/InlineCustomerPicker';
 import { usePermissions } from '../../utils/usePermissions';
 import ManagerOverrideModal from '../../components/ManagerOverrideModal';
 import '../NewOrder.css';
@@ -27,8 +28,6 @@ export default function NewOrder() {
     const [tempDiscounts, setTempDiscounts] = useState({});
     const [tempOrderDiscount, setTempOrderDiscount] = useState('');
 
-    const [customerSearch, setCustomerSearch] = useState('');
-    const [customerResults, setCustomerResults] = useState([]);
     const [selectedCustomer, setSelectedCustomer] = useState(null);
 // fallow-ignore-next-line code-duplication
     const [showAddCustomer, setShowAddCustomer] = useState(false);
@@ -37,6 +36,10 @@ export default function NewOrder() {
     const [productResults, setProductResults] = useState([]);
     const [popularProducts, setPopularProducts] = useState([]);
     const [cartItems, setCartItems] = useState([]);
+    const [highlightedProductIndex, setHighlightedProductIndex] = useState(-1);
+    const barcodeBufferRef = useRef('');
+    const lastCharTimeRef = useRef(0);
+    const productInputRef = useRef(null);
     const [orderDiscount, setOrderDiscount] = useState({ type: 'fixed', value: 0 });
     const [checkoutExpanded, setCheckoutExpanded] = useState(true);
     const [orderNotes, setOrderNotes] = useState('');
@@ -52,7 +55,6 @@ export default function NewOrder() {
 
     const [isLoading, setIsLoading] = useState(false);
     const [isSearchingProducts, setIsSearchingProducts] = useState(false);
-    const [isSearchingCustomers, setIsSearchingCustomers] = useState(false);
     const [clearStage, setClearStage] = useState('idle'); // idle → confirming → ready
 // fallow-ignore-next-line code-duplication
     const [selectedCategory, setSelectedCategory] = useState('');
@@ -70,7 +72,6 @@ export default function NewOrder() {
 
 
     // Refs for AbortController (fixes Chaos race condition)
-    const customerAbortRef = useRef(null);
     const productAbortRef = useRef(null);
     const isSubmittingOrderRef = useRef(false);
     const isSubmittingProductRef = useRef(false);
@@ -179,49 +180,6 @@ export default function NewOrder() {
         window.addEventListener('popstate', onPopState);
         return () => window.removeEventListener('popstate', onPopState);
     }, [isDrawerOpen, cartItems.length > 0, showAddCustomer]); // eslint-disable-line react-hooks/exhaustive-deps
-
-    // Debounced Customer Search (with AbortController)
-    useEffect(() => {
-        if (!customerSearch || customerSearch.length < 2) {
-            setCustomerResults([]);
-            return;
-        }
-
-        const timer = setTimeout(async () => {
-            // Cancel any previous in-flight request
-            if (customerAbortRef.current) {
-                customerAbortRef.current.abort();
-            }
-// fallow-ignore-next-line code-duplication
-            const controller = new AbortController();
-            customerAbortRef.current = controller;
-
-            setIsSearchingCustomers(true);
-            try {
-                const response = await fetchWithAuth(
-                    `${ENDPOINTS.CUSTOMERS}?search=${encodeURIComponent(customerSearch)}`,
-                    { signal: controller.signal }
-                );
-                if (response.ok) {
-                    const data = await response.json();
-                    setCustomerResults(data.results || []);
-                }
-            } catch (error) {
-                if (error.name !== 'AbortError') {
-                    console.error('Error searching customers:', error);
-                }
-            } finally {
-                setIsSearchingCustomers(false);
-            }
-        }, 500);
-
-        return () => {
-            clearTimeout(timer);
-            if (customerAbortRef.current) {
-                customerAbortRef.current.abort();
-            }
-        };
-    }, [customerSearch, fetchWithAuth]);
 
     // Debounced Product Search (with AbortController)
     useEffect(() => {
@@ -345,6 +303,166 @@ export default function NewOrder() {
         });
         setProductSearch('');
         setProductResults([]);
+        setHighlightedProductIndex(-1);
+        barcodeBufferRef.current = '';
+    };
+
+    // Memoized displayed products matching current search or category
+    const displayedProducts = useMemo(() => {
+        if (productSearch) return productResults;
+        if (!selectedCategory) {
+            return [...popularProducts].sort((a, b) => {
+                const catA = a.category_name || '';
+                const catB = b.category_name || '';
+                if (!catA && !catB) return (a.name || '').localeCompare(b.name || '');
+                if (!catA) return 1;
+                if (!catB) return -1;
+                if (catA === catB) return (a.name || '').localeCompare(b.name || '');
+                return catA.localeCompare(catB);
+            });
+        }
+        return popularProducts;
+    }, [productSearch, productResults, selectedCategory, popularProducts]);
+
+    // Hardware Barcode Scanner Fast-Scan & Enter Key Handler (<50ms scan-to-cart)
+    const handleBarcodeOrEnter = useCallback(async (rawCode) => {
+        const code = (rawCode || '').trim();
+        if (!code) return;
+
+        // 1. Instant match in in-memory catalog
+        const cleanNum = code.replace(/^[#A-Za-z_-]+/, '');
+        const matched = displayedProducts.find(p => {
+            if (cleanNum && String(p.display_id) === cleanNum) return true;
+            if (p.name.toLowerCase() === code.toLowerCase()) return true;
+            return false;
+        }) || popularProducts.find(p => {
+            if (cleanNum && String(p.display_id) === cleanNum) return true;
+            if (p.name.toLowerCase() === code.toLowerCase()) return true;
+            return false;
+        });
+
+        if (matched) {
+            addToCart(matched);
+            showToast(`⚡ Scanned: ${matched.name} (+1)`, 'success');
+            setProductSearch('');
+            setProductResults([]);
+            setHighlightedProductIndex(-1);
+            barcodeBufferRef.current = '';
+            return;
+        }
+
+        // 2. If single search result is visible, add it
+        if (productResults.length === 1) {
+            addToCart(productResults[0]);
+            showToast(`⚡ Added: ${productResults[0].name}`, 'success');
+            setProductSearch('');
+            setProductResults([]);
+            setHighlightedProductIndex(-1);
+            barcodeBufferRef.current = '';
+            return;
+        }
+
+        // 3. Fallback: Fast query backend for barcode/SKU/name
+        try {
+            const res = await fetchWithAuth(`${ENDPOINTS.INVENTORY_PRODUCTS}?search=${encodeURIComponent(code)}&page_size=5`);
+            if (res.ok) {
+                const data = await res.json();
+                const list = data.results || (Array.isArray(data) ? data : []);
+                if (list.length > 0) {
+                    addToCart(list[0]);
+                    showToast(`⚡ Scanned: ${list[0].name} (+1)`, 'success');
+                    setProductSearch('');
+                    setProductResults([]);
+                    setHighlightedProductIndex(-1);
+                    barcodeBufferRef.current = '';
+                    return;
+                }
+            }
+            showToast(`No product found for "${code}"`, 'warning');
+        } catch (err) {
+            console.error('Barcode search failed:', err);
+        }
+        barcodeBufferRef.current = '';
+    }, [displayedProducts, popularProducts, productResults, fetchWithAuth, showToast]);
+
+    // Global Hardware Barcode Scanner Listener (<50ms inter-character burst)
+    useEffect(() => {
+        const handleGlobalKeyDown = (e) => {
+            const activeEl = document.activeElement;
+            const isOtherInput = activeEl && (
+                activeEl.tagName === 'TEXTAREA' ||
+                (activeEl.tagName === 'INPUT' && activeEl !== productInputRef.current)
+            );
+            if (isOtherInput) return;
+
+            const now = performance.now();
+            const interval = now - lastCharTimeRef.current;
+            lastCharTimeRef.current = now;
+
+            if (e.key.length === 1) {
+                if (interval < 50) {
+                    barcodeBufferRef.current += e.key;
+                } else {
+                    barcodeBufferRef.current = e.key;
+                }
+            } else if (e.key === 'Enter') {
+                if (barcodeBufferRef.current.length >= 3 && interval < 50) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    const scanned = barcodeBufferRef.current;
+                    barcodeBufferRef.current = '';
+                    handleBarcodeOrEnter(scanned);
+                }
+            }
+        };
+
+        window.addEventListener('keydown', handleGlobalKeyDown, true);
+        return () => window.removeEventListener('keydown', handleGlobalKeyDown, true);
+    }, [handleBarcodeOrEnter]);
+
+    // Product search keyboard navigation & barcode stream detector
+    const handleProductKeyDown = (e) => {
+        const now = performance.now();
+        const interval = now - lastCharTimeRef.current;
+        lastCharTimeRef.current = now;
+
+        // Collect rapid alphanumeric stream from hardware barcode scanners (inter-character < 50ms)
+        if (e.key.length === 1) {
+            if (interval < 50) {
+                barcodeBufferRef.current += e.key;
+            } else {
+                barcodeBufferRef.current = e.key;
+            }
+        }
+
+        if (e.key === 'ArrowDown') {
+            e.preventDefault();
+            setHighlightedProductIndex(prev => (prev < displayedProducts.length - 1 ? prev + 1 : 0));
+        } else if (e.key === 'ArrowUp') {
+            e.preventDefault();
+            setHighlightedProductIndex(prev => (prev > 0 ? prev - 1 : displayedProducts.length - 1));
+        } else if (e.key === 'Enter') {
+            e.preventDefault();
+            // 1. Keyboard selection priority: if cashier navigated to an item with Arrow keys, add it!
+            if (highlightedProductIndex >= 0 && displayedProducts[highlightedProductIndex]) {
+                addToCart(displayedProducts[highlightedProductIndex]);
+                setProductSearch('');
+                setProductResults([]);
+                setHighlightedProductIndex(-1);
+                barcodeBufferRef.current = '';
+                return;
+            }
+            // 2. Barcode scanner buffer or typed search
+            const codeToScan = barcodeBufferRef.current.length >= 3 ? barcodeBufferRef.current : productSearch;
+            if (codeToScan && codeToScan.trim()) {
+                handleBarcodeOrEnter(codeToScan);
+            }
+        } else if (e.key === 'Escape') {
+            setProductSearch('');
+            setProductResults([]);
+            setHighlightedProductIndex(-1);
+            barcodeBufferRef.current = '';
+        }
     };
 
     const updateQuantity = (id, delta) => {
@@ -850,63 +968,13 @@ export default function NewOrder() {
                         )}
                     </div>
 
-                    {selectedCustomer ? (
-                        <>
-                        <div className="selected-customer-card">
-                            <div>
-                                <strong>
-                                    {selectedCustomer.display_id && <span className="text-muted small" style={{ marginRight: '6px' }}>#{selectedCustomer.display_id}</span>}
-                                    {selectedCustomer.name || selectedCustomer.full_name}
-                                </strong>
-                                <div className="text-muted small">{selectedCustomer.phone || 'No phone'}</div>
-                            </div>
-                            <button className="btn btn-ghost btn-sm" onClick={() => setSelectedCustomer(null)}>Change</button>
-                        </div>
-                        {selectedCustomer.has_legacy_debt && parseFloat(selectedCustomer.legacy_debt_remaining) > 0 && (
-                            <div style={{ background: 'var(--danger-color, #dc3545)', color: 'white', padding: '0.5rem', borderRadius: '4px', marginTop: '0.5rem', fontWeight: 'bold', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                <span>⚠️ LEGACY DEBT ALERT</span>
-                                <span>{currency}{parseFloat(selectedCustomer.legacy_debt_remaining).toFixed(2)}</span>
-                            </div>
-                        )}
-                        </>
-                    ) : (
-                        <>
-                            <div className="customer-search-wrapper">
-                                <input
-                                    type="text"
-                                    className="form-control"
-                                    placeholder="Search customer by name or phone..."
-                                    value={customerSearch}
-                                    onChange={e => setCustomerSearch(e.target.value)}
-                                />
-                                {isSearchingCustomers && <div className="spinner-small"></div>}
-                                {customerResults.length > 0 && (
-                                    <div className="search-results-dropdown">
-                                        {customerResults.map(c => (
-                                            <div
-                                                key={c.id}
-                                                className="search-result-item"
-                                                onClick={() => {
-                                                    setSelectedCustomer({
-                                                        ...c,
-                                                        name: c.full_name || `${c.first_name || ''} ${c.last_name || ''}`.trim()
-                                                    });
-                                                    setCustomerResults([]);
-                                                    setCustomerSearch('');
-                                                }}
-                                            >
-                                                <div>
-                                                    {c.display_id && <span className="text-muted small" style={{ marginRight: '6px' }}>#{c.display_id}</span>}
-                                                    <strong>{c.full_name || `${c.first_name || ''} ${c.last_name || ''}`.trim()}</strong>
-                                                </div>
-                                                <div className="small text-muted">{c.phone}</div>
-                                            </div>
-                                        ))}
-                                    </div>
-                                )}
-                            </div>
-                        </>
-                    )}
+                    <InlineCustomerPicker
+                        selectedCustomer={selectedCustomer}
+                        onSelectCustomer={setSelectedCustomer}
+                        onClearCustomer={() => setSelectedCustomer(null)}
+                        onAddNewCustomer={() => setShowAddCustomer(prev => !prev)}
+                        placeholder="Search customer by name, phone, or village..."
+                    />
 
                     {/* Collapsible Add Customer Form (P4 3.3.1.1.2: "Form is collapsible") */}
                     <div className={`add-customer-collapsible ${showAddCustomer ? 'open' : ''}`}>
@@ -935,26 +1003,39 @@ export default function NewOrder() {
                     </div>
                     <div className="product-search-wrapper">
                         <input
+                            ref={productInputRef}
                             type="text"
                             className="form-control"
-                            placeholder="Search products by name, ISBN or SKU..."
+                            placeholder="Scan barcode or search products by name, SKU... (↵ to add)"
                             value={productSearch}
-                            onChange={e => setProductSearch(e.target.value)}
+                            onChange={e => {
+                                setProductSearch(e.target.value);
+                                setHighlightedProductIndex(-1);
+                            }}
+                            onKeyDown={handleProductKeyDown}
+                            autoComplete="off"
                         />
                     </div>
 
-                    {!productSearch && availableCategories.length > 0 && (
-                        <div className="category-filter">
-                            <select
-                                className="form-control form-control-sm"
-                                value={selectedCategory}
-                                onChange={e => setSelectedCategory(e.target.value)}
+                    {availableCategories.length > 0 && (
+                        <div className="category-pills-container">
+                            <button
+                                type="button"
+                                className={`category-pill ${!selectedCategory ? 'active' : ''}`}
+                                onClick={() => setSelectedCategory('')}
                             >
-                                <option value="">All Categories</option>
-                                {availableCategories.map(cat => (
-                                    <option key={cat.id} value={cat.id}>{cat.name}</option>
-                                ))}
-                            </select>
+                                All
+                            </button>
+                            {availableCategories.map(cat => (
+                                <button
+                                    type="button"
+                                    key={cat.id}
+                                    className={`category-pill ${selectedCategory === String(cat.id) ? 'active' : ''}`}
+                                    onClick={() => setSelectedCategory(selectedCategory === String(cat.id) ? '' : String(cat.id))}
+                                >
+                                    {cat.name}
+                                </button>
+                            ))}
                         </div>
                     )}
 
@@ -962,32 +1043,14 @@ export default function NewOrder() {
                         <div className="loading-container"><div className="spinner"></div></div>
                     ) : (
                         <div className="product-grid">
-                            {(productSearch ? productResults : (
-                                // When "All Categories" is active, group products by category
-                                // with uncategorized products at the end, then sort by name within each category
-                                !selectedCategory
-                                    ? [...popularProducts].sort((a, b) => {
-                                        const catA = a.category_name || '';
-                                        const catB = b.category_name || '';
-                                        // Both uncategorized — sort by name
-                                        if (!catA && !catB) return (a.name || '').localeCompare(b.name || '');
-                                        // Uncategorized goes last
-                                        if (!catA) return 1;
-                                        if (!catB) return -1;
-                                        // Same category — sort by name
-                                        if (catA === catB) return (a.name || '').localeCompare(b.name || '');
-                                        // Different category — sort by category name
-// fallow-ignore-next-line code-duplication
-                                        return catA.localeCompare(catB);
-                                    })
-                                    : popularProducts
-                            )).map(p => {
+                            {displayedProducts.map((p, index) => {
                                 const cartItem = cartItems.find(item => item.id === p.id);
                                 const inCart = !!cartItem;
+                                const isFocused = index === highlightedProductIndex;
                                 return (
                                     <div
                                         key={p.id}
-                                        className={`product-card ${inCart ? 'in-cart' : ''}`}
+                                        className={`product-card ${inCart ? 'in-cart' : ''} ${isFocused ? 'keyboard-focused' : ''}`}
                                         onClick={() => !inCart && addToCart(p)}
                                     >
                                         <div className="product-card-header">
@@ -1000,9 +1063,26 @@ export default function NewOrder() {
                                         </div>
                                         <div className="product-card-info">
                                             <span className="product-card-price">{currency}{Number(p.selling_price).toFixed(2)}</span>
-                                            <span className={p.stock_quantity <= 5 ? 'text-danger' : ''}>
-                                                Stock: {p.stock_quantity}
-                                            </span>
+                                            <div className="product-card-badges">
+                                                {p.is_pack && (
+                                                    <span className="product-badge-pack">
+                                                        Pack of {p.pack_size || 1}
+                                                    </span>
+                                                )}
+                                                {p.stock_quantity > (p.low_stock_threshold || 10) ? (
+                                                    <span className="product-badge-in-stock">
+                                                        {p.stock_quantity} in stock
+                                                    </span>
+                                                ) : p.stock_quantity > 0 ? (
+                                                    <span className="product-badge-low-stock">
+                                                        {p.stock_quantity} low stock
+                                                    </span>
+                                                ) : (
+                                                    <span className="product-badge-out-of-stock">
+                                                        0 (Out of stock)
+                                                    </span>
+                                                )}
+                                            </div>
                                         </div>
                                         {inCart ? (
                                             <div className="product-card-qty" onClick={e => e.stopPropagation()}>

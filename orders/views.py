@@ -88,6 +88,11 @@ class OrderViewSet(viewsets.ModelViewSet):
             default=Coalesce('customer__first_name', Value('')),
             output_field=CharField(),
         ),
+        annotated_customer_phone=Case(
+            When(is_guest=True, then=Coalesce('guest_phone', Value(''))),
+            default=Coalesce('customer__phone', Value('')),
+            output_field=CharField(),
+        ),
     )
 
     def get_queryset(self):

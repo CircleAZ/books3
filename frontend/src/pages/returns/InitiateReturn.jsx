@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useCurrency } from '../../context/CurrencyContext';
@@ -17,6 +17,9 @@ export default function InitiateReturn() {
     const [searchQuery, setSearchQuery] = useState('');
     const [searchResults, setSearchResults] = useState([]);
     const [isSearching, setIsSearching] = useState(false);
+    const [highlightedIndex, setHighlightedIndex] = useState(-1);
+    const searchAbortRef = useRef(null);
+    const searchInputRef = useRef(null);
 
     // Selected Order State
     const [selectedOrder, setSelectedOrder] = useState(null);
@@ -52,29 +55,64 @@ export default function InitiateReturn() {
 
     // Debounced Search for Orders
     useEffect(() => {
-        if (!searchQuery || searchQuery.length < 3) {
+        const raw = searchQuery.trim();
+        const cleaned = raw.replace(/^#|^ord[-_]?/i, '');
+        if (!raw || (cleaned.length < 1 && raw.length < 2)) {
             setSearchResults([]);
+            setHighlightedIndex(-1);
             return;
         }
 
         const timer = setTimeout(async () => {
+            if (searchAbortRef.current) searchAbortRef.current.abort();
+            const controller = new AbortController();
+            searchAbortRef.current = controller;
             setIsSearching(true);
             try {
-                // We only want delivered or partial orders for returns
-                const response = await fetchWithAuth(`${ENDPOINTS.ORDERS}?search=${searchQuery}&delivery_status__in=delivered,partial`);
+                // Search orders with delivered or partial status
+                const response = await fetchWithAuth(
+                    `${ENDPOINTS.ORDERS}?search=${encodeURIComponent(raw)}&delivery_status__in=delivered,partial&page_size=20`,
+                    { signal: controller.signal }
+                );
                 if (response.ok) {
                     const data = await response.json();
                     setSearchResults(data.results || []);
+                    setHighlightedIndex(-1);
                 }
             } catch (error) {
-                console.error('Error searching orders:', error);
+                if (error.name !== 'AbortError') {
+                    console.error('Error searching orders:', error);
+                }
             } finally {
                 setIsSearching(false);
             }
-        }, 500);
+        }, 300);
 
-        return () => clearTimeout(timer);
+        return () => {
+            clearTimeout(timer);
+            if (searchAbortRef.current) searchAbortRef.current.abort();
+        };
     }, [searchQuery, fetchWithAuth]);
+
+    const handleSearchKeyDown = (e) => {
+        if (e.key === 'ArrowDown') {
+            e.preventDefault();
+            setHighlightedIndex(prev => (prev < searchResults.length - 1 ? prev + 1 : 0));
+        } else if (e.key === 'ArrowUp') {
+            e.preventDefault();
+            setHighlightedIndex(prev => (prev > 0 ? prev - 1 : searchResults.length - 1));
+        } else if (e.key === 'Enter') {
+            e.preventDefault();
+            if (highlightedIndex >= 0 && searchResults[highlightedIndex]) {
+                handleSelectOrder(searchResults[highlightedIndex].id);
+            } else if (searchResults.length === 1) {
+                handleSelectOrder(searchResults[0].id);
+            }
+        } else if (e.key === 'Escape') {
+            setSearchResults([]);
+            setHighlightedIndex(-1);
+        }
+    };
 
     // Fetch recent delivered orders for default view
     useEffect(() => {
@@ -234,11 +272,13 @@ export default function InitiateReturn() {
                     <label className="form-label">Search Order</label>
                     <div className="search-input-group">
                         <input
+                            ref={searchInputRef}
                             type="text"
                             className="form-control"
-                            placeholder="Enter Order ID, Customer Name or Phone..."
+                            placeholder="Enter Order #ID, Customer Name or Phone... (↑/↓ to navigate, Enter to select)"
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
+                            onKeyDown={handleSearchKeyDown}
                         />
                         {isSearching && (
                             <div className="spinner-wrapper" style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)' }}>
@@ -248,27 +288,51 @@ export default function InitiateReturn() {
 
                         {searchResults.length > 0 && (
                             <div className="search-results-dropdown">
-                                {searchResults.map(order => (
-                                    <div
-                                        key={order.id}
-                                        className="search-result-item"
-                                        onClick={() => handleSelectOrder(order.id)}
-                                    >
-                                        <div>
-                                            <span className="text-muted small" style={{ marginRight: '6px' }}>#{order.id.split('-')[0].toUpperCase()}</span>
-                                            <strong>{order.customer_name || 'Guest'}</strong>
+                                <div style={{ padding: '6px 14px', fontSize: '0.75rem', color: 'var(--color-text-secondary)', borderBottom: '1px solid var(--color-border)', display: 'flex', justifyContent: 'space-between' }}>
+                                    <span>{searchResults.length} eligible order{searchResults.length !== 1 ? 's' : ''} found</span>
+                                    <span>Use ↑ ↓ to navigate</span>
+                                </div>
+                                {searchResults.map((order, idx) => {
+                                    const isFocused = idx === highlightedIndex;
+                                    return (
+                                        <div
+                                            key={order.id}
+                                            className={`search-result-item ${isFocused ? 'keyboard-focused' : ''}`}
+                                            onClick={() => handleSelectOrder(order.id)}
+                                            style={{
+                                                backgroundColor: isFocused ? 'var(--color-bg-hover, rgba(59, 130, 246, 0.15))' : undefined,
+                                            }}
+                                        >
+                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                    <span style={{ fontWeight: 700, color: 'var(--color-primary, #3b82f6)' }}>
+                                                        #{order.display_id || order.id.slice(0, 8).toUpperCase()}
+                                                    </span>
+                                                    <strong style={{ fontSize: '0.9rem' }}>{order.customer_name || 'Guest'}</strong>
+                                                    {order.customer_phone && (
+                                                        <span style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)', fontFamily: 'monospace' }}>
+                                                            📞 {order.customer_phone}
+                                                        </span>
+                                                    )}
+                                                </div>
+                                                <div className="small text-muted" style={{ fontSize: '0.75rem' }}>
+                                                    {new Date(order.created_at).toLocaleDateString()} • {order.item_count || 1} item{order.item_count !== 1 ? 's' : ''}
+                                                </div>
+                                            </div>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                                <span style={{ fontWeight: 600, fontSize: '0.9rem' }}>
+                                                    {currency}{Number(order.total || 0).toFixed(2)}
+                                                </span>
+                                                <span className={`status-badge status-${order.delivery_status || 'delivered'}`} style={{ fontSize: '0.7rem', padding: '2px 6px', textTransform: 'capitalize' }}>
+                                                    {order.derived_status || order.delivery_status}
+                                                </span>
+                                            </div>
                                         </div>
-                                        <div className="small text-muted">
-                                            {new Date(order.created_at).toLocaleDateString()} • <span style={{ textTransform: 'capitalize' }}>{order.derived_status || order.delivery_status}</span>
-                                        </div>
-                                    </div>
-                                ))}
+                                    );
+                                })}
                             </div>
                         )}
                     </div>
-                    {searchQuery.length > 0 && searchQuery.length < 3 && (
-                        <div className="small text-muted mt-1">Type at least 3 characters to search...</div>
-                    )}
                 </div>
             </section>
 
@@ -298,8 +362,17 @@ export default function InitiateReturn() {
                                         <tbody>
                                             {recentOrders.map(order => (
                                                 <tr key={order.id} style={{ borderBottom: '1px solid var(--color-border)' }}>
-                                                    <td style={{ padding: '0.75rem' }}>#{order.id.split('-')[0].toUpperCase()}</td>
-                                                    <td style={{ padding: '0.75rem' }}>{order.customer_name || 'Guest'}</td>
+                                                    <td style={{ padding: '0.75rem', fontWeight: 700, color: 'var(--color-primary, #3b82f6)' }}>
+                                                        #{order.display_id || order.id.slice(0, 8).toUpperCase()}
+                                                    </td>
+                                                    <td style={{ padding: '0.75rem' }}>
+                                                        <div style={{ fontWeight: 500 }}>{order.customer_name || 'Guest'}</div>
+                                                        {order.customer_phone && (
+                                                            <div style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)', fontFamily: 'monospace' }}>
+                                                                📞 {order.customer_phone}
+                                                            </div>
+                                                        )}
+                                                    </td>
                                                     <td style={{ padding: '0.75rem' }}>{new Date(order.created_at).toLocaleDateString()}</td>
                                                     <td style={{ padding: '0.75rem', textTransform: 'capitalize' }}>
                                                         <span className={`status-badge status-${order.delivery_status || 'delivered'}`}>
@@ -357,11 +430,18 @@ export default function InitiateReturn() {
                             <div className="order-info-grid">
                                 <div className="info-item">
                                     <label>Order ID</label>
-                                    <span>#{selectedOrder.id.split('-')[0].toUpperCase()}</span>
+                                    <span style={{ fontWeight: 700, color: 'var(--color-primary, #3b82f6)' }}>
+                                        #{selectedOrder.display_id || selectedOrder.id.slice(0, 8).toUpperCase()}
+                                    </span>
                                 </div>
                                 <div className="info-item">
                                     <label>Customer</label>
                                     <span>{selectedOrder.customer_name || 'Guest'}</span>
+                                    {selectedOrder.customer_phone && (
+                                        <span style={{ display: 'block', fontSize: '0.75rem', color: 'var(--color-text-secondary)', fontFamily: 'monospace' }}>
+                                            📞 {selectedOrder.customer_phone}
+                                        </span>
+                                    )}
                                 </div>
                                 <div className="info-item">
                                     <label>Date</label>
