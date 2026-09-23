@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useCurrency } from '../../context/CurrencyContext';
 import { ENDPOINTS } from '../../config/api';
 import { Filter, ChevronUp, ChevronDown, X } from 'lucide-react';
@@ -13,6 +13,8 @@ import '../../styles/components/data-table.css';
 export default function AllTransactions() {
     const { currency } = useCurrency();
     const navigate = useNavigate();
+    const [searchParams] = useSearchParams();
+    const urlSearch = searchParams.get('search') || '';
 
     const [showFilters, setShowFilters] = useState(false);
     
@@ -30,6 +32,7 @@ export default function AllTransactions() {
         search,
         setSearch,
     } = useServerList(ENDPOINTS.FINANCE_ALL_TRANSACTIONS, {
+        initialSearch: urlSearch,
         filterConfig: { source: '', type: '', startDate: '', endDate: '' },
         debounceMs: 300,
         buildParams: (debouncedSearch, f) => new URLSearchParams({
@@ -40,6 +43,12 @@ export default function AllTransactions() {
             date_to: f.endDate,
         }),
     });
+
+    useEffect(() => {
+        if (urlSearch && urlSearch !== search) {
+            setSearch(urlSearch);
+        }
+    }, [urlSearch, search, setSearch]);
 
     const toggleSearchToken = (token) => {
         const current = (search || '').trim();

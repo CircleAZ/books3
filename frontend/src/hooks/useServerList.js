@@ -29,6 +29,7 @@ export default function useServerList(endpoint, options = {}) {
         pageSize = DEFAULT_PAGE_SIZE,
         debounceMs = DEFAULT_DEBOUNCE_MS,
         buildParams,
+        initialSearch = '',
     } = options;
 
     const { fetchWithAuth } = useAuth();
@@ -50,8 +51,8 @@ export default function useServerList(endpoint, options = {}) {
     const [totalCount, setTotalCount] = useState(0);
 
     const [page, setPage] = useState(1);
-    const [search, setSearch] = useState('');
-    const [debouncedSearch, setDebouncedSearch] = useState('');
+    const [search, setSearch] = useState(initialSearch);
+    const [debouncedSearch, setDebouncedSearch] = useState(initialSearch);
     const [filters, setFilters] = useState({ ...filterConfig });
 
     const abortControllerRef = useRef(null);

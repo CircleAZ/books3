@@ -1,192 +1,342 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { ENDPOINTS } from '../../config/api';
-import { searchableItems } from '../../config/navigation';
 import usePermissions from '../../utils/usePermissions';
 import './OmniSearch.css';
 
-const searchCategories = [
+const CATEGORY_TABS = [
     { id: 'all', label: 'All', icon: '🔍' },
-    { id: 'products', label: 'Products', icon: '📦' },
-    { id: 'customers', label: 'Customers', icon: '👥' },
     { id: 'orders', label: 'Orders', icon: '📋' },
-    { id: 'actions', label: 'Quick Actions', icon: '⚡' },
+    { id: 'customers', label: 'Customers', icon: '👥' },
+    { id: 'products', label: 'Products', icon: '📦' },
+    { id: 'purchase_orders', label: 'Purchase Orders', icon: '🏭' },
+    { id: 'finance', label: 'Transactions', icon: '💰' },
 ];
 
-const quickActions = [
-    { id: 'new-order', label: 'Create New Order', path: '/orders/new', icon: '➕', category: 'actions' },
-    { id: 'add-product', label: 'Add New Product', path: '/inventory/add', icon: '📦', category: 'actions' },
-    { id: 'add-customer', label: 'Add New Customer', path: '/customers/add', icon: '👤', category: 'actions' },
-    { id: 'view-reports', label: 'View Reports', path: '/reports/sales', icon: '📊', category: 'actions' },
+const CATEGORY_META = {
+    orders: { label: 'Orders', icon: '📋' },
+    customers: { label: 'Customers', icon: '👥' },
+    products: { label: 'Products', icon: '📦' },
+    purchase_orders: { label: 'Purchase Orders', icon: '🏭' },
+    finance: { label: 'Transactions', icon: '💰' },
+};
+
+const QUICK_ACTIONS = [
+    {
+        id: 'action-new-order',
+        title: 'Create New Order',
+        subtitle: 'POS counter & customer billing',
+        url: '/orders/new',
+        icon: '📋',
+        category: 'orders',
+        permission: 'orders.create_orders'
+    },
+    {
+        id: 'action-add-customer',
+        title: 'Add New Customer',
+        subtitle: 'Register school, student, or client',
+        url: '/customers/add',
+        icon: '👥',
+        category: 'customers',
+        permission: 'customers.manage_customers'
+    },
+    {
+        id: 'action-add-product',
+        title: 'Add New Product',
+        subtitle: 'Create inventory item or book',
+        url: '/inventory/add',
+        icon: '📦',
+        category: 'products',
+        permission: 'inventory.manage_products'
+    },
+    {
+        id: 'action-record-expense',
+        title: 'Record Expense',
+        subtitle: 'Log operating or travel expenses',
+        url: '/finance/expenses/add',
+        icon: '💰',
+        category: 'finance',
+        permission: 'finance.manage_expenses'
+    },
 ];
+
+const RECENTS_STORAGE_KEY = 'omnisearch_recents';
 
 export default function OmniSearch({ isOpen, onClose }) {
     const [query, setQuery] = useState('');
     const [activeCategory, setActiveCategory] = useState('all');
     const [selectedIndex, setSelectedIndex] = useState(0);
-    const [results, setResults] = useState([]);
-    const [apiResults, setApiResults] = useState({ products: [], customers: [], orders: [] });
+    const [recents, setRecents] = useState([]);
+    const [results, setResults] = useState({
+        orders: [],
+        customers: [],
+        products: [],
+        purchase_orders: [],
+        finance: []
+    });
     const [loading, setLoading] = useState(false);
+
     const inputRef = useRef(null);
-    const debounceRef = useRef(null);
+    const resultsContainerRef = useRef(null);
+    const debounceTimerRef = useRef(null);
+    const abortControllerRef = useRef(null);
+
     const navigate = useNavigate();
     const { fetchWithAuth } = useAuth();
     const { hasPermission } = usePermissions();
 
-    // Focus input when opened
+    // 1. Instant Mount (0ms): synchronous read from localStorage on open
     useEffect(() => {
-        if (isOpen && inputRef.current) {
-            inputRef.current.focus();
+        if (isOpen) {
             setQuery('');
             setActiveCategory('all');
             setSelectedIndex(0);
-            setResults(quickActions);
-            setApiResults({ products: [], customers: [], orders: [] });
+            setResults({
+                orders: [],
+                customers: [],
+                products: [],
+                purchase_orders: [],
+                finance: []
+            });
+            setLoading(false);
+
+            try {
+                const stored = localStorage.getItem(RECENTS_STORAGE_KEY);
+                if (stored) {
+                    const parsed = JSON.parse(stored);
+                    const safe = Array.isArray(parsed)
+                        ? parsed.filter(i => i && typeof i === 'object' && i.id && i.title && i.url).slice(0, 6)
+                        : [];
+                    setRecents(safe);
+                } else {
+                    setRecents([]);
+                }
+            } catch {
+                setRecents([]);
+            }
+
+            // Focus input synchronously or next tick
+            setTimeout(() => {
+                inputRef.current?.focus();
+            }, 10);
+        } else {
+            // Cancel any pending request when modal closes
+            if (abortControllerRef.current) {
+                abortControllerRef.current.abort();
+            }
+            clearTimeout(debounceTimerRef.current);
         }
     }, [isOpen]);
 
-    // Handle keyboard shortcuts
+    // 2. Trailing Debounce (280ms) + AbortController Cancellation (Single unified endpoint)
+    useEffect(() => {
+        if (!isOpen) return;
+
+        const trimmed = query.trim();
+        if (!trimmed) {
+            setResults({
+                orders: [],
+                customers: [],
+                products: [],
+                purchase_orders: [],
+                finance: []
+            });
+            setLoading(false);
+            if (abortControllerRef.current) {
+                abortControllerRef.current.abort();
+            }
+            return;
+        }
+
+        // Single character text check (unless numeric or starts with #)
+        const isNumericSearch = /^[#A-Za-z_-]*\d+$/.test(trimmed);
+        if (trimmed.length < 2 && !isNumericSearch) {
+            setResults({
+                orders: [],
+                customers: [],
+                products: [],
+                purchase_orders: [],
+                finance: []
+            });
+            setLoading(false);
+            return;
+        }
+
+        setLoading(true);
+        clearTimeout(debounceTimerRef.current);
+
+        debounceTimerRef.current = setTimeout(async () => {
+            if (abortControllerRef.current) {
+                abortControllerRef.current.abort();
+            }
+            const controller = new AbortController();
+            abortControllerRef.current = controller;
+
+            try {
+                const res = await fetchWithAuth(
+                    `${ENDPOINTS.CORE_OMNISEARCH}?q=${encodeURIComponent(trimmed)}`,
+                    { signal: controller.signal }
+                );
+                if (res.ok) {
+                    const data = await res.json();
+                    setResults({
+                        orders: data.orders || [],
+                        customers: data.customers || [],
+                        products: data.products || [],
+                        purchase_orders: data.purchase_orders || [],
+                        finance: data.finance || []
+                    });
+                    setSelectedIndex(0);
+                }
+            } catch (err) {
+                if (err.name !== 'AbortError') {
+                    console.error('OmniSearch request error:', err);
+                }
+            } finally {
+                setLoading(false);
+            }
+        }, 280);
+
+        return () => {
+            clearTimeout(debounceTimerRef.current);
+        };
+    }, [query, isOpen, fetchWithAuth]);
+
+    // 3. Compute flat list of currently visible items for index-based keyboard navigation
+    const visibleActions = useMemo(() => {
+        return QUICK_ACTIONS.filter(a => !a.permission || hasPermission(a.permission));
+    }, [hasPermission]);
+
+    const filteredRecents = useMemo(() => {
+        if (activeCategory === 'all') return recents;
+        return recents.filter(r => r.category === activeCategory);
+    }, [recents, activeCategory]);
+
+    const filteredActions = useMemo(() => {
+        if (activeCategory === 'all') return visibleActions;
+        return visibleActions.filter(a => a.category === activeCategory);
+    }, [visibleActions, activeCategory]);
+
+    const flatVisibleItems = useMemo(() => {
+        const trimmed = query.trim();
+        if (!trimmed) {
+            return [...filteredRecents, ...filteredActions];
+        }
+
+        if (activeCategory === 'all') {
+            const list = [];
+            for (const cat of ['orders', 'customers', 'products', 'purchase_orders', 'finance']) {
+                if (results[cat] && results[cat].length > 0) {
+                    list.push(...results[cat]);
+                }
+            }
+            return list;
+        }
+
+        return results[activeCategory] || [];
+    }, [query, activeCategory, filteredRecents, filteredActions, results]);
+
+    // Ensure selectedIndex is within bounds when list updates
+    useEffect(() => {
+        if (flatVisibleItems.length === 0) {
+            setSelectedIndex(0);
+        } else if (selectedIndex < 0 || selectedIndex >= flatVisibleItems.length) {
+            setSelectedIndex(0);
+        }
+    }, [flatVisibleItems.length, selectedIndex]);
+
+    // Reset container scroll to top on query or category change
+    useEffect(() => {
+        if (resultsContainerRef.current) {
+            resultsContainerRef.current.scrollTop = 0;
+        }
+    }, [query, activeCategory]);
+
+    // Auto-scroll highlighted item into view
+    useEffect(() => {
+        if (!resultsContainerRef.current) return;
+        const selectedEl = resultsContainerRef.current.querySelector('.result-item.selected');
+        if (selectedEl) {
+            selectedEl.scrollIntoView({ block: 'nearest' });
+        }
+    }, [selectedIndex]);
+
+    // 4. Keyboard Navigation across all categories
     useEffect(() => {
         function handleKeyDown(e) {
-            if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
-                e.preventDefault();
-                onClose(); // Toggle
-            }
             if (!isOpen) return;
 
             if (e.key === 'Escape') {
+                e.preventDefault();
                 onClose();
             } else if (e.key === 'ArrowDown') {
                 e.preventDefault();
-                setSelectedIndex(i => Math.min(i + 1, results.length - 1));
+                if (flatVisibleItems.length > 0) {
+                    setSelectedIndex(idx => Math.min(idx + 1, flatVisibleItems.length - 1));
+                }
             } else if (e.key === 'ArrowUp') {
                 e.preventDefault();
-                setSelectedIndex(i => Math.max(i - 1, 0));
-            } else if (e.key === 'Enter' && results[selectedIndex]) {
+                if (flatVisibleItems.length > 0) {
+                    setSelectedIndex(idx => Math.max(idx - 1, 0));
+                }
+            } else if (e.key === 'Enter') {
                 e.preventDefault();
-                handleSelect(results[selectedIndex]);
+                const item = flatVisibleItems[selectedIndex];
+                if (item) {
+                    handleSelect(item);
+                }
             }
         }
-        document.addEventListener('keydown', handleKeyDown);
-        return () => document.removeEventListener('keydown', handleKeyDown);
-    }, [isOpen, results, selectedIndex, onClose]);
 
-    // Debounced API search
-    const searchAPI = useCallback(async (searchQuery) => {
-        if (!searchQuery.trim() || searchQuery.length < 2) {
-            setApiResults({ products: [], customers: [], orders: [] });
-            setLoading(false);
-            return;
-        }
-        setLoading(true);
-        try {
-            const [productsRes, customersRes, ordersRes] = await Promise.allSettled([
-                fetchWithAuth(`${ENDPOINTS.INVENTORY_PRODUCTS}?search=${encodeURIComponent(searchQuery)}&page_size=5`),
-                fetchWithAuth(`${ENDPOINTS.CUSTOMERS}?search=${encodeURIComponent(searchQuery)}&page_size=5`),
-                fetchWithAuth(`${ENDPOINTS.ORDERS}?search=${encodeURIComponent(searchQuery)}&page_size=5`),
-            ]);
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [isOpen, flatVisibleItems, selectedIndex, onClose]);
 
-            const products = productsRes.status === 'fulfilled' && productsRes.value.ok
-                ? (await productsRes.value.json()).results?.map(p => ({
-                    id: `product-${p.id}`, label: p.name, path: `/inventory/${p.id}`,
-                    icon: '📦', category: 'products', subtitle: `₹${Number(p.selling_price || 0).toFixed(2)}`
-                })) || []
-                : [];
-
-            const customers = customersRes.status === 'fulfilled' && customersRes.value.ok
-                ? (await customersRes.value.json()).results?.map(c => ({
-                    id: `customer-${c.id}`, label: c.name, path: `/customers/${c.id}`,
-                    icon: '👤', category: 'customers', subtitle: c.phone || c.email || ''
-                })) || []
-                : [];
-
-            const orders = ordersRes.status === 'fulfilled' && ordersRes.value.ok
-                ? (await ordersRes.value.json()).results?.map(o => ({
-                    id: `order-${o.id}`, label: `Order #${o.order_number || o.id}`, path: `/orders/${o.id}`,
-                    icon: '📋', category: 'orders', subtitle: `₹${o.total || 0}`
-                })) || []
-                : [];
-
-            setApiResults({ products, customers, orders });
-        } catch (err) {
-            console.error('Search failed:', err);
-        } finally {
-            setLoading(false);
-        }
-    }, [fetchWithAuth]);
-
-    // Build combined results whenever query, category, or API results change
-    useEffect(() => {
-        if (!query.trim()) {
-            // No query — show quick actions (filtered by category and permission)
-            const filtered = (activeCategory === 'all' || activeCategory === 'actions'
-                ? quickActions
-                : []).filter(item => !item.permission || hasPermission(item.permission));
-            setResults(filtered);
-            setSelectedIndex(0);
-            return;
-        }
-
-        const q = query.toLowerCase();
-        let combined = [];
-
-        // Quick actions matching query
-        if (activeCategory === 'all' || activeCategory === 'actions') {
-            const actionMatches = quickActions.filter(a => 
-                a.label.toLowerCase().includes(q) && (!a.permission || hasPermission(a.permission))
-            );
-            combined.push(...actionMatches);
-        }
-
-        // Navigation items matching query
-        if (activeCategory === 'all' || activeCategory === 'actions') {
-            const navMatches = searchableItems
-                .filter(item => item.label.toLowerCase().includes(q) && (!item.permission || hasPermission(item.permission)))
-                .slice(0, 5)
-                .map(item => ({ ...item, id: `nav-${item.path}`, icon: '🔗', category: 'actions' }));
-            combined.push(...navMatches);
-        }
-
-        // API results
-        if (activeCategory === 'all' || activeCategory === 'products') {
-            combined.push(...apiResults.products);
-        }
-        if (activeCategory === 'all' || activeCategory === 'customers') {
-            combined.push(...apiResults.customers);
-        }
-        if (activeCategory === 'all' || activeCategory === 'orders') {
-            combined.push(...apiResults.orders);
-        }
-
-        // Deduplicate by id
-        const seen = new Set();
-        combined = combined.filter(item => {
-            if (seen.has(item.id)) return false;
-            seen.add(item.id);
-            return true;
-        });
-
-        setResults(combined);
-        setSelectedIndex(0);
-    }, [query, activeCategory, apiResults]);
-
-    // Debounced API trigger
-    useEffect(() => {
-        clearTimeout(debounceRef.current);
-        if (query.trim().length >= 2) {
-            debounceRef.current = setTimeout(() => searchAPI(query), 300);
-        } else {
-            setApiResults({ products: [], customers: [], orders: [] });
-        }
-        return () => clearTimeout(debounceRef.current);
-    }, [query, searchAPI]);
-
+    // 5. Item Selection & Recents Persistence
     const handleSelect = (item) => {
-        if (item.path) {
-            navigate(item.path);
+        if (!item || !item.url) return;
+
+        // Save real entities to recents (ignore quick actions)
+        const isQuickAction = item.id && String(item.id).startsWith('action-');
+        if (!isQuickAction) {
+            try {
+                const stored = localStorage.getItem(RECENTS_STORAGE_KEY);
+                const current = stored ? JSON.parse(stored) : [];
+                const safeCurrent = Array.isArray(current)
+                    ? current.filter(r => r && typeof r === 'object' && r.id && r.url)
+                    : [];
+                const filtered = safeCurrent.filter(r => r.id !== item.id && r.url !== item.url);
+                const recentItem = {
+                    id: String(item.id),
+                    title: String(item.title || ''),
+                    subtitle: String(item.subtitle || ''),
+                    badge: item.badge ? String(item.badge) : '',
+                    badgeColor: item.badgeColor ? String(item.badgeColor) : 'secondary',
+                    url: String(item.url),
+                    category: item.category ? String(item.category) : 'orders',
+                };
+                const updated = [recentItem, ...filtered].slice(0, 6);
+                localStorage.setItem(RECENTS_STORAGE_KEY, JSON.stringify(updated));
+                setRecents(updated);
+            } catch (err) {
+                console.error('Failed to update recents:', err);
+            }
         }
+
+        navigate(item.url);
         onClose();
+    };
+
+    const handleClearRecents = (e) => {
+        e.stopPropagation();
+        try {
+            localStorage.removeItem(RECENTS_STORAGE_KEY);
+            setRecents([]);
+            setSelectedIndex(0);
+        } catch (err) {
+            console.error('Failed to clear recents:', err);
+        }
     };
 
     const handleCategoryClick = (catId) => {
@@ -197,21 +347,24 @@ export default function OmniSearch({ isOpen, onClose }) {
 
     if (!isOpen) return null;
 
-    // Group results by category for display labels
-    const getResultsLabel = () => {
-        if (!query) return 'Quick Actions';
-        if (loading) return 'Searching...';
-        if (results.length === 0) return null;
-        if (activeCategory !== 'all') {
-            const cat = searchCategories.find(c => c.id === activeCategory);
-            return cat?.label || 'Results';
-        }
-        return 'Results';
+    const trimmed = query.trim();
+    const hasQuery = Boolean(trimmed);
+    const selectedItemId = flatVisibleItems[selectedIndex]?.id;
+
+    // Count results per category
+    const categoryCounts = {
+        orders: results.orders.length,
+        customers: results.customers.length,
+        products: results.products.length,
+        purchase_orders: results.purchase_orders.length,
+        finance: results.finance.length,
     };
+    const totalResults = Object.values(categoryCounts).reduce((a, b) => a + b, 0);
 
     return (
         <div className="omni-search-overlay" onClick={onClose}>
             <div className="omni-search-modal animate-fade-in" onClick={e => e.stopPropagation()}>
+                {/* Search Input Bar */}
                 <div className="search-input-wrapper">
                     <svg className="search-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                         <circle cx="11" cy="11" r="8" />
@@ -221,58 +374,224 @@ export default function OmniSearch({ isOpen, onClose }) {
                         ref={inputRef}
                         type="text"
                         className="search-input"
-                        placeholder="Search products, customers, orders..."
+                        placeholder="Search orders, customers, products, POs, transactions..."
                         value={query}
                         onChange={e => setQuery(e.target.value)}
+                        autoComplete="off"
+                        spellCheck="false"
                     />
                     {loading && <span className="search-spinner" />}
-                    <kbd className="search-shortcut">ESC</kbd>
+                    <kbd className="search-shortcut" onClick={onClose}>ESC</kbd>
                 </div>
 
+                {/* Category Filter Pills */}
                 <div className="search-categories">
-                    {searchCategories.map(cat => (
-                        <button
-                            key={cat.id}
-                            className={`category-chip ${activeCategory === cat.id ? 'active' : ''}`}
-                            onClick={() => handleCategoryClick(cat.id)}
-                        >
-                            <span>{cat.icon}</span>
-                            <span>{cat.label}</span>
-                        </button>
-                    ))}
+                    {CATEGORY_TABS.map(tab => {
+                        const count = tab.id === 'all' ? totalResults : categoryCounts[tab.id];
+                        return (
+                            <button
+                                key={tab.id}
+                                className={`category-chip ${activeCategory === tab.id ? 'active' : ''}`}
+                                onClick={() => handleCategoryClick(tab.id)}
+                            >
+                                <span className="category-chip-icon">{tab.icon}</span>
+                                <span>{tab.label}</span>
+                                {hasQuery && count > 0 && (
+                                    <span className="category-chip-count">{count}</span>
+                                )}
+                            </button>
+                        );
+                    })}
                 </div>
 
-                <div className="search-results">
-                    {results.length === 0 && query ? (
+                {/* Results Container */}
+                <div className="search-results" ref={resultsContainerRef}>
+                    {!hasQuery ? (
+                        // Empty query: Show Recent Searches (up to 6) + Quick Actions
+                        <>
+                            {filteredRecents.length > 0 && (
+                                <div className="result-category-group">
+                                    <div className="results-group-header">
+                                        <span>🕒 Recent Searches</span>
+                                        <button
+                                            type="button"
+                                            className="clear-recents-btn"
+                                            onClick={handleClearRecents}
+                                            title="Clear recent searches"
+                                        >
+                                            Clear
+                                        </button>
+                                    </div>
+                                    {filteredRecents.map(item => (
+                                        <button
+                                            key={`recent-${item.id}`}
+                                            className={`result-item ${item.id === selectedItemId ? 'selected' : ''}`}
+                                            onClick={() => handleSelect(item)}
+                                            onMouseEnter={() => {
+                                                const idx = flatVisibleItems.findIndex(x => x.id === item.id);
+                                                if (idx !== -1) setSelectedIndex(idx);
+                                            }}
+                                        >
+                                            <span className="result-icon">
+                                                {CATEGORY_META[item.category]?.icon || '🕒'}
+                                            </span>
+                                            <div className="result-content">
+                                                <div className="result-title-row">
+                                                    <span className="result-label">{item.title}</span>
+                                                    {item.badge && (
+                                                        <span className={`result-badge badge-${item.badgeColor || 'secondary'}`}>
+                                                            {item.badge}
+                                                        </span>
+                                                    )}
+                                                </div>
+                                                {item.subtitle && (
+                                                    <span className="result-subtitle">{item.subtitle}</span>
+                                                )}
+                                            </div>
+                                            <span className="result-hint">↵</span>
+                                        </button>
+                                    ))}
+                                </div>
+                            )}
+
+                            {filteredActions.length > 0 && (
+                                <div className="result-category-group">
+                                    <div className="results-group-header">
+                                        <span>⚡ Quick Actions</span>
+                                    </div>
+                                    {filteredActions.map(action => (
+                                        <button
+                                            key={action.id}
+                                            className={`result-item quick-action-item ${action.id === selectedItemId ? 'selected' : ''}`}
+                                            onClick={() => handleSelect(action)}
+                                            onMouseEnter={() => {
+                                                const idx = flatVisibleItems.findIndex(x => x.id === action.id);
+                                                if (idx !== -1) setSelectedIndex(idx);
+                                            }}
+                                        >
+                                            <span className="result-icon quick-action-icon">{action.icon}</span>
+                                            <div className="result-content">
+                                                <div className="result-title-row">
+                                                    <span className="result-label">{action.title}</span>
+                                                </div>
+                                                <span className="result-subtitle">{action.subtitle}</span>
+                                            </div>
+                                            <span className="result-hint">↵</span>
+                                        </button>
+                                    ))}
+                                </div>
+                            )}
+
+                            {filteredRecents.length === 0 && filteredActions.length === 0 && (
+                                <div className="no-results empty-search-hint">
+                                    <p>Type to search across Books3</p>
+                                    <span className="no-results-hint">Search orders, customers, products, POs, and financial ledger</span>
+                                </div>
+                            )}
+                        </>
+                    ) : totalResults === 0 ? (
+                        // No results state
                         <div className="no-results">
-                            <p>{loading ? 'Searching...' : `No results found for "${query}"`}</p>
+                            <p>{loading ? 'Searching unified database...' : `No matching results found for "${query}"`}</p>
+                            <span className="no-results-hint">Try searching by #ID, customer phone, product name, or PO number</span>
                         </div>
                     ) : (
+                        // Active search results categorized
                         <>
-                            <p className="results-label">{getResultsLabel()}</p>
-                            {results.map((item, idx) => (
-                                <button
-                                    key={item.id}
-                                    className={`result-item ${idx === selectedIndex ? 'selected' : ''}`}
-                                    onClick={() => handleSelect(item)}
-                                    onMouseEnter={() => setSelectedIndex(idx)}
-                                >
-                                    <span className="result-icon">{item.icon}</span>
-                                    <div className="result-content">
-                                        <span className="result-label">{item.label}</span>
-                                        {item.subtitle && <span className="result-subtitle">{item.subtitle}</span>}
+                            {activeCategory === 'all' ? (
+                                ['orders', 'customers', 'products', 'purchase_orders', 'finance'].map(cat => {
+                                    const items = results[cat] || [];
+                                    if (items.length === 0) return null;
+                                    const meta = CATEGORY_META[cat];
+                                    return (
+                                        <div key={cat} className="result-category-group">
+                                            <div className="results-group-header">
+                                                <span>{meta.icon} {meta.label}</span>
+                                                <span className="results-group-count">{items.length}</span>
+                                            </div>
+                                            {items.map(item => (
+                                                <button
+                                                    key={item.id}
+                                                    className={`result-item ${item.id === selectedItemId ? 'selected' : ''}`}
+                                                    onClick={() => handleSelect(item)}
+                                                    onMouseEnter={() => {
+                                                        const idx = flatVisibleItems.findIndex(x => x.id === item.id);
+                                                        if (idx !== -1) setSelectedIndex(idx);
+                                                    }}
+                                                >
+                                                    <span className="result-icon">{meta.icon}</span>
+                                                    <div className="result-content">
+                                                        <div className="result-title-row">
+                                                            <span className="result-label">{item.title}</span>
+                                                            {item.badge && (
+                                                                <span className={`result-badge badge-${item.badgeColor || 'secondary'}`}>
+                                                                    {item.badge}
+                                                                </span>
+                                                            )}
+                                                        </div>
+                                                        {item.subtitle && (
+                                                            <span className="result-subtitle">{item.subtitle}</span>
+                                                        )}
+                                                    </div>
+                                                    <span className="result-hint">↵</span>
+                                                </button>
+                                            ))}
+                                        </div>
+                                    );
+                                })
+                            ) : (
+                                <div className="result-category-group">
+                                    <div className="results-group-header">
+                                        <span>{CATEGORY_META[activeCategory]?.icon} {CATEGORY_META[activeCategory]?.label}</span>
+                                        <span className="results-group-count">{flatVisibleItems.length}</span>
                                     </div>
-                                    <span className="result-hint">↵</span>
-                                </button>
-                            ))}
+                                    {flatVisibleItems.length === 0 ? (
+                                        <div className="no-category-results">
+                                            <p>No {CATEGORY_META[activeCategory]?.label.toLowerCase() || 'items'} found matching &quot;{query}&quot;</p>
+                                        </div>
+                                    ) : (
+                                        flatVisibleItems.map(item => (
+                                            <button
+                                                key={item.id}
+                                                className={`result-item ${item.id === selectedItemId ? 'selected' : ''}`}
+                                                onClick={() => handleSelect(item)}
+                                                onMouseEnter={() => {
+                                                    const idx = flatVisibleItems.findIndex(x => x.id === item.id);
+                                                    if (idx !== -1) setSelectedIndex(idx);
+                                                }}
+                                            >
+                                                <span className="result-icon">{CATEGORY_META[activeCategory]?.icon}</span>
+                                                <div className="result-content">
+                                                    <div className="result-title-row">
+                                                        <span className="result-label">{item.title}</span>
+                                                        {item.badge && (
+                                                            <span className={`result-badge badge-${item.badgeColor || 'secondary'}`}>
+                                                                {item.badge}
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                    {item.subtitle && (
+                                                        <span className="result-subtitle">{item.subtitle}</span>
+                                                    )}
+                                                </div>
+                                                <span className="result-hint">↵</span>
+                                            </button>
+                                        ))
+                                    )}
+                                </div>
+                            )}
                         </>
                     )}
                 </div>
 
+                {/* Footer Hotkey Legend */}
                 <div className="search-footer">
                     <span><kbd>↑↓</kbd> Navigate</span>
-                    <span><kbd>↵</kbd> Select</span>
+                    <span><kbd>↵</kbd> Open</span>
                     <span><kbd>ESC</kbd> Close</span>
+                    {totalResults > 0 && hasQuery && (
+                        <span className="footer-total-count">{totalResults} result{totalResults !== 1 ? 's' : ''}</span>
+                    )}
                 </div>
             </div>
         </div>

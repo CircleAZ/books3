@@ -152,4 +152,8 @@ export const ENDPOINTS = {
     QUERIES_RUN: `${API_BASE}/reports/queries/run/`,
     QUERIES_SCHEMA: `${API_BASE}/reports/queries/schema/`,
     QUERIES_HISTORY: `${API_BASE}/reports/queries-history/`,
+
+    // Global OmniSearch (Ctrl+K)
+    CORE_OMNISEARCH: `${API_BASE}/core/omnisearch/`,
+    OMNISEARCH: `${API_BASE}/core/omnisearch/`,
 };
