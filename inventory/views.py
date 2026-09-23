@@ -5,12 +5,14 @@ logger = logging.getLogger(__name__)
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
-from django.db.models import Count, F, Sum, Q, Subquery, OuterRef, IntegerField
+from django.db.models import Count, F, Sum, Q, Subquery, OuterRef, IntegerField, Value
 from django.db.models.functions import Coalesce, Greatest
+
 from django.core.exceptions import ValidationError
 import django_filters
 from django_filters.rest_framework import DjangoFilterBackend
 from .models import Category, Vendor, Tag, Product, StockAdjustment, StockHistory
+from .filters import ProductTokenizedSearchFilter
 from orders.constants import VALID_SALE_STATUSES
 from .serializers import (
     CategorySerializer, VendorSerializer, TagSerializer,
@@ -146,8 +148,9 @@ class ProductViewSet(viewsets.ModelViewSet):
         'low_stock': 'inventory.view_products',
         'negative_stock': 'inventory.view_products',
         'deleted': 'inventory.manage_products',
+        'search_suggestions': 'inventory.view_products',
     }
-    filter_backends = [filters.SearchFilter, DjangoFilterBackend, filters.OrderingFilter]
+    filter_backends = [ProductTokenizedSearchFilter, DjangoFilterBackend, filters.OrderingFilter]
     search_fields = ['name', 'display_id']
     filterset_fields = ['category', 'vendor', 'is_deleted']
     ordering_fields = ['display_id', 'created_at', 'name', 'category__name', 'vendor__name', 'cost_price', 'selling_price', 'stock_quantity', 'order_count', 'delivered_quantity', 'owed_quantity']
@@ -365,6 +368,118 @@ class ProductViewSet(viewsets.ModelViewSet):
             return Response({'detail': 'Image removed successfully.'}, status=status.HTTP_200_OK)
         except Exception as e:
             return Response({'detail': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+    @action(detail=False, methods=['get'], url_path='search-suggestions')
+    def search_suggestions(self, request):
+        """
+        Returns search prefix schema cheatsheet OR dynamic distinct values with counts
+        for product tokens.
+        """
+        prefix = request.query_params.get('prefix', '').strip().lower()
+        q = request.query_params.get('q', '').strip()
+
+        if not prefix:
+            return Response({
+                'prefixes': [
+                    {'prefix': 'id', 'label': 'Product ID', 'example': 'id:101', 'description': 'Filter by exact product sequence ID'},
+                    {'prefix': 'name', 'label': 'Product Name', 'example': 'name:"Notebook"', 'description': 'Search by product name'},
+                    {'prefix': 'category', 'label': 'Category', 'example': 'category:Stationery', 'description': 'Filter by product category'},
+                    {'prefix': 'vendor', 'label': 'Vendor', 'example': 'vendor:"Navneet"', 'description': 'Filter by supplier or publisher'},
+                    {'prefix': 'tag', 'label': 'Tag', 'example': 'tag:Exam', 'description': 'Filter by assigned tags'},
+                    {'prefix': 'status', 'label': 'Stock Status', 'example': 'status:low_stock', 'description': 'in_stock, low_stock, out_of_stock'},
+                    {'prefix': 'stock', 'label': 'Available Stock', 'example': 'stock:<10', 'description': 'Comparison: >, <, >=, <=, ='},
+                    {'prefix': 'physical', 'label': 'Physical Stock', 'example': 'physical:<5', 'description': 'Warehouse physical stock count'},
+                    {'prefix': 'price', 'label': 'Selling Price', 'example': 'price:>200', 'description': 'Comparison on retail selling price'},
+                    {'prefix': 'cost', 'label': 'Cost Price', 'example': 'cost:>100', 'description': 'Comparison on unit cost price'},
+                    {'prefix': 'pack', 'label': 'Pack Bundle', 'example': 'pack:true', 'description': 'pack:true or pack:false'},
+                ]
+            })
+
+        suggestions = []
+        if prefix == 'category':
+            from inventory.models import Category
+            qs = Category.objects.filter(is_deleted=False)
+            if q:
+                qs = qs.filter(name__icontains=q)
+            results = qs.annotate(
+                count=Count('products', filter=Q(products__is_deleted=False))
+            ).values('name', 'count').order_by('-count')[:10]
+            suggestions = [
+                {'value': r['name'], 'label': r['name'], 'count': r['count'], 'prefix': 'category', 'badge': 'CATEGORY'}
+                for r in results
+            ]
+
+        elif prefix == 'vendor':
+            from inventory.models import Vendor
+            qs = Vendor.objects.filter(is_deleted=False)
+            if q:
+                qs = qs.filter(name__icontains=q)
+            results = qs.annotate(
+                count=Count('products', filter=Q(products__is_deleted=False))
+            ).values('name', 'count').order_by('-count')[:10]
+            suggestions = [
+                {'value': r['name'], 'label': r['name'], 'count': r['count'], 'prefix': 'vendor', 'badge': 'VENDOR'}
+                for r in results
+            ]
+
+        elif prefix == 'tag':
+            from inventory.models import Tag
+            qs = Tag.objects.all()
+            if q:
+                qs = qs.filter(name__icontains=q)
+            results = qs.annotate(
+                count=Count('products', filter=Q(products__is_deleted=False))
+            ).values('name', 'count').order_by('-count')[:10]
+            suggestions = [
+                {'value': r['name'], 'label': r['name'], 'count': r['count'], 'prefix': 'tag', 'badge': 'TAG'}
+                for r in results
+            ]
+
+        elif prefix == 'status':
+            from inventory.models import Product
+            low_thresh = Coalesce(F('low_stock_threshold'), Value(10))
+            in_stock_cnt = Product.objects.filter(is_deleted=False, stock_quantity__gt=low_thresh).count()
+            low_stock_cnt = Product.objects.filter(is_deleted=False, stock_quantity__gt=0, stock_quantity__lte=low_thresh).count()
+            out_stock_cnt = Product.objects.filter(is_deleted=False, stock_quantity__lte=0).count()
+
+
+            items = [
+                {'value': 'in_stock', 'label': 'In Stock', 'count': in_stock_cnt, 'prefix': 'status', 'badge': 'STATUS'},
+                {'value': 'low_stock', 'label': 'Low Stock', 'count': low_stock_cnt, 'prefix': 'status', 'badge': 'STATUS'},
+                {'value': 'out_of_stock', 'label': 'Out of Stock', 'count': out_stock_cnt, 'prefix': 'status', 'badge': 'STATUS'},
+            ]
+            suggestions = [it for it in items if not q or q.lower() in it['value'].lower() or q.lower() in it['label'].lower()]
+
+        elif prefix == 'pack':
+            from inventory.models import Product
+            packs_cnt = Product.objects.filter(is_deleted=False, is_pack=True).count()
+            singles_cnt = Product.objects.filter(is_deleted=False, is_pack=False).count()
+            items = [
+                {'value': 'true', 'label': 'Pack Bundles Only', 'count': packs_cnt, 'prefix': 'pack', 'badge': 'PACK'},
+                {'value': 'false', 'label': 'Single Base Products', 'count': singles_cnt, 'prefix': 'pack', 'badge': 'PACK'},
+            ]
+            suggestions = [it for it in items if not q or q.lower() in it['value'].lower() or q.lower() in it['label'].lower()]
+
+        elif prefix in ('stock', 'physical'):
+            presets = [
+                {'value': '<10', 'label': 'Under 10 Units', 'prefix': prefix},
+                {'value': '=0', 'label': 'Zero Stock (=0)', 'prefix': prefix},
+                {'value': '>100', 'label': 'Over 100 Units', 'prefix': prefix},
+            ]
+            suggestions = [p for p in presets if not q or q in p['value']]
+
+        elif prefix in ('price', 'cost'):
+            presets = [
+                {'value': '>100', 'label': 'Over ₹100', 'prefix': prefix},
+                {'value': '>500', 'label': 'Over ₹500', 'prefix': prefix},
+                {'value': '<50', 'label': 'Under ₹50', 'prefix': prefix},
+            ]
+            suggestions = [p for p in presets if not q or q in p['value']]
+
+        return Response({
+            'prefix': prefix,
+            'suggestions': suggestions
+        })
 
 
 class StockAdjustmentViewSet(viewsets.ModelViewSet):

@@ -1,34 +1,19 @@
-import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useEffect } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useCurrency } from '../../context/CurrencyContext';
 import { ENDPOINTS } from '../../config/api';
-import { getStatusClass, formatStatusLabel, STATUS_OPTIONS } from '../../utils/statusUtils';
+import { getStatusClass, formatStatusLabel } from '../../utils/statusUtils';
 import Pagination from '../../components/common/Pagination';
+import SearchTokenPalette from '../../components/common/SearchTokenPalette';
 import useServerList from '../../hooks/useServerList';
 import '../OrderList.css';
 
 const ORDER_FILTER_CONFIG = {
-    orderStatus: '',
-    paymentStatus: '',
-    deliveryStatus: '',
-    returnStatus: '',
-    refundStatus: '',
-    cancellationStatus: '',
-    dateAfter: '',
-    dateBefore: '',
     ordering: '-created_at',
 };
 
 const buildOrderParams = (debouncedSearch, fltrs) => ({
     search: debouncedSearch,
-    order_status: fltrs.orderStatus,
-    payment_status: fltrs.paymentStatus,
-    delivery_status: fltrs.deliveryStatus,
-    return_status: fltrs.returnStatus,
-    refund_status: fltrs.refundStatus,
-    cancellation_status: fltrs.cancellationStatus,
-    created_after: fltrs.dateAfter ? `${fltrs.dateAfter}T00:00:00` : '',
-    created_before: fltrs.dateBefore ? `${fltrs.dateBefore}T23:59:59` : '',
     ordering: fltrs.ordering,
 });
 
@@ -41,6 +26,7 @@ const ORDER_LIST_OPTIONS = {
 export default function OrderList() {
     const { currency } = useCurrency();
     const navigate = useNavigate();
+    const [searchParams, setSearchParams] = useSearchParams();
 
     const {
         data: orders,
@@ -56,26 +42,28 @@ export default function OrderList() {
         clearFilters: clearAllFilters,
     } = useServerList(ENDPOINTS.ORDERS, ORDER_LIST_OPTIONS);
 
-    const [showFilters, setShowFilters] = useState(false);
+    // Sync search from URL query param on mount
+    useEffect(() => {
+        const urlQ = searchParams.get('search');
+        if (urlQ && urlQ !== search) {
+            setSearch(urlQ);
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
 
-    const activeFilterCount = [
-        filters.orderStatus,
-        filters.paymentStatus,
-        filters.deliveryStatus,
-        filters.returnStatus,
-        filters.refundStatus,
-        filters.cancellationStatus,
-        filters.dateAfter,
-        filters.dateBefore
-    ].filter(Boolean).length;
-
-    const handleSearchChange = (e) => {
-        setSearch(e.target.value);
-    };
-
-    const handleFilterChange = (key) => (e) => {
-        setFilter(key, e.target.value);
-    };
+    // Sync active search to URL query params
+    useEffect(() => {
+        const currentParam = searchParams.get('search') || '';
+        if (search && search !== currentParam) {
+            const nextParams = new URLSearchParams(searchParams);
+            nextParams.set('search', search);
+            setSearchParams(nextParams, { replace: true });
+        } else if (!search && currentParam) {
+            const nextParams = new URLSearchParams(searchParams);
+            nextParams.delete('search');
+            setSearchParams(nextParams, { replace: true });
+        }
+    }, [search, searchParams, setSearchParams]);
 
     const toggleSort = (column) => {
         if (filters.ordering === column) {
@@ -85,12 +73,14 @@ export default function OrderList() {
         }
     };
 
-    const todayStr = new Date().toISOString().split('T')[0];
-    const isToday = filters.dateAfter === todayStr && filters.dateBefore === todayStr;
-
-    const setTodayFilter = () => {
-        setFilter('dateAfter', todayStr);
-        setFilter('dateBefore', todayStr);
+    const toggleSearchToken = (token) => {
+        if (search.includes(token)) {
+            const updated = search.replace(token, '').replace(/\s{2,}/g, ' ').trim();
+            setSearch(updated);
+        } else {
+            const updated = search ? `${search.trim()} ${token}` : token;
+            setSearch(updated);
+        }
     };
 
     const formatDate = (dateString) => {
@@ -104,10 +94,27 @@ export default function OrderList() {
         });
     };
 
+    const isTodayActive = search.includes('date:today');
+    const isUnpaidActive = search.includes('payment:pending') || search.includes('balance:>0');
+    const isDeliveryActive = search.includes('delivery:pending');
+
+    const toggleUnpaid = () => {
+        if (isUnpaidActive) {
+            const updated = search
+                .replace('balance:>0', '')
+                .replace('payment:pending', '')
+                .replace(/\s{2,}/g, ' ')
+                .trim();
+            setSearch(updated);
+        } else {
+            const updated = search ? `${search.trim()} payment:pending` : 'payment:pending';
+            setSearch(updated);
+        }
+    };
+
     return (
         <div className="order-list-container animate-fade-in">
             <div className="order-list-header">
-
                 <div className="order-list-actions">
                     <button className="btn btn-primary" onClick={() => navigate('/orders/new')}>
                         + New Order
@@ -115,120 +122,40 @@ export default function OrderList() {
                 </div>
             </div>
 
-            <div className="order-list-controls card">
-                <div className="search-row">
-                    <div className="search-container">
-                        <span className="search-icon">🔍</span>
-                        <input
-                            type="text"
-                            placeholder="Search by Order ID, Customer name..."
-                            className="search-input"
-                            value={search}
-                            onChange={handleSearchChange}
-                        />
-                    </div>
-                    <button
-                        className={`btn btn-ghost filter-toggle-btn${showFilters ? ' active' : ''}`}
-                        onClick={() => setShowFilters(!showFilters)}
-                        title="Toggle Filters"
-                    >
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '6px' }}>
-                            <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3" />
-                        </svg>
-                        Filters
-                        {activeFilterCount > 0 && (
-                            <span className="filter-badge">{activeFilterCount}</span>
-                        )}
-                    </button>
-                </div>
+            <div className="order-list-controls card" style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                <SearchTokenPalette
+                    value={search}
+                    onChange={setSearch}
+                    placeholder="Search by order ID, customer, status:confirmed, product:..., total:>1000..."
+                    suggestionsEndpoint={ENDPOINTS.ORDERS_SEARCH_SUGGESTIONS}
+                />
 
-                <div className="quick-filters">
+                <div className="quick-filters" style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
                     <button
-                        className={`btn btn-sm ${isToday ? 'btn-primary' : 'btn-ghost'}`}
-                        onClick={isToday ? clearAllFilters : setTodayFilter}
+                        className={`btn btn-sm ${isTodayActive ? 'btn-primary' : 'btn-ghost'}`}
+                        onClick={() => toggleSearchToken('date:today')}
                     >
-                        {isToday ? '✕ Today' : "Today's Orders"}
+                        {isTodayActive ? '✕ Today' : "Today's Orders"}
                     </button>
-                    {activeFilterCount > 0 && !isToday && (
-                        <button className="btn btn-sm btn-ghost" onClick={clearAllFilters}>
-                            Clear All Filters
+                    <button
+                        className={`btn btn-sm ${isUnpaidActive ? 'btn-primary' : 'btn-ghost'}`}
+                        onClick={toggleUnpaid}
+                    >
+                        {isUnpaidActive ? '✕ Unpaid' : 'Unpaid Orders'}
+                    </button>
+
+                    <button
+                        className={`btn btn-sm ${isDeliveryActive ? 'btn-primary' : 'btn-ghost'}`}
+                        onClick={() => toggleSearchToken('delivery:pending')}
+                    >
+                        {isDeliveryActive ? '✕ Needs Delivery' : 'Needs Delivery'}
+                    </button>
+                    {search && (
+                        <button className="btn btn-sm btn-ghost" onClick={() => setSearch('')}>
+                            Clear Search
                         </button>
                     )}
                 </div>
-
-                {showFilters && (
-                    <div className="filter-row">
-                        <div className="filter-group">
-                            <label>Order Status</label>
-                            <select value={filters.orderStatus} onChange={handleFilterChange('orderStatus')}>
-                                <option value="">All Statuses</option>
-                                {STATUS_OPTIONS.order_status.map(opt => (
-                                    <option key={opt.value} value={opt.value}>{opt.label}</option>
-                                ))}
-                            </select>
-                        </div>
-
-                        <div className="filter-group">
-                            <label>Payment Status</label>
-                            <select value={filters.paymentStatus} onChange={handleFilterChange('paymentStatus')}>
-                                <option value="">All Payments</option>
-                                {STATUS_OPTIONS.payment_status.map(opt => (
-                                    <option key={opt.value} value={opt.value}>{opt.label}</option>
-                                ))}
-                            </select>
-                        </div>
-
-                        <div className="filter-group">
-                            <label>Delivery Status</label>
-                            <select value={filters.deliveryStatus} onChange={handleFilterChange('deliveryStatus')}>
-                                <option value="">All Deliveries</option>
-                                {STATUS_OPTIONS.delivery_status.map(opt => (
-                                    <option key={opt.value} value={opt.value}>{opt.label}</option>
-                                ))}
-                            </select>
-                        </div>
-
-                        <div className="filter-group">
-                            <label>Return Status</label>
-                            <select value={filters.returnStatus} onChange={handleFilterChange('returnStatus')}>
-                                <option value="">All Returns</option>
-                                {STATUS_OPTIONS.return_status.map(opt => (
-                                    <option key={opt.value} value={opt.value}>{opt.label}</option>
-                                ))}
-                            </select>
-                        </div>
-
-                        <div className="filter-group">
-                            <label>Refund Status</label>
-                            <select value={filters.refundStatus} onChange={handleFilterChange('refundStatus')}>
-                                <option value="">All Refunds</option>
-                                {STATUS_OPTIONS.refund_status.map(opt => (
-                                    <option key={opt.value} value={opt.value}>{opt.label}</option>
-                                ))}
-                            </select>
-                        </div>
-
-                        <div className="filter-group">
-                            <label>Cancellation</label>
-                            <select value={filters.cancellationStatus} onChange={handleFilterChange('cancellationStatus')}>
-                                <option value="">All</option>
-                                {STATUS_OPTIONS.cancellation_status.map(opt => (
-                                    <option key={opt.value} value={opt.value}>{opt.label}</option>
-                                ))}
-                            </select>
-                        </div>
-
-                        <div className="filter-group">
-                            <label>From</label>
-                            <input type="date" value={filters.dateAfter} onChange={handleFilterChange('dateAfter')} />
-                        </div>
-
-                        <div className="filter-group">
-                            <label>To</label>
-                            <input type="date" value={filters.dateBefore} onChange={handleFilterChange('dateBefore')} />
-                        </div>
-                    </div>
-                )}
             </div>
 
             <div className="order-table-container card">
@@ -297,9 +224,9 @@ export default function OrderList() {
                                         <td colSpan="7" className="empty-state">
                                             <p>No orders found matching your criteria.</p>
                                             <div className="empty-state-actions">
-                                                {activeFilterCount > 0 && (
-                                                    <button className="btn btn-ghost btn-sm" onClick={clearAllFilters}>
-                                                        Clear Filters
+                                                {search && (
+                                                    <button className="btn btn-ghost btn-sm" onClick={() => setSearch('')}>
+                                                        Clear Search
                                                     </button>
                                                 )}
                                                 <button className="btn btn-primary btn-sm" onClick={() => navigate('/orders/new')}>

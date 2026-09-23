@@ -305,6 +305,8 @@ TestRunner = get_runner(settings)
 test_runner = TestRunner(interactive=False, keepdb=False)
 failures = test_runner.run_tests([
     "finance", "orders", "outlets", "procurement",
-    "customers", "settings_app", "reports", "messaging"
+    "customers", "settings_app", "reports", "messaging",
+    "inventory"
 ])
 sys.exit(bool(failures))
+

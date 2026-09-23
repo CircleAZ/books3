@@ -18,6 +18,7 @@ from .models import (
     ReturnReason, Return, ReturnItem, Refund, CreditNote
 )
 from messaging.dispatch import dispatch_receipt, dispatch_payment_update
+from .filters import OrderTokenizedSearchFilter
 from .serializers import (
     OrderListSerializer, OrderDetailSerializer, OrderCreateSerializer,
     OrderItemSerializer, PaymentSerializer, OrderStatusHistorySerializer,
@@ -64,8 +65,9 @@ class OrderViewSet(viewsets.ModelViewSet):
         'update': 'orders.edit_orders',
         'partial_update': 'orders.edit_orders',
         'destroy': 'orders.cancel_orders',
+        'search_suggestions': 'orders.view_orders',
     }
-    filter_backends = [filters.SearchFilter, filters.OrderingFilter, DjangoFilterBackend]
+    filter_backends = [OrderTokenizedSearchFilter, filters.OrderingFilter, DjangoFilterBackend]
     search_fields = ['display_id', 'guest_name', 'guest_phone', 'customer__first_name', 'customer__last_name']
     ordering_fields = ['created_at', 'total', 'display_id', 'payment_status', 'order_status', 'delivery_status', 'customer_sort_name', 'item_count']
     filterset_class = OrderFilter
@@ -1299,6 +1301,182 @@ class OrderViewSet(viewsets.ModelViewSet):
             'old_value': old_value,
             'new_value': new_value,
             'derived_status': order.derived_status
+        })
+
+    @action(detail=False, methods=['get'], url_path='search-suggestions')
+    def search_suggestions(self, request):
+        """
+        Returns search prefix schema cheatsheet OR dynamic distinct values with counts
+        for order tokens.
+        """
+        prefix = request.query_params.get('prefix', '').strip().lower()
+        q = request.query_params.get('q', '').strip()
+
+        if not prefix:
+            return Response({
+                'prefixes': [
+                    {'prefix': 'id', 'label': 'Order ID', 'example': 'id:1001', 'description': 'Filter by exact order sequence ID'},
+                    {'prefix': 'status', 'label': 'Order Status', 'example': 'status:confirmed', 'description': 'draft, confirmed, completed, cancelled'},
+                    {'prefix': 'payment', 'label': 'Payment Status', 'example': 'payment:paid', 'description': 'pending, partial, paid, overpaid, refunded'},
+                    {'prefix': 'delivery', 'label': 'Delivery Status', 'example': 'delivery:pending', 'description': 'pending, partial, delivered'},
+                    {'prefix': 'return', 'label': 'Return Status', 'example': 'return:completed', 'description': 'na, pending, received, completed, cancelled'},
+                    {'prefix': 'refund', 'label': 'Refund Status', 'example': 'refund:completed', 'description': 'na, pending, partial, completed, cancelled'},
+                    {'prefix': 'cancel', 'label': 'Cancellation', 'example': 'cancel:pending', 'description': 'na, pending, completed, cancelled'},
+                    {'prefix': 'customer', 'label': 'Customer', 'example': 'customer:Patel', 'description': 'Filter by customer or guest name'},
+                    {'prefix': 'phone', 'label': 'Phone', 'example': 'phone:98765...', 'description': 'Filter by customer phone number'},
+                    {'prefix': 'product', 'label': 'Product', 'example': 'product:"Notebook"', 'description': 'Filter by product name in order'},
+                    {'prefix': 'total', 'label': 'Total Amount', 'example': 'total:>1000', 'description': 'Comparison: >, <, >=, <=, ='},
+                    {'prefix': 'balance', 'label': 'Balance Due', 'example': 'balance:>0', 'description': 'Filter by outstanding balance'},
+                    {'prefix': 'date', 'label': 'Order Date', 'example': 'date:today', 'description': 'today, yesterday, or YYYY-MM-DD'},
+                ]
+            })
+
+        suggestions = []
+        if prefix in ('status', 'order_status'):
+            status_counts = dict(
+                Order.objects.filter(is_deleted=False)
+                .values('order_status')
+                .annotate(count=Count('id'))
+                .values_list('order_status', 'count')
+            )
+            for val, label in Order.ORDER_STATUS:
+                if not q or q.lower() in val.lower() or q.lower() in label.lower():
+                    suggestions.append({
+                        'value': val,
+                        'label': label,
+                        'count': status_counts.get(val, 0),
+                        'prefix': 'status',
+                        'badge': 'STATUS'
+                    })
+
+        elif prefix in ('payment', 'payment_status'):
+            pay_counts = dict(
+                Order.objects.filter(is_deleted=False)
+                .values('payment_status')
+                .annotate(count=Count('id'))
+                .values_list('payment_status', 'count')
+            )
+            for val, label in Order.PAYMENT_STATUS:
+                if not q or q.lower() in val.lower() or q.lower() in label.lower():
+                    suggestions.append({
+                        'value': val,
+                        'label': label,
+                        'count': pay_counts.get(val, 0),
+                        'prefix': 'payment',
+                        'badge': 'PAYMENT'
+                    })
+
+        elif prefix in ('delivery', 'delivery_status'):
+            del_counts = dict(
+                Order.objects.filter(is_deleted=False)
+                .values('delivery_status')
+                .annotate(count=Count('id'))
+                .values_list('delivery_status', 'count')
+            )
+            for val, label in Order.DELIVERY_STATUS:
+                if not q or q.lower() in val.lower() or q.lower() in label.lower():
+                    suggestions.append({
+                        'value': val,
+                        'label': label,
+                        'count': del_counts.get(val, 0),
+                        'prefix': 'delivery',
+                        'badge': 'DELIVERY'
+                    })
+
+        elif prefix in ('return', 'return_status'):
+            ret_counts = dict(
+                Order.objects.filter(is_deleted=False)
+                .values('return_status')
+                .annotate(count=Count('id'))
+                .values_list('return_status', 'count')
+            )
+            for val, label in Order.RETURN_STATUS:
+                if not q or q.lower() in val.lower() or q.lower() in label.lower():
+                    suggestions.append({
+                        'value': val,
+                        'label': label,
+                        'count': ret_counts.get(val, 0),
+                        'prefix': 'return',
+                        'badge': 'RETURN'
+                    })
+
+        elif prefix in ('refund', 'refund_status'):
+            ref_counts = dict(
+                Order.objects.filter(is_deleted=False)
+                .values('refund_status')
+                .annotate(count=Count('id'))
+                .values_list('refund_status', 'count')
+            )
+            for val, label in Order.REFUND_STATUS:
+                if not q or q.lower() in val.lower() or q.lower() in label.lower():
+                    suggestions.append({
+                        'value': val,
+                        'label': label,
+                        'count': ref_counts.get(val, 0),
+                        'prefix': 'refund',
+                        'badge': 'REFUND'
+                    })
+
+        elif prefix in ('cancel', 'cancellation', 'cancellation_status'):
+            canc_counts = dict(
+                Order.objects.filter(is_deleted=False)
+                .values('cancellation_status')
+                .annotate(count=Count('id'))
+                .values_list('cancellation_status', 'count')
+            )
+            for val, label in Order.CANCELLATION_STATUS:
+                if not q or q.lower() in val.lower() or q.lower() in label.lower():
+                    suggestions.append({
+                        'value': val,
+                        'label': label,
+                        'count': canc_counts.get(val, 0),
+                        'prefix': 'cancel',
+                        'badge': 'CANCEL'
+                    })
+
+        elif prefix == 'product':
+            item_qs = OrderItem.objects.filter(order__is_deleted=False)
+            if q:
+                item_qs = item_qs.filter(product__name__icontains=q)
+            top_products = item_qs.values('product__name').annotate(
+                count=Count('order_id', distinct=True)
+            ).order_by('-count')[:10]
+            suggestions = [
+                {
+                    'value': r['product__name'],
+                    'label': r['product__name'],
+                    'count': r['count'],
+                    'prefix': 'product',
+                    'badge': 'PRODUCT'
+                }
+                for r in top_products
+            ]
+
+        elif prefix == 'date':
+            presets = [
+                {'value': 'today', 'label': "Today's Orders", 'prefix': 'date'},
+                {'value': 'yesterday', 'label': "Yesterday's Orders", 'prefix': 'date'},
+            ]
+            suggestions = [p for p in presets if not q or q.lower() in p['value']]
+
+        elif prefix == 'total':
+            presets = [
+                {'value': '>1000', 'label': 'Over ₹1,000', 'prefix': 'total'},
+                {'value': '>5000', 'label': 'Over ₹5,000', 'prefix': 'total'},
+                {'value': '<500', 'label': 'Under ₹500', 'prefix': 'total'},
+            ]
+            suggestions = [p for p in presets if not q or q in p['value']]
+
+        elif prefix == 'balance':
+            presets = [
+                {'value': '>0', 'label': 'Outstanding Balance (>0)', 'prefix': 'balance'},
+                {'value': '=0', 'label': 'Fully Paid (=0)', 'prefix': 'balance'},
+            ]
+            suggestions = [p for p in presets if not q or q in p['value']]
+
+        return Response({
+            'prefix': prefix,
+            'suggestions': suggestions
         })
     
 

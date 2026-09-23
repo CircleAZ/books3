@@ -26,6 +26,7 @@ export const ENDPOINTS = {
 
     // Inventory
     INVENTORY_PRODUCTS: `${API_BASE}/inventory/products/`,
+    INVENTORY_SEARCH_SUGGESTIONS: `${API_BASE}/inventory/products/search-suggestions/`,
     INVENTORY_CATEGORIES: `${API_BASE}/inventory/categories/`,
     INVENTORY_VENDORS: `${API_BASE}/inventory/vendors/`,
     INVENTORY_STOCK_HISTORY: `${API_BASE}/inventory/stock-history/`,
@@ -66,6 +67,7 @@ export const ENDPOINTS = {
 
     // Orders
     ORDERS: `${API_BASE}/orders/orders/`,
+    ORDERS_SEARCH_SUGGESTIONS: `${API_BASE}/orders/orders/search-suggestions/`,
     RETURNS: `${API_BASE}/orders/returns/`,
     RETURN_REASONS: `${API_BASE}/orders/return-reasons/`,
     ORDERS_REFUNDS: `${API_BASE}/orders/refunds/`,

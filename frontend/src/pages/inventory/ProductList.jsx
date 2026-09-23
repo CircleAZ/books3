@@ -1,10 +1,11 @@
 import { useState, useEffect, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useCurrency } from '../../context/CurrencyContext';
 import { ENDPOINTS, API_BASE } from '../../config/api';
 import Pagination from '../../components/common/Pagination';
 import GuardedAction from '../../components/GuardedAction';
+import SearchTokenPalette from '../../components/common/SearchTokenPalette';
 import useServerList from '../../hooks/useServerList';
 import './ProductList.css';
 
@@ -14,6 +15,7 @@ export default function ProductList() {
     const { fetchWithAuth } = useAuth();
     const { currency } = useCurrency();
     const navigate = useNavigate();
+    const [searchParams, setSearchParams] = useSearchParams();
 
     const {
         data: products,
@@ -33,16 +35,28 @@ export default function ProductList() {
         pageSize: 20
     });
 
-    // LENS-03: Search loading indicator wrapper
-    const [isSearching, setIsSearching] = useState(false);
-
+    // Sync search from URL query param on mount
     useEffect(() => {
-        setIsSearching(true);
-        const timer = setTimeout(() => {
-            setIsSearching(false);
-        }, 300);
-        return () => clearTimeout(timer);
-    }, [search]);
+        const urlQ = searchParams.get('search');
+        if (urlQ && urlQ !== search) {
+            setSearch(urlQ);
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+
+    // Sync active search to URL query params
+    useEffect(() => {
+        const currentParam = searchParams.get('search') || '';
+        if (search && search !== currentParam) {
+            const nextParams = new URLSearchParams(searchParams);
+            nextParams.set('search', search);
+            setSearchParams(nextParams, { replace: true });
+        } else if (!search && currentParam) {
+            const nextParams = new URLSearchParams(searchParams);
+            nextParams.delete('search');
+            setSearchParams(nextParams, { replace: true });
+        }
+    }, [search, searchParams, setSearchParams]);
 
     // Filter options
     const [categories, setCategories] = useState([]);
@@ -73,10 +87,6 @@ export default function ProductList() {
         fetchFilters();
     }, [fetchFilters]);
 
-    const handleSearchChange = (e) => {
-        setSearch(e.target.value);
-    };
-
     const handleCategoryChange = (e) => {
         setFilter('category', e.target.value);
     };
@@ -90,6 +100,30 @@ export default function ProductList() {
             setFilter('ordering', `-${column}`);
         } else {
             setFilter('ordering', column);
+        }
+    };
+
+    const toggleSearchToken = (token) => {
+        if (search.includes(token)) {
+            const updated = search.replace(token, '').replace(/\s{2,}/g, ' ').trim();
+            setSearch(updated);
+        } else {
+            const updated = search ? `${search.trim()} ${token}` : token;
+            setSearch(updated);
+        }
+    };
+
+    const setStockStatus = (statusToken) => {
+        const clean = search
+            .replace('status:low_stock', '')
+            .replace('status:out_of_stock', '')
+            .replace('status:in_stock', '')
+            .replace(/\s{2,}/g, ' ')
+            .trim();
+        if (search.includes(statusToken)) {
+            setSearch(clean);
+        } else {
+            setSearch(clean ? `${clean} ${statusToken}` : statusToken);
         }
     };
 
@@ -108,6 +142,12 @@ export default function ProductList() {
         }
     };
 
+    const isAllActive = !search && !filters.category && !filters.vendor;
+    const isLowStockActive = search.includes('status:low_stock');
+    const isOutStockActive = search.includes('status:out_of_stock');
+    const isInStockActive = search.includes('status:in_stock');
+    const isPacksActive = search.includes('pack:true');
+
     return (
         <div className="inventory-container fade-in">
             <div className="inventory-header">
@@ -120,36 +160,74 @@ export default function ProductList() {
                 </div>
             </div>
 
-            <div className="inventory-controls">
-                <div className="search-container">
-                    <input
-                        type="text"
-                        placeholder="Search products..."
-                        className={`search-input ${isSearching ? 'searching' : ''}`}
+            <div className="inventory-controls" style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                <div className="product-search-palette-wrapper" style={{ width: '100%' }}>
+                    <SearchTokenPalette
                         value={search}
-                        onChange={handleSearchChange}
+                        onChange={setSearch}
+                        placeholder="Search products by name, category:..., vendor:..., stock:<10, status:low_stock..."
+                        suggestionsEndpoint={ENDPOINTS.INVENTORY_SEARCH_SUGGESTIONS}
                     />
                 </div>
 
-                <select className="filter-select" value={filters.category} onChange={handleCategoryChange}>
-                    <option value="">All Categories</option>
-                    {categories.map(cat => (
-                        <option key={cat.id || cat.name} value={cat.id || cat.name}>{cat.name}</option>
-                    ))}
-                </select>
-
-                <select className="filter-select" value={filters.vendor} onChange={handleVendorChange}>
-                    <option value="">All Vendors</option>
-                    {vendors.map(vend => (
-                        <option key={vend.id || vend.name} value={vend.id || vend.name}>{vend.name}</option>
-                    ))}
-                </select>
-
-                {isFilterActive && (
-                    <button className="btn btn-ghost btn-sm" onClick={clearFilters} style={{ borderColor: 'var(--color-warning)', color: 'var(--color-warning)' }}>
-                        Clear
+                <div className="quick-status-tabs" style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center', width: '100%' }}>
+                    <button
+                        className={`btn btn-sm ${isAllActive ? 'btn-primary' : 'btn-ghost'}`}
+                        onClick={() => {
+                            setSearch('');
+                            clearFilters();
+                        }}
+                    >
+                        All Products
                     </button>
-                )}
+                    <button
+                        className={`btn btn-sm ${isLowStockActive ? 'btn-primary' : 'btn-ghost'}`}
+                        onClick={() => setStockStatus('status:low_stock')}
+                    >
+                        {isLowStockActive ? '✕ Low Stock' : 'Low Stock'}
+                    </button>
+                    <button
+                        className={`btn btn-sm ${isOutStockActive ? 'btn-primary' : 'btn-ghost'}`}
+                        onClick={() => setStockStatus('status:out_of_stock')}
+                    >
+                        {isOutStockActive ? '✕ Out of Stock' : 'Out of Stock'}
+                    </button>
+                    <button
+                        className={`btn btn-sm ${isInStockActive ? 'btn-primary' : 'btn-ghost'}`}
+                        onClick={() => setStockStatus('status:in_stock')}
+                    >
+                        {isInStockActive ? '✕ In Stock' : 'In Stock'}
+                    </button>
+
+                    <button
+                        className={`btn btn-sm ${isPacksActive ? 'btn-primary' : 'btn-ghost'}`}
+                        onClick={() => toggleSearchToken('pack:true')}
+                    >
+                        {isPacksActive ? '✕ Packs Only' : 'Packs Only'}
+                    </button>
+
+                    <div style={{ marginLeft: 'auto', display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+                        <select className="filter-select" value={filters.category} onChange={handleCategoryChange}>
+                            <option value="">All Categories</option>
+                            {categories.map(cat => (
+                                <option key={cat.id || cat.name} value={cat.id || cat.name}>{cat.name}</option>
+                            ))}
+                        </select>
+
+                        <select className="filter-select" value={filters.vendor} onChange={handleVendorChange}>
+                            <option value="">All Vendors</option>
+                            {vendors.map(vend => (
+                                <option key={vend.id || vend.name} value={vend.id || vend.name}>{vend.name}</option>
+                            ))}
+                        </select>
+
+                        {isFilterActive && (
+                            <button className="btn btn-ghost btn-sm" onClick={() => { setSearch(''); clearFilters(); }} style={{ borderColor: 'var(--color-warning)', color: 'var(--color-warning)' }}>
+                                Clear
+                            </button>
+                        )}
+                    </div>
+                </div>
             </div>
 
             <div className="total-qty-indicator" style={{ fontWeight: 'bold', color: 'var(--color-primary)', fontSize: '1.1rem', marginBottom: '8px' }}>
