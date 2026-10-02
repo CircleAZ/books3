@@ -363,7 +363,7 @@ export default function StudioVisualizer({
       {/* 1. DEMAND SCATTER / BUBBLE CHART */}
       {activeEngineId === 'demand' && (
         <div style={{ width: '100%', height: chartHeight }}>
-          <ResponsiveContainer width="100%" height="100%">
+          <ResponsiveContainer width="100%" height={chartHeight} minWidth={100} minHeight={chartHeight}>
             <ScatterChart margin={{ top: 10, right: 20, bottom: 20, left: 10 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" />
               <XAxis
@@ -411,7 +411,7 @@ export default function StudioVisualizer({
       {/* 2. CROSS-SELL ASSOCIATION MATRIX */}
       {activeEngineId === 'cross_sell' && (
         <div style={{ width: '100%', height: chartHeight }}>
-          <ResponsiveContainer width="100%" height="100%">
+          <ResponsiveContainer width="100%" height={chartHeight} minWidth={100} minHeight={chartHeight}>
             <ScatterChart margin={{ top: 10, right: 20, bottom: 20, left: 10 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" />
               <XAxis
@@ -461,7 +461,7 @@ export default function StudioVisualizer({
       {/* 3. VILLAGE 5-TIER STRATEGIC QUADRANT */}
       {activeEngineId === 'village' && (
         <div style={{ width: '100%', height: chartHeight }}>
-          <ResponsiveContainer width="100%" height="100%">
+          <ResponsiveContainer width="100%" height={chartHeight} minWidth={100} minHeight={chartHeight}>
             <ScatterChart margin={{ top: 10, right: 20, bottom: 20, left: 10 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" />
               <XAxis
@@ -510,7 +510,7 @@ export default function StudioVisualizer({
       {/* 4. DYNAMIC PRICING ECONOMETRIC CURVE */}
       {activeEngineId === 'pricing' && (
         <div style={{ width: '100%', height: chartHeight }}>
-          <ResponsiveContainer width="100%" height="100%">
+          <ResponsiveContainer width="100%" height={chartHeight} minWidth={100} minHeight={chartHeight}>
             <ComposedChart data={pricingData} margin={{ top: 10, right: 20, bottom: 20, left: 10 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" />
               <XAxis dataKey="price" stroke="#64748b" tick={{ fontSize: 11 }} unit="₹" />
@@ -527,7 +527,7 @@ export default function StudioVisualizer({
       {/* 5. QUALITY DEFECT RADAR / SCORECARD */}
       {activeEngineId === 'defects' && (
         <div style={{ width: '100%', height: chartHeight }}>
-          <ResponsiveContainer width="100%" height="100%">
+          <ResponsiveContainer width="100%" height={chartHeight} minWidth={100} minHeight={chartHeight}>
             <BarChart data={defectData} margin={{ top: 10, right: 20, bottom: 30, left: 10 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" />
               <XAxis dataKey="name" stroke="#64748b" tick={{ fontSize: 10 }} interval={0} angle={-15} textAnchor="end" />
@@ -552,7 +552,7 @@ export default function StudioVisualizer({
       {/* 6. KHATA STACKED AGING BUCKETS */}
       {activeEngineId === 'khata' && (
         <div style={{ width: '100%', height: chartHeight }}>
-          <ResponsiveContainer width="100%" height="100%">
+          <ResponsiveContainer width="100%" height={chartHeight} minWidth={100} minHeight={chartHeight}>
             <BarChart data={khataData} margin={{ top: 10, right: 20, bottom: 30, left: 10 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" />
               <XAxis dataKey="name" stroke="#64748b" tick={{ fontSize: 10 }} interval={0} angle={-15} textAnchor="end" />
@@ -571,7 +571,7 @@ export default function StudioVisualizer({
       {/* 7. TPS ANDON VARIANCE BAR */}
       {activeEngineId === 'andon' && (
         <div style={{ width: '100%', height: chartHeight }}>
-          <ResponsiveContainer width="100%" height="100%">
+          <ResponsiveContainer width="100%" height={chartHeight} minWidth={100} minHeight={chartHeight}>
             <BarChart data={andonData} margin={{ top: 10, right: 20, bottom: 30, left: 10 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" />
               <XAxis dataKey="name" stroke="#64748b" tick={{ fontSize: 10 }} interval={0} angle={-15} textAnchor="end" />

@@ -270,14 +270,47 @@
   margin: 6px 0;
 }
 
-/* 280px Collapsible Catalog Drawer */
+/* Slide-Over Collapsible Catalog Drawer */
 .studio-catalog-drawer {
-  width: 280px;
+  position: absolute;
+  left: 54px;
+  top: 0;
+  bottom: 0;
+  width: 320px;
+  max-width: 85vw;
   display: flex;
   flex-direction: column;
-  background: rgba(15, 18, 32, 0.95);
+  background: rgba(15, 18, 32, 0.98);
   overflow-y: hidden;
-  border-right: 1px solid rgba(255, 255, 255, 0.08);
+  border-right: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: 12px 0 35px rgba(0, 0, 0, 0.7);
+  z-index: 100;
+  animation: slideInLeft 200ms ease forwards;
+}
+
+@keyframes slideInLeft {
+  from {
+    transform: translateX(-20px);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+.studio-drawer-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(4px);
+  z-index: 90;
+  animation: backdropFadeIn 180ms ease forwards;
+}
+
+@keyframes backdropFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 
 /* Catalog Segmented Tab Switcher */
@@ -971,17 +1004,33 @@
   background: rgba(255, 255, 255, 0.15);
 }
 
-/* ── Right Dock (Parameter & Scenario Drawer) ── */
+/* ── Right Dock (Parameter & Scenario Slide-Over Drawer) ── */
 .studio-right-dock {
-  width: 340px;
-  background: rgba(15, 18, 32, 0.96);
-  border-left: 1px solid rgba(255, 255, 255, 0.08);
+  position: absolute;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  width: 360px;
+  max-width: 90vw;
+  background: rgba(15, 18, 32, 0.98);
+  border-left: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: -12px 0 35px rgba(0, 0, 0, 0.7);
   display: flex;
   flex-direction: column;
   overflow-y: auto;
-  flex-shrink: 0;
-  z-index: 10;
-  transition: width var(--transition-normal, 250ms ease);
+  z-index: 100;
+  animation: slideInRight 200ms ease forwards;
+}
+
+@keyframes slideInRight {
+  from {
+    transform: translateX(20px);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
 }
 
 .inspector-header {
@@ -1042,14 +1091,102 @@
   color: var(--color-text-muted, #64748b);
 }
 
+/* ── Mobile Touch Cards View ── */
+.studio-mobile-card-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 8px;
+}
+
+.studio-mobile-card {
+  background: rgba(12, 14, 26, 0.85);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: var(--radius-md, 10px);
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  cursor: pointer;
+  transition: all var(--transition-fast, 150ms ease);
+}
+
+.studio-mobile-card:hover, .studio-mobile-card:active {
+  background: rgba(255, 255, 255, 0.04);
+  border-color: rgba(180, 138, 40, 0.4);
+}
+
+.studio-mobile-card.selected {
+  background: rgba(180, 138, 40, 0.12);
+  border: 1.5px solid #f59e0b;
+  box-shadow: 0 0 14px rgba(245, 158, 11, 0.25);
+}
+
+.mobile-card-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.mobile-card-title-group {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  overflow: hidden;
+}
+
+.mobile-card-title {
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: #ffffff;
+  line-height: 1.25;
+}
+
+.mobile-card-category {
+  font-size: 0.72rem;
+  color: #94a3b8;
+}
+
+.mobile-card-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  background: rgba(0, 0, 0, 0.3);
+  padding: 8px 10px;
+  border-radius: var(--radius-sm, 6px);
+  border: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+.mobile-grid-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.mobile-grid-cell.full-width {
+  grid-column: 1 / -1;
+  border-top: 1px dashed rgba(255, 255, 255, 0.06);
+  padding-top: 6px;
+  margin-top: 2px;
+}
+
+.mobile-grid-label {
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  color: #64748b;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+}
+
+.mobile-grid-val {
+  font-size: 0.82rem;
+  color: #e2e8f0;
+  font-weight: 500;
+}
+
 /* Responsive adjustments */
 @media (max-width: 1024px) {
-  .studio-catalog-drawer {
-    width: 220px;
-  }
-  .studio-right-dock {
-    width: 280px;
-  }
   .metric-grid-4 {
     grid-template-columns: repeat(2, 1fr);
   }
@@ -1057,16 +1194,38 @@
 
 @media (max-width: 768px) {
   .studio-catalog-drawer {
-    display: none;
+    left: 0;
+    width: 85vw;
   }
   .studio-right-dock {
-    display: none;
+    width: 90vw;
   }
   .studio-engine-telemetry {
     display: none;
   }
   .levers-summary {
     display: none;
+  }
+  .studio-top-bar {
+    padding: 6px 10px;
+    gap: 8px;
+  }
+  .studio-heading {
+    font-size: 0.9rem;
+  }
+  .studio-action-levers-bar {
+    padding: 8px 12px;
+    gap: 8px;
+  }
+  .levers-button-group {
+    width: 100%;
+    justify-content: space-between;
+    overflow-x: auto;
+  }
+  .lever-btn {
+    padding: 6px 10px;
+    font-size: 0.75rem;
+    white-space: nowrap;
   }
 }
 

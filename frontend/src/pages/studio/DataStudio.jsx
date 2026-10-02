@@ -13,11 +13,11 @@ const ENGINES = [
     shortName: 'Demand',
     icon: '📦',
     category: 'Core Optimization',
-    description: 'Bayesian moving average runway curves, safety stock days, and master-carton ceiling quantization.',
-    objective: 'April–June Textbook Rush Bulk Procurement & Intake',
+    description: 'Demand forecasting, safety stock days, and carton box packing quantization.',
+    objective: 'Peak Season Bulk Procurement & Inventory Planning',
     metrics: [
       { label: 'Forecasted Units', value: '4,850', sub: '+18.4% YoY Season' },
-      { label: 'Master Cartons', value: '342', sub: 'Ceiling Quantized' },
+      { label: 'Master Boxes', value: '342', sub: 'Case-Pack Quantized' },
       { label: 'Stockout Risk SKUs', value: '8', sub: 'Runway < 7 Days' },
       { label: 'Working Capital Req', value: '₹4.28L', sub: 'Estimated PO Total' },
     ],
@@ -28,88 +28,88 @@ const ENGINES = [
     shortName: 'Cross-Sell',
     icon: '🔗',
     category: 'Commercial Discovery',
-    description: 'Apriori association rule mining, student kit bundle affinities, and syllabus basket gap analysis.',
+    description: 'Frequently co-purchased student supplies and curriculum kit bundle recommendations.',
     objective: 'Standardized School Syllabus Bundling & Kit Sales',
     metrics: [
-      { label: 'Active Rules', value: '46', sub: 'Lift > 1.5, Conf > 30%' },
-      { label: 'Kit Attachment Rate', value: '68.4%', sub: '+12.1% Target' },
-      { label: 'Avg Kit Basket', value: '₹1,840', sub: 'Books + Stationery' },
-      { label: 'Untapped Cross-Sells', value: '14', sub: 'High-Affinity Pairs' },
+      { label: 'Active Bundles', value: '46', sub: 'High-Affinity Pairs' },
+      { label: 'Cross-Sell Rate', value: '68.4%', sub: 'Target Co-Purchase' },
+      { label: 'Audited Orders', value: '318', sub: 'Multi-Item Baskets' },
+      { label: 'Top Affinity Pair', value: '101 Baskets', sub: 'A4 176 + Cover' },
     ],
   },
   {
     id: 'village',
-    title: 'Village Penetration & Route Matrix',
-    shortName: 'Village Matrix',
+    title: 'Village Outlets & Route Planning',
+    shortName: 'Village Outlets',
     icon: '🗺️',
     category: 'Territory Strategy',
-    description: '5-tier geospatial strategic quadrant matrix and customer cohort extraction for door-to-door distribution.',
-    objective: 'Frontier Village Door-to-Door Canvassing & Outlet Hub Staging',
+    description: 'Branch outlet sales performance, consignment commission tracking, and delivery route planning.',
+    objective: 'Direct Outlet Consignment & Route Planning',
     metrics: [
-      { label: 'Frontier Villages', value: '18', sub: 'High-Growth Targets' },
-      { label: 'Active Outlets', value: '7', sub: 'Hub-and-Spoke Stalls' },
-      { label: 'Door-to-Door Cohorts', value: '420', sub: 'Target Students' },
-      { label: 'Avg Village Revenue', value: '₹42.5k', sub: 'Per Season Cycle' },
+      { label: 'Active Outlets', value: '6', sub: 'Registered Partner Stores' },
+      { label: 'Total Outlet Sales', value: '₹9,590', sub: 'Consignment Revenue' },
+      { label: 'Total Commission', value: '₹1,255', sub: 'Commissions Paid' },
+      { label: 'Avg Outlet Revenue', value: '₹1,598', sub: 'Per Store Average' },
     ],
   },
   {
     id: 'pricing',
-    title: 'Dynamic Pricing & Margin Elasticity',
+    title: 'Dynamic Pricing & Margin Simulator',
     shortName: 'Pricing Lab',
     icon: '📈',
     category: 'Revenue Engineering',
-    description: 'Log-log demand econometric regressions with empirical Bayesian shrinkage and gross margin floors.',
+    description: 'Simulate price changes with price elasticity and protected gross margin floors.',
     objective: 'Optimal Price Setting Before May Rush School Lock-In',
     metrics: [
-      { label: 'Mean Elasticity', value: '-0.74', sub: 'Moderately Inelastic' },
-      { label: 'Price Anomaly Flags', value: '2', sub: 'Upward Slopes Clamped' },
-      { label: 'Gross Margin Avg', value: '28.6%', sub: 'Safe Margin Floor 12%' },
-      { label: 'Simulated Revenue Δ', value: '+₹78.4k', sub: 'At Optimal Price Point' },
+      { label: 'Mean Elasticity', value: '-0.74', sub: 'Price Sensitivity Ratio' },
+      { label: 'Margin Floor Flags', value: '0', sub: 'Safe Margin Floor 12%' },
+      { label: 'Gross Margin Avg', value: '28.6%', sub: 'Target Floor Maintained' },
+      { label: 'Simulated Revenue Δ', value: '+₹78.4k', sub: 'Projected Net Impact' },
     ],
   },
   {
     id: 'defects',
-    title: 'Quality Defect Radar & Scorecards',
-    shortName: 'Defect Radar',
+    title: 'Supplier Quality & Returns',
+    shortName: 'Supplier Quality',
     icon: '🛡️',
     category: 'Failsafe Governance',
-    description: 'Laplace-smoothed defect densities segregating partner consignment returns from physical manufacturing defects.',
-    objective: 'Supplier Quality Enforcement & Publisher Freezes',
+    description: 'Supplier return rates and defective inventory tracking to prevent faulty stock reception.',
+    objective: 'Supplier Quality Enforcement & Vendor Returns',
     metrics: [
-      { label: 'Defect Rate Smoothed', value: '1.24%', sub: 'Laplace α=1, β=99' },
+      { label: 'Overall Defect Rate', value: '0.31%', sub: '28 Total Damaged Units' },
       { label: 'Frozen Vendors', value: '0', sub: 'Threshold ≥ 6.0%' },
-      { label: 'Physical Damaged Units', value: '24', sub: 'Excluded Consignment' },
-      { label: 'At-Risk Accounts', value: '5', sub: 'Repeated Return Dissatisfaction' },
+      { label: 'Physical Returns', value: '28', sub: 'From 8,908 Units Sold' },
+      { label: 'Active Vendors', value: '9', sub: 'Verified Local Suppliers' },
     ],
   },
   {
     id: 'khata',
-    title: 'Khata Working Capital Gate',
-    shortName: 'Khata Gate',
+    title: 'Customer Khata & Credit Risk',
+    shortName: 'Customer Khata',
     icon: '⚖️',
     category: 'Financial Governance',
-    description: 'Finn Protocol deterministic receivable calculations with non-overlapping aging buckets and credit limits.',
-    objective: 'Preventing Delinquent Outlets from Draining Working Capital',
+    description: 'Customer credit limits, overdue invoices, and past-due account risk management.',
+    objective: 'Preventing Delinquent Accounts from Draining Working Capital',
     metrics: [
-      { label: 'Portfolio DSO', value: '26.4 Days', sub: 'Safe Baseline ≤ 30d' },
-      { label: 'Watchlist Accounts', value: '4', sub: '31–45 Days Overdue' },
-      { label: 'Blocked Accounts', value: '2', sub: 'DSO > 45d or Limit Breach' },
-      { label: 'Total Blocked Exposure', value: '₹78,500', sub: 'Halted Deliveries' },
+      { label: 'Total At-Risk Credit', value: '₹18,450', sub: 'Across 12 Customer Accounts' },
+      { label: 'Watchlist Accounts', value: '4', sub: 'Overdue Balances' },
+      { label: 'Blocked Accounts', value: '2', sub: 'Legacy Debt or Limit Breach' },
+      { label: 'Active Debtors', value: '12', sub: 'Accounts with Unpaid Orders' },
     ],
   },
   {
     id: 'andon',
-    title: 'TPS Andon Cord Control Room',
-    shortName: 'TPS Andon',
+    title: 'PO Replenishment Variance Gate',
+    shortName: 'PO Variance Gate',
     icon: '🚨',
     category: 'Manufacturing Governance',
-    description: 'Noise-floored mechanical circuit breaker triggering amber latches on volume spikes, cost hikes, and late June orders.',
-    objective: 'Automated Stop-the-Line Procurement Protection',
+    description: 'Automated procurement safety gate checking purchase order cost hikes and sudden quantity jumps.',
+    objective: 'Automated Purchase Order Protection',
     metrics: [
-      { label: 'Latch Status', value: 'CLEARED', sub: 'All Tolerances Verified' },
+      { label: 'Circuit Status', value: 'CLEARED', sub: 'All Tolerances Verified' },
       { label: 'Volume Variance Latch', value: '±30%', sub: 'Noise Floor ≥ 5 Units' },
       { label: 'Cost Hike Latch', value: '+15%', sub: 'Exposure Floor ≥ ₹500' },
-      { label: 'June Cutoff Active', value: 'ARMED', sub: 'June 1–15 Hazard Stop' },
+      { label: 'Audited PO Lines', value: '237', sub: 'Direct from Purchase Orders' },
     ],
   },
 ];
@@ -130,8 +130,8 @@ export default function DataStudio() {
 
   // ── COCKPIT STATE ──
   const [activeEngineId, setActiveEngineId] = useState('demand');
-  const [isLeftDrawerOpen, setIsLeftDrawerOpen] = useState(true);
-  const [isRightDrawerOpen, setIsRightDrawerOpen] = useState(true);
+  const [isLeftDrawerOpen, setIsLeftDrawerOpen] = useState(false);
+  const [isRightDrawerOpen, setIsRightDrawerOpen] = useState(false);
   const [studioMode, setStudioMode] = useState('operator'); // 'operator' | 'quant'
   const [searchCatalogQuery, setSearchCatalogQuery] = useState('');
   const [isSimulating, setIsSimulating] = useState(false);
@@ -914,7 +914,7 @@ export default function DataStudio() {
       {/* ── TOP COCKPIT COMMAND BAR ── */}
       <header className="studio-top-bar">
         <div className="studio-title-block">
-          <span className="studio-brand-badge">Sovereign Studio</span>
+          <span className="studio-brand-badge">Operations Studio</span>
           <h1 className="studio-heading">
             <span>{activeEngine.icon}</span>
             <span>{activeEngine.title}</span>
@@ -925,7 +925,7 @@ export default function DataStudio() {
         <div className="studio-engine-telemetry">
           <div className="telemetry-chip pulse">
             <span>Engine:</span>
-            <strong>{isFallback ? '🛡️ Django In-Process Engine' : '⚡ Polars / DuckDB Wastegate'}</strong>
+            <strong>{isFallback ? '🛡️ Live PostgreSQL Engine' : '⚡ High-Speed Compute'}</strong>
           </div>
           <div className="telemetry-chip">
             <span>Latency:</span>
@@ -935,10 +935,10 @@ export default function DataStudio() {
             className={`andon-badge-mini ${andonStatus === 'TRIPPED' ? 'tripped' : andonStatus === 'OVERRIDDEN' ? 'cleared' : 'cleared'}`}
             onClick={() => setActiveModal('andon_control_room')}
             style={{ cursor: 'pointer' }}
-            title="Click to open TPS Andon Latch Control Room"
+            title="Click to open PO Variance Gate Control"
           >
             <span>{andonStatus === 'TRIPPED' ? '⚠️' : andonStatus === 'OVERRIDDEN' ? '🟢' : '🛡️'}</span>
-            <span>TPS ANDON: {andonStatus}</span>
+            <span>PO GATE: {andonStatus}</span>
           </div>
         </div>
 
@@ -979,6 +979,16 @@ export default function DataStudio() {
 
       {/* ── STUDIO BODY (DOCKABLE LAYOUT) ── */}
       <div className="studio-body">
+        {/* Backdrop for open slide-over drawers */}
+        {(isLeftDrawerOpen || isRightDrawerOpen) && (
+          <div
+            className="studio-drawer-backdrop"
+            onClick={() => {
+              setIsLeftDrawerOpen(false);
+              setIsRightDrawerOpen(false);
+            }}
+          />
+        )}
         {/* LEFT DOCK: 52px Icon Rail + Collapsible Catalog Drawer */}
         <aside className="studio-left-dock">
           {/* Mini 52px Fixed Icon Rail */}
@@ -1036,21 +1046,32 @@ export default function DataStudio() {
                 <span className="catalog-header-title">
                   {catalogDrawerTab === 'investigations' ? 'Workspaces & Runs' : 'Discovery Cohorts'}
                 </span>
-                {catalogDrawerTab === 'investigations' && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  {catalogDrawerTab === 'investigations' && (
+                    <button
+                      type="button"
+                      className="btn-dock-toggle"
+                      style={{ padding: '2px 8px', fontSize: '0.72rem' }}
+                      onClick={() => {
+                        setNewFolderName('');
+                        setNewFolderParentId('');
+                        setIsFolderModalOpen(true);
+                      }}
+                      title="Create new investigation folder"
+                    >
+                      + Folder
+                    </button>
+                  )}
                   <button
                     type="button"
                     className="btn-dock-toggle"
                     style={{ padding: '2px 8px', fontSize: '0.72rem' }}
-                    onClick={() => {
-                      setNewFolderName('');
-                      setNewFolderParentId('');
-                      setIsFolderModalOpen(true);
-                    }}
-                    title="Create new investigation folder"
+                    onClick={() => setIsLeftDrawerOpen(false)}
+                    title="Close Catalog Drawer"
                   >
-                    + Folder
+                    ✕
                   </button>
-                )}
+                </div>
               </div>
 
               <div className="catalog-search-box">
@@ -1259,75 +1280,125 @@ export default function DataStudio() {
                     </div>
                   </div>
 
-                  {/* Shell Preview Table (Dynamic Computed Output) */}
-                  <table className="studio-data-table">
-                    <thead>
-                      <tr>
-                        <th>Entity / Target Item</th>
-                        <th>Category / Region</th>
-                        <th>Current Baseline</th>
-                        <th>Simulated Target</th>
-                        <th>Variance / Impact</th>
-                        <th>Fulfillment Lever</th>
-                        {studioMode === 'quant' && <th>Quant Diagnostics</th>}
-                      </tr>
-                    </thead>
-                    <tbody>
+                  {/* Frontline View: Mobile Touch Cards or Desktop Table */}
+                  {isMobile ? (
+                    <div className="studio-mobile-card-stack">
                       {computeData?.items && computeData.engine === activeEngineId && computeData.items.length > 0 ? (
                         computeData.items.map((row, idx) => {
                           const isRowSelected = row.id === selectedEntityId;
                           return (
-                            <tr
+                            <div
                               key={row.id || idx}
-                              className={isRowSelected ? 'selected-entity-row' : ''}
+                              className={`studio-mobile-card ${isRowSelected ? 'selected' : ''}`}
                               onClick={() => handleSelectEntity(row.id)}
-                              style={{ cursor: 'pointer' }}
-                              title="Click to spotlight entity and prime fulfillment lever"
                             >
-                              <td>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                  {isRowSelected && <span style={{ color: '#f59e0b' }}>👉</span>}
-                                  <strong>{row.entity}</strong>
+                              <div className="mobile-card-header">
+                                <div className="mobile-card-title-group">
+                                  <strong className="mobile-card-title">{row.entity}</strong>
+                                  <span className="mobile-card-category">{row.category}</span>
                                 </div>
-                              </td>
-                              <td>{row.category}</td>
-                              <td>{row.baseline}</td>
-                              <td>{row.target}</td>
-                              <td>
-                                <span style={{ color: row.variance && row.variance.includes('-') ? '#f87171' : '#10b981' }}>
-                                  {row.variance}
-                                </span>
-                              </td>
-                              <td>
                                 <span className={`telemetry-chip ${isRowSelected ? 'pulse' : ''}`}>
                                   {row.lever}
                                 </span>
-                              </td>
-                              {studioMode === 'quant' && (
-                                <td>
-                                  <code style={{ fontSize: '0.72rem', color: '#38bdf8' }}>
-                                    {row.quant_details
-                                      ? Object.entries(row.quant_details)
-                                          .filter(([k]) => k !== 'pitch_script')
-                                          .slice(0, 3)
-                                          .map(([k, v]) => `${k}: ${v}`)
-                                          .join(' | ')
-                                      : 'Active'}
-                                  </code>
-                                </td>
-                              )}
-                            </tr>
+                              </div>
+                              <div className="mobile-card-grid">
+                                <div className="mobile-grid-cell">
+                                  <span className="mobile-grid-label">Baseline</span>
+                                  <span className="mobile-grid-val">{row.baseline}</span>
+                                </div>
+                                <div className="mobile-grid-cell">
+                                  <span className="mobile-grid-label">Target</span>
+                                  <span className="mobile-grid-val">{row.target}</span>
+                                </div>
+                                <div className="mobile-grid-cell full-width">
+                                  <span className="mobile-grid-label">Variance</span>
+                                  <span
+                                    className="mobile-grid-val"
+                                    style={{ color: row.variance && row.variance.includes('-') ? '#f87171' : '#10b981', fontWeight: 700 }}
+                                  >
+                                    {row.variance}
+                                  </span>
+                                </div>
+                              </div>
+                            </div>
                           );
                         })
                       ) : (
-                        <tr>
-                          <td colSpan={studioMode === 'quant' ? 7 : 6} style={{ textAlign: 'center', padding: '24px', color: '#94a3b8' }}>
-                            {isSimulating ? 'Calculating matrix vectors...' : 'Ready for simulation. Adjust parameters on the right inspector.'}
-                          </td>
-                        </tr>
+                        <div style={{ textAlign: 'center', padding: '24px', color: '#94a3b8' }}>
+                          {isSimulating ? 'Calculating matrix vectors...' : 'No entities found.'}
+                        </div>
                       )}
-                    </tbody>
-                  </table>
+                    </div>
+                  ) : (
+                    <table className="studio-data-table">
+                      <thead>
+                        <tr>
+                          <th>Entity / Target Item</th>
+                          <th>Category / Region</th>
+                          <th>Current Baseline</th>
+                          <th>Simulated Target</th>
+                          <th>Variance / Impact</th>
+                          <th>Fulfillment Lever</th>
+                          {studioMode === 'quant' && <th>Quant Diagnostics</th>}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {computeData?.items && computeData.engine === activeEngineId && computeData.items.length > 0 ? (
+                          computeData.items.map((row, idx) => {
+                            const isRowSelected = row.id === selectedEntityId;
+                            return (
+                              <tr
+                                key={row.id || idx}
+                                className={isRowSelected ? 'selected-entity-row' : ''}
+                                onClick={() => handleSelectEntity(row.id)}
+                                style={{ cursor: 'pointer' }}
+                                title="Click to spotlight entity and prime fulfillment lever"
+                              >
+                                <td>
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                    {isRowSelected && <span style={{ color: '#f59e0b' }}>👉</span>}
+                                    <strong>{row.entity}</strong>
+                                  </div>
+                                </td>
+                                <td>{row.category}</td>
+                                <td>{row.baseline}</td>
+                                <td>{row.target}</td>
+                                <td>
+                                  <span style={{ color: row.variance && row.variance.includes('-') ? '#f87171' : '#10b981' }}>
+                                    {row.variance}
+                                  </span>
+                                </td>
+                                <td>
+                                  <span className={`telemetry-chip ${isRowSelected ? 'pulse' : ''}`}>
+                                    {row.lever}
+                                  </span>
+                                </td>
+                                {studioMode === 'quant' && (
+                                  <td>
+                                    <code style={{ fontSize: '0.72rem', color: '#38bdf8' }}>
+                                      {row.quant_details
+                                        ? Object.entries(row.quant_details)
+                                            .filter(([k]) => k !== 'pitch_script')
+                                            .slice(0, 3)
+                                            .map(([k, v]) => `${k}: ${v}`)
+                                            .join(' | ')
+                                        : 'Active'}
+                                    </code>
+                                  </td>
+                                )}
+                              </tr>
+                            );
+                          })
+                        ) : (
+                          <tr>
+                            <td colSpan={studioMode === 'quant' ? 7 : 6} style={{ textAlign: 'center', padding: '24px', color: '#94a3b8' }}>
+                              {isSimulating ? 'Calculating matrix vectors...' : 'Ready for simulation. Adjust parameters on the right inspector.'}
+                            </td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </table>
+                  )}
                 </div>
               )}
             </div>
@@ -1396,7 +1467,18 @@ export default function DataStudio() {
           <aside className="studio-right-dock">
             <div className="inspector-header">
               <h4>Parameters &amp; What-If</h4>
-              <span className="telemetry-chip">Live Slider Sync</span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span className="telemetry-chip">Live Slider Sync</span>
+                <button
+                  type="button"
+                  className="btn-dock-toggle"
+                  style={{ padding: '2px 8px', fontSize: '0.72rem' }}
+                  onClick={() => setIsRightDrawerOpen(false)}
+                  title="Close inspector"
+                >
+                  ✕
+                </button>
+              </div>
             </div>
 
             <div className="inspector-body">
