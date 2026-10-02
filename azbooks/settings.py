@@ -110,6 +110,7 @@ INSTALLED_APPS = [
     'messaging',
     'outlets',
     'procurement',
+    'analytics',
 ]
 
 MIDDLEWARE = [

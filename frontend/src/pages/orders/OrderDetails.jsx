@@ -56,6 +56,9 @@ export default function OrderDetails() {
     const [showResyncConfirmModal, setShowResyncConfirmModal] = useState(false);
     const [resyncTargetItem, setResyncTargetItem] = useState(null);
 
+    // Location State S Modal
+    const [showNoLocationModal, setShowNoLocationModal] = useState(false);
+
     // RBAC for edit payment time restrictions
     const isPrivilegedRole = rbac.role === 'owner' || rbac.role === 'manager' || rbac.is_superuser;
 
@@ -825,6 +828,55 @@ export default function OrderDetails() {
                         )}
                     </div>
                 </div>
+
+                {/* Frontline Location & Navigation Bar (State A / State S) */}
+                <div className="customer-location-strip" style={{
+                    marginTop: '1rem',
+                    paddingTop: '0.85rem',
+                    borderTop: '1px solid var(--color-border, #e2e8f0)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    flexWrap: 'wrap',
+                    gap: '0.75rem'
+                }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.9rem' }}>
+                        <span style={{ fontSize: '1.1rem' }}>📍</span>
+                        {order.customer_location?.has_gps ? (
+                            <span>
+                                <strong>Location:</strong> {order.customer_location.village ? `${order.customer_location.village}, ` : ''}{order.customer_location.address_line || `${Number(order.customer_location.latitude).toFixed(4)}, ${Number(order.customer_location.longitude).toFixed(4)}`}
+                            </span>
+                        ) : (order.customer_location?.village || order.customer_location?.address_line) ? (
+                            <span>
+                                <strong>Address:</strong> {order.customer_location.village ? `${order.customer_location.village}, ` : ''}{order.customer_location.address_line} <span style={{ color: 'var(--color-warning, #f59e0b)', fontSize: '0.8rem', fontWeight: 600 }}>(No GPS)</span>
+                            </span>
+                        ) : (
+                            <span className="text-muted">No location or address added for this customer.</span>
+                        )}
+                    </div>
+                    <div>
+                        {order.customer_location?.has_gps ? (
+                            <a
+                                href={`https://www.google.com/maps/dir/?api=1&destination=${order.customer_location.latitude},${order.customer_location.longitude}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="btn btn-outline btn-sm"
+                                style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+                            >
+                                🗺️ Navigate (Google Maps)
+                            </a>
+                        ) : (
+                            <button
+                                type="button"
+                                className="btn btn-outline btn-sm"
+                                onClick={() => setShowNoLocationModal(true)}
+                                style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+                            >
+                                📍 Navigate
+                            </button>
+                        )}
+                    </div>
+                </div>
             </div>
 
             <div className="order-details-grid">
@@ -1515,6 +1567,59 @@ export default function OrderDetails() {
                                 </button>
                             </div>
                         </form>
+                    </div>
+                </div>
+            )}
+
+            {/* State S: No Location Modal */}
+            {showNoLocationModal && (
+                <div className="modal-backdrop" onClick={() => setShowNoLocationModal(false)} style={{
+                    position: 'fixed',
+                    top: 0, left: 0, right: 0, bottom: 0,
+                    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    zIndex: 1200
+                }}>
+                    <div className="modal-content card" onClick={e => e.stopPropagation()} style={{
+                        maxWidth: '420px',
+                        width: '90%',
+                        padding: '1.5rem',
+                        borderRadius: '8px',
+                        backgroundColor: 'var(--color-bg-primary, #ffffff)',
+                        boxShadow: 'var(--shadow-lg)'
+                    }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '0.75rem' }}>
+                            <span style={{ fontSize: '1.4rem' }}>📍</span>
+                            <h3 style={{ margin: 0, fontSize: '1.15rem' }}>No Location Added</h3>
+                        </div>
+                        <p style={{ color: 'var(--color-text-secondary)', fontSize: '0.9rem', lineHeight: 1.5, margin: '0 0 1.25rem 0' }}>
+                            This customer does not have GPS coordinates saved. Add a location pin to enable 1-tap Google Maps navigation.
+                        </p>
+                        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem' }}>
+                            <button
+                                type="button"
+                                className="btn btn-ghost"
+                                onClick={() => setShowNoLocationModal(false)}
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                type="button"
+                                className="btn btn-primary"
+                                onClick={() => {
+                                    setShowNoLocationModal(false);
+                                    if (order.customer) {
+                                        navigate(`/customers/${order.customer}/edit#location`);
+                                    } else {
+                                        showToast('Guest order has no customer profile to edit.', 'warning');
+                                    }
+                                }}
+                            >
+                                Add
+                            </button>
+                        </div>
                     </div>
                 </div>
             )}

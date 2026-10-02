@@ -182,3 +182,6 @@ node_modules/
 # Agent scratch working directories
 .agents/*
 !.agents/rules/
+
+# Local Python package compatibility junction
+services/azbooks_analytics/

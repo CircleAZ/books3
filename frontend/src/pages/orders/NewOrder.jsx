@@ -35,10 +35,13 @@ export default function NewOrder() {
     const [productSearch, setProductSearch] = useState('');
     const [productResults, setProductResults] = useState([]);
     const [popularProducts, setPopularProducts] = useState([]);
+    const [recommendedProducts, setRecommendedProducts] = useState([]);
     const [cartItems, setCartItems] = useState([]);
     const [highlightedProductIndex, setHighlightedProductIndex] = useState(-1);
     const barcodeBufferRef = useRef('');
     const lastCharTimeRef = useRef(0);
+    const rapidCharCountRef = useRef(0);
+    const scannerTrailingTimerRef = useRef(null);
     const productInputRef = useRef(null);
     const [orderDiscount, setOrderDiscount] = useState({ type: 'fixed', value: 0 });
     const [checkoutExpanded, setCheckoutExpanded] = useState(true);
@@ -279,6 +282,9 @@ export default function NewOrder() {
 
     // Cart Logic
     const addToCart = (product) => {
+        if (typeof navigator !== 'undefined' && navigator.vibrate) {
+            try { navigator.vibrate([15]); } catch (e) { /* ignore haptic error */ }
+        }
         if (product.stock_quantity <= 0) {
             showToast(`⚠ ${product.name} is out of stock (${product.stock_quantity}). Adding anyway.`, 'warning');
         }
@@ -307,11 +313,35 @@ export default function NewOrder() {
         barcodeBufferRef.current = '';
     };
 
+    // Fetch customer-driven recommendations (Course 3)
+    useEffect(() => {
+        if (!selectedCustomer?.id) {
+            setRecommendedProducts([]);
+            return;
+        }
+        let active = true;
+        const fetchRecommendations = async () => {
+            try {
+                const res = await fetchWithAuth(`${ENDPOINTS.ANALYTICS_RECOMMENDATIONS}?customer_id=${selectedCustomer.id}&limit=6`);
+                if (res.ok && active) {
+                    const data = await res.json();
+                    setRecommendedProducts(Array.isArray(data) ? data : []);
+                }
+            } catch (err) {
+                console.error('Failed to load customer recommendations:', err);
+            }
+        };
+        fetchRecommendations();
+        return () => { active = false; };
+    }, [selectedCustomer?.id, fetchWithAuth]);
+
+    const recommendedIds = useMemo(() => new Set(recommendedProducts.map(p => p.id)), [recommendedProducts]);
+
     // Memoized displayed products matching current search or category
     const displayedProducts = useMemo(() => {
         if (productSearch) return productResults;
         if (!selectedCategory) {
-            return [...popularProducts].sort((a, b) => {
+            const sortedPopular = [...popularProducts].sort((a, b) => {
                 const catA = a.category_name || '';
                 const catB = b.category_name || '';
                 if (!catA && !catB) return (a.name || '').localeCompare(b.name || '');
@@ -320,9 +350,17 @@ export default function NewOrder() {
                 if (catA === catB) return (a.name || '').localeCompare(b.name || '');
                 return catA.localeCompare(catB);
             });
+
+            // When customer recommendations exist, place them on top of the catalog
+            if (recommendedProducts.length > 0) {
+                const recIds = new Set(recommendedProducts.map(p => p.id));
+                const otherProducts = sortedPopular.filter(p => !recIds.has(p.id));
+                return [...recommendedProducts, ...otherProducts];
+            }
+            return sortedPopular;
         }
         return popularProducts;
-    }, [productSearch, productResults, selectedCategory, popularProducts]);
+    }, [productSearch, productResults, selectedCategory, popularProducts, recommendedProducts]);
 
     // Hardware Barcode Scanner Fast-Scan & Enter Key Handler (<50ms scan-to-cart)
     const handleBarcodeOrEnter = useCallback(async (rawCode) => {
@@ -385,7 +423,7 @@ export default function NewOrder() {
         barcodeBufferRef.current = '';
     }, [displayedProducts, popularProducts, productResults, fetchWithAuth, showToast]);
 
-    // Global Hardware Barcode Scanner Listener (<50ms inter-character burst)
+    // Global Hardware Barcode Scanner Listener (<35ms burst detector with input bleed suppression)
     useEffect(() => {
         const handleGlobalKeyDown = (e) => {
             const activeEl = document.activeElement;
@@ -393,31 +431,78 @@ export default function NewOrder() {
                 activeEl.tagName === 'TEXTAREA' ||
                 (activeEl.tagName === 'INPUT' && activeEl !== productInputRef.current)
             );
-            if (isOtherInput) return;
 
             const now = performance.now();
             const interval = now - lastCharTimeRef.current;
             lastCharTimeRef.current = now;
 
             if (e.key.length === 1) {
-                if (interval < 50) {
+                // Hardware laser/CCD scanners deliver inter-character intervals <35ms
+                if (interval < 35) {
+                    rapidCharCountRef.current += 1;
                     barcodeBufferRef.current += e.key;
+
+                    // If at least 2 rapid characters arrived, this is definitively a hardware scanner
+                    if (rapidCharCountRef.current >= 2) {
+                        e.preventDefault();
+                        e.stopPropagation();
+
+                        // If focused in another input/textarea, prune the initial leaked character
+                        if (isOtherInput && activeEl) {
+                            if (activeEl.value && barcodeBufferRef.current.length > 0) {
+                                const firstChar = barcodeBufferRef.current[0];
+                                if (activeEl.value.endsWith(firstChar)) {
+                                    activeEl.value = activeEl.value.slice(0, -1);
+                                    activeEl.dispatchEvent(new Event('input', { bubbles: true }));
+                                }
+                            }
+                        }
+                    }
                 } else {
+                    // Reset on slower human typing interval (>60ms)
+                    rapidCharCountRef.current = 0;
+                    if (isOtherInput) {
+                        // Human typing into notes/inputs: let browser handle normally
+                        barcodeBufferRef.current = '';
+                        return;
+                    }
                     barcodeBufferRef.current = e.key;
                 }
+
+                // 60ms trailing timer for wireless/USB scanners configured without 'Enter' suffix
+                if (scannerTrailingTimerRef.current) {
+                    clearTimeout(scannerTrailingTimerRef.current);
+                }
+                scannerTrailingTimerRef.current = setTimeout(() => {
+                    if (barcodeBufferRef.current.length >= 3 && rapidCharCountRef.current >= 2) {
+                        const scanned = barcodeBufferRef.current;
+                        barcodeBufferRef.current = '';
+                        rapidCharCountRef.current = 0;
+                        handleBarcodeOrEnter(scanned);
+                    }
+                }, 60);
             } else if (e.key === 'Enter') {
-                if (barcodeBufferRef.current.length >= 3 && interval < 50) {
+                if (scannerTrailingTimerRef.current) {
+                    clearTimeout(scannerTrailingTimerRef.current);
+                }
+                if (barcodeBufferRef.current.length >= 3 && (rapidCharCountRef.current >= 2 || interval < 50)) {
                     e.preventDefault();
                     e.stopPropagation();
                     const scanned = barcodeBufferRef.current;
                     barcodeBufferRef.current = '';
+                    rapidCharCountRef.current = 0;
                     handleBarcodeOrEnter(scanned);
                 }
             }
         };
 
         window.addEventListener('keydown', handleGlobalKeyDown, true);
-        return () => window.removeEventListener('keydown', handleGlobalKeyDown, true);
+        return () => {
+            window.removeEventListener('keydown', handleGlobalKeyDown, true);
+            if (scannerTrailingTimerRef.current) {
+                clearTimeout(scannerTrailingTimerRef.current);
+            }
+        };
     }, [handleBarcodeOrEnter]);
 
     // Product search keyboard navigation & barcode stream detector
@@ -466,6 +551,9 @@ export default function NewOrder() {
     };
 
     const updateQuantity = (id, delta) => {
+        if (delta > 0 && typeof navigator !== 'undefined' && navigator.vibrate) {
+            try { navigator.vibrate([15]); } catch (e) { /* ignore haptic error */ }
+        }
         setCartItems(prev => prev.map(item => {
             if (item.id === id) {
                 const newQty = Math.max(1, item.quantity + delta);
@@ -1042,33 +1130,50 @@ export default function NewOrder() {
                     {isSearchingProducts ? (
                         <div className="loading-container"><div className="spinner"></div></div>
                     ) : (
-                        <div className="product-grid">
-                            {displayedProducts.map((p, index) => {
-                                const cartItem = cartItems.find(item => item.id === p.id);
-                                const inCart = !!cartItem;
-                                const isFocused = index === highlightedProductIndex;
-                                return (
-                                    <div
-                                        key={p.id}
-                                        className={`product-card ${inCart ? 'in-cart' : ''} ${isFocused ? 'keyboard-focused' : ''}`}
-                                        onClick={() => !inCart && addToCart(p)}
-                                    >
-                                        <div className="product-card-header">
-                                            {p.primary_image_url && (
-                                                <div className="product-card-image">
-                                                    <img src={p.primary_image_url} alt={p.name} loading="lazy" />
-                                                </div>
-                                            )}
-                                            <div className="product-card-name">{p.name}</div>
-                                        </div>
-                                        <div className="product-card-info">
-                                            <span className="product-card-price">{currency}{Number(p.selling_price).toFixed(2)}</span>
-                                            <div className="product-card-badges">
-                                                {p.is_pack && (
-                                                    <span className="product-badge-pack">
-                                                        Pack of {p.pack_size || 1}
-                                                    </span>
+                        <>
+                            {recommendedProducts.length > 0 && !productSearch && !selectedCategory && selectedCustomer && (
+                                <div className="recommended-shelf-header">
+                                    <span className="recommended-shelf-title">
+                                        ⭐ Recommended for {selectedCustomer.name || selectedCustomer.first_name || 'Customer'}
+                                    </span>
+                                    <span className="recommended-shelf-badge">
+                                        {recommendedProducts.length} items suggested
+                                    </span>
+                                </div>
+                            )}
+                            <div className="product-grid">
+                                {displayedProducts.map((p, index) => {
+                                    const cartItem = cartItems.find(item => item.id === p.id);
+                                    const inCart = !!cartItem;
+                                    const isFocused = index === highlightedProductIndex;
+                                    const isRecommended = recommendedIds.has(p.id) || p.is_recommended;
+                                    return (
+                                        <div
+                                            key={p.id}
+                                            className={`product-card ${inCart ? 'in-cart' : ''} ${isFocused ? 'keyboard-focused' : ''} ${isRecommended ? 'product-card-recommended' : ''}`}
+                                            onClick={() => !inCart && addToCart(p)}
+                                        >
+                                            <div className="product-card-header">
+                                                {p.primary_image_url && (
+                                                    <div className="product-card-image">
+                                                        <img src={p.primary_image_url} alt={p.name} loading="lazy" />
+                                                    </div>
                                                 )}
+                                                <div className="product-card-name">{p.name}</div>
+                                            </div>
+                                            <div className="product-card-info">
+                                                <span className="product-card-price">{currency}{Number(p.selling_price).toFixed(2)}</span>
+                                                <div className="product-card-badges">
+                                                    {isRecommended && (
+                                                        <span className="product-badge-recommended" title={p.recommendation_reason || 'Recommended'}>
+                                                            ⭐ {p.recommendation_reason || 'Recommended'}
+                                                        </span>
+                                                    )}
+                                                    {p.is_pack && (
+                                                        <span className="product-badge-pack">
+                                                            Pack of {p.pack_size || 1}
+                                                        </span>
+                                                    )}
                                                 {p.stock_quantity > (p.low_stock_threshold || 10) ? (
                                                     <span className="product-badge-in-stock">
                                                         {p.stock_quantity} in stock
@@ -1130,6 +1235,7 @@ export default function NewOrder() {
                                 </div>
                             )}
                         </div>
+                        </>
                     )}
                 </section>
             </div >

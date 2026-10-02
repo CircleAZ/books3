@@ -48,6 +48,9 @@ const CustomerDetails = () => {
     const [editedNotes, setEditedNotes] = useState('');
     const [isSavingNotes, setIsSavingNotes] = useState(false);
 
+    // Location Modal State
+    const [showNoLocationModal, setShowNoLocationModal] = useState(false);
+
     const fetchData = React.useCallback(async () => {
         setLoading(true);
         try {
@@ -437,8 +440,24 @@ const CustomerDetails = () => {
 
                 {/* Addresses Section */}
                 <div className="customer-section" style={{ gridRow: 'span 2' }}>
-                    <div className="customer-section-header">
+                    <div className="customer-section-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                         <h3>Addresses ({customer.addresses?.length || 0})</h3>
+                        <button
+                            type="button"
+                            className="btn btn-sm btn-outline"
+                            onClick={() => {
+                                const primaryWithGps = customer.addresses?.find(a => a.is_primary && a.latitude && a.longitude)
+                                    || customer.addresses?.find(a => a.latitude && a.longitude);
+                                if (primaryWithGps) {
+                                    window.open(`https://www.google.com/maps/dir/?api=1&destination=${primaryWithGps.latitude},${primaryWithGps.longitude}`, '_blank', 'noopener,noreferrer');
+                                } else {
+                                    setShowNoLocationModal(true);
+                                }
+                            }}
+                            style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}
+                        >
+                            📍 Navigate
+                        </button>
                     </div>
                     <div className="customer-section-content">
                         {customer.addresses && customer.addresses.length > 0 ? (
@@ -472,11 +491,45 @@ const CustomerDetails = () => {
                                         {addr.taluka && <div><strong>Taluka:</strong> {addr.taluka}</div>}
                                         {addr.district && <div><strong>District:</strong> {addr.district}</div>}
                                         {addr.address_line && <div style={{ marginTop: '0.25rem' }}>{addr.address_line}</div>}
+                                        {addr.latitude && addr.longitude ? (
+                                            <div style={{ marginTop: '0.5rem' }}>
+                                                <a
+                                                    href={`https://www.google.com/maps/dir/?api=1&destination=${addr.latitude},${addr.longitude}`}
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    className="btn btn-outline btn-sm"
+                                                    style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '0.8rem', padding: '4px 8px' }}
+                                                >
+                                                    🗺️ Open in Google Maps
+                                                </a>
+                                            </div>
+                                        ) : (
+                                            <div style={{ marginTop: '0.5rem' }}>
+                                                <button
+                                                    type="button"
+                                                    className="btn btn-outline btn-sm"
+                                                    onClick={() => setShowNoLocationModal(true)}
+                                                    style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '0.8rem', padding: '4px 8px' }}
+                                                >
+                                                    📍 Navigate (No GPS)
+                                                </button>
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
                             ))
                         ) : (
-                            <p className="text-muted text-center">No addresses found.</p>
+                            <div style={{ textAlign: 'center', padding: '1.5rem 0' }}>
+                                <p className="text-muted" style={{ marginBottom: '0.5rem' }}>No addresses found.</p>
+                                <button
+                                    type="button"
+                                    className="btn btn-sm btn-outline"
+                                    onClick={() => setShowNoLocationModal(true)}
+                                    style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}
+                                >
+                                    📍 Add Location Pin
+                                </button>
+                            </div>
                         )}
                     </div>
                 </div>
@@ -754,6 +807,55 @@ const CustomerDetails = () => {
                                 </button>
                             </div>
                         </form>
+                    </div>
+                </div>
+            )}
+
+            {/* State S: No Location Modal */}
+            {showNoLocationModal && (
+                <div className="modal-overlay" onClick={() => setShowNoLocationModal(false)} style={{
+                    position: 'fixed',
+                    top: 0, left: 0, right: 0, bottom: 0,
+                    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    zIndex: 1200
+                }}>
+                    <div className="modal-content animate-slide-in-up" onClick={e => e.stopPropagation()} style={{
+                        maxWidth: '420px',
+                        width: '90%',
+                        padding: '1.5rem',
+                        borderRadius: '8px',
+                        backgroundColor: 'var(--color-bg-primary, #ffffff)',
+                        boxShadow: 'var(--shadow-lg)'
+                    }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '0.75rem' }}>
+                            <span style={{ fontSize: '1.4rem' }}>📍</span>
+                            <h3 style={{ margin: 0, fontSize: '1.15rem' }}>No Location Added</h3>
+                        </div>
+                        <p style={{ color: 'var(--color-text-secondary)', fontSize: '0.9rem', lineHeight: 1.5, margin: '0 0 1.25rem 0' }}>
+                            This customer does not have GPS coordinates saved. Add a location pin to enable 1-tap Google Maps navigation.
+                        </p>
+                        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem' }}>
+                            <button
+                                type="button"
+                                className="btn btn-ghost"
+                                onClick={() => setShowNoLocationModal(false)}
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                type="button"
+                                className="btn btn-primary"
+                                onClick={() => {
+                                    setShowNoLocationModal(false);
+                                    navigate(`/customers/${id}/edit#location`);
+                                }}
+                            >
+                                Add
+                            </button>
+                        </div>
                     </div>
                 </div>
             )}

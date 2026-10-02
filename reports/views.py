@@ -12,7 +12,6 @@ from decimal import Decimal
 import logging
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.apps import apps
-from core.azql import AZQLCompiler, VisualCompiler, SCHEMA_WHITELIST
 
 logger = logging.getLogger(__name__)
 
@@ -947,215 +946,19 @@ class QueryViewSet(viewsets.ModelViewSet):
         instance.delete()
 
     @action(detail=False, methods=['post'])
-    @use_read_replica
     def run(self, request):
-        query_type = request.data.get('query_type')
-        entity = request.data.get('entity')
-        
-        if not query_type:
-            return Response({'error': 'Missing query_type'}, status=status.HTTP_400_BAD_REQUEST)
-            
-        try:
-            if query_type == 'azql':
-                azql_text = request.data.get('azql_text')
-                if not azql_text:
-                    return Response({'error': 'Missing azql_text for azql query'}, status=status.HTTP_400_BAD_REQUEST)
-                # Compile using the parsed compiler
-                qs, selected_columns = AZQLCompiler.compile(azql_text, active_user=request.user)
-            elif query_type == 'visual':
-                if not entity:
-                    return Response({'error': 'Missing entity for visual query'}, status=status.HTTP_400_BAD_REQUEST)
-                rules = request.data.get('rules', {})
-                columns = request.data.get('columns', [])
-                aggregates = request.data.get('aggregates', [])
-                if not columns:
-                    # Default to all whitelisted fields for this entity if columns not specified
-                    columns = list(SCHEMA_WHITELIST.get(entity, {}).get('fields', []))
-                qs, selected_columns = VisualCompiler.compile(entity, rules, columns, aggregates, active_user=request.user)
-            else:
-                return Response({'error': f'Unsupported query_type: {query_type}'}, status=status.HTTP_400_BAD_REQUEST)
-                
-            # Limit rows to 100 and execute with a 5000ms timeout
-            from django.conf import settings
-            from django.db import transaction, connections, utils
-            
-            db_alias = 'reports' if not getattr(settings, 'IS_TESTING', False) else 'default'
-            
-            try:
-                with transaction.atomic(using=db_alias):
-                    if connections[db_alias].vendor == 'postgresql':
-                        with connections[db_alias].cursor() as cursor:
-                            cursor.execute("SET LOCAL statement_timeout = 7500")
-                    results = list(qs.distinct()[:100])
-            except utils.OperationalError as e:
-                if "timeout" in str(e).lower() or "cancel" in str(e).lower():
-                    return Response(
-                        {"error": "Query execution timed out. Maximum limit is 7500ms."},
-                        status=status.HTTP_400_BAD_REQUEST
-                    )
-                raise
-                
-            return Response({
-                'results': results,
-                'columns': selected_columns
-            })
-            
-        except DjangoValidationError as e:
-            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
-        except Exception as e:
-            logger.exception("Error running query")
-            return Response({'error': f"Internal compiler or execution error: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        return Response(
+            {'error': 'AZQL and Visual Query playground has been decommissioned. Migrate to the Books3 Data Intelligence Platform.'},
+            status=status.HTTP_410_GONE
+        )
 
     @action(detail=False, methods=['get'])
     def schema(self, request):
-        schema_data = {}
-        for entity_key, config in SCHEMA_WHITELIST.items():
-            model_path = config['model']
-            try:
-                model_class = apps.get_model(model_path)
-                entity_label = model_class._meta.verbose_name.title()
-            except Exception:
-                entity_label = entity_key.title()
-                model_class = None
-                
-            fields_data = []
-            relations_data = []
-            
-            if model_class:
-                # 1. Direct fields
-                for f_name in config['fields']:
-                    # We whitelist these fields. If a field contains '__', it is a nested path.
-                    if '__' in f_name:
-                        fields_data.append({
-                            'name': f_name,
-                            'label': get_field_label(model_class, f_name),
-                            'type': get_field_type(model_class, f_name),
-                            'choices': get_field_choices(model_class, f_name)
-                        })
-                        continue
-                    
-                    try:
-                        field = model_class._meta.get_field(f_name)
-                        choices = None
-                        if field.choices:
-                            choices = [{'value': val, 'label': label} for val, label in field.choices]
-                            
-                        # Determine field type
-                        internal_type = field.get_internal_type()
-                        field_type = "string"
-                        if internal_type in ('IntegerField', 'PositiveIntegerField', 'PositiveSmallIntegerField', 'SmallIntegerField', 'BigIntegerField'):
-                            field_type = "integer"
-                        elif internal_type in ('DecimalField', 'FloatField'):
-                            field_type = "decimal"
-                        elif internal_type in ('DateTimeField', 'DateField'):
-                            field_type = "datetime"
-                        elif internal_type == 'BooleanField':
-                            field_type = "boolean"
-                            
-                        fields_data.append({
-                            'name': f_name,
-                            'label': str(field.verbose_name).title(),
-                            'type': field_type,
-                            'choices': choices
-                        })
-                    except Exception:
-                        # Fallback for custom whitelisted properties
-                        fields_data.append({
-                            'name': f_name,
-                            'label': f_name.replace('_', ' ').title(),
-                            'type': "string",
-                            'choices': None
-                        })
-                
-                # Sort fields by label
-                fields_data.sort(key=lambda x: x['label'])
-                
-                # 2. Direct relations to whitelisted models
-                try:
-                    all_fields = model_class._meta.get_fields()
-                except Exception:
-                    all_fields = []
-                    
-                for field in all_fields:
-                    if field.is_relation and field.related_model:
-                        rel_model = field.related_model
-                        # Find whitelisted key for rel_model
-                        rel_key = None
-                        for k, cfg in SCHEMA_WHITELIST.items():
-                            try:
-                                if apps.get_model(cfg['model']) == rel_model:
-                                    rel_key = k
-                                    break
-                            except Exception:
-                                pass
-                        if rel_key:
-                            is_forward_fk = field.many_to_one or getattr(field, 'one_to_one', False)
-                            relations_data.append({
-                                'name': field.name,
-                                'target': rel_key,
-                                'label': field.name.replace('_', ' ').title(),
-                                'is_forward_fk': bool(is_forward_fk)
-                            })
-                            
-                # Sort relations by name
-                relations_data.sort(key=lambda x: x['name'])
-                
-            schema_data[entity_key] = {
-                'label': entity_label,
-                'fields': fields_data,
-                'relations': relations_data
-            }
-            
-        def build_relation_fields(e_key, visited):
-            if len(visited) > 2:
-                return []
-            rel_fields = []
-            for rel in schema_data[e_key]['relations']:
-                target = rel['target']
-                if target in visited:
-                    continue
-                
-                subprops = list(schema_data[target]['fields'])
-                target_rel_fields = build_relation_fields(target, visited | {target})
-                if target_rel_fields:
-                    subprops.extend(target_rel_fields)
-                
-                match_modes = ['some', 'none'] if rel.get('is_forward_fk') else ['some', 'all', 'none']
-                
-                rel_fields.append({
-                    'name': f"~{rel['name']}",
-                    'label': f"📦 {rel['label']} (has any/all/none matching...)",
-                    'type': 'relation_subquery',
-                    'target_entity': target,
-                    'relation_name': rel['name'],
-                    'subproperties': subprops,
-                    'matchModes': match_modes
-                })
-            return rel_fields
-            
-        for entity_key in schema_data:
-            schema_data[entity_key]['relation_fields'] = build_relation_fields(entity_key, {entity_key})
-            
-        operators = [
-            {'value': '=', 'label': '='},
-            {'value': '!=', 'label': '!='},
-            {'value': '>', 'label': '>'},
-            {'value': '<', 'label': '<'},
-            {'value': '>=', 'label': '>='},
-            {'value': '<=', 'label': '<='},
-            {'value': 'LIKE', 'label': 'LIKE'},
-            {'value': 'CONTAINS', 'label': 'CONTAINS'},
-            {'value': 'IN', 'label': 'IN'},
-            {'value': 'WAS EVER', 'label': 'WAS EVER'},
-            {'value': 'HAS_ANY', 'label': 'HAS ANY'},
-            {'value': 'HAS_ALL', 'label': 'HAS ALL'},
-            {'value': 'HAS_NONE', 'label': 'HAS NONE'}
-        ]
-        
-        return Response({
-            'entities': schema_data,
-            'operators': operators
-        })
+        return Response(
+            {'error': 'AZQL and Visual Query playground has been decommissioned.'},
+            status=status.HTTP_410_GONE
+        )
+
 
 
 class QueryStateHistoryViewSet(viewsets.ModelViewSet):

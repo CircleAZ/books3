@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
 import { ENDPOINTS } from '../../config/api';
@@ -9,6 +9,14 @@ export default function CreatePO() {
     const { fetchWithAuth } = useAuth();
     const { showToast } = useToast();
     const navigate = useNavigate();
+    const location = useLocation();
+    const [searchParams] = useSearchParams();
+
+    // Pipeline Transfer state (Course 6 Slice 6.1 & 6.3)
+    const [activeTransfer, setActiveTransfer] = useState(null);
+    const [transferLoading, setTransferLoading] = useState(false);
+    const [andonOverrideAcknowledged, setAndonOverrideAcknowledged] = useState(false);
+    const [andonOverrideReason, setAndonOverrideReason] = useState('');
 
     // Vendor state
     const [vendors, setVendors] = useState([]);
@@ -74,6 +82,78 @@ export default function CreatePO() {
         };
         fetchFilters();
     }, [fetchWithAuth]);
+
+    // Course 6 Slice 6.1: Ingest Intelligence Pipeline Transfer if present
+    useEffect(() => {
+        const transferId = searchParams.get('transfer_id') || location.state?.transfer_id;
+        if (!transferId) return;
+
+        // If transfer payload is already pre-packaged in router state
+        if (location.state?.transferPayload) {
+            const payload = location.state.transferPayload;
+            setActiveTransfer({ id: transferId, ...payload });
+            if (payload.vendor_id) {
+                setSelectedVendorId(payload.vendor_id);
+                setFilterVendorId(payload.vendor_id);
+            }
+            if (payload.notes) {
+                setNotes(prev => prev || payload.notes);
+            }
+            if (Array.isArray(payload.items) && payload.items.length > 0) {
+                setLineItems(payload.items.map(item => ({
+                    product_id: item.product_id,
+                    product_name: item.product_name,
+                    is_pack: item.is_pack,
+                    pack_size: item.pack_size || item.vendor_pack_size || 1,
+                    vendor_pack_size: item.vendor_pack_size || item.pack_size || 1,
+                    purchased_packs: item.purchased_packs || 1,
+                    unit_cost_price: item.unit_cost_price || '0.00',
+                })));
+                showToast(`Loaded ${payload.items.length} quantized items from Intelligence Transfer`, 'info');
+            }
+            return;
+        }
+
+        // Fetch from API preload endpoint
+        const loadTransfer = async () => {
+            setTransferLoading(true);
+            try {
+                const url = ENDPOINTS.ANALYTICS_PO_PRELOAD ? ENDPOINTS.ANALYTICS_PO_PRELOAD(transferId) : `/api/analytics/pipeline-transfers/${transferId}/po-preload/`;
+                const res = await fetchWithAuth(url);
+                if (res.ok) {
+                    const data = await res.json();
+                    setActiveTransfer(data);
+                    if (data.vendor_id) {
+                        setSelectedVendorId(data.vendor_id);
+                        setFilterVendorId(data.vendor_id);
+                    }
+                    if (data.notes) {
+                        setNotes(prev => prev || data.notes);
+                    }
+                    if (Array.isArray(data.items) && data.items.length > 0) {
+                        setLineItems(data.items.map(item => ({
+                            product_id: item.product_id,
+                            product_name: item.product_name,
+                            is_pack: item.is_pack,
+                            pack_size: item.pack_size || item.vendor_pack_size || 1,
+                            vendor_pack_size: item.vendor_pack_size || item.pack_size || 1,
+                            purchased_packs: item.purchased_packs || 1,
+                            unit_cost_price: item.unit_cost_price || '0.00',
+                        })));
+                        showToast(`Loaded ${data.items.length} items (${data.total_packs || 0} master cartons) from Intelligence Transfer`, 'info');
+                    }
+                } else {
+                    showToast('Failed to load intelligence pipeline transfer', 'warning');
+                }
+            } catch (err) {
+                console.error('Error fetching pipeline transfer preload', err);
+            } finally {
+                setTransferLoading(false);
+            }
+        };
+        loadTransfer();
+    }, [searchParams, location.state, fetchWithAuth, showToast]);
+
 
     // Probe depleted / low-stock products when a vendor is selected
     useEffect(() => {
@@ -264,8 +344,20 @@ export default function CreatePO() {
     const totalCharges = charges.reduce((sum, c) => sum + (parseFloat(c.amount) || 0), 0);
     const grandTotal = subtotal + totalCharges;
 
+    const isAndonBlocked = Boolean(
+        activeTransfer?.is_andon_tripped &&
+        activeTransfer?.andon_status === 'TRIPPED' &&
+        !activeTransfer?.is_overridden &&
+        (!andonOverrideAcknowledged || andonOverrideReason.trim().length < 5)
+    );
+
     const handleSubmit = async () => {
         if (isSubmittingRef.current) return;
+
+        if (isAndonBlocked) {
+            showToast('Manager override justification (min 5 characters) required to release TPS Andon Latch', 'error');
+            return;
+        }
 
         if (!selectedVendorId) {
             showToast('Please select a vendor', 'warning');
@@ -316,6 +408,25 @@ export default function CreatePO() {
 
             if (res.ok) {
                 const data = await res.json();
+
+                // Confirm Pipeline Transfer if active (Course 6 Slice 6.1 & 6.3)
+                const transferId = activeTransfer ? (activeTransfer.transfer_id || activeTransfer.id) : null;
+                if (transferId) {
+                    try {
+                        const confirmUrl = ENDPOINTS.ANALYTICS_CONFIRM_TRANSFER ? ENDPOINTS.ANALYTICS_CONFIRM_TRANSFER(transferId) : `/api/analytics/pipeline-transfers/${transferId}/confirm-transfer/`;
+                        await fetchWithAuth(confirmUrl, {
+                            method: 'POST',
+                            body: JSON.stringify({
+                                purchase_order_id: data.id,
+                                po_display_id: data.display_id ? data.display_id.toString() : '',
+                                override_reason: andonOverrideReason.trim() || undefined,
+                            }),
+                        });
+                    } catch (tErr) {
+                        console.error('Failed to confirm pipeline transfer status:', tErr);
+                    }
+                }
+
                 showToast(`PO #${data.display_id} created successfully`, 'success');
                 navigate(`/procurement/${data.id}`);
             } else {
@@ -338,6 +449,145 @@ export default function CreatePO() {
                 <button onClick={() => navigate('/procurement')} className="btn btn-ghost btn-sm">← Back</button>
                 <h1 style={{ fontSize: '1.5rem', fontWeight: 700, margin: 0 }}>Create Purchase Order</h1>
             </div>
+
+            {/* Active Pipeline Transfer Banner (Course 6 Slice 6.1) */}
+            {activeTransfer && (
+                <div style={{
+                    padding: '12px 16px',
+                    borderRadius: '8px',
+                    marginBottom: '1rem',
+                    backgroundColor: 'rgba(180, 138, 40, 0.12)',
+                    border: '1.5px solid rgba(180, 138, 40, 0.55)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    gap: '12px',
+                    animation: 'fadeIn 0.2s ease-in-out'
+                }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                        <span style={{ fontSize: '1.3rem' }}>📦</span>
+                        <div>
+                            <div style={{ fontWeight: 600, color: 'var(--color-primary-text, #b48a28)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <span>Intelligence Pipeline Transfer Active</span>
+                                <span style={{
+                                    fontSize: '0.7rem',
+                                    fontWeight: 700,
+                                    padding: '1px 6px',
+                                    borderRadius: '4px',
+                                    backgroundColor: 'rgba(180, 138, 40, 0.25)',
+                                    color: '#b48a28'
+                                }}>QUANTIZED MASTER CARTONS</span>
+                            </div>
+                            <div style={{ fontSize: '0.8rem', color: 'var(--color-text-secondary)', marginTop: '2px' }}>
+                                {activeTransfer.notes || `Transfer #${(activeTransfer.transfer_id || activeTransfer.id || '').slice(0, 8)}`}
+                                {' • '}
+                                <strong style={{ color: 'var(--color-text)' }}>
+                                    {lineItems.length} SKUs ({activeTransfer.total_packs || lineItems.reduce((acc, it) => acc + (parseInt(it.purchased_packs) || 0), 0)} Master Cartons)
+                                </strong>
+                            </div>
+                        </div>
+                    </div>
+                    <button
+                        type="button"
+                        className="btn btn-ghost btn-sm"
+                        onClick={() => {
+                            setActiveTransfer(null);
+                            showToast('Pipeline transfer unlinked. Preloaded items retained.', 'info');
+                        }}
+                        style={{ fontSize: '0.75rem', color: '#b48a28' }}
+                    >
+                        ✕ Dismiss Link
+                    </button>
+                </div>
+            )}
+
+            {/* TPS Andon Cord Latch Alert (Course 6 Slice 6.3) */}
+            {activeTransfer && activeTransfer.is_andon_tripped && activeTransfer.andon_status === 'TRIPPED' && !activeTransfer.is_overridden && (
+                <div style={{
+                    padding: '16px',
+                    borderRadius: '8px',
+                    marginBottom: '1rem',
+                    backgroundColor: 'rgba(217, 119, 6, 0.12)',
+                    border: '2px solid #d97706',
+                    animation: 'fadeIn 0.2s ease-in-out'
+                }}>
+                    <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
+                        <span style={{ fontSize: '1.8rem', lineHeight: 1 }}>⚠️</span>
+                        <div style={{ flex: 1 }}>
+                            <div style={{ fontWeight: 700, color: '#d97706', fontSize: '0.95rem', display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                                <span>TOYOTA PRODUCTION SYSTEM (TPS) ANDON LATCH TRIPPED</span>
+                                <span style={{
+                                    fontSize: '0.7rem',
+                                    fontWeight: 700,
+                                    padding: '2px 8px',
+                                    borderRadius: '4px',
+                                    backgroundColor: '#d97706',
+                                    color: '#fff'
+                                }}>STATUS: LATCHED</span>
+                            </div>
+                            <p style={{ margin: '6px 0 10px', fontSize: '0.85rem', color: 'var(--color-text-secondary)' }}>
+                                Automated procurement pipeline frozen. The following variances breach operational tolerances (volume &gt; 30%, cost hike &gt; 15%, or early June late-season restock):
+                            </p>
+                            <ul style={{ margin: '0 0 12px 20px', padding: 0, fontSize: '0.85rem', color: '#b45309' }}>
+                                {(activeTransfer.andon_trip_reasons || []).map((reason, idx) => (
+                                    <li key={idx} style={{ marginBottom: '4px' }}>{reason}</li>
+                                ))}
+                            </ul>
+                            <div style={{
+                                padding: '12px',
+                                borderRadius: '6px',
+                                backgroundColor: 'rgba(255, 255, 255, 0.65)',
+                                border: '1px solid rgba(217, 119, 6, 0.3)'
+                            }}>
+                                <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontWeight: 600, fontSize: '0.85rem', color: '#92400e' }}>
+                                    <input
+                                        type="checkbox"
+                                        checked={andonOverrideAcknowledged}
+                                        onChange={e => setAndonOverrideAcknowledged(e.target.checked)}
+                                    />
+                                    <span>Confirm manual manager authorization override for this procurement batch</span>
+                                </label>
+                                {andonOverrideAcknowledged && (
+                                    <div style={{ marginTop: '8px' }}>
+                                        <input
+                                            type="text"
+                                            className="form-control"
+                                            placeholder="Mandatory manager override justification (e.g. 'Proprietor approved bulk syllabus surge')..."
+                                            value={andonOverrideReason}
+                                            onChange={e => setAndonOverrideReason(e.target.value)}
+                                            style={{ width: '100%', fontSize: '0.85rem' }}
+                                        />
+                                        <span style={{ fontSize: '0.75rem', color: andonOverrideReason.trim().length >= 5 ? '#16a34a' : '#dc2626', marginTop: '4px', display: 'block' }}>
+                                            {andonOverrideReason.trim().length >= 5 ? '✓ Override reason ready for audit log' : 'Minimum 5 characters justification required'}
+                                        </span>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Andon Overridden Notice */}
+            {activeTransfer && (activeTransfer.is_overridden || activeTransfer.andon_status === 'OVERRIDDEN') && (
+                <div style={{
+                    padding: '10px 14px',
+                    borderRadius: '6px',
+                    marginBottom: '1rem',
+                    backgroundColor: 'rgba(22, 163, 74, 0.1)',
+                    border: '1px solid #16a34a',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    fontSize: '0.85rem',
+                    color: '#166534'
+                }}>
+                    <span>✓</span>
+                    <span>
+                        <strong>TPS Andon Overridden</strong>: {activeTransfer.override_reason || 'Authorized by management'}
+                    </span>
+                </div>
+            )}
 
             {/* Vendor & Details */}
             <div className="card" style={{ padding: '1.25rem', marginBottom: '1rem' }}>
@@ -580,18 +830,32 @@ export default function CreatePO() {
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {lineItems.map((item, idx) => (
-                                        <tr key={item.product_id} style={{ borderBottom: '1px solid var(--color-border)' }}>
-                                            <td style={{ padding: '8px 6px' }}>
-                                                {item.product_name}
-                                                {item.is_pack && (
-                                                    <span style={{
-                                                        marginLeft: '6px', fontSize: '0.65rem', fontWeight: 600,
-                                                        padding: '1px 5px', borderRadius: '3px',
-                                                        background: '#3b82f622', color: '#3b82f6'
-                                                    }}>PACK</span>
-                                                )}
-                                            </td>
+                                    {lineItems.map((item, idx) => {
+                                        const isOffending = Boolean((activeTransfer?.andon_offending_items || []).some(oi => oi.product_id === item.product_id));
+                                        return (
+                                            <tr key={item.product_id} style={{
+                                                borderBottom: '1px solid var(--color-border)',
+                                                backgroundColor: isOffending ? 'rgba(217, 119, 6, 0.06)' : 'transparent'
+                                            }}>
+                                                <td style={{ padding: '8px 6px' }}>
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                                                        <span>{item.product_name}</span>
+                                                        {item.is_pack && (
+                                                            <span style={{
+                                                                fontSize: '0.65rem', fontWeight: 600,
+                                                                padding: '1px 5px', borderRadius: '3px',
+                                                                background: '#3b82f622', color: '#3b82f6'
+                                                            }}>PACK</span>
+                                                        )}
+                                                        {isOffending && (
+                                                            <span style={{
+                                                                fontSize: '0.65rem', fontWeight: 700,
+                                                                padding: '1px 6px', borderRadius: '3px',
+                                                                background: '#fef3c7', color: '#b45309', border: '1px solid #d97706'
+                                                            }}>⚠️ ANDON ANOMALY</span>
+                                                        )}
+                                                    </div>
+                                                </td>
                                             <td style={{ padding: '8px 6px', textAlign: 'center' }}>
                                                 <input
                                                     type="number"
@@ -638,7 +902,8 @@ export default function CreatePO() {
                                                 >✕</button>
                                             </td>
                                         </tr>
-                                    ))}
+                                    );
+                                })}
                                 </tbody>
                             </table>
                         </div>
@@ -755,9 +1020,10 @@ export default function CreatePO() {
                 <button
                     className="btn btn-primary"
                     onClick={handleSubmit}
-                    disabled={isSubmitting || lineItems.length === 0 || !selectedVendorId}
+                    disabled={isSubmitting || lineItems.length === 0 || !selectedVendorId || isAndonBlocked}
+                    title={isAndonBlocked ? "TPS Andon latch requires manager override before PO can be created" : undefined}
                 >
-                    {isSubmitting ? 'Creating...' : 'Create PO'}
+                    {isSubmitting ? 'Creating...' : isAndonBlocked ? '⚠️ Andon Override Required' : 'Create PO'}
                 </button>
             </div>
         </div>

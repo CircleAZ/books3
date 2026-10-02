@@ -306,7 +306,7 @@ test_runner = TestRunner(interactive=False, keepdb=False)
 test_labels = sys.argv[1:] if len(sys.argv) > 1 else [
     "core", "finance", "orders", "outlets", "procurement",
     "customers", "settings_app", "reports", "messaging",
-    "inventory"
+    "inventory", "analytics"
 ]
 failures = test_runner.run_tests(test_labels)
 sys.exit(bool(failures))

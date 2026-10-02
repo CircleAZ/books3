@@ -137,12 +137,13 @@ class OrderDetailSerializer(serializers.ModelSerializer):
     can_cancel = serializers.BooleanField(read_only=True)
     receipt_uuid = serializers.SerializerMethodField()
     customer_wallet_balance = serializers.SerializerMethodField()
+    customer_location = serializers.SerializerMethodField()
     
     class Meta:
         model = Order
         fields = [
             'id', 'display_id', 
-            'customer', 'customer_name', 'customer_phone', 'customer_wallet_balance', 'is_guest', 
+            'customer', 'customer_name', 'customer_phone', 'customer_wallet_balance', 'customer_location', 'is_guest', 
             'guest_name', 'guest_phone', 'guest_email',
             'order_status', 'payment_status', 'delivery_status',
             'return_status', 'refund_status', 'cancellation_status',
@@ -169,6 +170,36 @@ class OrderDetailSerializer(serializers.ModelSerializer):
         if obj.customer and hasattr(obj.customer, 'wallet'):
             return obj.customer.wallet.balance
         return 0
+
+    def get_customer_location(self, obj):
+        if not obj.customer:
+            return None
+        addr = obj.customer.addresses.filter(is_primary=True).first() or obj.customer.addresses.first()
+        if not addr:
+            return None
+        loc = addr.location
+        lat, lng = None, None
+        if loc:
+            if hasattr(loc, 'y') and hasattr(loc, 'x'):
+                lat, lng = str(loc.y), str(loc.x)
+            elif isinstance(loc, (list, tuple)) and len(loc) >= 2:
+                lng, lat = str(loc[0]), str(loc[1])
+            elif isinstance(loc, str) and 'POINT' in loc.upper():
+                import re
+                m = re.search(r'POINT\s*\(\s*([-\d.]+)\s+([-\d.]+)\s*\)', loc, re.I)
+                if m:
+                    lng, lat = m.group(1), m.group(2)
+        has_gps = bool(lat and lng)
+        village = addr.region.name if addr.region else ''
+        return {
+            'has_gps': has_gps,
+            'latitude': lat,
+            'longitude': lng,
+            'address_line': addr.address_line or '',
+            'village': village,
+            'taluka': addr.taluka or '',
+            'district': addr.district or ''
+        }
     
     def get_receipt_uuid(self, obj):
         """Get the order's receipt_uuid."""

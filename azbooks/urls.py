@@ -52,6 +52,7 @@ urlpatterns = [
     path('api/settings/', include('settings_app.urls')),
     path('api/messaging/', include('messaging.urls')),
     path('api/outlets/', include('outlets.urls')),
+    path('api/analytics/', include('analytics.urls')),
     
     # Core RBAC endpoints
     path('api/core/', include('core.urls')),

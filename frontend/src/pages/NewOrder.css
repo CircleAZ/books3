@@ -279,6 +279,66 @@
     transform: none;
 }
 
+/* Course 3: Frontline Customer Recommendations Shelf & Dark Golden Border */
+.recommended-shelf-container {
+    margin-bottom: var(--space-md);
+    padding: var(--space-sm) var(--space-md);
+    background: rgba(180, 138, 40, 0.04);
+    border-radius: var(--radius-lg);
+    border: 1px solid rgba(180, 138, 40, 0.2);
+}
+
+.recommended-shelf-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: var(--space-sm);
+}
+
+.recommended-shelf-title {
+    font-size: var(--font-size-sm);
+    font-weight: 700;
+    color: #c9982e;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    letter-spacing: 0.02em;
+}
+
+.recommended-shelf-badge {
+    font-size: 0.65rem;
+    font-weight: 600;
+    padding: 0.1rem 0.45rem;
+    border-radius: 9999px;
+    background: rgba(180, 138, 40, 0.15);
+    color: #d4a32c;
+    border: 1px solid rgba(180, 138, 40, 0.3);
+}
+
+/* Subtle dark golden yellow border for recommended product cards */
+.product-card.product-card-recommended {
+    border: 1.5px solid rgba(180, 138, 40, 0.6);
+    background: linear-gradient(180deg, rgba(180, 138, 40, 0.05) 0%, var(--color-bg-tertiary) 100%);
+    box-shadow: 0 1px 4px rgba(180, 138, 40, 0.08);
+}
+
+.product-card.product-card-recommended:hover {
+    border-color: rgba(195, 150, 40, 0.85);
+}
+
+.product-badge-recommended {
+    font-size: 0.65rem;
+    font-weight: 600;
+    padding: 0.1rem 0.4rem;
+    border-radius: 4px;
+    background: rgba(180, 138, 40, 0.18);
+    color: #d4a32c;
+    border: 1px solid rgba(180, 138, 40, 0.35);
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+}
+
 .product-card-qty {
     display: flex;
     align-items: center;

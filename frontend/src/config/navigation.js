@@ -141,6 +141,14 @@ export const menuSections = [
         ],
     },
     {
+        id: 'studio',
+        label: 'Data Intelligence Studio',
+        title: 'Data Studio',
+        path: '/studio',
+        icon: 'cpu',
+        permission: 'reports.view_sales',
+    },
+    {
         id: 'reports',
         label: 'Reporting & Analytics',
         title: 'Reports',
@@ -148,12 +156,12 @@ export const menuSections = [
         icon: 'bar-chart',
         children: [
             { label: 'Reports Hub', title: 'Reports', path: '/reports' }, // Accessible if any child is accessible
+            { label: 'Data Intelligence Studio', title: 'Data Studio', path: '/studio', permission: 'reports.view_sales' },
             { label: 'Sales Reports', title: 'Sales Reports', path: '/reports/sales', permission: 'reports.view_sales' },
             { label: 'Inventory Reports', title: 'Inventory Reports', path: '/reports/inventory', permission: 'reports.view_inventory' },
             { label: 'Customer Reports', title: 'Customer Reports', path: '/reports/customers', permission: 'reports.view_customers' },
             { label: 'Activity Log', title: 'Activity Log', path: '/reports/activity', permission: 'settings.view_audit_logs' },
             { label: 'Export Data', title: 'Export Data', path: '/reports/export', permission: 'reports.export' },
-            { label: 'Query Playground', title: 'Query Playground', path: '/queries', permission: 'reports.manage_queries' },
         ],
     },
     { type: 'separator' },

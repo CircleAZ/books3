@@ -156,4 +156,22 @@ export const ENDPOINTS = {
     // Global OmniSearch (Ctrl+K)
     CORE_OMNISEARCH: `${API_BASE}/core/omnisearch/`,
     OMNISEARCH: `${API_BASE}/core/omnisearch/`,
+
+    // Analytics Studio & Recommendations
+    ANALYTICS_RECOMMENDATIONS: `${API_BASE}/analytics/recommendations/`,
+    ANALYTICS_PIPELINE_TRANSFERS: `${API_BASE}/analytics/pipeline-transfers/`,
+    ANALYTICS_DISPATCH_PO: `${API_BASE}/analytics/pipeline-transfers/dispatch-po/`,
+    ANALYTICS_PO_PRELOAD: (id) => `${API_BASE}/analytics/pipeline-transfers/${id}/po-preload/`,
+    ANALYTICS_CONFIRM_TRANSFER: (id) => `${API_BASE}/analytics/pipeline-transfers/${id}/confirm-transfer/`,
+    ANALYTICS_REJECT_TRANSFER: (id) => `${API_BASE}/analytics/pipeline-transfers/${id}/reject-transfer/`,
+    ANALYTICS_OVERRIDE_ANDON: (id) => `${API_BASE}/analytics/pipeline-transfers/${id}/override-andon/`,
+    ANALYTICS_STUDIO_OVERRIDE_ANDON: `${API_BASE}/analytics/pipeline-transfers/studio-override-andon/`,
+    ANALYTICS_FOLDERS: `${API_BASE}/analytics/folders/`,
+    ANALYTICS_FOLDERS_TREE: `${API_BASE}/analytics/folders/tree/`,
+    ANALYTICS_SAVED_ANALYSES: `${API_BASE}/analytics/saved-analyses/`,
+    ANALYTICS_SEGMENTS: `${API_BASE}/analytics/segments/`,
+    ANALYTICS_COMPUTE: (engine) => `${API_BASE}/analytics/compute/${engine}/`,
 };
+
+// Backwards-compatible alias
+export const API_ENDPOINTS = ENDPOINTS;

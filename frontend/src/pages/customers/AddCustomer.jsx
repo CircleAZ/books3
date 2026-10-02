@@ -287,6 +287,22 @@ export default function AddCustomer({ onSuccess, onCancel, isEmbedded = false })
         fetchOptions();
     }, [id, fetchWithAuth, isEmbedded]);
 
+    // Auto-expand & scroll to #address-section if navigating via #location hash
+    useEffect(() => {
+        if (!initialLoading) {
+            const hash = window.location.hash;
+            if (hash === '#location' || hash === '#address-section') {
+                setSections(prev => ({ ...prev, address: true }));
+                setTimeout(() => {
+                    const el = document.getElementById('address-section');
+                    if (el) {
+                        el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                    }
+                }, 200);
+            }
+        }
+    }, [initialLoading]);
+
     // Cascading Dropdowns: School -> Class
     useEffect(() => {
         if (!formData.school) {
@@ -1049,7 +1065,7 @@ export default function AddCustomer({ onSuccess, onCancel, isEmbedded = false })
                 </div>
 
                 {/* Address Section */}
-                <div className="collapsible-section">
+                <div className="collapsible-section" id="address-section">
                     <div className="section-header" onClick={() => toggleSection('address')} role="button" tabIndex={0} aria-expanded={sections.address} onKeyDown={e => e.key === 'Enter' && toggleSection('address')}>
                         <h2>Address & Location</h2>
                         <span className={`chevron ${sections.address ? 'open' : ''}`}>▼</span>

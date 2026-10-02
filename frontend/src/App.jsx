@@ -103,7 +103,6 @@ const InventoryReports = lazy(() => import('./pages/reports/InventoryReports'));
 const CustomerReports = lazy(() => import('./pages/reports/CustomerReports'));
 const DataExport = lazy(() => import('./pages/reports/DataExport'));
 const ActivityLog = lazy(() => import('./pages/reports/ActivityLog'));
-const QueryBuilder = lazy(() => import('./pages/queries/QueryBuilder'));
 
 // Settings
 const SettingsIndex = lazy(() => import('./pages/settings/SettingsIndex'));
@@ -134,6 +133,9 @@ const OutletDetails = lazy(() => import('./pages/outlets/OutletDetails'));
 
 // Profile
 const Profile = lazy(() => import('./pages/Profile'));
+
+// Data Intelligence Studio (Course 7)
+const DataStudio = lazy(() => import('./pages/studio/DataStudio'));
 
 // Protected Route wrapper removed, using imported PermissionRoute instead
 
@@ -571,9 +573,11 @@ function AppRoutes() {
           <LazyPage><ActivityLog /></LazyPage>
         </PermissionRoute>
       } />
-      <Route path="/queries" element={
-        <PermissionRoute permission="reports.manage_queries">
-          <LazyPage><QueryBuilder /></LazyPage>
+
+      {/* Sovereign Data Intelligence Studio (Course 7) */}
+      <Route path="/studio" element={
+        <PermissionRoute permission="reports.view_sales">
+          <LazyPage><DataStudio /></LazyPage>
         </PermissionRoute>
       } />
 
