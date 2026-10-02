@@ -144,7 +144,7 @@ export default function DataStudio() {
   // Slice 7.3: Interactive Cohort Visualizer & Mobile Viewport States
   const [selectedEntityId, setSelectedEntityId] = useState(null);
   const [isChartMinimized, setIsChartMinimized] = useState(false);
-  const [mobileActiveTab, setMobileActiveTab] = useState('visualizer'); // 'visualizer' | 'table'
+  const [mobileActiveTab, setMobileActiveTab] = useState('table'); // 'table' | 'visualizer'
   const [isMobile, setIsMobile] = useState(
     typeof window !== 'undefined' ? window.innerWidth < 768 : false
   );
@@ -944,14 +944,16 @@ export default function DataStudio() {
 
         {/* Top Controls & Drawer Toggles */}
         <div className="studio-top-actions">
-          <div className="studio-mode-toggle">
+          <div className="studio-mode-toggle desktop-only">
             <button
+              type="button"
               className={`studio-mode-btn ${studioMode === 'operator' ? 'active' : ''}`}
               onClick={() => setStudioMode('operator')}
             >
               Operator
             </button>
             <button
+              type="button"
               className={`studio-mode-btn ${studioMode === 'quant' ? 'active' : ''}`}
               onClick={() => setStudioMode('quant')}
             >
@@ -960,27 +962,52 @@ export default function DataStudio() {
           </div>
 
           <button
+            type="button"
             className={`btn-dock-toggle ${isLeftDrawerOpen ? 'active' : ''}`}
-            onClick={() => setIsLeftDrawerOpen(!isLeftDrawerOpen)}
+            onClick={() => {
+              setIsLeftDrawerOpen(!isLeftDrawerOpen);
+              if (!isLeftDrawerOpen) setIsRightDrawerOpen(false);
+            }}
             title="Toggle Catalog Drawer"
           >
-            📂 Catalog
+            <span>📂</span>
+            <span className="btn-text">Catalog</span>
           </button>
 
           <button
+            type="button"
             className={`btn-dock-toggle ${isRightDrawerOpen ? 'active' : ''}`}
-            onClick={() => setIsRightDrawerOpen(!isRightDrawerOpen)}
+            onClick={() => {
+              setIsRightDrawerOpen(!isRightDrawerOpen);
+              if (!isRightDrawerOpen) setIsLeftDrawerOpen(false);
+            }}
             title="Toggle Parameter Inspector"
           >
-            ⚙️ Inspector
+            <span>⚙️</span>
+            <span className="btn-text">Inspector</span>
           </button>
         </div>
       </header>
 
+      {/* ── MOBILE HORIZONTAL ENGINE SWIPE BAR (<768px) ── */}
+      <nav className="studio-mobile-engine-strip" aria-label="Analytical Engines">
+        {ENGINES.map((eng) => (
+          <button
+            key={eng.id}
+            type="button"
+            className={`mobile-engine-chip ${activeEngineId === eng.id ? 'active' : ''}`}
+            onClick={() => setActiveEngineId(eng.id)}
+          >
+            <span className="engine-chip-icon">{eng.icon}</span>
+            <span className="engine-chip-text">{eng.shortName}</span>
+          </button>
+        ))}
+      </nav>
+
       {/* ── STUDIO BODY (DOCKABLE LAYOUT) ── */}
       <div className="studio-body">
-        {/* Backdrop for open slide-over drawers */}
-        {(isLeftDrawerOpen || isRightDrawerOpen) && (
+        {/* Backdrop for open slide-over drawers: ONLY ON MOBILE, ZERO BLUR */}
+        {isMobile && (isLeftDrawerOpen || isRightDrawerOpen) && (
           <div
             className="studio-drawer-backdrop"
             onClick={() => {
@@ -1181,17 +1208,17 @@ export default function DataStudio() {
                 <div className="studio-mobile-view-tabs">
                   <button
                     type="button"
-                    className={`mobile-tab-btn ${mobileActiveTab === 'visualizer' ? 'active' : ''}`}
-                    onClick={() => setMobileActiveTab('visualizer')}
-                  >
-                    <span>📊 Cohort Visualizer</span>
-                  </button>
-                  <button
-                    type="button"
                     className={`mobile-tab-btn ${mobileActiveTab === 'table' ? 'active' : ''}`}
                     onClick={() => setMobileActiveTab('table')}
                   >
-                    <span>📋 Matrix Table ({computeData?.items?.length || 0})</span>
+                    <span>📋 Operational Items ({computeData?.items?.length || 0})</span>
+                  </button>
+                  <button
+                    type="button"
+                    className={`mobile-tab-btn ${mobileActiveTab === 'visualizer' ? 'active' : ''}`}
+                    onClick={() => setMobileActiveTab('visualizer')}
+                  >
+                    <span>📈 Chart View</span>
                   </button>
                 </div>
               )}
@@ -1319,6 +1346,33 @@ export default function DataStudio() {
                                     {row.variance}
                                   </span>
                                 </div>
+                              </div>
+
+                              <div className="mobile-card-actions">
+                                <button
+                                  type="button"
+                                  className="mobile-card-action-btn"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleSelectEntity(row.id);
+                                    if (activeEngineId === 'demand') {
+                                      handleLaunchPOHandoff();
+                                    } else if (activeEngineId === 'village') {
+                                      if (row.target?.includes('FRONTIER')) {
+                                        setActiveModal('route_sheet');
+                                      } else {
+                                        setActiveModal('outlet_manifest');
+                                      }
+                                    } else if (activeEngineId === 'andon') {
+                                      setActiveModal('andon_control_room');
+                                    } else {
+                                      setSaveToastMsg(`Spotlighted: ${row.entity}`);
+                                      setTimeout(() => setSaveToastMsg(''), 3000);
+                                    }
+                                  }}
+                                >
+                                  <span>⚡ {row.lever || 'Focus Entity'}</span>
+                                </button>
                               </div>
                             </div>
                           );

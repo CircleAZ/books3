@@ -36,7 +36,6 @@ function StudioCustomTooltip({ active, payload, label, engineId }) {
       fontSize: '0.75rem',
       color: '#f1f5f9',
       maxWidth: '280px',
-      backdropFilter: 'blur(8px)',
       zIndex: 1000
     }}>
       <div style={{ fontWeight: 700, fontSize: '0.82rem', color: '#f59e0b', marginBottom: '6px' }}>
