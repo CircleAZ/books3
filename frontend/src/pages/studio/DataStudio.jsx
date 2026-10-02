@@ -989,13 +989,13 @@ export default function DataStudio() {
         </div>
       </header>
 
-      {/* ── MOBILE HORIZONTAL ENGINE SWIPE BAR (<768px) ── */}
-      <nav className="studio-mobile-engine-strip" aria-label="Analytical Engines">
+      {/* ── UNIFIED HORIZONTAL ENGINE STRIP (Desktop & Mobile) ── */}
+      <nav className="studio-engine-nav-strip" aria-label="Analytical Engines">
         {ENGINES.map((eng) => (
           <button
             key={eng.id}
             type="button"
-            className={`mobile-engine-chip ${activeEngineId === eng.id ? 'active' : ''}`}
+            className={`engine-nav-chip ${activeEngineId === eng.id ? 'active' : ''}`}
             onClick={() => setActiveEngineId(eng.id)}
           >
             <span className="engine-chip-icon">{eng.icon}</span>
@@ -1016,41 +1016,10 @@ export default function DataStudio() {
             }}
           />
         )}
-        {/* LEFT DOCK: 52px Icon Rail + Collapsible Catalog Drawer */}
-        <aside className="studio-left-dock">
-          {/* Mini 52px Fixed Icon Rail */}
-          <div className="studio-icon-rail">
-            {ENGINES.slice(0, 5).map((eng) => (
-              <button
-                key={eng.id}
-                className={`rail-btn ${activeEngineId === eng.id ? 'active' : ''}`}
-                onClick={() => setActiveEngineId(eng.id)}
-                title={eng.title}
-              >
-                <span>{eng.icon}</span>
-                <span className="rail-tooltip">{eng.shortName}</span>
-              </button>
-            ))}
 
-            <div className="rail-divider" />
-
-            {/* Governance Modes */}
-            {ENGINES.slice(5).map((eng) => (
-              <button
-                key={eng.id}
-                className={`rail-btn ${activeEngineId === eng.id ? 'active' : ''}`}
-                onClick={() => setActiveEngineId(eng.id)}
-                title={eng.title}
-              >
-                <span>{eng.icon}</span>
-                <span className="rail-tooltip">{eng.shortName}</span>
-              </button>
-            ))}
-          </div>
-
-          {/* 280px Collapsible Catalog Drawer */}
-          {isLeftDrawerOpen && (
-            <div className="studio-catalog-drawer">
+        {/* 280px Collapsible Catalog Drawer (Slide-Over from Left) */}
+        {isLeftDrawerOpen && (
+          <div className="studio-catalog-drawer">
               {/* Segmented Top Tab Switcher */}
               <div className="catalog-tab-switcher">
                 <button
@@ -1128,10 +1097,11 @@ export default function DataStudio() {
               </div>
             </div>
           )}
-        </aside>
 
-        {/* CENTER DYNAMIC MULTI-ENGINE CANVAS */}
-        <main className="studio-center-canvas">
+        {/* CENTER WRAPPER: Canvas + Docked Action Bar */}
+        <div className="studio-center-wrapper">
+          {/* CENTER DYNAMIC MULTI-ENGINE CANVAS */}
+          <main className="studio-center-canvas">
           {/* Active Investigation Session Banner */}
           {loadedInvestigation && (
             <div className="active-investigation-banner">
@@ -1457,9 +1427,10 @@ export default function DataStudio() {
               )}
             </div>
           </div>
+        </main>
 
-          {/* ── FIXED BOTTOM ACTION LEVERS BAR (Tim & Store Manager's Physical Levers) ── */}
-          <footer className="studio-action-levers-bar">
+        {/* ── DOCKED BOTTOM ACTION LEVERS BAR (Tim & Store Manager's Physical Levers) ── */}
+        <footer className="studio-action-levers-bar">
             <div className="levers-summary">
               {selectedItem ? (
                 <>
@@ -1514,7 +1485,7 @@ export default function DataStudio() {
               </button>
             </div>
           </footer>
-        </main>
+        </div>
 
         {/* RIGHT DOCK: Contextual Parameter & Slider Drawer */}
         {isRightDrawerOpen && (
