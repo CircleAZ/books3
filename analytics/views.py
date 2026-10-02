@@ -8,6 +8,7 @@ import math
 from decimal import Decimal
 import uuid
 from django.utils import timezone
+from django.db.models import F
 from rest_framework import viewsets, permissions, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
@@ -1213,7 +1214,7 @@ class AnalyticsStudioComputeView(APIView):
                     'id': str(p.id),
                     'name': p.name,
                     'category_name': p.category.name if p.category else 'Standard Item',
-                    'price': float(p.price or Decimal('150.00')),
+                    'price': float(getattr(p, 'selling_price', getattr(p, 'price', Decimal('150.00'))) or Decimal('150.00')),
                     'cost': float(p.cost_price or Decimal('100.00')),
                 }
                 for p in products_qs
@@ -1365,10 +1366,10 @@ class AnalyticsStudioComputeView(APIView):
             customer_list = [
                 {
                     'id': str(c.id),
-                    'name': c.full_name or 'Account Customer',
-                    'city': c.city or 'Town Hub',
-                    'balance': float(c.current_balance if hasattr(c, 'current_balance') and c.current_balance else Decimal('14500.00')),
-                    'has_legacy': LegacyDebt.objects.filter(customer=c, is_recovered=False).exists(),
+                    'name': getattr(c, 'full_name', str(c)),
+                    'city': getattr(c, 'city', getattr(getattr(c, 'geographic_region', None), 'name', 'Town Hub')) or 'Town Hub',
+                    'balance': float(getattr(c, 'current_balance', Decimal('14500.00')) or Decimal('14500.00')),
+                    'has_legacy': LegacyDebt.objects.filter(customer=c, recovered_amount__lt=F('principal_amount')).exists(),
                 }
                 for c in customers_qs
             ]
