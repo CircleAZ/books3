@@ -67,7 +67,7 @@ def root():
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(
-        "services.azbooks-analytics.main:app",
+        "services.azbooks_analytics.main:app",
         host=settings.host,
         port=settings.port,
         reload=settings.debug,
