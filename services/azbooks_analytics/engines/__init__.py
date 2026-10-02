@@ -2,11 +2,28 @@
 Quantitative Analytical Engines for azbooks-analytics.
 """
 
-from .cross_sell import cross_sell_engine, CrossSellEngine
+try:
+    from .cross_sell import cross_sell_engine, CrossSellEngine
+except ImportError:
+    cross_sell_engine = None
+    CrossSellEngine = None
+
 from .demand import demand_engine, SeasonalDemandEngine
-from .village import village_engine, GeographicVillageEngine
+
+try:
+    from .village import village_engine, GeographicVillageEngine
+except ImportError:
+    village_engine = None
+    GeographicVillageEngine = None
+
 from .pricing import pricing_engine, DynamicPricingEngine
-from .defects import defect_engine, QualityDefectRadarEngine
+
+try:
+    from .defects import defect_engine, QualityDefectRadarEngine
+except ImportError:
+    defect_engine = None
+    QualityDefectRadarEngine = None
+
 from .khata_gate import KhataWorkingCapitalGateEngine
 from .andon_cord import TPSAndonCordEngine
 

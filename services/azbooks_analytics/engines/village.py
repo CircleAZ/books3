@@ -8,8 +8,15 @@ from dataclasses import dataclass, field
 from typing import List, Dict, Any, Optional, Tuple, Union
 import math
 import logging
-import polars as pl
-import h3
+try:
+    import polars as pl
+except ImportError:
+    pl = None
+
+try:
+    import h3
+except ImportError:
+    h3 = None
 
 logger = logging.getLogger("azbooks.analytics.engines.village")
 

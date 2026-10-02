@@ -8,7 +8,10 @@ and Customer Churn Risk Cluster Extraction.
 from dataclasses import dataclass, field
 from typing import List, Dict, Any, Optional, Tuple, Union, Set
 import logging
-import polars as pl
+try:
+    import polars as pl
+except ImportError:
+    pl = None
 
 logger = logging.getLogger("azbooks.analytics.engines.defects")
 

@@ -16,13 +16,8 @@ from inventory.models import Product
 from customers.models import Customer, LegacyDebt
 from orders.models import Order
 from procurement.models import PurchaseOrderItem
-from services.azbooks_analytics.engines.demand import SeasonalDemandEngine
-from services.azbooks_analytics.engines.cross_sell import CrossSellEngine
-from services.azbooks_analytics.engines.village import GeographicVillageEngine
-from services.azbooks_analytics.engines.pricing import DynamicPricingEngine
-from services.azbooks_analytics.engines.defects import QualityDefectRadarEngine
-from services.azbooks_analytics.engines.khata_gate import KhataWorkingCapitalGateEngine
 from services.azbooks_analytics.engines.andon_cord import TPSAndonCordEngine
+from services.azbooks_analytics.engines.khata_gate import KhataWorkingCapitalGateEngine
 from .models import AnalysisFolder, SavedAnalysis, DiscoverySegment, PipelineTransferLog
 from .serializers import (
     AnalysisFolderSerializer,
@@ -953,6 +948,7 @@ class AnalyticsStudioComputeView(APIView):
         lead_time = max(1, min(14, int(params.get('leadTime', 5))))
         surge_mult = max(1.0, min(4.0, float(params.get('surgeMultiplier', 2.2))))
 
+        from services.azbooks_analytics.engines.demand import SeasonalDemandEngine
         engine = SeasonalDemandEngine(peak_multiplier=surge_mult)
         products_qs = Product.objects.filter(is_deleted=False).select_related('vendor', 'category')[:10]
 
@@ -1201,6 +1197,7 @@ class AnalyticsStudioComputeView(APIView):
         elasticity_prior = max(-2.5, min(-0.1, float(params.get('elasticityPrior', -0.75))))
         margin_floor = max(5.0, min(25.0, float(params.get('marginFloor', 12.0))))
 
+        from services.azbooks_analytics.engines.pricing import DynamicPricingEngine
         engine = DynamicPricingEngine(
             max_price_hike_pct=0.15,
             max_price_drop_pct=0.20,

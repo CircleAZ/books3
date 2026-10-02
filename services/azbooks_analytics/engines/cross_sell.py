@@ -6,7 +6,10 @@ inverse propensity attribution de-biasing and customer gap extraction.
 
 from dataclasses import dataclass, field
 from typing import List, Dict, Any, Optional
-import polars as pl
+try:
+    import polars as pl
+except ImportError:
+    pl = None
 
 
 @dataclass

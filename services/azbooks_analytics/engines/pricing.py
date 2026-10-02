@@ -9,8 +9,6 @@ from dataclasses import dataclass, field
 from typing import List, Dict, Any, Optional, Tuple, Union
 import math
 import logging
-import polars as pl
-import numpy as np
 
 logger = logging.getLogger("azbooks.analytics.engines.pricing")
 

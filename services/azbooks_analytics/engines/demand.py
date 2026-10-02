@@ -8,8 +8,6 @@ from dataclasses import dataclass
 from typing import List, Dict, Any, Optional
 from datetime import datetime, date
 import math
-import numpy as np
-import polars as pl
 
 
 @dataclass
@@ -81,7 +79,7 @@ class SeasonalDemandEngine:
 
     def forecast_tsb(
         self,
-        demand_series: np.ndarray,
+        demand_series: List[float],
         alpha: float = 0.15,
         beta: float = 0.10,
     ) -> float:
@@ -90,11 +88,12 @@ class SeasonalDemandEngine:
         Decomposes demand into occurrence probability (p) and demand size (z).
         Guaranteed zero-division immune.
         """
-        if len(demand_series) == 0:
+        if not demand_series:
             return 0.0
 
         p = 0.5  # initial occurrence probability
-        z = np.mean(demand_series[demand_series > 0]) if np.any(demand_series > 0) else 1.0
+        pos_demands = [float(y) for y in demand_series if float(y) > 0]
+        z = (sum(pos_demands) / len(pos_demands)) if pos_demands else 1.0
 
         for y in demand_series:
             y = max(0.0, float(y))
@@ -112,7 +111,7 @@ class SeasonalDemandEngine:
 
     def forecast_seasonal(
         self,
-        demand_series: np.ndarray,
+        demand_series: List[float],
         season_length: int = 12,
         alpha: float = 0.20,
         beta: float = 0.10,
@@ -125,11 +124,15 @@ class SeasonalDemandEngine:
         n = len(demand_series)
         if n < season_length:
             # Fallback to simple moving average if series is shorter than 1 season
-            return float(np.mean(demand_series)) if n > 0 else 0.0
+            return float(sum(demand_series) / n) if n > 0 else 0.0
 
         # Initialize level and trend
-        level = float(np.mean(demand_series[:season_length]))
-        trend = float((np.mean(demand_series[season_length:2 * season_length]) - np.mean(demand_series[:season_length])) / season_length) if n >= 2 * season_length else 0.0
+        level = float(sum(demand_series[:season_length]) / season_length)
+        if n >= 2 * season_length:
+            level_2 = sum(demand_series[season_length:2 * season_length]) / season_length
+            trend = float((level_2 - level) / season_length)
+        else:
+            trend = 0.0
 
         # Initial seasonal indices (centered)
         seasonals = [float(demand_series[i] - level) for i in range(season_length)]
@@ -163,15 +166,16 @@ class SeasonalDemandEngine:
         """
         Generates full demand forecast, dynamic safety stock, and master-carton quantized PO.
         """
-        sales = np.array([max(0.0, float(x)) for x in daily_sales_history], dtype=float)
+        sales = [max(0.0, float(x)) for x in daily_sales_history]
         total_history_len = len(sales)
-        zero_demand_count = np.sum(sales == 0)
+        zero_demand_count = sum(1 for x in sales if x == 0.0)
+        total_sales_sum = sum(sales)
 
         # Zero demand ratio
         zero_ratio = (zero_demand_count / total_history_len) if total_history_len > 0 else 1.0
 
         # 1. Select appropriate forecasting algorithm
-        if total_history_len == 0 or np.sum(sales) == 0:
+        if total_history_len == 0 or total_sales_sum == 0.0:
             forecast_method = "no_history"
             daily_forecast = 0.0
             daily_avg = 0.0
@@ -180,25 +184,36 @@ class SeasonalDemandEngine:
             # High intermittency: use TSB method
             forecast_method = "tsb_intermittent"
             daily_forecast = self.forecast_tsb(sales)
-            daily_avg = float(np.mean(sales))
-            daily_std = float(np.std(sales))
+            daily_avg = float(total_sales_sum / total_history_len)
+            variance = sum((x - daily_avg) ** 2 for x in sales) / total_history_len
+            daily_std = float(math.sqrt(variance))
         elif total_history_len >= 365:
             # Long history with seasonal cycle: monthly aggregation Holt-Winters
             forecast_method = "holt_winters_seasonal"
-            # Aggregate into 12 monthly bins
-            monthly_bins = np.array_split(sales[-365:], 12)
-            monthly_sums = np.array([np.sum(b) for b in monthly_bins])
+            last_365 = sales[-365:]
+            bin_size = len(last_365) // 12
+            monthly_sums = []
+            for m in range(12):
+                start = m * bin_size
+                end = (m + 1) * bin_size if m < 11 else len(last_365)
+                monthly_sums.append(sum(last_365[start:end]))
             monthly_forecast = self.forecast_seasonal(monthly_sums, season_length=12)
             daily_forecast = monthly_forecast / 30.0
-            daily_avg = float(np.mean(sales))
-            daily_std = float(np.std(sales))
+            daily_avg = float(total_sales_sum / total_history_len)
+            variance = sum((x - daily_avg) ** 2 for x in sales) / total_history_len
+            daily_std = float(math.sqrt(variance))
         else:
             # Standard continuous demand: weighted moving average (recency bias)
             forecast_method = "weighted_moving_average"
-            weights = np.linspace(0.5, 1.0, total_history_len)
-            daily_forecast = float(np.average(sales, weights=weights))
-            daily_avg = float(np.mean(sales))
-            daily_std = float(np.std(sales))
+            if total_history_len == 1:
+                weights = [1.0]
+            else:
+                weights = [0.5 + i * (0.5 / (total_history_len - 1)) for i in range(total_history_len)]
+            sum_weights = sum(weights)
+            daily_forecast = float(sum(s * w for s, w in zip(sales, weights)) / sum_weights)
+            daily_avg = float(total_sales_sum / total_history_len)
+            variance = sum((x - daily_avg) ** 2 for x in sales) / total_history_len
+            daily_std = float(math.sqrt(variance))
 
         # 2. Demand over planning horizon
         horizon_demand = daily_forecast * horizon_days
