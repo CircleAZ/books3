@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """
 Engine 5: Product Quality & Customer Dissatisfaction Radar.
 Bayesian Laplace-Smoothed Defect Rate, Strict Consignment Unsold Segregation,
@@ -11,7 +13,12 @@ import logging
 try:
     import polars as pl
 except ImportError:
-    pl = None
+    class _MockPolars:
+        class DataFrame: pass
+        class LazyFrame: pass
+        class Expr: pass
+        class Series: pass
+    pl = _MockPolars()
 
 logger = logging.getLogger("azbooks.analytics.engines.defects")
 

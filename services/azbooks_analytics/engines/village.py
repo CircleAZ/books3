@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """
 Engine 3: Geographic Village Penetration & Momentum Matrix.
 Vectorized Uber H3 spatial indexing (Resolutions 7 & 8 as 64-bit uint64 tokens),
@@ -11,12 +13,18 @@ import logging
 try:
     import polars as pl
 except ImportError:
-    pl = None
+    class _MockPolars:
+        class DataFrame: pass
+        class LazyFrame: pass
+        class Expr: pass
+        class Series: pass
+    pl = _MockPolars()
 
 try:
     import h3
 except ImportError:
-    h3 = None
+    class _MockH3: pass
+    h3 = _MockH3()
 
 logger = logging.getLogger("azbooks.analytics.engines.village")
 

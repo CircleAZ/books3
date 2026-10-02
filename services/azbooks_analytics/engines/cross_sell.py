@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """
 Engine 1: Market Basket & Cross-Selling Engine.
 High-velocity vectorized itemset mining and association rule generation with
@@ -9,7 +11,12 @@ from typing import List, Dict, Any, Optional
 try:
     import polars as pl
 except ImportError:
-    pl = None
+    class _MockPolars:
+        class DataFrame: pass
+        class LazyFrame: pass
+        class Expr: pass
+        class Series: pass
+    pl = _MockPolars()
 
 
 @dataclass
