@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { API_BASE, ENDPOINTS, API_ENDPOINTS } from '../../config/api';
@@ -420,6 +420,7 @@ export default function DataStudio() {
   const [adhocNaturalQuery, setAdhocNaturalQuery] = useState('');
   const [adhocInputMode, setAdhocInputMode] = useState('builder'); // 'builder' | 'natural'
   const [adhocRunTrigger, setAdhocRunTrigger] = useState(0);
+  const [isDirty, setIsDirty] = useState(true);
 
   // Fetch dynamic schema registry from backend on mount
   useEffect(() => {
@@ -442,8 +443,16 @@ export default function DataStudio() {
     return () => { isMounted = false; };
   }, [fetchWithAuth]);
 
+  const handleSelectEngine = (engineId) => {
+    setActiveEngineId(engineId);
+    if (!computeData || computeData.engine !== engineId) {
+      setIsDirty(true);
+    }
+  };
+
   const handleSelectAdhocEntity = (newEntity) => {
     setAdhocEntity(newEntity);
+    setIsDirty(true);
     const entityFields = adhocSchema[newEntity]?.fields || DEFAULT_ADHOC_SCHEMA[newEntity]?.fields || {};
     const firstField = Object.keys(entityFields)[0] || 'id';
     setAdhocClauses([
@@ -452,6 +461,7 @@ export default function DataStudio() {
   };
 
   const handleAddClause = () => {
+    setIsDirty(true);
     const entityFields = adhocSchema[adhocEntity]?.fields || DEFAULT_ADHOC_SCHEMA[adhocEntity]?.fields || {};
     const firstField = Object.keys(entityFields)[0] || 'id';
     setAdhocClauses((prev) => [
@@ -461,16 +471,19 @@ export default function DataStudio() {
   };
 
   const handleUpdateClause = (clauseId, updates) => {
+    setIsDirty(true);
     setAdhocClauses((prev) =>
       prev.map((c) => (c.id === clauseId ? { ...c, ...updates } : c))
     );
   };
 
   const handleRemoveClause = (clauseId) => {
+    setIsDirty(true);
     setAdhocClauses((prev) => prev.filter((c) => c.id !== clauseId));
   };
 
   const handleClearClauses = () => {
+    setIsDirty(true);
     const entityFields = adhocSchema[adhocEntity]?.fields || DEFAULT_ADHOC_SCHEMA[adhocEntity]?.fields || {};
     const firstField = Object.keys(entityFields)[0] || 'id';
     setAdhocClauses([
@@ -479,7 +492,7 @@ export default function DataStudio() {
   };
 
   const handleTriggerAdhocRun = () => {
-    setAdhocRunTrigger((prev) => prev + 1);
+    handleExecuteActiveEngine();
   };
 
   // Slice 7.3: Interactive Cohort Visualizer & Mobile Viewport States
@@ -614,8 +627,9 @@ export default function DataStudio() {
     refreshCatalog();
   }, [fetchWithAuth]);
 
-  // Live calculation debounce hook (280ms trailing buffer with AbortController)
-  useEffect(() => {
+  // ── TOTAL FREE-TIER LOCKDOWN: MANUAL ON-DEMAND EXECUTION ENGINE ──
+  // Zero automatic requests on keystrokes, sliders, or engine tab switches.
+  const executeEngineCompute = useCallback(async (targetEngineId = activeEngineId) => {
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
     }
@@ -623,68 +637,67 @@ export default function DataStudio() {
     abortControllerRef.current = controller;
 
     setIsSimulating(true);
-    const timer = setTimeout(async () => {
-      try {
-        const queryPayload = activeEngineId === 'adhoc'
-          ? (adhocInputMode === 'natural'
-              ? { query: adhocNaturalQuery, mode: 'natural' }
-              : {
-                  entity: adhocEntity,
-                  clauses: adhocClauses.filter(
-                    (c) => c.field && (c.operator === 'is_null' || c.operator === 'not_null' || (c.value !== '' && c.value != null))
-                  ),
-                })
-          : params[activeEngineId] || {};
+    try {
+      const queryPayload = targetEngineId === 'adhoc'
+        ? (adhocInputMode === 'natural'
+            ? { query: adhocNaturalQuery, mode: 'natural' }
+            : {
+                entity: adhocEntity,
+                clauses: adhocClauses.filter(
+                  (c) => c.field && (c.operator === 'is_null' || c.operator === 'not_null' || (c.value !== '' && c.value != null))
+                ),
+              })
+        : params[targetEngineId] || {};
 
-        const targetEndpoint = activeEngineId === 'adhoc'
-          ? (API_ENDPOINTS.ANALYTICS_ADHOC_QUERY || `${API_BASE}/analytics/adhoc-query/`)
-          : `${API_BASE}/analytics/compute/${activeEngineId}/`;
+      const targetEndpoint = targetEngineId === 'adhoc'
+        ? (API_ENDPOINTS.ANALYTICS_ADHOC_QUERY || `${API_BASE}/analytics/adhoc-query/`)
+        : `${API_BASE}/analytics/compute/${targetEngineId}/`;
 
-        const res = await fetchWithAuth(targetEndpoint, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ parameters: queryPayload, ...queryPayload }),
-          signal: controller.signal,
-        });
-        if (res.ok) {
-          const data = await res.json();
-          setComputeData(data);
-          setIsFallback(Boolean(data.is_fallback));
-          if (data.execution_ms != null) {
-            setLatencyMs(Math.round(data.execution_ms));
-          }
-          if (data.schema && activeEngineId === 'adhoc') {
-            setAdhocSchema((prev) => ({
-              ...prev,
-              ...data.schema,
-            }));
-          }
-          if (data.metrics) {
-            const andonMetric = data.metrics.find(
-              (m) => m.label && m.label.toLowerCase().includes('latch status')
-            );
-            if (andonMetric) {
-              setAndonStatus(andonMetric.value);
-            }
+      const res = await fetchWithAuth(targetEndpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ parameters: queryPayload, ...queryPayload }),
+        signal: controller.signal,
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setComputeData({ ...data, engine: data.engine || targetEngineId });
+        setIsFallback(Boolean(data.is_fallback));
+        setIsDirty(false);
+        if (data.execution_ms != null) {
+          setLatencyMs(Math.round(data.execution_ms));
+        }
+        if (data.schema && targetEngineId === 'adhoc') {
+          setAdhocSchema((prev) => ({
+            ...prev,
+            ...data.schema,
+          }));
+        }
+        if (data.metrics) {
+          const andonMetric = data.metrics.find(
+            (m) => m.label && m.label.toLowerCase().includes('latch status')
+          );
+          if (andonMetric) {
+            setAndonStatus(andonMetric.value);
           }
         }
-      } catch (err) {
-        if (err.name !== 'AbortError') {
-          console.warn('Data Studio computation error:', err);
-        }
-      } finally {
-        setIsSimulating(false);
       }
-    }, 280);
+    } catch (err) {
+      if (err.name !== 'AbortError') {
+        console.warn('Data Studio computation error:', err);
+      }
+    } finally {
+      setIsSimulating(false);
+    }
+  }, [activeEngineId, adhocInputMode, adhocNaturalQuery, adhocEntity, adhocClauses, params, fetchWithAuth]);
 
-    return () => {
-      clearTimeout(timer);
-      controller.abort();
-    };
-  }, [activeEngineId, params, adhocNaturalQuery, adhocInputMode, adhocEntity, adhocClauses, adhocRunTrigger, fetchWithAuth]);
+  const handleExecuteActiveEngine = () => {
+    executeEngineCompute(activeEngineId);
+  };
 
   // Handle Parameter Slider Change
   const handleParamChange = (engineKey, field, value) => {
+    setIsDirty(true);
     setParams((prev) => ({
       ...prev,
       [engineKey]: {
@@ -942,7 +955,7 @@ export default function DataStudio() {
     if (engineKey === 'defect_radar') engineKey = 'defects';
 
     if (ENGINES.some((e) => e.id === engineKey)) {
-      setActiveEngineId(engineKey);
+      handleSelectEngine(engineKey);
     }
 
     if (analysis.parameters && typeof analysis.parameters === 'object') {
@@ -970,12 +983,23 @@ export default function DataStudio() {
       }
     }
 
+    if (analysis.cached_insights && typeof analysis.cached_insights === 'object') {
+      setComputeData({
+        ...analysis.cached_insights,
+        engine: engineKey,
+      });
+      setIsDirty(false);
+    } else {
+      setIsDirty(true);
+    }
+
     setLoadedInvestigation(analysis);
     setSaveToastMsg(`Loaded workspace: "${analysis.name}"`);
     setTimeout(() => setSaveToastMsg(''), 4000);
   };
 
   const handleResetToDefault = () => {
+    setIsDirty(true);
     setParams((prev) => ({
       ...prev,
       [activeEngineId]: { ...DEFAULT_PARAMS[activeEngineId] },
@@ -1067,15 +1091,15 @@ export default function DataStudio() {
 
   const handlePrimeLeverFromSegment = (seg) => {
     if (seg.target_entity === 'product') {
-      setActiveEngineId('demand');
+      handleSelectEngine('demand');
       setDispatchResult(null);
       setDispatchError(null);
       setActiveModal('dispatch_po');
     } else if (seg.target_entity === 'village') {
-      setActiveEngineId('village');
+      handleSelectEngine('village');
       setActiveModal('outlet_manifest');
     } else {
-      setActiveEngineId('khata');
+      handleSelectEngine('khata');
       setActiveModal('route_sheet');
     }
     setSaveToastMsg(`Primed fulfillment lever for cohort "${seg.name}"`);
@@ -1413,6 +1437,18 @@ export default function DataStudio() {
 
         {/* Top Controls & Drawer Toggles */}
         <div className="studio-top-actions">
+          {/* Free-Tier On-Demand Execute Lever */}
+          <button
+            type="button"
+            className={`btn-cockpit-execute ${isDirty ? 'pulse-dirty' : ''}`}
+            onClick={handleExecuteActiveEngine}
+            disabled={isSimulating}
+            title={isDirty ? 'Unapplied changes present — click to execute on live database' : 'Re-run simulation'}
+          >
+            <span>⚡</span>
+            <span>{isSimulating ? 'Computing...' : (activeEngineId === 'adhoc' ? 'Run Query' : 'Execute')}</span>
+          </button>
+
           <div className="studio-mode-toggle desktop-only">
             <button
               type="button"
@@ -1465,7 +1501,7 @@ export default function DataStudio() {
             key={eng.id}
             type="button"
             className={`mobile-engine-chip ${activeEngineId === eng.id ? 'active' : ''}`}
-            onClick={() => setActiveEngineId(eng.id)}
+            onClick={() => handleSelectEngine(eng.id)}
           >
             <span className="engine-chip-icon">{eng.icon}</span>
             <span className="engine-chip-text">{eng.shortName}</span>
@@ -1494,7 +1530,7 @@ export default function DataStudio() {
               <button
                 key={eng.id}
                 className={`rail-btn ${activeEngineId === eng.id ? 'active' : ''}`}
-                onClick={() => setActiveEngineId(eng.id)}
+                onClick={() => handleSelectEngine(eng.id)}
                 title={eng.title}
               >
                 <span>{eng.icon}</span>
@@ -1509,7 +1545,7 @@ export default function DataStudio() {
               <button
                 key={eng.id}
                 className={`rail-btn ${activeEngineId === eng.id ? 'active' : ''}`}
-                onClick={() => setActiveEngineId(eng.id)}
+                onClick={() => handleSelectEngine(eng.id)}
                 title={eng.title}
               >
                 <span>{eng.icon}</span>
@@ -1639,10 +1675,26 @@ export default function DataStudio() {
               </div>
             </div>
 
-            <div style={{ textAlign: 'right' }}>
-              <span className="telemetry-chip">
-                {isSimulating ? '⚡ Recalculating Matrix...' : '🟢 Active Stream Ready'}
-              </span>
+            <div style={{ textAlign: 'right', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              {isDirty ? (
+                <span className="telemetry-chip" style={{ background: 'rgba(245, 158, 11, 0.15)', color: '#fbbf24', border: '1px solid rgba(245, 158, 11, 0.35)' }}>
+                  🟡 Pending Execution
+                </span>
+              ) : (
+                <span className="telemetry-chip">
+                  🟢 Results Synced ({latencyMs}ms)
+                </span>
+              )}
+              <button
+                type="button"
+                className={`btn-apply-inspector ${isDirty ? 'pulse-dirty' : ''}`}
+                style={{ padding: '6px 14px', fontSize: '0.78rem' }}
+                onClick={handleExecuteActiveEngine}
+                disabled={isSimulating}
+              >
+                <span>⚡</span>
+                <span>{isSimulating ? 'Computing...' : (activeEngineId === 'adhoc' ? 'Run Query' : 'Execute Simulation')}</span>
+              </button>
             </div>
           </div>
 
@@ -1669,14 +1721,20 @@ export default function DataStudio() {
                       <button
                         type="button"
                         className={`adhoc-mode-btn ${adhocInputMode === 'builder' ? 'active' : ''}`}
-                        onClick={() => setAdhocInputMode('builder')}
+                        onClick={() => {
+                          setAdhocInputMode('builder');
+                          setIsDirty(true);
+                        }}
                       >
                         🧩 Visual Filter Builder
                       </button>
                       <button
                         type="button"
                         className={`adhoc-mode-btn ${adhocInputMode === 'natural' ? 'active' : ''}`}
-                        onClick={() => setAdhocInputMode('natural')}
+                        onClick={() => {
+                          setAdhocInputMode('natural');
+                          setIsDirty(true);
+                        }}
                       >
                         💬 Natural Retail English
                       </button>
@@ -1814,6 +1872,12 @@ export default function DataStudio() {
                                       placeholder={curFieldDef.placeholder || 'Enter value...'}
                                       value={clause.value ?? ''}
                                       onChange={(e) => handleUpdateClause(clause.id, { value: e.target.value })}
+                                      onKeyDown={(e) => {
+                                        if (e.key === 'Enter') {
+                                          e.preventDefault();
+                                          handleTriggerAdhocRun();
+                                        }
+                                      }}
                                     />
                                   ) : (
                                     <input
@@ -1822,6 +1886,12 @@ export default function DataStudio() {
                                       placeholder={curFieldDef.placeholder || 'Enter search term...'}
                                       value={clause.value ?? ''}
                                       onChange={(e) => handleUpdateClause(clause.id, { value: e.target.value })}
+                                      onKeyDown={(e) => {
+                                        if (e.key === 'Enter') {
+                                          e.preventDefault();
+                                          handleTriggerAdhocRun();
+                                        }
+                                      }}
                                     />
                                   )}
                                 </div>
@@ -1865,7 +1935,7 @@ export default function DataStudio() {
                             </button>
                             <button
                               type="button"
-                              className="adhoc-query-exec-btn"
+                              className={`adhoc-query-exec-btn ${isDirty ? 'pulse-dirty' : ''}`}
                               disabled={isSimulating}
                               onClick={handleTriggerAdhocRun}
                             >
@@ -1881,13 +1951,22 @@ export default function DataStudio() {
                       <textarea
                         className="adhoc-query-textarea"
                         value={adhocNaturalQuery}
-                        onChange={(e) => setAdhocNaturalQuery(e.target.value)}
-                        placeholder="Type any natural retail query, e.g. get all customers from village krushnapur who has ordered apsara pencil at price 55 and that pencil is not delivered (something else might be delivered) but leave out those with some of the pencils are delivered."
+                        onChange={(e) => {
+                          setAdhocNaturalQuery(e.target.value);
+                          setIsDirty(true);
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' && !e.shiftKey) {
+                            e.preventDefault();
+                            handleTriggerAdhocRun();
+                          }
+                        }}
+                        placeholder="Type any natural retail query, e.g. get all customers from village krushnapur who has ordered apsara pencil at price 55 and that pencil is not delivered (something else might be delivered) but leave out those with some of the pencils are delivered. (Press Enter to Run)"
                         rows={2}
                       />
                       <button
                         type="button"
-                        className="adhoc-query-exec-btn"
+                        className={`adhoc-query-exec-btn ${isDirty ? 'pulse-dirty' : ''}`}
                         disabled={isSimulating}
                         onClick={handleTriggerAdhocRun}
                       >
@@ -2113,8 +2192,34 @@ export default function DataStudio() {
                           );
                         })
                       ) : (
-                        <div style={{ textAlign: 'center', padding: '24px', color: '#94a3b8' }}>
-                          {isSimulating ? 'Calculating matrix vectors...' : 'No entities found.'}
+                        <div style={{ textAlign: 'center', padding: '36px 16px', background: 'rgba(15, 23, 42, 0.4)', borderRadius: '12px', border: '1px dashed rgba(255, 255, 255, 0.08)', margin: '8px 0' }}>
+                          {isSimulating ? (
+                            <div style={{ color: '#38bdf8' }}>
+                              <span>⚡ Calculating matrix vectors on live database...</span>
+                            </div>
+                          ) : (
+                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px' }}>
+                              <span style={{ fontSize: '1.75rem' }}>⏸️</span>
+                              <div>
+                                <strong style={{ fontSize: '0.92rem', color: '#e2e8f0', display: 'block', marginBottom: '4px' }}>
+                                  Execution On-Demand (Free-Tier Safeguard Active)
+                                </strong>
+                                <span style={{ fontSize: '0.78rem', color: '#94a3b8' }}>
+                                  Automatic background execution is paused. Tap below to run.
+                                </span>
+                              </div>
+                              <button
+                                type="button"
+                                className={`btn-apply-inspector ${isDirty ? 'pulse-dirty' : ''}`}
+                                style={{ padding: '8px 18px', fontSize: '0.82rem', marginTop: '4px' }}
+                                onClick={handleExecuteActiveEngine}
+                                disabled={isSimulating}
+                              >
+                                <span>⚡</span>
+                                <span>{activeEngineId === 'adhoc' ? 'Run Ad-Hoc Query' : 'Execute Simulation'}</span>
+                              </button>
+                            </div>
+                          )}
                         </div>
                       )}
                     </div>
@@ -2266,8 +2371,38 @@ export default function DataStudio() {
                           })
                         ) : (
                           <tr>
-                            <td colSpan={activeEngineId === 'adhoc' ? ((computeData?.columns || adhocSchema[adhocEntity]?.columns || DEFAULT_ADHOC_SCHEMA[adhocEntity]?.columns || []).length + 1) : (studioMode === 'quant' ? 7 : 6)} style={{ textAlign: 'center', padding: '24px', color: '#94a3b8' }}>
-                              {isSimulating ? 'Calculating matrix vectors...' : 'Ready for simulation. Adjust parameters on the right inspector.'}
+                            <td
+                              colSpan={activeEngineId === 'adhoc' ? ((computeData?.columns || adhocSchema[adhocEntity]?.columns || DEFAULT_ADHOC_SCHEMA[adhocEntity]?.columns || []).length + 1) : (studioMode === 'quant' ? 7 : 6)}
+                              style={{ textAlign: 'center', padding: '48px 24px' }}
+                            >
+                              {isSimulating ? (
+                                <div style={{ color: '#38bdf8', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
+                                  <span style={{ fontSize: '1.5rem' }}>⚡</span>
+                                  <strong>Calculating matrix vectors on live database...</strong>
+                                </div>
+                              ) : (
+                                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px', maxWidth: '440px', margin: '0 auto' }}>
+                                  <span style={{ fontSize: '2rem' }}>⏸️</span>
+                                  <div>
+                                    <strong style={{ fontSize: '1rem', color: '#e2e8f0', display: 'block', marginBottom: '4px' }}>
+                                      Execution On-Demand (Free-Tier Safeguard Active)
+                                    </strong>
+                                    <span style={{ fontSize: '0.82rem', color: '#94a3b8', lineHeight: 1.5, display: 'block' }}>
+                                      Automatic queries are disabled to conserve database compute and avoid connection pool exhaustion. Click below to execute this engine.
+                                    </span>
+                                  </div>
+                                  <button
+                                    type="button"
+                                    className={`btn-apply-inspector ${isDirty ? 'pulse-dirty' : ''}`}
+                                    style={{ padding: '8px 20px', fontSize: '0.85rem', marginTop: '4px' }}
+                                    onClick={handleExecuteActiveEngine}
+                                    disabled={isSimulating}
+                                  >
+                                    <span>⚡</span>
+                                    <span>{activeEngineId === 'adhoc' ? 'Run Ad-Hoc Query' : 'Execute Simulation'}</span>
+                                  </button>
+                                </div>
+                              )}
                             </td>
                           </tr>
                         )}
@@ -2344,7 +2479,7 @@ export default function DataStudio() {
             <div className="inspector-header">
               <h4>Parameters &amp; What-If</h4>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <span className="telemetry-chip">Live Slider Sync</span>
+                <span className="telemetry-chip">Manual Trigger</span>
                 <button
                   type="button"
                   className="btn-dock-toggle"
@@ -2355,6 +2490,21 @@ export default function DataStudio() {
                   ✕
                 </button>
               </div>
+            </div>
+
+            <div className="inspector-action-bar">
+              <span className={`dirty-pill ${isDirty ? 'dirty' : 'clean'}`}>
+                {isDirty ? '🟡 Unapplied Changes' : '🟢 Up to Date'}
+              </span>
+              <button
+                type="button"
+                className={`btn-apply-inspector ${isDirty ? 'pulse-dirty' : ''}`}
+                onClick={handleExecuteActiveEngine}
+                disabled={isSimulating}
+              >
+                <span>⚡</span>
+                <span>{isSimulating ? 'Computing...' : (activeEngineId === 'adhoc' ? 'Run Query' : 'Apply & Run')}</span>
+              </button>
             </div>
 
             <div className="inspector-body">
