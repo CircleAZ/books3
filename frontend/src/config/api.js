@@ -171,6 +171,7 @@ export const ENDPOINTS = {
     ANALYTICS_SAVED_ANALYSES: `${API_BASE}/analytics/saved-analyses/`,
     ANALYTICS_SEGMENTS: `${API_BASE}/analytics/segments/`,
     ANALYTICS_COMPUTE: (engine) => `${API_BASE}/analytics/compute/${engine}/`,
+    ANALYTICS_ADHOC_QUERY: `${API_BASE}/analytics/adhoc-query/`,
 };
 
 // Backwards-compatible alias

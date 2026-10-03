@@ -28,6 +28,7 @@ from procurement.models import PurchaseOrder, PurchaseOrderItem
 from services.azbooks_analytics.engines.andon_cord import TPSAndonCordEngine
 from services.azbooks_analytics.engines.khata_gate import KhataWorkingCapitalGateEngine
 from .models import AnalysisFolder, SavedAnalysis, DiscoverySegment, PipelineTransferLog
+from .adhoc_engine import execute_adhoc_query
 from .serializers import (
     AnalysisFolderSerializer,
     SavedAnalysisSerializer,
@@ -858,7 +859,7 @@ class AnalyticsStudioComputeView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     SUPPORTED_ENGINES = {
-        'demand', 'cross_sell', 'village', 'pricing', 'defects', 'khata', 'andon'
+        'demand', 'cross_sell', 'village', 'pricing', 'defects', 'khata', 'andon', 'adhoc'
     }
 
     SLUG_ALIASES = {
@@ -869,6 +870,8 @@ class AnalyticsStudioComputeView(APIView):
         'defect_radar': 'defects',
         'pricing-lab': 'pricing',
         'khata-gate': 'khata',
+        'adhoc-query': 'adhoc',
+        'adhoc_query': 'adhoc',
     }
 
     def post(self, request, engine_name):
@@ -952,6 +955,8 @@ class AnalyticsStudioComputeView(APIView):
             return self._fallback_khata(parameters)
         elif engine_name == 'andon':
             return self._fallback_andon(parameters)
+        elif engine_name == 'adhoc':
+            return execute_adhoc_query(parameters)
         return {
             'status': 'error',
             'engine': engine_name,
@@ -1698,6 +1703,19 @@ class AnalyticsStudioComputeView(APIView):
                 'is_latch_tripped': tripped_count > 0,
             }
         }
+
+class AdHocQueryView(APIView):
+    """
+    Dedicated Analytical Endpoint for Ad-Hoc Relational Discovery & Query Workbench.
+    Endpoint: POST /api/analytics/adhoc-query/
+    Resolves multi-hop joins and strict decoupled line-item delivery reconciliation.
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request):
+        payload = request.data if isinstance(request.data, dict) else {}
+        result = execute_adhoc_query(payload)
+        return Response(result, status=status.HTTP_200_OK)
 
 
 

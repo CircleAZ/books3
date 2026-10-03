@@ -112,6 +112,21 @@ const ENGINES = [
       { label: 'Audited PO Lines', value: '237', sub: 'Direct from Purchase Orders' },
     ],
   },
+  {
+    id: 'adhoc',
+    title: 'Ad-Hoc Relational Discovery',
+    shortName: 'Ad-Hoc Query',
+    icon: '🔍',
+    category: 'Relational Discovery',
+    description: 'Multi-hop natural language & relational token query workbench across customers, villages, and decoupled item fulfillment.',
+    objective: 'Ad-Hoc Operational Surfacing & Starved Fulfillment Recovery',
+    metrics: [
+      { label: 'Target Customers', value: '0', sub: 'Village Resolved' },
+      { label: 'Starved Units', value: '0', sub: 'Shortfall Units' },
+      { label: 'Unfulfilled Value', value: '₹0', sub: 'Recovery Exposure' },
+      { label: 'Line Fulfillment', value: '0% Delivered', sub: 'Strictly Exclude Partial' },
+    ],
+  },
 ];
 
 const DEFAULT_PARAMS = {
@@ -122,7 +137,63 @@ const DEFAULT_PARAMS = {
   defects: { laplaceAlpha: 1.0, laplaceBeta: 99.0, freezeThreshold: 6.0 },
   khata: { maxDsoDays: 45, creditLimit: 50000, blockDelinquent: true },
   andon: { volumeThresholdPct: 30, costThresholdPct: 15, noiseFloorQty: 5 },
+  adhoc: {
+    query: 'get all customers from village krushnapur who has ordered apsara pencil at price 55 and and that pencil is not delivered (something else might be delivered) but leave out those with some of the pencils are delivered.',
+    entity: 'customer',
+    village: 'Krushnapur',
+    product: 'Apsara Pencil',
+    price: 55,
+    fulfillment: 'undelivered_strict',
+    mode: 'natural',
+  },
 };
+
+const ADHOC_PRESETS = [
+  {
+    label: 'Krushnapur: Apsara Pencil @ ₹55 (0% Delivered, Exclude Partial)',
+    query: 'get all customers from village krushnapur who has ordered apsara pencil at price 55 and and that pencil is not delivered (something else might be delivered) but leave out those with some of the pencils are delivered.',
+    tokens: {
+      entity: 'customer',
+      village: 'Krushnapur',
+      product: 'Apsara Pencil',
+      price: 55,
+      fulfillment: 'undelivered_strict',
+    },
+  },
+  {
+    label: 'Mahuva: Natraj Eraser @ ₹10 (0% Delivered)',
+    query: 'customers in Mahuva who ordered Natraj Eraser at price 10 with 0 delivered (exclude partial)',
+    tokens: {
+      entity: 'customer',
+      village: 'Mahuva',
+      product: 'Natraj Eraser',
+      price: 10,
+      fulfillment: 'undelivered_strict',
+    },
+  },
+  {
+    label: 'Dharampur: Std 10 Math Kit @ ₹150 (Starved Units)',
+    query: 'customers in Dharampur who ordered Std 10 Math Kit at price 150 undelivered',
+    tokens: {
+      entity: 'customer',
+      village: 'Dharampur',
+      product: 'Std 10 Math Kit',
+      price: 150,
+      fulfillment: 'undelivered_strict',
+    },
+  },
+  {
+    label: 'Vansda: Classmate A4 Book @ ₹65 (Strict Undelivered)',
+    query: 'customers in Vansda who ordered Classmate A4 Book at price 65 with 0 delivered',
+    tokens: {
+      entity: 'customer',
+      village: 'Vansda',
+      product: 'Classmate A4 Book',
+      price: 65,
+      fulfillment: 'undelivered_strict',
+    },
+  },
+];
 
 export default function DataStudio() {
   const navigate = useNavigate();
@@ -140,6 +211,19 @@ export default function DataStudio() {
   const [isFallback, setIsFallback] = useState(false);
   const [andonStatus, setAndonStatus] = useState('CLEARED');
   const abortControllerRef = useRef(null);
+
+  // ── 8th Engine: Ad-Hoc Relational Discovery State ──
+  const [adhocInputMode, setAdhocInputMode] = useState('natural'); // 'natural' | 'tokens'
+  const [adhocQueryInput, setAdhocQueryInput] = useState(
+    'get all customers from village krushnapur who has ordered apsara pencil at price 55 and and that pencil is not delivered (something else might be delivered) but leave out those with some of the pencils are delivered.'
+  );
+  const [adhocTokens, setAdhocTokens] = useState({
+    entity: 'customer',
+    village: 'Krushnapur',
+    product: 'Apsara Pencil',
+    price: 55,
+    fulfillment: 'undelivered_strict',
+  });
 
   // Slice 7.3: Interactive Cohort Visualizer & Mobile Viewport States
   const [selectedEntityId, setSelectedEntityId] = useState(null);
@@ -284,10 +368,20 @@ export default function DataStudio() {
     setIsSimulating(true);
     const timer = setTimeout(async () => {
       try {
-        const res = await fetchWithAuth(`${API_BASE}/analytics/compute/${activeEngineId}/`, {
+        const queryPayload = activeEngineId === 'adhoc'
+          ? (adhocInputMode === 'natural'
+              ? { query: adhocQueryInput, mode: 'natural' }
+              : { mode: 'tokens', ...adhocTokens, ...(params.adhoc || {}) })
+          : params[activeEngineId] || {};
+
+        const targetEndpoint = activeEngineId === 'adhoc'
+          ? (ENDPOINTS.ANALYTICS_ADHOC_QUERY || `${API_BASE}/analytics/adhoc-query/`)
+          : `${API_BASE}/analytics/compute/${activeEngineId}/`;
+
+        const res = await fetchWithAuth(targetEndpoint, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ parameters: params[activeEngineId] || {} }),
+          body: JSON.stringify({ parameters: queryPayload, ...queryPayload }),
           signal: controller.signal,
         });
         if (res.ok) {
@@ -296,6 +390,12 @@ export default function DataStudio() {
           setIsFallback(Boolean(data.is_fallback));
           if (data.execution_ms != null) {
             setLatencyMs(Math.round(data.execution_ms));
+          }
+          if (data.tokens && activeEngineId === 'adhoc') {
+            setAdhocTokens((prev) => ({
+              ...prev,
+              ...data.tokens,
+            }));
           }
           if (data.metrics) {
             const andonMetric = data.metrics.find(
@@ -319,7 +419,7 @@ export default function DataStudio() {
       clearTimeout(timer);
       controller.abort();
     };
-  }, [activeEngineId, params, fetchWithAuth]);
+  }, [activeEngineId, params, adhocQueryInput, adhocInputMode, adhocTokens, fetchWithAuth]);
 
   // Handle Parameter Slider Change
   const handleParamChange = (engineKey, field, value) => {
@@ -387,6 +487,32 @@ export default function DataStudio() {
     const rows = [
       ['"Stop #"', '"Student / Family Name"', '"Village Sector"', '"Kit Description"', '"COD Due (INR)"', '"Payment Status"', '"Signature"']
     ];
+
+    if (activeEngineId === 'adhoc' && computeData?.items?.length > 0) {
+      computeData.items.forEach((it, idx) => {
+        const q = it.quant_details || {};
+        const cName = it.customer_name || it.entity?.split(' (')[0] || it.entity;
+        const vName = it.village || it.category || selectedVillage;
+        const pName = it.product_name || 'Starved Product';
+        const shortfall = it.shortfall_qty != null ? it.shortfall_qty : (q.shortfall_qty || 1);
+        const price = it.unit_price || q.unit_price || 55;
+        const codDue = Math.round(shortfall * price);
+
+        rows.push([
+          idx + 1,
+          `"${cName.replace(/"/g, '""')}"`,
+          `"${vName.replace(/"/g, '""')}"`,
+          `"${pName.replace(/"/g, '""')} (${shortfall} units starved)"`,
+          codDue,
+          '"PENDING CASH"',
+          '""'
+        ]);
+      });
+      const exportVillage = computeData.tokens?.village || selectedVillage;
+      downloadCSV(`DoorToDoor_RunSheet_${exportVillage.replace(/\s+/g, '_')}_${dateStr}.csv`, rows.map((r) => r.join(',')).join('\n'));
+      return;
+    }
+
     const dummyStudents = [
       { stop: 1, name: 'Patel Aarav', village: selectedVillage, kit: 'Std 10 Complete Syllabus Kit', cod: 1840 },
       { stop: 2, name: 'Desai Diya', village: selectedVillage, kit: 'Std 10 Science & Math Bundle', cod: 1220 },
@@ -409,28 +535,79 @@ export default function DataStudio() {
   };
 
   const handleCopyWhatsAppBroadcast = () => {
-    const text = `📢 *AZ Books Door-to-Door Book Distribution Notification*\n\nDear Parents of ${selectedVillage.replace(/_/g, ' ').toUpperCase()},\nOur mobile book delivery tempo will arrive tomorrow at 10:00 AM near the Panchayat Hall.\n\n📚 *Standard 10 Complete Syllabus Kits* are packed and reserved for your child.\n💵 *Amount Due (COD):* ₹1,840 (Exact cash or UPI accepted).\n\nPlease collect your verified kits with invoice.\n— AZ Books Logistics Team`;
+    const villageName = activeEngineId === 'adhoc' && computeData?.tokens?.village
+      ? computeData.tokens.village
+      : selectedVillage;
+    const text = `📢 *AZ Books Door-to-Door Book Distribution Notification*\n\nDear Parents of ${villageName.replace(/_/g, ' ').toUpperCase()},\nOur mobile book delivery tempo will arrive tomorrow at 10:00 AM near the Panchayat Hall.\n\n📚 *Standard 10 Complete Syllabus Kits & Starved Supplies* are packed and reserved for your child.\n💵 *Amount Due (COD):* Exact cash or UPI accepted.\n\nPlease collect your verified supplies with invoice.\n— AZ Books Logistics Team`;
     navigator.clipboard.writeText(text);
     setCopiedWhatsApp(true);
     setTimeout(() => setCopiedWhatsApp(false), 2000);
   };
+
+  const dispatchPreviewItems = useMemo(() => {
+    const targetItems = selectedItem ? [selectedItem] : computeData?.items || [];
+    if (activeEngineId !== 'adhoc') {
+      return targetItems.slice(0, 5).map((it) => ({
+        entity: it.entity,
+        target: it.target,
+        baseline: it.baseline,
+        cost: it.quant_details?.cost_price || 110,
+      }));
+    }
+    const productMap = {};
+    targetItems.forEach((it) => {
+      const q = it.quant_details || {};
+      const pid = it.product_id || q.product_id || it.id;
+      const matchUnits = it.shortfall_qty != null
+        ? it.shortfall_qty
+        : (it.target ? parseInt(it.target.replace(/[^\d]/g, ''), 10) : 20);
+      const validUnits = Number.isFinite(matchUnits) && matchUnits > 0 ? matchUnits : 1;
+
+      if (!productMap[pid]) {
+        productMap[pid] = {
+          entity: it.product_name || q.product_name || 'Target SKU',
+          units: 0,
+          casePack: q.case_pack || 10,
+          cost: q.cost_price || 42,
+        };
+      }
+      productMap[pid].units += validUnits;
+    });
+    return Object.values(productMap).map((p) => ({
+      entity: p.entity,
+      target: `${p.units} Starved Units`,
+      baseline: `${Math.ceil(p.units / p.casePack)} Master Cartons`,
+      cost: p.cost,
+    }));
+  }, [selectedItem, computeData, activeEngineId]);
 
   const handleExecuteDispatchPO = async () => {
     setIsDispatching(true);
     setDispatchError(null);
     try {
       const targetItems = selectedItem ? [selectedItem] : computeData?.items || [];
-      const payloadItems = targetItems.map((it) => {
+      const productMap = {};
+      targetItems.forEach((it) => {
         const q = it.quant_details || {};
-        const matchUnits = it.target ? parseInt(it.target.replace(/[^\d]/g, ''), 10) : 20;
-        return {
-          product_id: it.id,
-          suggested_quantity: Number.isFinite(matchUnits) && matchUnits > 0 ? matchUnits : 20,
-          vendor_case_pack: q.case_pack || 10,
-          moq: q.case_pack || 10,
-          unit_cost_price: q.cost_price || 110.0,
-        };
+        const pid = it.product_id || q.product_id || it.id;
+        const matchUnits = it.shortfall_qty != null
+          ? it.shortfall_qty
+          : (it.target ? parseInt(it.target.replace(/[^\d]/g, ''), 10) : 20);
+        const validUnits = Number.isFinite(matchUnits) && matchUnits > 0 ? matchUnits : 1;
+
+        if (!productMap[pid]) {
+          productMap[pid] = {
+            product_id: pid,
+            suggested_quantity: 0,
+            vendor_case_pack: q.case_pack || 10,
+            moq: q.case_pack || 10,
+            unit_cost_price: q.cost_price || 42.0,
+            product_name: it.product_name || q.product_name || it.entity,
+          };
+        }
+        productMap[pid].suggested_quantity += validUnits;
       });
+      const payloadItems = Object.values(productMap);
 
       const res = await fetchWithAuth(API_ENDPOINTS.ANALYTICS_DISPATCH_PO, {
         method: 'POST',
@@ -514,6 +691,19 @@ export default function DataStudio() {
           ...analysis.parameters,
         },
       }));
+    }
+
+    if (engineKey === 'adhoc' && analysis.parameters) {
+      if (analysis.parameters.query) {
+        setAdhocQueryInput(analysis.parameters.query);
+      }
+      setAdhocTokens((prev) => ({
+        ...prev,
+        ...analysis.parameters,
+      }));
+      if (analysis.parameters.mode) {
+        setAdhocInputMode(analysis.parameters.mode);
+      }
     }
 
     setLoadedInvestigation(analysis);
@@ -635,7 +825,7 @@ export default function DataStudio() {
     setForkCohortName(`${activeEngine.shortName} Discovery Cohort — ${new Date().toLocaleDateString()}`);
     let defaultTarget = 'product';
     if (activeEngineId === 'village') defaultTarget = 'village';
-    else if (activeEngineId === 'khata' || activeEngineId === 'cross_sell') defaultTarget = 'customer';
+    else if (activeEngineId === 'khata' || activeEngineId === 'cross_sell' || activeEngineId === 'adhoc') defaultTarget = 'customer';
     setForkCohortTarget(defaultTarget);
     setSaveErrorMsg('');
     setActiveModal('save_investigation');
@@ -678,7 +868,17 @@ export default function DataStudio() {
       setLoadedInvestigation(savedData);
 
       if (isForkingCohort && computeData?.items?.length > 0) {
-        const entityIds = computeData.items.map((it) => String(it.id || it.entity)).slice(0, 50);
+        let rawIds = [];
+        if (forkCohortTarget === 'customer') {
+          rawIds = computeData.items.map((it) => String(it.customer_id || it.id)).filter(Boolean);
+        } else if (forkCohortTarget === 'product') {
+          rawIds = computeData.items.map((it) => String(it.product_id || it.id)).filter(Boolean);
+        } else if (forkCohortTarget === 'order') {
+          rawIds = computeData.items.map((it) => String(it.order_id || it.id)).filter(Boolean);
+        } else {
+          rawIds = computeData.items.map((it) => String(it.id || it.entity)).filter(Boolean);
+        }
+        const entityIds = Array.from(new Set(rawIds)).slice(0, 100);
         const segmentPayload = {
           name: forkCohortName.trim() || `${saveAnalysisName} Cohort`,
           target_entity: forkCohortTarget,
@@ -720,6 +920,7 @@ export default function DataStudio() {
       case 'defect_radar': return '🛡️';
       case 'khata': return '💰';
       case 'andon': return '⚡';
+      case 'adhoc': return '🔍';
       default: return '📊';
     }
   };
@@ -1147,6 +1348,212 @@ export default function DataStudio() {
           {/* Active Visualizer Shell */}
           <div className="canvas-view-container">
             <div className="engine-visualizer-shell">
+              {/* 8TH ENGINE: AD-HOC RELATIONAL DISCOVERY & QUERY WORKBENCH CARD */}
+              {activeEngineId === 'adhoc' && (
+                <div className="adhoc-workbench-card span-full">
+                  <div className="adhoc-workbench-header">
+                    <div className="adhoc-workbench-title-group">
+                      <span style={{ fontSize: '1.2rem' }}>🔍</span>
+                      <div>
+                        <h3 style={{ margin: 0, fontSize: '0.95rem', color: '#f1f5f9' }}>
+                          Ad-Hoc Relational Discovery &amp; Query Workbench
+                        </h3>
+                        <span style={{ fontSize: '0.72rem', color: '#94a3b8' }}>
+                          Multi-hop relational joins: Customer → Address → Order → OrderItem → DeliveryItem (Strict decoupled reconciliation)
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="adhoc-mode-toggle">
+                      <button
+                        type="button"
+                        className={`adhoc-mode-btn ${adhocInputMode === 'natural' ? 'active' : ''}`}
+                        onClick={() => setAdhocInputMode('natural')}
+                      >
+                        💬 Natural Retail English
+                      </button>
+                      <button
+                        type="button"
+                        className={`adhoc-mode-btn ${adhocInputMode === 'tokens' ? 'active' : ''}`}
+                        onClick={() => setAdhocInputMode('tokens')}
+                      >
+                        🧩 Relational Tokens
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Quick Presets Bar */}
+                  <div className="adhoc-presets-bar">
+                    <span className="adhoc-preset-label">Quick Presets:</span>
+                    {ADHOC_PRESETS.map((preset, pIdx) => {
+                      const isPresetActive = adhocTokens.village === preset.tokens.village && adhocTokens.product === preset.tokens.product;
+                      return (
+                        <button
+                          key={pIdx}
+                          type="button"
+                          className={`adhoc-preset-chip ${isPresetActive ? 'active-preset' : ''}`}
+                          onClick={() => {
+                            setAdhocQueryInput(preset.query);
+                            setAdhocTokens(preset.tokens);
+                            setParams((prev) => ({
+                              ...prev,
+                              adhoc: {
+                                ...prev.adhoc,
+                                ...preset.tokens,
+                                query: preset.query,
+                              },
+                            }));
+                          }}
+                        >
+                          {preset.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  {/* Dual Input Area */}
+                  {adhocInputMode === 'natural' ? (
+                    <div className="adhoc-natural-input-wrap">
+                      <textarea
+                        className="adhoc-query-textarea"
+                        value={adhocQueryInput}
+                        onChange={(e) => setAdhocQueryInput(e.target.value)}
+                        placeholder="e.g. get all customers from village krushnapur who has ordered apsara pencil at price 55 and and that pencil is not delivered (something else might be delivered) but leave out those with some of the pencils are delivered."
+                        rows={2}
+                      />
+                      <button
+                        type="button"
+                        className="adhoc-query-exec-btn"
+                        disabled={isSimulating}
+                        onClick={() => {
+                          setParams((prev) => ({
+                            ...prev,
+                            adhoc: {
+                              ...prev.adhoc,
+                              query: adhocQueryInput,
+                            },
+                          }));
+                        }}
+                      >
+                        <span>⚡</span>
+                        <span>{isSimulating ? 'Executing...' : 'Run Query'}</span>
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="adhoc-tokens-container">
+                      <div className="adhoc-token-item">
+                        <span className="adhoc-token-tag">Target Entity</span>
+                        <select
+                          className="adhoc-token-input"
+                          value={adhocTokens.entity}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            setAdhocTokens((prev) => ({ ...prev, entity: val }));
+                            handleParamChange('adhoc', 'entity', val);
+                          }}
+                        >
+                          <option value="customer">Customers (Individual/School)</option>
+                          <option value="order">Orders (Purchases)</option>
+                          <option value="product">Products (Catalog SKUs)</option>
+                        </select>
+                      </div>
+
+                      <div className="adhoc-token-item">
+                        <span className="adhoc-token-tag">Village / Territory</span>
+                        <input
+                          type="text"
+                          className="adhoc-token-input"
+                          value={adhocTokens.village || ''}
+                          placeholder="e.g. Krushnapur"
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            setAdhocTokens((prev) => ({ ...prev, village: val }));
+                            handleParamChange('adhoc', 'village', val);
+                          }}
+                        />
+                      </div>
+
+                      <div className="adhoc-token-item">
+                        <span className="adhoc-token-tag">Ordered Line Item</span>
+                        <input
+                          type="text"
+                          className="adhoc-token-input"
+                          value={adhocTokens.product || ''}
+                          placeholder="e.g. Apsara Pencil"
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            setAdhocTokens((prev) => ({ ...prev, product: val }));
+                            handleParamChange('adhoc', 'product', val);
+                          }}
+                        />
+                      </div>
+
+                      <div className="adhoc-token-item">
+                        <span className="adhoc-token-tag">Unit Price (₹)</span>
+                        <input
+                          type="number"
+                          className="adhoc-token-input"
+                          value={adhocTokens.price != null ? adhocTokens.price : ''}
+                          placeholder="55"
+                          onChange={(e) => {
+                            const val = e.target.value ? Number(e.target.value) : null;
+                            setAdhocTokens((prev) => ({ ...prev, price: val }));
+                            handleParamChange('adhoc', 'price', val);
+                          }}
+                        />
+                      </div>
+
+                      <div className="adhoc-token-item" style={{ minWidth: '220px' }}>
+                        <span className="adhoc-token-tag">Line Fulfillment</span>
+                        <select
+                          className="adhoc-token-input"
+                          value={adhocTokens.fulfillment || 'undelivered_strict'}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            setAdhocTokens((prev) => ({ ...prev, fulfillment: val }));
+                            handleParamChange('adhoc', 'fulfillment', val);
+                          }}
+                        >
+                          <option value="undelivered_strict">Undelivered (0%) | Exclude Partial</option>
+                          <option value="partial">Partial Deliveries Only</option>
+                          <option value="delivered">100% Fully Delivered</option>
+                          <option value="any">Any Fulfillment Status</option>
+                        </select>
+                      </div>
+
+                      <button
+                        type="button"
+                        className="adhoc-query-exec-btn"
+                        style={{ height: '36px', alignSelf: 'flex-end' }}
+                        disabled={isSimulating}
+                        onClick={() => {
+                          setParams((prev) => ({
+                            ...prev,
+                            adhoc: {
+                              ...prev.adhoc,
+                              ...adhocTokens,
+                            },
+                          }));
+                        }}
+                      >
+                        <span>⚡ Apply Tokens</span>
+                      </button>
+                    </div>
+                  )}
+
+                  {/* Semantic Query Interpretation Banner */}
+                  {(computeData?.query_interpretation || computeData?.summary?.query_interpretation) && (
+                    <div className="adhoc-interpretation-card">
+                      <span className="adhoc-interpretation-icon">🔍</span>
+                      <div className="adhoc-interpretation-text">
+                        <strong>Parsed Relational Query:</strong>{' '}
+                        {computeData.query_interpretation || computeData.summary.query_interpretation}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
               {/* Metric KPI Banner */}
               <div className="visualizer-card span-full">
                 <div className="visualizer-card-header">
@@ -1327,6 +1734,8 @@ export default function DataStudio() {
                                     handleSelectEntity(row.id);
                                     if (activeEngineId === 'demand') {
                                       handleLaunchPOHandoff();
+                                    } else if (activeEngineId === 'adhoc') {
+                                      setActiveModal('route_sheet');
                                     } else if (activeEngineId === 'village') {
                                       if (row.target?.includes('FRONTIER')) {
                                         setActiveModal('route_sheet');
@@ -1356,20 +1765,88 @@ export default function DataStudio() {
                   ) : (
                     <table className="studio-data-table">
                       <thead>
-                        <tr>
-                          <th>Entity / Target Item</th>
-                          <th>Category / Region</th>
-                          <th>Current Baseline</th>
-                          <th>Simulated Target</th>
-                          <th>Variance / Impact</th>
-                          <th>Fulfillment Lever</th>
-                          {studioMode === 'quant' && <th>Quant Diagnostics</th>}
-                        </tr>
+                        {activeEngineId === 'adhoc' ? (
+                          <tr>
+                            <th>Customer &amp; Contact</th>
+                            <th>Village &amp; Territory</th>
+                            <th>Order #</th>
+                            <th>Line Item &amp; Unit Price</th>
+                            <th>Ordered</th>
+                            <th>Delivered</th>
+                            <th>Starved Shortfall</th>
+                            <th>Line Fulfillment</th>
+                            <th>Fulfillment Lever</th>
+                          </tr>
+                        ) : (
+                          <tr>
+                            <th>Entity / Target Item</th>
+                            <th>Category / Region</th>
+                            <th>Current Baseline</th>
+                            <th>Simulated Target</th>
+                            <th>Variance / Impact</th>
+                            <th>Fulfillment Lever</th>
+                            {studioMode === 'quant' && <th>Quant Diagnostics</th>}
+                          </tr>
+                        )}
                       </thead>
                       <tbody>
                         {computeData?.items && computeData.engine === activeEngineId && computeData.items.length > 0 ? (
                           computeData.items.map((row, idx) => {
                             const isRowSelected = row.id === selectedEntityId;
+                            if (activeEngineId === 'adhoc') {
+                              return (
+                                <tr
+                                  key={row.id || idx}
+                                  className={isRowSelected ? 'selected-entity-row' : ''}
+                                  onClick={() => handleSelectEntity(row.id)}
+                                  style={{ cursor: 'pointer' }}
+                                  title="Click to spotlight customer and prime delivery run-sheet lever"
+                                >
+                                  <td>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                      {isRowSelected && <span style={{ color: '#f59e0b' }}>👉</span>}
+                                      <div>
+                                        <strong>{row.customer_name || row.entity}</strong>
+                                        {row.phone && <span style={{ fontSize: '0.72rem', color: '#94a3b8', display: 'block' }}>📞 {row.phone}</span>}
+                                      </div>
+                                    </div>
+                                  </td>
+                                  <td>
+                                    <span style={{ fontWeight: 600, color: '#38bdf8' }}>{row.village || row.category}</span>
+                                  </td>
+                                  <td>
+                                    <code style={{ color: '#f59e0b', fontSize: '0.75rem' }}>#{row.order_display_id || row.id}</code>
+                                  </td>
+                                  <td>
+                                    <div>
+                                      <strong>{row.product_name || 'Item'}</strong>
+                                      <span style={{ fontSize: '0.72rem', color: '#94a3b8', display: 'block' }}>@ ₹{row.unit_price}</span>
+                                    </div>
+                                  </td>
+                                  <td>{row.ordered_qty} pcs</td>
+                                  <td>
+                                    <span className="badge-undelivered">
+                                      {row.delivered_qty} pcs (0%)
+                                    </span>
+                                  </td>
+                                  <td>
+                                    <span className="badge-shortfall">
+                                      -{row.shortfall_qty} pcs (₹{Math.round((row.shortfall_qty || 0) * (row.unit_price || 0))})
+                                    </span>
+                                  </td>
+                                  <td>
+                                    <span style={{ fontSize: '0.72rem', padding: '2px 6px', borderRadius: '4px', background: 'rgba(239, 68, 68, 0.15)', color: '#fca5a5' }}>
+                                      {row.fulfillment_desc || '0% Delivered (Strict)'}
+                                    </span>
+                                  </td>
+                                  <td>
+                                    <span className={`telemetry-chip ${isRowSelected ? 'pulse' : ''}`}>
+                                      {row.lever || 'Delivery Run-Sheet (Stream 2)'}
+                                    </span>
+                                  </td>
+                                </tr>
+                              );
+                            }
                             return (
                               <tr
                                 key={row.id || idx}
@@ -1415,7 +1892,7 @@ export default function DataStudio() {
                           })
                         ) : (
                           <tr>
-                            <td colSpan={studioMode === 'quant' ? 7 : 6} style={{ textAlign: 'center', padding: '24px', color: '#94a3b8' }}>
+                            <td colSpan={activeEngineId === 'adhoc' ? 9 : (studioMode === 'quant' ? 7 : 6)} style={{ textAlign: 'center', padding: '24px', color: '#94a3b8' }}>
                               {isSimulating ? 'Calculating matrix vectors...' : 'Ready for simulation. Adjust parameters on the right inspector.'}
                             </td>
                           </tr>
@@ -1449,12 +1926,12 @@ export default function DataStudio() {
 
             <div className="levers-button-group">
               <button
-                className={`lever-btn lever-btn-po ${activeEngineId === 'demand' && selectedItem ? 'primed' : ''}`}
+                className={`lever-btn lever-btn-po ${((activeEngineId === 'demand' || activeEngineId === 'adhoc') && (selectedItem || (computeData?.items && computeData.items.length > 0))) ? 'primed' : ''}`}
                 onClick={handleLaunchPOHandoff}
                 title="Dispatch quantized purchase order directly to CreatePO"
               >
                 <span>📦</span>
-                <span>{selectedItem && activeEngineId === 'demand' ? '1-Tap PO (Selected)' : '1-Tap Create PO'}</span>
+                <span>{selectedItem && (activeEngineId === 'demand' || activeEngineId === 'adhoc') ? '1-Tap PO (Selected)' : '1-Tap Create PO'}</span>
               </button>
 
               <button
@@ -1467,12 +1944,12 @@ export default function DataStudio() {
               </button>
 
               <button
-                className={`lever-btn lever-btn-route ${activeEngineId === 'village' && selectedItem && selectedItem.target?.includes('FRONTIER') ? 'primed' : ''}`}
+                className={`lever-btn lever-btn-route ${(activeEngineId === 'adhoc' || (activeEngineId === 'village' && selectedItem && selectedItem.target?.includes('FRONTIER'))) ? 'primed' : ''}`}
                 onClick={() => setActiveModal('route_sheet')}
-                title="Generate Stream 2 frontier village door-to-door delivery run-sheet"
+                title="Generate Stream 2 delivery run-sheet populated with customer shortfall"
               >
-                <span>🏠</span>
-                <span>Door-to-Door Run-Sheet (Stream 2)</span>
+                <span>🚚</span>
+                <span>{activeEngineId === 'adhoc' ? 'Outlet / Delivery Run-Sheet (Stream 2)' : 'Door-to-Door Run-Sheet (Stream 2)'}</span>
               </button>
 
               <button
@@ -1852,6 +2329,92 @@ export default function DataStudio() {
                   </div>
                 </>
               )}
+
+              {activeEngineId === 'adhoc' && (
+                <>
+                  <div className="param-group">
+                    <div className="param-label-row">
+                      <span>Target Village:</span>
+                      <span className="param-value-tag">{adhocTokens.village || 'All'}</span>
+                    </div>
+                    <input
+                      type="text"
+                      value={adhocTokens.village || ''}
+                      placeholder="e.g. Krushnapur"
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setAdhocTokens((prev) => ({ ...prev, village: val }));
+                        handleParamChange('adhoc', 'village', val);
+                      }}
+                      className="adhoc-token-input"
+                      style={{ width: '100%', padding: '6px 8px' }}
+                    />
+                    <span className="param-hint">Resolved via OSM geographic regions and boundary polygons.</span>
+                  </div>
+
+                  <div className="param-group">
+                    <div className="param-label-row">
+                      <span>Target SKU:</span>
+                      <span className="param-value-tag">{adhocTokens.product || 'All SKUs'}</span>
+                    </div>
+                    <input
+                      type="text"
+                      value={adhocTokens.product || ''}
+                      placeholder="e.g. Apsara Pencil"
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setAdhocTokens((prev) => ({ ...prev, product: val }));
+                        handleParamChange('adhoc', 'product', val);
+                      }}
+                      className="adhoc-token-input"
+                      style={{ width: '100%', padding: '6px 8px' }}
+                    />
+                    <span className="param-hint">Specific catalog item filter in order line items.</span>
+                  </div>
+
+                  <div className="param-group">
+                    <div className="param-label-row">
+                      <span>Unit Price Filter:</span>
+                      <span className="param-value-tag">₹{adhocTokens.price != null ? adhocTokens.price : 'Any'}</span>
+                    </div>
+                    <input
+                      type="number"
+                      value={adhocTokens.price != null ? adhocTokens.price : ''}
+                      placeholder="55"
+                      onChange={(e) => {
+                        const val = e.target.value ? Number(e.target.value) : null;
+                        setAdhocTokens((prev) => ({ ...prev, price: val }));
+                        handleParamChange('adhoc', 'price', val);
+                      }}
+                      className="adhoc-token-input"
+                      style={{ width: '100%', padding: '6px 8px' }}
+                    />
+                    <span className="param-hint">Exact unit selling price recorded on order line items.</span>
+                  </div>
+
+                  <div className="param-group">
+                    <div className="param-label-row">
+                      <span>Line Fulfillment:</span>
+                    </div>
+                    <select
+                      value={adhocTokens.fulfillment || 'undelivered_strict'}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setAdhocTokens((prev) => ({ ...prev, fulfillment: val }));
+                        handleParamChange('adhoc', 'fulfillment', val);
+                      }}
+                      className="adhoc-token-input"
+                      style={{ width: '100%', padding: '6px 8px' }}
+                    >
+                      <option value="undelivered_strict">Undelivered (0%) | Exclude Partial</option>
+                      <option value="partial">Partial Deliveries Only</option>
+                      <option value="delivered">100% Fully Delivered</option>
+                      <option value="any">Any Fulfillment State</option>
+                    </select>
+                    <span className="param-hint">Strict item-level delivery reconciliation (independent of order status).</span>
+                  </div>
+                </>
+              )}
             </div>
           </aside>
         )}
@@ -1907,7 +2470,7 @@ export default function DataStudio() {
               <>
                 <div style={{ background: 'rgba(15, 18, 32, 0.8)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '8px', padding: '12px', marginBottom: '14px' }}>
                   <div style={{ fontSize: '0.78rem', color: '#94a3b8', marginBottom: '8px', fontWeight: 600 }}>
-                    DISPATCH BATCH CANDIDATES ({selectedItem ? 'Single Spotlighted SKU' : `${computeData?.items?.length || 0} Batch SKUs`}):
+                    DISPATCH BATCH CANDIDATES ({selectedItem ? 'Single Spotlighted SKU' : `${dispatchPreviewItems.length} Batch SKUs`}):
                   </div>
                   <div style={{ maxHeight: '140px', overflowY: 'auto' }}>
                     <table style={{ width: '100%', fontSize: '0.75rem', borderCollapse: 'collapse' }}>
@@ -1920,12 +2483,12 @@ export default function DataStudio() {
                         </tr>
                       </thead>
                       <tbody>
-                        {(selectedItem ? [selectedItem] : computeData?.items || []).slice(0, 5).map((it, idx) => (
+                        {dispatchPreviewItems.map((it, idx) => (
                           <tr key={idx} style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
                             <td style={{ padding: '6px 4px', fontWeight: 600, color: '#f1f5f9' }}>{it.entity}</td>
                             <td style={{ padding: '6px 4px', color: '#38bdf8' }}>{it.target}</td>
                             <td style={{ padding: '6px 4px', color: '#f59e0b' }}>{it.baseline}</td>
-                            <td style={{ padding: '6px 4px', color: '#94a3b8' }}>₹{it.quant_details?.cost_price || 110}</td>
+                            <td style={{ padding: '6px 4px', color: '#94a3b8' }}>₹{it.cost}</td>
                           </tr>
                         ))}
                       </tbody>
@@ -2207,6 +2770,11 @@ export default function DataStudio() {
                   onChange={(e) => setSelectedVillage(e.target.value)}
                   style={{ width: '100%', padding: '6px 8px', background: '#0f172a', color: '#fff', border: '1px solid #334155', borderRadius: '6px', fontSize: '0.8rem' }}
                 >
+                  {activeEngineId === 'adhoc' && computeData?.tokens?.village ? (
+                    <option value={computeData.tokens.village}>
+                      {computeData.tokens.village} ({computeData.items?.length || 0} Starved Orders)
+                    </option>
+                  ) : null}
                   <option value="Dharampur Frontier Sector">Dharampur Frontier Sector (48 Students)</option>
                   <option value="Vansda Rural Block">Vansda Rural Block (36 Students)</option>
                   <option value="Chikhli Cluster">Chikhli Cluster (52 Students)</option>
@@ -2229,7 +2797,9 @@ export default function DataStudio() {
             <div style={{ background: 'rgba(15, 18, 32, 0.85)', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.06)', padding: '12px', marginBottom: '16px' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', fontWeight: 700, color: '#34d399', marginBottom: '8px' }}>
                 <span>DRIVER STOP SEQUENCE &amp; COD TARGETS</span>
-                <span>Total Cash Target: ₹7,190</span>
+                <span>
+                  Total Cash Target: ₹{activeEngineId === 'adhoc' && computeData?.summary?.unfulfilled_value != null ? Number(computeData.summary.unfulfilled_value).toLocaleString() : '7,190'}
+                </span>
               </div>
               <table style={{ width: '100%', fontSize: '0.75rem', borderCollapse: 'collapse' }}>
                 <thead>
@@ -2242,25 +2812,48 @@ export default function DataStudio() {
                   </tr>
                 </thead>
                 <tbody>
-                  {[
-                    { stop: '01', name: 'Patel Aarav', kit: 'Std 10 Complete Syllabus Kit', cod: '₹1,840', khata: 'CLEARED' },
-                    { stop: '02', name: 'Desai Diya', kit: 'Std 10 Science & Math Bundle', cod: '₹1,220', khata: 'CLEARED' },
-                    { stop: '03', name: 'Shah Vivaan', kit: 'Std 10 Complete Syllabus Kit', cod: '₹1,840', khata: 'CLEARED' },
-                    { stop: '04', name: 'Chaudhari Ananya', kit: 'Std 10 Stationery Pack', cod: '₹450', khata: 'WARNING' },
-                    { stop: '05', name: 'Tandel Aryan', kit: 'Std 10 Complete Syllabus Kit', cod: '₹1,840', khata: 'CLEARED' },
-                  ].map((row, idx) => (
-                    <tr key={idx} style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
-                      <td style={{ padding: '6px 4px', color: '#f59e0b', fontWeight: 700 }}>#{row.stop}</td>
-                      <td style={{ padding: '6px 4px', fontWeight: 600, color: '#f1f5f9' }}>{row.name}</td>
-                      <td style={{ padding: '6px 4px', color: '#94a3b8' }}>{row.kit}</td>
-                      <td style={{ padding: '6px 4px', fontWeight: 700, color: '#34d399' }}>{row.cod}</td>
-                      <td style={{ padding: '6px 4px' }}>
-                        <span style={{ fontSize: '0.68rem', padding: '1px 6px', borderRadius: '4px', background: row.khata === 'CLEARED' ? 'rgba(16,185,129,0.15)' : 'rgba(245,158,11,0.15)', color: row.khata === 'CLEARED' ? '#34d399' : '#fbbf24' }}>
-                          {row.khata}
-                        </span>
-                      </td>
-                    </tr>
-                  ))}
+                  {activeEngineId === 'adhoc' && computeData?.items && computeData.items.length > 0 ? (
+                    computeData.items.map((row, idx) => (
+                      <tr key={idx} style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+                        <td style={{ padding: '6px 4px', color: '#f59e0b', fontWeight: 700 }}>#{String(idx + 1).padStart(2, '0')}</td>
+                        <td style={{ padding: '6px 4px', fontWeight: 600, color: '#f1f5f9' }}>
+                          {row.customer_name || row.entity}
+                          {row.phone && <span style={{ fontSize: '0.7rem', color: '#94a3b8', display: 'block' }}>📞 {row.phone}</span>}
+                        </td>
+                        <td style={{ padding: '6px 4px', color: '#94a3b8' }}>
+                          {row.product_name || 'Starved Item'} ({row.shortfall_qty} units starved)
+                        </td>
+                        <td style={{ padding: '6px 4px', fontWeight: 700, color: '#34d399' }}>
+                          ₹{Math.round((row.shortfall_qty || 1) * (row.unit_price || 55)).toLocaleString()}
+                        </td>
+                        <td style={{ padding: '6px 4px' }}>
+                          <span style={{ fontSize: '0.68rem', padding: '1px 6px', borderRadius: '4px', background: 'rgba(239,68,68,0.15)', color: '#f87171' }}>
+                            UNDELIVERED (0%)
+                          </span>
+                        </td>
+                      </tr>
+                    ))
+                  ) : (
+                    [
+                      { stop: '01', name: 'Patel Aarav', kit: 'Std 10 Complete Syllabus Kit', cod: '₹1,840', khata: 'CLEARED' },
+                      { stop: '02', name: 'Desai Diya', kit: 'Std 10 Science & Math Bundle', cod: '₹1,220', khata: 'CLEARED' },
+                      { stop: '03', name: 'Shah Vivaan', kit: 'Std 10 Complete Syllabus Kit', cod: '₹1,840', khata: 'CLEARED' },
+                      { stop: '04', name: 'Chaudhari Ananya', kit: 'Std 10 Stationery Pack', cod: '₹450', khata: 'WARNING' },
+                      { stop: '05', name: 'Tandel Aryan', kit: 'Std 10 Complete Syllabus Kit', cod: '₹1,840', khata: 'CLEARED' },
+                    ].map((row, idx) => (
+                      <tr key={idx} style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+                        <td style={{ padding: '6px 4px', color: '#f59e0b', fontWeight: 700 }}>#{row.stop}</td>
+                        <td style={{ padding: '6px 4px', fontWeight: 600, color: '#f1f5f9' }}>{row.name}</td>
+                        <td style={{ padding: '6px 4px', color: '#94a3b8' }}>{row.kit}</td>
+                        <td style={{ padding: '6px 4px', fontWeight: 700, color: '#34d399' }}>{row.cod}</td>
+                        <td style={{ padding: '6px 4px' }}>
+                          <span style={{ fontSize: '0.68rem', padding: '1px 6px', borderRadius: '4px', background: row.khata === 'CLEARED' ? 'rgba(16,185,129,0.15)' : 'rgba(245,158,11,0.15)', color: row.khata === 'CLEARED' ? '#34d399' : '#fbbf24' }}>
+                            {row.khata}
+                          </span>
+                        </td>
+                      </tr>
+                    ))
+                  )}
                 </tbody>
               </table>
             </div>

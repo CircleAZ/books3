@@ -88,6 +88,7 @@ class SavedAnalysis(SoftDeleteModel):
     ENGINE_DEFECT_RADAR = 'defect_radar'
     ENGINE_KHATA = 'khata'
     ENGINE_ANDON = 'andon'
+    ENGINE_ADHOC = 'adhoc'
 
     ENGINE_CHOICES = [
         (ENGINE_CROSS_SELL, 'Market Basket & Cross-Selling'),
@@ -98,6 +99,7 @@ class SavedAnalysis(SoftDeleteModel):
         (ENGINE_DEFECT_RADAR, 'Quality Defect & Return Radar (Legacy)'),
         (ENGINE_KHATA, 'Khata Working Capital Gate'),
         (ENGINE_ANDON, 'TPS Andon Cord Latch'),
+        (ENGINE_ADHOC, 'Ad-Hoc Relational Discovery & Query Workbench'),
     ]
 
     folder = models.ForeignKey(

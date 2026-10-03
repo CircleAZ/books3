@@ -7,6 +7,7 @@ from .views import (
     PipelineTransferLogViewSet,
     CustomerRecommendationsView,
     AnalyticsStudioComputeView,
+    AdHocQueryView,
 )
 
 router = DefaultRouter()
@@ -17,6 +18,7 @@ router.register(r'pipeline-transfers', PipelineTransferLogViewSet, basename='pip
 
 urlpatterns = [
     path('recommendations/', CustomerRecommendationsView.as_view(), name='customer-recommendations'),
+    path('adhoc-query/', AdHocQueryView.as_view(), name='adhoc-query'),
     path('compute/<str:engine_name>/', AnalyticsStudioComputeView.as_view(), name='studio-compute'),
     path('', include(router.urls)),
 ]

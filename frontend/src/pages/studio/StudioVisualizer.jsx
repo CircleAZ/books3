@@ -111,6 +111,18 @@ function StudioCustomTooltip({ active, payload, label, engineId }) {
           <div>Status: <span style={{ fontWeight: 700, color: data.isTripped ? '#ef4444' : '#10b981' }}>{data.isTripped ? '⚠️ ANDON LATCH TRIPPED' : '✅ Cleared'}</span></div>
         </div>
       )}
+
+      {engineId === 'adhoc' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
+          <div>Customer: <strong>{data.name}</strong></div>
+          <div>Village: <strong>{data.village}</strong></div>
+          <div>Ordered Qty: <strong>{data.ordered} Units</strong></div>
+          <div>Delivered Qty: <strong>{data.delivered} Units</strong></div>
+          <div>Starved Shortfall: <strong style={{ color: '#ef4444' }}>{data.shortfall} Units</strong></div>
+          <div>Shortfall Value: <strong style={{ color: '#f59e0b' }}>₹{data.shortfallValue?.toLocaleString()}</strong></div>
+          <div style={{ fontSize: '0.7rem', color: '#94a3b8', marginTop: '4px' }}>💡 Click to spotlight customer and prime run-sheet</div>
+        </div>
+      )}
     </div>
   );
 }
@@ -355,6 +367,33 @@ export default function StudioVisualizer({
     });
   }, [activeEngineId, items, selectedEntityId]);
 
+  // ─────────────────────────────────────────────────────────────
+  // 8. AD-HOC RELATIONAL DISCOVERY ADAPTER
+  // Shortfall, Delivered & Exposure Breakdown
+  // ─────────────────────────────────────────────────────────────
+  const adhocData = useMemo(() => {
+    if (activeEngineId !== 'adhoc' || !items.length) return [];
+    return items.map((it) => {
+      const q = it.quant_details || {};
+      const ordered = q.ordered_qty ?? it.ordered_qty ?? (it.baseline ? parseInt(it.baseline, 10) : 5);
+      const delivered = q.delivered_qty ?? it.delivered_qty ?? 0;
+      const shortfall = q.shortfall_qty ?? it.shortfall_qty ?? Math.max(0, ordered - delivered);
+      const price = q.unit_price ?? it.unit_price ?? 55;
+
+      return {
+        id: it.id,
+        name: it.customer_name || it.entity?.split(' (')[0] || it.entity,
+        village: it.village || it.category || 'Local',
+        ordered,
+        delivered,
+        shortfall,
+        price,
+        shortfallValue: shortfall * price,
+        isSelected: it.id === selectedEntityId
+      };
+    });
+  }, [activeEngineId, items, selectedEntityId]);
+
   const chartHeight = isMobile ? 220 : 270;
 
   return (
@@ -593,6 +632,32 @@ export default function StudioVisualizer({
                   <Cell
                     key={`cell-${index}`}
                     fill={entry.costVar > 15 ? '#ef4444' : '#f59e0b'}
+                    stroke={entry.isSelected ? '#ffffff' : 'none'}
+                    strokeWidth={entry.isSelected ? 2 : 0}
+                  />
+                ))}
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+      )}
+
+      {/* 8. AD-HOC RELATIONAL DISCOVERY SHORTFALL BAR CHART */}
+      {activeEngineId === 'adhoc' && (
+        <div style={{ width: '100%', height: chartHeight }}>
+          <ResponsiveContainer width="100%" height={chartHeight} minWidth={100} minHeight={chartHeight}>
+            <BarChart data={adhocData} margin={{ top: 10, right: 20, bottom: 30, left: 10 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" />
+              <XAxis dataKey="name" stroke="#64748b" tick={{ fontSize: 10 }} interval={0} angle={-15} textAnchor="end" />
+              <YAxis stroke="#64748b" tick={{ fontSize: 11 }} />
+              <RechartsTooltip content={<StudioCustomTooltip engineId="adhoc" />} />
+              <Legend wrapperStyle={{ fontSize: '11px', paddingTop: '6px' }} />
+              <Bar dataKey="delivered" name="Delivered Units" fill="#10b981" radius={[4, 4, 0, 0]} onClick={(node) => onSelectEntity(node.id)} style={{ cursor: 'pointer' }} />
+              <Bar dataKey="shortfall" name="Starved Shortfall" fill="#ef4444" radius={[4, 4, 0, 0]} onClick={(node) => onSelectEntity(node.id)} style={{ cursor: 'pointer' }}>
+                {adhocData.map((entry, index) => (
+                  <Cell
+                    key={`cell-${index}`}
+                    fill="#ef4444"
                     stroke={entry.isSelected ? '#ffffff' : 'none'}
                     strokeWidth={entry.isSelected ? 2 : 0}
                   />
