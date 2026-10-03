@@ -138,62 +138,261 @@ const DEFAULT_PARAMS = {
   khata: { maxDsoDays: 45, creditLimit: 50000, blockDelinquent: true },
   andon: { volumeThresholdPct: 30, costThresholdPct: 15, noiseFloorQty: 5 },
   adhoc: {
-    query: 'get all customers from village krushnapur who has ordered apsara pencil at price 55 and and that pencil is not delivered (something else might be delivered) but leave out those with some of the pencils are delivered.',
-    entity: 'customer',
-    village: 'Krushnapur',
-    product: 'Apsara Pencil',
-    price: 55,
-    fulfillment: 'undelivered_strict',
-    mode: 'natural',
+    entity: 'order_items',
+    clauses: [
+      { id: 1, field: 'village', operator: 'contains', value: '' }
+    ],
   },
 };
 
-const ADHOC_PRESETS = [
-  {
-    label: 'Krushnapur: Apsara Pencil @ ₹55 (0% Delivered, Exclude Partial)',
-    query: 'get all customers from village krushnapur who has ordered apsara pencil at price 55 and and that pencil is not delivered (something else might be delivered) but leave out those with some of the pencils are delivered.',
-    tokens: {
-      entity: 'customer',
-      village: 'Krushnapur',
-      product: 'Apsara Pencil',
-      price: 55,
-      fulfillment: 'undelivered_strict',
+const DEFAULT_ADHOC_SCHEMA = {
+  order_items: {
+    id: 'order_items',
+    label: 'Order Items & Fulfillment',
+    icon: '📦',
+    description: 'Line-item level purchases with strict subquery delivery reconciliation.',
+    fields: {
+      product_name: { label: 'Product Name', type: 'string', placeholder: 'e.g. Apsara Pencil' },
+      unit_price: { label: 'Unit Price (₹)', type: 'decimal', placeholder: 'e.g. 55' },
+      quantity: { label: 'Ordered Quantity', type: 'integer', placeholder: 'e.g. 10' },
+      village: { label: 'Customer Village', type: 'string', placeholder: 'e.g. Krushnapur' },
+      customer_name: { label: 'Customer Name', type: 'string', placeholder: 'e.g. Ramesh' },
+      customer_phone: { label: 'Customer Phone', type: 'string', placeholder: 'e.g. 98250' },
+      order_display_id: { label: 'Order # ID', type: 'integer', placeholder: 'e.g. 101' },
+      order_status: {
+        label: 'Order Status',
+        type: 'choice',
+        choices: ['draft', 'confirmed', 'processing', 'completed', 'cancelled'],
+      },
+      line_fulfillment: {
+        label: 'Line-Item Fulfillment',
+        type: 'choice',
+        choices: [
+          ['undelivered_strict', 'Undelivered (0% Delivered) | Exclude Partial'],
+          ['partial', 'Partial Delivery Only'],
+          ['delivered', '100% Fully Delivered'],
+          ['any_undelivered', 'Any Undelivered (< 100%)'],
+        ],
+      },
     },
+    columns: [
+      { key: 'customer_name', label: 'Customer', type: 'string' },
+      { key: 'village', label: 'Village', type: 'string' },
+      { key: 'order_display_id', label: 'Order #', type: 'badge' },
+      { key: 'product_name', label: 'Product', type: 'string' },
+      { key: 'unit_price', label: 'Unit Price', type: 'currency' },
+      { key: 'quantity', label: 'Ordered Qty', type: 'number' },
+      { key: 'delivered_qty', label: 'Delivered Qty', type: 'number' },
+      { key: 'shortfall_qty', label: 'Shortfall (Starved)', type: 'number' },
+      { key: 'order_status', label: 'Order Status', type: 'status' },
+    ],
   },
-  {
-    label: 'Mahuva: Natraj Eraser @ ₹10 (0% Delivered)',
-    query: 'customers in Mahuva who ordered Natraj Eraser at price 10 with 0 delivered (exclude partial)',
-    tokens: {
-      entity: 'customer',
-      village: 'Mahuva',
-      product: 'Natraj Eraser',
-      price: 10,
-      fulfillment: 'undelivered_strict',
+  customers: {
+    id: 'customers',
+    label: 'Customers & Schools',
+    icon: '👥',
+    description: 'Customer accounts, khata debt, credit limits, and geographic territories.',
+    fields: {
+      name: { label: 'Customer Name', type: 'string', placeholder: 'e.g. Patel Brothers' },
+      phone: { label: 'Phone Number', type: 'string', placeholder: 'e.g. 9825' },
+      village: { label: 'Village / Territory', type: 'string', placeholder: 'e.g. Dharampur' },
+      outstanding_balance: { label: 'Outstanding Balance (₹)', type: 'decimal', placeholder: 'e.g. 1000' },
+      credit_limit: { label: 'Credit Limit (₹)', type: 'decimal', placeholder: 'e.g. 5000' },
+      status: { label: 'Account Status', type: 'choice', choices: ['active', 'inactive', 'blocked'] },
+      is_delinquent: { label: 'Is Delinquent', type: 'boolean', choices: [['true', 'Yes (Delinquent)'], ['false', 'No (In Good Standing)']] },
     },
+    columns: [
+      { key: 'name', label: 'Customer Name', type: 'string' },
+      { key: 'phone', label: 'Phone', type: 'string' },
+      { key: 'village', label: 'Village', type: 'string' },
+      { key: 'outstanding_balance', label: 'Outstanding Balance', type: 'currency' },
+      { key: 'credit_limit', label: 'Credit Limit', type: 'currency' },
+      { key: 'status', label: 'Status', type: 'status' },
+      { key: 'created_at', label: 'Joined Date', type: 'date' },
+    ],
   },
-  {
-    label: 'Dharampur: Std 10 Math Kit @ ₹150 (Starved Units)',
-    query: 'customers in Dharampur who ordered Std 10 Math Kit at price 150 undelivered',
-    tokens: {
-      entity: 'customer',
-      village: 'Dharampur',
-      product: 'Std 10 Math Kit',
-      price: 150,
-      fulfillment: 'undelivered_strict',
+  orders: {
+    id: 'orders',
+    label: 'Orders & POS Purchases',
+    icon: '📋',
+    description: 'Customer purchase orders, payment statuses, and invoice values.',
+    fields: {
+      display_id: { label: 'Order # Display ID', type: 'integer', placeholder: 'e.g. 105' },
+      customer_name: { label: 'Customer Name', type: 'string', placeholder: 'e.g. School A' },
+      village: { label: 'Customer Village', type: 'string', placeholder: 'e.g. Krushnapur' },
+      order_type: { label: 'Order Type', type: 'choice', choices: ['retail', 'wholesale', 'school', 'consignment'] },
+      order_status: { label: 'Order Status', type: 'choice', choices: ['draft', 'confirmed', 'processing', 'completed', 'cancelled'] },
+      payment_status: { label: 'Payment Status', type: 'choice', choices: ['pending', 'partial', 'paid'] },
+      delivery_status: { label: 'Delivery Status', type: 'choice', choices: ['pending', 'partial', 'delivered'] },
+      total_amount: { label: 'Total Amount (₹)', type: 'decimal', placeholder: 'e.g. 5000' },
+      balance_amount: { label: 'Balance Due (₹)', type: 'decimal', placeholder: 'e.g. 1000' },
     },
+    columns: [
+      { key: 'display_id', label: 'Order #', type: 'badge' },
+      { key: 'customer_name', label: 'Customer', type: 'string' },
+      { key: 'village', label: 'Village', type: 'string' },
+      { key: 'order_type', label: 'Type', type: 'badge' },
+      { key: 'order_status', label: 'Order Status', type: 'status' },
+      { key: 'payment_status', label: 'Payment', type: 'status' },
+      { key: 'delivery_status', label: 'Delivery', type: 'status' },
+      { key: 'total_amount', label: 'Total Amount', type: 'currency' },
+      { key: 'balance_amount', label: 'Balance Due', type: 'currency' },
+      { key: 'created_at', label: 'Order Date', type: 'date' },
+    ],
   },
-  {
-    label: 'Vansda: Classmate A4 Book @ ₹65 (Strict Undelivered)',
-    query: 'customers in Vansda who ordered Classmate A4 Book at price 65 with 0 delivered',
-    tokens: {
-      entity: 'customer',
-      village: 'Vansda',
-      product: 'Classmate A4 Book',
-      price: 65,
-      fulfillment: 'undelivered_strict',
+  products: {
+    id: 'products',
+    label: 'Products & Inventory Catalog',
+    icon: '🏷️',
+    description: 'Product inventory counts, cost prices, selling margins, and SKU thresholds.',
+    fields: {
+      name: { label: 'Product Name', type: 'string', placeholder: 'e.g. Classmate Notebook' },
+      sku: { label: 'SKU Code', type: 'string', placeholder: 'e.g. BK-A4' },
+      barcode: { label: 'Barcode', type: 'string', placeholder: 'e.g. 890123' },
+      category: { label: 'Category', type: 'string', placeholder: 'e.g. Stationery' },
+      cost_price: { label: 'Cost Price (₹)', type: 'decimal', placeholder: 'e.g. 40' },
+      selling_price: { label: 'Selling Price (₹)', type: 'decimal', placeholder: 'e.g. 60' },
+      physical_stock: { label: 'Physical Stock', type: 'integer', placeholder: 'e.g. 50' },
+      available_stock: { label: 'Available Stock', type: 'integer', placeholder: 'e.g. 20' },
     },
+    columns: [
+      { key: 'name', label: 'Product Name', type: 'string' },
+      { key: 'sku', label: 'SKU', type: 'badge' },
+      { key: 'category', label: 'Category', type: 'string' },
+      { key: 'selling_price', label: 'Selling Price', type: 'currency' },
+      { key: 'cost_price', label: 'Cost Price', type: 'currency' },
+      { key: 'physical_stock', label: 'Physical Stock', type: 'number' },
+      { key: 'available_stock', label: 'Available Stock', type: 'number' },
+    ],
   },
-];
+  procurement: {
+    id: 'procurement',
+    label: 'Purchase Orders & Suppliers',
+    icon: '🏭',
+    description: 'Vendor procurement orders, line quantities, and status verification.',
+    fields: {
+      display_id: { label: 'PO # Display ID', type: 'integer', placeholder: 'e.g. 24' },
+      vendor_name: { label: 'Vendor Name', type: 'string', placeholder: 'e.g. Navneet' },
+      status: { label: 'PO Status', type: 'choice', choices: ['draft', 'submitted', 'partially_received', 'received', 'cancelled'] },
+      total_amount: { label: 'Total Amount (₹)', type: 'decimal', placeholder: 'e.g. 15000' },
+      product_name: { label: 'Included Product', type: 'string', placeholder: 'e.g. Pencil' },
+    },
+    columns: [
+      { key: 'display_id', label: 'PO #', type: 'badge' },
+      { key: 'vendor_name', label: 'Vendor', type: 'string' },
+      { key: 'status', label: 'Status', type: 'status' },
+      { key: 'total_amount', label: 'Total Amount', type: 'currency' },
+      { key: 'created_at', label: 'PO Date', type: 'date' },
+    ],
+  },
+  finance: {
+    id: 'finance',
+    label: 'Bank & Cash Transactions',
+    icon: '💰',
+    description: 'Bank accounts, cash deposits, withdrawals, and ledger reconciliation.',
+    fields: {
+      reference: { label: 'Reference / UTR', type: 'string', placeholder: 'e.g. NEFT123' },
+      transaction_type: { label: 'Type', type: 'choice', choices: ['deposit', 'withdrawal'] },
+      amount: { label: 'Amount (₹)', type: 'decimal', placeholder: 'e.g. 5000' },
+      bank_account: { label: 'Bank Account Name', type: 'string', placeholder: 'e.g. Axis Bank' },
+      category: { label: 'Category', type: 'string', placeholder: 'e.g. Sales Collection' },
+    },
+    columns: [
+      { key: 'reference', label: 'Reference', type: 'string' },
+      { key: 'transaction_type', label: 'Type', type: 'badge' },
+      { key: 'amount', label: 'Amount', type: 'currency' },
+      { key: 'bank_account', label: 'Account', type: 'string' },
+      { key: 'date', label: 'Date', type: 'date' },
+    ],
+  },
+  expenses: {
+    id: 'expenses',
+    label: 'Store & Employee Expenses',
+    icon: '🧾',
+    description: 'Operating expenses, utility bills, employee allowances, and approvals.',
+    fields: {
+      title: { label: 'Expense Title', type: 'string', placeholder: 'e.g. Office Fuel' },
+      category: { label: 'Category Name', type: 'string', placeholder: 'e.g. Logistics' },
+      amount: { label: 'Amount (₹)', type: 'decimal', placeholder: 'e.g. 800' },
+      status: { label: 'Approval Status', type: 'choice', choices: ['pending', 'approved', 'rejected'] },
+    },
+    columns: [
+      { key: 'title', label: 'Title', type: 'string' },
+      { key: 'category', label: 'Category', type: 'string' },
+      { key: 'amount', label: 'Amount', type: 'currency' },
+      { key: 'status', label: 'Status', type: 'status' },
+      { key: 'date', label: 'Expense Date', type: 'date' },
+    ],
+  },
+  outlets: {
+    id: 'outlets',
+    label: 'Village Outlets & Consignment',
+    icon: '🏪',
+    description: 'Partner shops, consignment outlets, and territory commissions.',
+    fields: {
+      name: { label: 'Outlet Name', type: 'string', placeholder: 'e.g. Ganesh Store' },
+      owner_name: { label: 'Owner / Contact', type: 'string', placeholder: 'e.g. Suresh' },
+      village: { label: 'Village / Location', type: 'string', placeholder: 'e.g. Dharampur' },
+      phone: { label: 'Phone Number', type: 'string', placeholder: 'e.g. 9825' },
+      status: { label: 'Outlet Status', type: 'choice', choices: ['active', 'inactive', 'suspended'] },
+    },
+    columns: [
+      { key: 'name', label: 'Outlet Name', type: 'string' },
+      { key: 'owner_name', label: 'Owner', type: 'string' },
+      { key: 'village', label: 'Village', type: 'string' },
+      { key: 'phone', label: 'Phone', type: 'string' },
+      { key: 'status', label: 'Status', type: 'status' },
+    ],
+  },
+};
+
+const OPERATORS_BY_TYPE = {
+  string: [
+    { value: 'contains', label: 'contains' },
+    { value: 'equals', label: 'equals (=)' },
+    { value: 'not_contains', label: 'does not contain' },
+    { value: 'not_equals', label: 'not equals (≠)' },
+    { value: 'is_null', label: 'is empty / null' },
+    { value: 'not_null', label: 'is not empty' },
+  ],
+  decimal: [
+    { value: 'equals', label: 'equals (=)' },
+    { value: 'gte', label: 'greater than or equal (≥)' },
+    { value: 'lte', label: 'less than or equal (≤)' },
+    { value: 'gt', label: 'greater than (>)' },
+    { value: 'lt', label: 'less than (<)' },
+    { value: 'not_equals', label: 'not equals (≠)' },
+    { value: 'is_null', label: 'is empty / null' },
+    { value: 'not_null', label: 'is not empty' },
+  ],
+  integer: [
+    { value: 'equals', label: 'equals (=)' },
+    { value: 'gte', label: 'greater than or equal (≥)' },
+    { value: 'lte', label: 'less than or equal (≤)' },
+    { value: 'gt', label: 'greater than (>)' },
+    { value: 'lt', label: 'less than (<)' },
+    { value: 'not_equals', label: 'not equals (≠)' },
+    { value: 'is_null', label: 'is empty / null' },
+    { value: 'not_null', label: 'is not empty' },
+  ],
+  choice: [
+    { value: 'equals', label: 'is' },
+    { value: 'not_equals', label: 'is not' },
+    { value: 'is_null', label: 'is empty / null' },
+    { value: 'not_null', label: 'is not empty' },
+  ],
+  boolean: [
+    { value: 'equals', label: 'is' },
+    { value: 'not_equals', label: 'is not' },
+  ],
+};
+
+const getChoices = (fieldDef) => {
+  if (!fieldDef?.choices) return [];
+  return fieldDef.choices.map((c) =>
+    Array.isArray(c) ? { value: c[0], label: c[1] } : { value: c, label: c }
+  );
+};
 
 export default function DataStudio() {
   const navigate = useNavigate();
@@ -212,18 +411,76 @@ export default function DataStudio() {
   const [andonStatus, setAndonStatus] = useState('CLEARED');
   const abortControllerRef = useRef(null);
 
-  // ── 8th Engine: Ad-Hoc Relational Discovery State ──
-  const [adhocInputMode, setAdhocInputMode] = useState('natural'); // 'natural' | 'tokens'
-  const [adhocQueryInput, setAdhocQueryInput] = useState(
-    'get all customers from village krushnapur who has ordered apsara pencil at price 55 and and that pencil is not delivered (something else might be delivered) but leave out those with some of the pencils are delivered.'
-  );
-  const [adhocTokens, setAdhocTokens] = useState({
-    entity: 'customer',
-    village: 'Krushnapur',
-    product: 'Apsara Pencil',
-    price: 55,
-    fulfillment: 'undelivered_strict',
-  });
+  // ── 8th Engine: Universal Ad-Hoc Relational Discovery & Dynamic Query Workbench State ──
+  const [adhocEntity, setAdhocEntity] = useState('order_items');
+  const [adhocClauses, setAdhocClauses] = useState([
+    { id: 1, field: 'village', operator: 'contains', value: '' },
+  ]);
+  const [adhocSchema, setAdhocSchema] = useState(DEFAULT_ADHOC_SCHEMA);
+  const [adhocNaturalQuery, setAdhocNaturalQuery] = useState('');
+  const [adhocInputMode, setAdhocInputMode] = useState('builder'); // 'builder' | 'natural'
+  const [adhocRunTrigger, setAdhocRunTrigger] = useState(0);
+
+  // Fetch dynamic schema registry from backend on mount
+  useEffect(() => {
+    let isMounted = true;
+    const fetchSchema = async () => {
+      try {
+        const targetEndpoint = API_ENDPOINTS.ANALYTICS_ADHOC_QUERY || `${API_BASE}/analytics/adhoc-query/`;
+        const res = await fetchWithAuth(targetEndpoint);
+        if (res.ok) {
+          const data = await res.json();
+          if (isMounted && data && typeof data === 'object') {
+            setAdhocSchema((prev) => ({ ...prev, ...data }));
+          }
+        }
+      } catch (err) {
+        // Fallback to DEFAULT_ADHOC_SCHEMA
+      }
+    };
+    fetchSchema();
+    return () => { isMounted = false; };
+  }, [fetchWithAuth]);
+
+  const handleSelectAdhocEntity = (newEntity) => {
+    setAdhocEntity(newEntity);
+    const entityFields = adhocSchema[newEntity]?.fields || DEFAULT_ADHOC_SCHEMA[newEntity]?.fields || {};
+    const firstField = Object.keys(entityFields)[0] || 'id';
+    setAdhocClauses([
+      { id: Date.now(), field: firstField, operator: 'contains', value: '' }
+    ]);
+  };
+
+  const handleAddClause = () => {
+    const entityFields = adhocSchema[adhocEntity]?.fields || DEFAULT_ADHOC_SCHEMA[adhocEntity]?.fields || {};
+    const firstField = Object.keys(entityFields)[0] || 'id';
+    setAdhocClauses((prev) => [
+      ...prev,
+      { id: Date.now() + Math.random(), field: firstField, operator: 'contains', value: '' }
+    ]);
+  };
+
+  const handleUpdateClause = (clauseId, updates) => {
+    setAdhocClauses((prev) =>
+      prev.map((c) => (c.id === clauseId ? { ...c, ...updates } : c))
+    );
+  };
+
+  const handleRemoveClause = (clauseId) => {
+    setAdhocClauses((prev) => prev.filter((c) => c.id !== clauseId));
+  };
+
+  const handleClearClauses = () => {
+    const entityFields = adhocSchema[adhocEntity]?.fields || DEFAULT_ADHOC_SCHEMA[adhocEntity]?.fields || {};
+    const firstField = Object.keys(entityFields)[0] || 'id';
+    setAdhocClauses([
+      { id: Date.now(), field: firstField, operator: 'contains', value: '' }
+    ]);
+  };
+
+  const handleTriggerAdhocRun = () => {
+    setAdhocRunTrigger((prev) => prev + 1);
+  };
 
   // Slice 7.3: Interactive Cohort Visualizer & Mobile Viewport States
   const [selectedEntityId, setSelectedEntityId] = useState(null);
@@ -370,12 +627,17 @@ export default function DataStudio() {
       try {
         const queryPayload = activeEngineId === 'adhoc'
           ? (adhocInputMode === 'natural'
-              ? { query: adhocQueryInput, mode: 'natural' }
-              : { mode: 'tokens', ...adhocTokens, ...(params.adhoc || {}) })
+              ? { query: adhocNaturalQuery, mode: 'natural' }
+              : {
+                  entity: adhocEntity,
+                  clauses: adhocClauses.filter(
+                    (c) => c.field && (c.operator === 'is_null' || c.operator === 'not_null' || (c.value !== '' && c.value != null))
+                  ),
+                })
           : params[activeEngineId] || {};
 
         const targetEndpoint = activeEngineId === 'adhoc'
-          ? (ENDPOINTS.ANALYTICS_ADHOC_QUERY || `${API_BASE}/analytics/adhoc-query/`)
+          ? (API_ENDPOINTS.ANALYTICS_ADHOC_QUERY || `${API_BASE}/analytics/adhoc-query/`)
           : `${API_BASE}/analytics/compute/${activeEngineId}/`;
 
         const res = await fetchWithAuth(targetEndpoint, {
@@ -391,10 +653,10 @@ export default function DataStudio() {
           if (data.execution_ms != null) {
             setLatencyMs(Math.round(data.execution_ms));
           }
-          if (data.tokens && activeEngineId === 'adhoc') {
-            setAdhocTokens((prev) => ({
+          if (data.schema && activeEngineId === 'adhoc') {
+            setAdhocSchema((prev) => ({
               ...prev,
-              ...data.tokens,
+              ...data.schema,
             }));
           }
           if (data.metrics) {
@@ -419,7 +681,7 @@ export default function DataStudio() {
       clearTimeout(timer);
       controller.abort();
     };
-  }, [activeEngineId, params, adhocQueryInput, adhocInputMode, adhocTokens, fetchWithAuth]);
+  }, [activeEngineId, params, adhocNaturalQuery, adhocInputMode, adhocEntity, adhocClauses, adhocRunTrigger, fetchWithAuth]);
 
   // Handle Parameter Slider Change
   const handleParamChange = (engineKey, field, value) => {
@@ -695,12 +957,14 @@ export default function DataStudio() {
 
     if (engineKey === 'adhoc' && analysis.parameters) {
       if (analysis.parameters.query) {
-        setAdhocQueryInput(analysis.parameters.query);
+        setAdhocNaturalQuery(analysis.parameters.query);
       }
-      setAdhocTokens((prev) => ({
-        ...prev,
-        ...analysis.parameters,
-      }));
+      if (analysis.parameters.entity) {
+        setAdhocEntity(analysis.parameters.entity);
+      }
+      if (Array.isArray(analysis.parameters.clauses)) {
+        setAdhocClauses(analysis.parameters.clauses);
+      }
       if (analysis.parameters.mode) {
         setAdhocInputMode(analysis.parameters.mode);
       }
@@ -844,7 +1108,11 @@ export default function DataStudio() {
         name: saveAnalysisName.trim(),
         folder: saveAnalysisFolderId && saveAnalysisFolderId !== 'root' && saveAnalysisFolderId !== 'root-general' ? saveAnalysisFolderId : null,
         engine_type: activeEngineId,
-        parameters: params[activeEngineId] || {},
+        parameters: activeEngineId === 'adhoc'
+          ? (adhocInputMode === 'natural'
+              ? { query: adhocNaturalQuery, mode: 'natural' }
+              : { entity: adhocEntity, clauses: adhocClauses, mode: 'builder' })
+          : (params[activeEngineId] || {}),
         cached_insights: {
           metrics: computeData?.metrics || [],
           items_count: computeData?.items?.length || 0,
@@ -1381,23 +1649,30 @@ export default function DataStudio() {
           {/* Active Visualizer Shell */}
           <div className="canvas-view-container">
             <div className="engine-visualizer-shell">
-              {/* 8TH ENGINE: AD-HOC RELATIONAL DISCOVERY & QUERY WORKBENCH CARD */}
+              {/* 8TH ENGINE: UNIVERSAL DYNAMIC AD-HOC QUERY WORKBENCH CARD */}
               {activeEngineId === 'adhoc' && (
                 <div className="adhoc-workbench-card span-full">
-                  <div className="adhoc-workbench-header">
-                    <div className="adhoc-workbench-title-group">
-                      <span style={{ fontSize: '1.2rem' }}>🔍</span>
+                  <div className="adhoc-header-row">
+                    <div className="adhoc-title-block">
+                      <div className="adhoc-chip-icon">⚡</div>
                       <div>
-                        <h3 style={{ margin: 0, fontSize: '0.95rem', color: '#f1f5f9' }}>
-                          Ad-Hoc Relational Discovery &amp; Query Workbench
-                        </h3>
-                        <span style={{ fontSize: '0.72rem', color: '#94a3b8' }}>
-                          Multi-hop relational joins: Customer → Address → Order → OrderItem → DeliveryItem (Strict decoupled reconciliation)
-                        </span>
+                        <h3 className="adhoc-heading">Universal Ad-Hoc Query Workbench</h3>
+                        <p className="adhoc-subtitle">
+                          {adhocInputMode === 'builder'
+                            ? `Dynamic predicate filter across ${(adhocSchema[adhocEntity] || DEFAULT_ADHOC_SCHEMA[adhocEntity])?.label || adhocEntity}`
+                            : 'Type natural retail English query across multi-hop relational tables'}
+                        </p>
                       </div>
                     </div>
 
-                    <div className="adhoc-mode-toggle">
+                    <div className="adhoc-mode-switch">
+                      <button
+                        type="button"
+                        className={`adhoc-mode-btn ${adhocInputMode === 'builder' ? 'active' : ''}`}
+                        onClick={() => setAdhocInputMode('builder')}
+                      >
+                        🧩 Visual Filter Builder
+                      </button>
                       <button
                         type="button"
                         className={`adhoc-mode-btn ${adhocInputMode === 'natural' ? 'active' : ''}`}
@@ -1405,171 +1680,219 @@ export default function DataStudio() {
                       >
                         💬 Natural Retail English
                       </button>
-                      <button
-                        type="button"
-                        className={`adhoc-mode-btn ${adhocInputMode === 'tokens' ? 'active' : ''}`}
-                        onClick={() => setAdhocInputMode('tokens')}
-                      >
-                        🧩 Relational Tokens
-                      </button>
                     </div>
                   </div>
 
-                  {/* Quick Presets Bar */}
-                  <div className="adhoc-presets-bar">
-                    <span className="adhoc-preset-label">Quick Presets:</span>
-                    {ADHOC_PRESETS.map((preset, pIdx) => {
-                      const isPresetActive = adhocTokens.village === preset.tokens.village && adhocTokens.product === preset.tokens.product;
-                      return (
+                  {/* Entity Domain Ribbon */}
+                  <div className="adhoc-entity-ribbon">
+                    <span className="adhoc-ribbon-label">Target Domain:</span>
+                    <div className="adhoc-entity-buttons">
+                      {Object.entries(adhocSchema || DEFAULT_ADHOC_SCHEMA).map(([entKey, entDef]) => (
                         <button
-                          key={pIdx}
+                          key={entKey}
                           type="button"
-                          className={`adhoc-preset-chip ${isPresetActive ? 'active-preset' : ''}`}
-                          onClick={() => {
-                            setAdhocQueryInput(preset.query);
-                            setAdhocTokens(preset.tokens);
-                            setParams((prev) => ({
-                              ...prev,
-                              adhoc: {
-                                ...prev.adhoc,
-                                ...preset.tokens,
-                                query: preset.query,
-                              },
-                            }));
-                          }}
+                          className={`adhoc-entity-btn ${adhocEntity === entKey ? 'active' : ''}`}
+                          onClick={() => handleSelectAdhocEntity(entKey)}
                         >
-                          {preset.label}
+                          <span>{entDef.icon || '📦'}</span>
+                          <span>{entDef.label}</span>
                         </button>
-                      );
-                    })}
+                      ))}
+                    </div>
                   </div>
 
-                  {/* Dual Input Area */}
-                  {adhocInputMode === 'natural' ? (
+                  {/* Mode Workspace */}
+                  {adhocInputMode === 'builder' ? (
+                    <div className="adhoc-builder-workspace">
+                      <div className="adhoc-clauses-wrapper">
+                        <div className="adhoc-clauses-header">
+                          <div className="adhoc-clauses-title">
+                            <span>Active Predicates</span>
+                            <span className="adhoc-clause-count">({adhocClauses.length} clauses)</span>
+                          </div>
+                          <div className="adhoc-clauses-actions">
+                            <button
+                              type="button"
+                              className="adhoc-btn-ghost"
+                              onClick={handleClearClauses}
+                              title="Reset all clauses"
+                            >
+                              🗑️ Clear All
+                            </button>
+                            <button
+                              type="button"
+                              className="adhoc-btn-add"
+                              onClick={handleAddClause}
+                            >
+                              + Add Filter Clause
+                            </button>
+                          </div>
+                        </div>
+
+                        <div className="adhoc-clauses-list">
+                          {adhocClauses.map((clause, cIdx) => {
+                            const curEntityDef = adhocSchema[adhocEntity] || DEFAULT_ADHOC_SCHEMA[adhocEntity] || {};
+                            const curFieldDef = curEntityDef.fields?.[clause.field] || {};
+                            const fieldType = curFieldDef.type || 'string';
+                            const availableOps = OPERATORS_BY_TYPE[fieldType] || OPERATORS_BY_TYPE.string;
+                            const isNullOp = clause.operator === 'is_null' || clause.operator === 'not_null';
+                            const choices = getChoices(curFieldDef);
+
+                            return (
+                              <div key={clause.id || cIdx} className="adhoc-clause-row">
+                                <span className="adhoc-clause-prefix">
+                                  {cIdx === 0 ? 'WHERE' : 'AND'}
+                                </span>
+
+                                <select
+                                  className="adhoc-clause-select adhoc-field-select"
+                                  value={clause.field}
+                                  onChange={(e) => {
+                                    const nextField = e.target.value;
+                                    const nextFieldDef = curEntityDef.fields?.[nextField] || {};
+                                    const nextType = nextFieldDef.type || 'string';
+                                    const nextOps = OPERATORS_BY_TYPE[nextType] || OPERATORS_BY_TYPE.string;
+                                    handleUpdateClause(clause.id, {
+                                      field: nextField,
+                                      operator: nextOps[0]?.value || 'contains',
+                                      value: '',
+                                    });
+                                  }}
+                                >
+                                  {Object.entries(curEntityDef.fields || {}).map(([fKey, fDef]) => (
+                                    <option key={fKey} value={fKey}>
+                                      {fDef.label}
+                                    </option>
+                                  ))}
+                                </select>
+
+                                <select
+                                  className="adhoc-clause-select adhoc-op-select"
+                                  value={clause.operator}
+                                  onChange={(e) => handleUpdateClause(clause.id, { operator: e.target.value })}
+                                >
+                                  {availableOps.map((op) => (
+                                    <option key={op.value} value={op.value}>
+                                      {op.label}
+                                    </option>
+                                  ))}
+                                </select>
+
+                                <div className="adhoc-clause-val-wrap">
+                                  {isNullOp ? (
+                                    <span style={{ fontSize: '0.75rem', color: '#64748b', fontStyle: 'italic', padding: '6px 8px', display: 'block' }}>
+                                      NULL Check (No value required)
+                                    </span>
+                                  ) : fieldType === 'choice' ? (
+                                    <select
+                                      className="adhoc-clause-val-select"
+                                      value={clause.value ?? ''}
+                                      onChange={(e) => handleUpdateClause(clause.id, { value: e.target.value })}
+                                    >
+                                      <option value="">Select option...</option>
+                                      {choices.map((ch) => (
+                                        <option key={ch.value} value={ch.value}>
+                                          {ch.label}
+                                        </option>
+                                      ))}
+                                    </select>
+                                  ) : fieldType === 'boolean' ? (
+                                    <select
+                                      className="adhoc-clause-val-select"
+                                      value={String(clause.value ?? '')}
+                                      onChange={(e) => handleUpdateClause(clause.id, { value: e.target.value === 'true' })}
+                                    >
+                                      <option value="">Select boolean...</option>
+                                      <option value="true">True (Yes)</option>
+                                      <option value="false">False (No)</option>
+                                    </select>
+                                  ) : fieldType === 'decimal' || fieldType === 'integer' ? (
+                                    <input
+                                      type="number"
+                                      step={fieldType === 'decimal' ? '0.01' : '1'}
+                                      className="adhoc-clause-input"
+                                      placeholder={curFieldDef.placeholder || 'Enter value...'}
+                                      value={clause.value ?? ''}
+                                      onChange={(e) => handleUpdateClause(clause.id, { value: e.target.value })}
+                                    />
+                                  ) : (
+                                    <input
+                                      type="text"
+                                      className="adhoc-clause-input"
+                                      placeholder={curFieldDef.placeholder || 'Enter search term...'}
+                                      value={clause.value ?? ''}
+                                      onChange={(e) => handleUpdateClause(clause.id, { value: e.target.value })}
+                                    />
+                                  )}
+                                </div>
+
+                                <button
+                                  type="button"
+                                  className="adhoc-clause-remove-btn"
+                                  onClick={() => handleRemoveClause(clause.id)}
+                                  title="Remove clause"
+                                >
+                                  ✕
+                                </button>
+                              </div>
+                            );
+                          })}
+                        </div>
+
+                        {/* Live Query Preview and Execution Footer */}
+                        <div className="adhoc-preview-footer">
+                          <div className="adhoc-query-preview-string">
+                            <span className="adhoc-preview-tag">LIVE ORM</span>
+                            <code>
+                              FROM {adhocSchema[adhocEntity]?.label || adhocEntity} WHERE{' '}
+                              {adhocClauses
+                                .filter((c) => c.field && (c.operator === 'is_null' || c.operator === 'not_null' || (c.value !== '' && c.value != null)))
+                                .map((c) => {
+                                  const fLabel = (adhocSchema[adhocEntity] || DEFAULT_ADHOC_SCHEMA[adhocEntity])?.fields?.[c.field]?.label || c.field;
+                                  return `[${fLabel}] ${c.operator} ${c.operator === 'is_null' || c.operator === 'not_null' ? '' : `"${c.value}"`}`;
+                                })
+                                .join(' AND ') || 'ALL RECORDS (No constraints)'}
+                            </code>
+                          </div>
+
+                          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                            <button
+                              type="button"
+                              className="adhoc-btn-add"
+                              onClick={handleAddClause}
+                            >
+                              + Add Clause
+                            </button>
+                            <button
+                              type="button"
+                              className="adhoc-query-exec-btn"
+                              disabled={isSimulating}
+                              onClick={handleTriggerAdhocRun}
+                            >
+                              <span>⚡</span>
+                              <span>{isSimulating ? 'Executing...' : 'Run Query'}</span>
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
                     <div className="adhoc-natural-input-wrap">
                       <textarea
                         className="adhoc-query-textarea"
-                        value={adhocQueryInput}
-                        onChange={(e) => setAdhocQueryInput(e.target.value)}
-                        placeholder="e.g. get all customers from village krushnapur who has ordered apsara pencil at price 55 and and that pencil is not delivered (something else might be delivered) but leave out those with some of the pencils are delivered."
+                        value={adhocNaturalQuery}
+                        onChange={(e) => setAdhocNaturalQuery(e.target.value)}
+                        placeholder="Type any natural retail query, e.g. get all customers from village krushnapur who has ordered apsara pencil at price 55 and that pencil is not delivered (something else might be delivered) but leave out those with some of the pencils are delivered."
                         rows={2}
                       />
                       <button
                         type="button"
                         className="adhoc-query-exec-btn"
                         disabled={isSimulating}
-                        onClick={() => {
-                          setParams((prev) => ({
-                            ...prev,
-                            adhoc: {
-                              ...prev.adhoc,
-                              query: adhocQueryInput,
-                            },
-                          }));
-                        }}
+                        onClick={handleTriggerAdhocRun}
                       >
                         <span>⚡</span>
-                        <span>{isSimulating ? 'Executing...' : 'Run Query'}</span>
-                      </button>
-                    </div>
-                  ) : (
-                    <div className="adhoc-tokens-container">
-                      <div className="adhoc-token-item">
-                        <span className="adhoc-token-tag">Target Entity</span>
-                        <select
-                          className="adhoc-token-input"
-                          value={adhocTokens.entity}
-                          onChange={(e) => {
-                            const val = e.target.value;
-                            setAdhocTokens((prev) => ({ ...prev, entity: val }));
-                            handleParamChange('adhoc', 'entity', val);
-                          }}
-                        >
-                          <option value="customer">Customers (Individual/School)</option>
-                          <option value="order">Orders (Purchases)</option>
-                          <option value="product">Products (Catalog SKUs)</option>
-                        </select>
-                      </div>
-
-                      <div className="adhoc-token-item">
-                        <span className="adhoc-token-tag">Village / Territory</span>
-                        <input
-                          type="text"
-                          className="adhoc-token-input"
-                          value={adhocTokens.village || ''}
-                          placeholder="e.g. Krushnapur"
-                          onChange={(e) => {
-                            const val = e.target.value;
-                            setAdhocTokens((prev) => ({ ...prev, village: val }));
-                            handleParamChange('adhoc', 'village', val);
-                          }}
-                        />
-                      </div>
-
-                      <div className="adhoc-token-item">
-                        <span className="adhoc-token-tag">Ordered Line Item</span>
-                        <input
-                          type="text"
-                          className="adhoc-token-input"
-                          value={adhocTokens.product || ''}
-                          placeholder="e.g. Apsara Pencil"
-                          onChange={(e) => {
-                            const val = e.target.value;
-                            setAdhocTokens((prev) => ({ ...prev, product: val }));
-                            handleParamChange('adhoc', 'product', val);
-                          }}
-                        />
-                      </div>
-
-                      <div className="adhoc-token-item">
-                        <span className="adhoc-token-tag">Unit Price (₹)</span>
-                        <input
-                          type="number"
-                          className="adhoc-token-input"
-                          value={adhocTokens.price != null ? adhocTokens.price : ''}
-                          placeholder="55"
-                          onChange={(e) => {
-                            const val = e.target.value ? Number(e.target.value) : null;
-                            setAdhocTokens((prev) => ({ ...prev, price: val }));
-                            handleParamChange('adhoc', 'price', val);
-                          }}
-                        />
-                      </div>
-
-                      <div className="adhoc-token-item" style={{ minWidth: '220px' }}>
-                        <span className="adhoc-token-tag">Line Fulfillment</span>
-                        <select
-                          className="adhoc-token-input"
-                          value={adhocTokens.fulfillment || 'undelivered_strict'}
-                          onChange={(e) => {
-                            const val = e.target.value;
-                            setAdhocTokens((prev) => ({ ...prev, fulfillment: val }));
-                            handleParamChange('adhoc', 'fulfillment', val);
-                          }}
-                        >
-                          <option value="undelivered_strict">Undelivered (0%) | Exclude Partial</option>
-                          <option value="partial">Partial Deliveries Only</option>
-                          <option value="delivered">100% Fully Delivered</option>
-                          <option value="any">Any Fulfillment Status</option>
-                        </select>
-                      </div>
-
-                      <button
-                        type="button"
-                        className="adhoc-query-exec-btn"
-                        style={{ height: '36px', alignSelf: 'flex-end' }}
-                        disabled={isSimulating}
-                        onClick={() => {
-                          setParams((prev) => ({
-                            ...prev,
-                            adhoc: {
-                              ...prev.adhoc,
-                              ...adhocTokens,
-                            },
-                          }));
-                        }}
-                      >
-                        <span>⚡ Apply Tokens</span>
+                        <span>{isSimulating ? 'Executing...' : 'Run Natural Query'}</span>
                       </button>
                     </div>
                   )}
@@ -1800,15 +2123,10 @@ export default function DataStudio() {
                       <thead>
                         {activeEngineId === 'adhoc' ? (
                           <tr>
-                            <th>Customer &amp; Contact</th>
-                            <th>Village &amp; Territory</th>
-                            <th>Order #</th>
-                            <th>Line Item &amp; Unit Price</th>
-                            <th>Ordered</th>
-                            <th>Delivered</th>
-                            <th>Starved Shortfall</th>
-                            <th>Line Fulfillment</th>
-                            <th>Fulfillment Lever</th>
+                            {(computeData?.columns || adhocSchema[adhocEntity]?.columns || DEFAULT_ADHOC_SCHEMA[adhocEntity]?.columns || []).map((col) => (
+                              <th key={col.key}>{col.label}</th>
+                            ))}
+                            <th>Action Lever</th>
                           </tr>
                         ) : (
                           <tr>
@@ -1827,54 +2145,77 @@ export default function DataStudio() {
                           computeData.items.map((row, idx) => {
                             const isRowSelected = row.id === selectedEntityId;
                             if (activeEngineId === 'adhoc') {
+                              const adhocCols = computeData?.columns || adhocSchema[adhocEntity]?.columns || DEFAULT_ADHOC_SCHEMA[adhocEntity]?.columns || [];
                               return (
                                 <tr
                                   key={row.id || idx}
                                   className={isRowSelected ? 'selected-entity-row' : ''}
                                   onClick={() => handleSelectEntity(row.id)}
                                   style={{ cursor: 'pointer' }}
-                                  title="Click to spotlight customer and prime delivery run-sheet lever"
+                                  title="Click to spotlight entity and prime action lever"
                                 >
-                                  <td>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                      {isRowSelected && <span style={{ color: '#f59e0b' }}>👉</span>}
-                                      <div>
-                                        <strong>{row.customer_name || row.entity}</strong>
-                                        {row.phone && <span style={{ fontSize: '0.72rem', color: '#94a3b8', display: 'block' }}>📞 {row.phone}</span>}
-                                      </div>
-                                    </div>
-                                  </td>
-                                  <td>
-                                    <span style={{ fontWeight: 600, color: '#38bdf8' }}>{row.village || row.category}</span>
-                                  </td>
-                                  <td>
-                                    <code style={{ color: '#f59e0b', fontSize: '0.75rem' }}>#{row.order_display_id || row.id}</code>
-                                  </td>
-                                  <td>
-                                    <div>
-                                      <strong>{row.product_name || 'Item'}</strong>
-                                      <span style={{ fontSize: '0.72rem', color: '#94a3b8', display: 'block' }}>@ ₹{row.unit_price}</span>
-                                    </div>
-                                  </td>
-                                  <td>{row.ordered_qty} pcs</td>
-                                  <td>
-                                    <span className="badge-undelivered">
-                                      {row.delivered_qty} pcs (0%)
-                                    </span>
-                                  </td>
-                                  <td>
-                                    <span className="badge-shortfall">
-                                      -{row.shortfall_qty} pcs (₹{Math.round((row.shortfall_qty || 0) * (row.unit_price || 0))})
-                                    </span>
-                                  </td>
-                                  <td>
-                                    <span style={{ fontSize: '0.72rem', padding: '2px 6px', borderRadius: '4px', background: 'rgba(239, 68, 68, 0.15)', color: '#fca5a5' }}>
-                                      {row.fulfillment_desc || '0% Delivered (Strict)'}
-                                    </span>
-                                  </td>
+                                  {adhocCols.map((col) => {
+                                    const val = row[col.key];
+                                    if (col.type === 'currency') {
+                                      return (
+                                        <td key={col.key}>
+                                          <strong style={{ color: '#38bdf8' }}>
+                                            ₹{typeof val === 'number' ? val.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : (val ?? '0.00')}
+                                          </strong>
+                                        </td>
+                                      );
+                                    }
+                                    if (col.type === 'badge') {
+                                      return (
+                                        <td key={col.key}>
+                                          <code style={{ color: '#f59e0b', fontSize: '0.75rem' }}>
+                                            {val ? `#${val}` : '—'}
+                                          </code>
+                                        </td>
+                                      );
+                                    }
+                                    if (col.type === 'status') {
+                                      return (
+                                        <td key={col.key}>
+                                          <span className="telemetry-chip" style={{ fontSize: '0.7rem', padding: '2px 6px' }}>
+                                            {val || '—'}
+                                          </span>
+                                        </td>
+                                      );
+                                    }
+                                    if (col.type === 'number') {
+                                      return (
+                                        <td key={col.key}>
+                                          {val != null ? Number(val).toLocaleString() : '0'}
+                                        </td>
+                                      );
+                                    }
+                                    if (col.key === 'customer_name' || col.key === 'name') {
+                                      return (
+                                        <td key={col.key}>
+                                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                            {isRowSelected && <span style={{ color: '#f59e0b' }}>👉</span>}
+                                            <div>
+                                              <strong>{val || row.entity || '—'}</strong>
+                                              {row.phone && (
+                                                <span style={{ fontSize: '0.72rem', color: '#94a3b8', display: 'block' }}>
+                                                  📞 {row.phone}
+                                                </span>
+                                              )}
+                                            </div>
+                                          </div>
+                                        </td>
+                                      );
+                                    }
+                                    return (
+                                      <td key={col.key}>
+                                        {val != null && val !== '' ? String(val) : '—'}
+                                      </td>
+                                    );
+                                  })}
                                   <td>
                                     <span className={`telemetry-chip ${isRowSelected ? 'pulse' : ''}`}>
-                                      {row.lever || 'Delivery Run-Sheet (Stream 2)'}
+                                      {row.lever || '1-Tap Action'}
                                     </span>
                                   </td>
                                 </tr>
@@ -1925,7 +2266,7 @@ export default function DataStudio() {
                           })
                         ) : (
                           <tr>
-                            <td colSpan={activeEngineId === 'adhoc' ? 9 : (studioMode === 'quant' ? 7 : 6)} style={{ textAlign: 'center', padding: '24px', color: '#94a3b8' }}>
+                            <td colSpan={activeEngineId === 'adhoc' ? ((computeData?.columns || adhocSchema[adhocEntity]?.columns || DEFAULT_ADHOC_SCHEMA[adhocEntity]?.columns || []).length + 1) : (studioMode === 'quant' ? 7 : 6)} style={{ textAlign: 'center', padding: '24px', color: '#94a3b8' }}>
                               {isSimulating ? 'Calculating matrix vectors...' : 'Ready for simulation. Adjust parameters on the right inspector.'}
                             </td>
                           </tr>
@@ -2367,84 +2708,91 @@ export default function DataStudio() {
                 <>
                   <div className="param-group">
                     <div className="param-label-row">
-                      <span>Target Village:</span>
-                      <span className="param-value-tag">{adhocTokens.village || 'All'}</span>
+                      <span>Target Entity Domain:</span>
+                      <span className="param-value-tag">
+                        {(adhocSchema[adhocEntity] || DEFAULT_ADHOC_SCHEMA[adhocEntity])?.label || adhocEntity}
+                      </span>
                     </div>
-                    <input
-                      type="text"
-                      value={adhocTokens.village || ''}
-                      placeholder="e.g. Krushnapur"
-                      onChange={(e) => {
-                        const val = e.target.value;
-                        setAdhocTokens((prev) => ({ ...prev, village: val }));
-                        handleParamChange('adhoc', 'village', val);
-                      }}
-                      className="adhoc-token-input"
-                      style={{ width: '100%', padding: '6px 8px' }}
-                    />
-                    <span className="param-hint">Resolved via OSM geographic regions and boundary polygons.</span>
+                    <span className="param-hint" style={{ marginTop: '4px', display: 'block' }}>
+                      {(adhocSchema[adhocEntity] || DEFAULT_ADHOC_SCHEMA[adhocEntity])?.description || 'Active ERP Model'}
+                    </span>
                   </div>
 
                   <div className="param-group">
                     <div className="param-label-row">
-                      <span>Target SKU:</span>
-                      <span className="param-value-tag">{adhocTokens.product || 'All SKUs'}</span>
+                      <span>Active Clauses:</span>
+                      <span className="param-value-tag">{adhocClauses.length} Filter(s)</span>
                     </div>
-                    <input
-                      type="text"
-                      value={adhocTokens.product || ''}
-                      placeholder="e.g. Apsara Pencil"
-                      onChange={(e) => {
-                        const val = e.target.value;
-                        setAdhocTokens((prev) => ({ ...prev, product: val }));
-                        handleParamChange('adhoc', 'product', val);
-                      }}
-                      className="adhoc-token-input"
-                      style={{ width: '100%', padding: '6px 8px' }}
-                    />
-                    <span className="param-hint">Specific catalog item filter in order line items.</span>
+                    <div style={{ display: 'flex', gap: '6px', marginTop: '6px' }}>
+                      <button
+                        type="button"
+                        className="btn-dock-toggle"
+                        style={{ flex: 1, padding: '4px 8px', fontSize: '0.72rem' }}
+                        onClick={handleAddClause}
+                      >
+                        + Add Clause
+                      </button>
+                      <button
+                        type="button"
+                        className="btn-dock-toggle"
+                        style={{ flex: 1, padding: '4px 8px', fontSize: '0.72rem', color: '#f87171' }}
+                        onClick={handleClearClauses}
+                      >
+                        Clear Filters
+                      </button>
+                    </div>
                   </div>
 
                   <div className="param-group">
                     <div className="param-label-row">
-                      <span>Unit Price Filter:</span>
-                      <span className="param-value-tag">₹{adhocTokens.price != null ? adhocTokens.price : 'Any'}</span>
+                      <span>Available Fields:</span>
+                      <span className="param-value-tag">
+                        {Object.keys((adhocSchema[adhocEntity] || DEFAULT_ADHOC_SCHEMA[adhocEntity])?.fields || {}).length} Fields
+                      </span>
                     </div>
-                    <input
-                      type="number"
-                      value={adhocTokens.price != null ? adhocTokens.price : ''}
-                      placeholder="55"
-                      onChange={(e) => {
-                        const val = e.target.value ? Number(e.target.value) : null;
-                        setAdhocTokens((prev) => ({ ...prev, price: val }));
-                        handleParamChange('adhoc', 'price', val);
-                      }}
-                      className="adhoc-token-input"
-                      style={{ width: '100%', padding: '6px 8px' }}
-                    />
-                    <span className="param-hint">Exact unit selling price recorded on order line items.</span>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginTop: '6px' }}>
+                      {Object.entries((adhocSchema[adhocEntity] || DEFAULT_ADHOC_SCHEMA[adhocEntity])?.fields || {}).map(([fKey, fDef]) => (
+                        <span
+                          key={fKey}
+                          style={{
+                            fontSize: '0.68rem',
+                            padding: '2px 6px',
+                            borderRadius: '4px',
+                            background: 'rgba(255,255,255,0.05)',
+                            color: '#94a3b8',
+                            border: '1px solid rgba(255,255,255,0.08)',
+                          }}
+                        >
+                          {fDef.label}
+                        </span>
+                      ))}
+                    </div>
                   </div>
 
                   <div className="param-group">
                     <div className="param-label-row">
-                      <span>Line Fulfillment:</span>
+                      <span>Quick Switch Domain:</span>
                     </div>
-                    <select
-                      value={adhocTokens.fulfillment || 'undelivered_strict'}
-                      onChange={(e) => {
-                        const val = e.target.value;
-                        setAdhocTokens((prev) => ({ ...prev, fulfillment: val }));
-                        handleParamChange('adhoc', 'fulfillment', val);
-                      }}
-                      className="adhoc-token-input"
-                      style={{ width: '100%', padding: '6px 8px' }}
-                    >
-                      <option value="undelivered_strict">Undelivered (0%) | Exclude Partial</option>
-                      <option value="partial">Partial Deliveries Only</option>
-                      <option value="delivered">100% Fully Delivered</option>
-                      <option value="any">Any Fulfillment State</option>
-                    </select>
-                    <span className="param-hint">Strict item-level delivery reconciliation (independent of order status).</span>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px', marginTop: '6px' }}>
+                      {Object.entries(adhocSchema || DEFAULT_ADHOC_SCHEMA).map(([entKey, entDef]) => (
+                        <button
+                          key={entKey}
+                          type="button"
+                          className="btn-dock-toggle"
+                          style={{
+                            fontSize: '0.7rem',
+                            padding: '4px 6px',
+                            textAlign: 'left',
+                            background: adhocEntity === entKey ? 'rgba(56, 189, 248, 0.2)' : undefined,
+                            borderColor: adhocEntity === entKey ? '#38bdf8' : undefined,
+                            color: adhocEntity === entKey ? '#38bdf8' : undefined,
+                          }}
+                          onClick={() => handleSelectAdhocEntity(entKey)}
+                        >
+                          {entDef.icon} {entDef.label.split(' ')[0]}
+                        </button>
+                      ))}
+                    </div>
                   </div>
                 </>
               )}

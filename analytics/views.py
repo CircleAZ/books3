@@ -28,7 +28,7 @@ from procurement.models import PurchaseOrder, PurchaseOrderItem
 from services.azbooks_analytics.engines.andon_cord import TPSAndonCordEngine
 from services.azbooks_analytics.engines.khata_gate import KhataWorkingCapitalGateEngine
 from .models import AnalysisFolder, SavedAnalysis, DiscoverySegment, PipelineTransferLog
-from .adhoc_engine import execute_adhoc_query
+from .adhoc_engine import execute_adhoc_query, get_adhoc_schema
 from .serializers import (
     AnalysisFolderSerializer,
     SavedAnalysisSerializer,
@@ -1711,6 +1711,9 @@ class AdHocQueryView(APIView):
     Resolves multi-hop joins and strict decoupled line-item delivery reconciliation.
     """
     permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        return Response(get_adhoc_schema(), status=status.HTTP_200_OK)
 
     def post(self, request):
         payload = request.data if isinstance(request.data, dict) else {}
